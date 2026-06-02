@@ -1,0 +1,63 @@
+services:
+  api:
+    build:
+      context: ./osai-backend
+    command: uv run uvicorn api.main:app --host 0.0.0.0 --port 8000
+    env_file:
+      - ./osai-backend/.env.example
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - redis
+      - qdrant
+
+  worker:
+    build:
+      context: ./osai-backend
+    command: uv run celery -A workers.celery_app.celery_app worker --loglevel=INFO
+    env_file:
+      - ./osai-backend/.env.example
+    depends_on:
+      - redis
+      - postgres
+      - qdrant
+
+  web:
+    build:
+      context: ./osai-web
+    command: npm run dev -- --hostname 0.0.0.0
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: osai
+      POSTGRES_PASSWORD: osai
+      POSTGRES_DB: osai
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  qdrant:
+    image: qdrant/qdrant:v1.14.1
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant-data:/qdrant/storage
+
+volumes:
+  postgres-data:
+  qdrant-data:
