@@ -15,7 +15,7 @@ export default function DemoPage() {
     localStorage.setItem("osai_user_name", "Admin");
 
     // Redirect to dashboard
-    router.replace("/");
+    router.replace("/dashboard");
   }, [router]);
 
   return (
