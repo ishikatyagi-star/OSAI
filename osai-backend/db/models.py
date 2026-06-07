@@ -1,7 +1,7 @@
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from uuid import uuid4
 
-from sqlalchemy import JSON, Boolean, Date, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -109,7 +109,6 @@ class Chunk(Base):
     chunk_index: Mapped[int] = mapped_column(Integer)
     text: Mapped[str] = mapped_column(Text)
     content_preview: Mapped[str] = mapped_column(Text)
-    qdrant_point_id: Mapped[str | None] = mapped_column(String, nullable=True)
     permissions: Mapped[list[str]] = mapped_column(JSON, default=list)
     data_tier: Mapped[str] = mapped_column(String, default="normal")
     metadata_json: Mapped[dict] = mapped_column("metadata", JSON, default=dict)
@@ -127,9 +126,7 @@ class WorkflowRun(Base):
     destination: Mapped[str] = mapped_column(String, default="manual")
     data_tier: Mapped[str] = mapped_column(String, default="normal")
     model_route: Mapped[str | None] = mapped_column(String, nullable=True)
-    error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc, index=True)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc, onupdate=now_utc)
 
 
 class ActionItemRecord(Base):
@@ -139,11 +136,13 @@ class ActionItemRecord(Base):
     workflow_run_id: Mapped[str] = mapped_column(String, ForeignKey("workflow_runs.id"), index=True)
     title: Mapped[str] = mapped_column(String)
     owner: Mapped[str | None] = mapped_column(String, nullable=True)
-    due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
-    destination: Mapped[str] = mapped_column(String, default="manual")
+    due_date: Mapped[str | None] = mapped_column(String, nullable=True)
     source_quote: Mapped[str | None] = mapped_column(Text, nullable=True)
-    confidence: Mapped[int] = mapped_column(Integer, default=0)
+    destination: Mapped[str] = mapped_column(String, default="manual")
+    confidence: Mapped[float] = mapped_column(Float, default=0.0)
     status: Mapped[str] = mapped_column(String, default="needs_review")
+    external_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    executed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
 
 
@@ -153,15 +152,9 @@ class ConnectorAction(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
     org_id: Mapped[str] = mapped_column(String, ForeignKey("orgs.id"), index=True)
     connector_key: Mapped[str] = mapped_column(String, ForeignKey("connectors.key"), index=True)
-    workflow_run_id: Mapped[str | None] = mapped_column(
-        String, ForeignKey("workflow_runs.id"), nullable=True, index=True
-    )
     action_type: Mapped[str] = mapped_column(String)
     status: Mapped[str] = mapped_column(String, index=True)
     payload: Mapped[dict] = mapped_column(JSON, default=dict)
-    external_id: Mapped[str | None] = mapped_column(String, nullable=True)
-    external_url: Mapped[str | None] = mapped_column(Text, nullable=True)
-    error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
 
 
@@ -181,16 +174,10 @@ class ModelCall(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
     org_id: Mapped[str] = mapped_column(String, ForeignKey("orgs.id"), index=True)
-    workflow_run_id: Mapped[str | None] = mapped_column(
-        String, ForeignKey("workflow_runs.id"), nullable=True, index=True
-    )
     provider: Mapped[str] = mapped_column(String)
     model: Mapped[str] = mapped_column(String)
     prompt_version: Mapped[str] = mapped_column(String)
     schema_version: Mapped[str] = mapped_column(String)
     data_tier: Mapped[str] = mapped_column(String, default="normal")
-    latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    input_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    output_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     trace_id: Mapped[str] = mapped_column(String, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)

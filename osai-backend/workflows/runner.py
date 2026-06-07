@@ -1,31 +1,239 @@
+"""Real workflow runner — Gemini and local Ollama action-item extraction."""
+
+from __future__ import annotations
+
+import logging
+from typing import TYPE_CHECKING
+
 from api.schemas.workflow_run import ActionItem, WorkflowRunCreate, WorkflowRunResponse
-from llm.router import model_router
+from config import settings
+from workflows.prompts.action_items import PROMPT_VERSION, build_extraction_prompt
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
+logger = logging.getLogger("osai.workflows.runner")
 
 
 async def run_action_item_workflow(
-    run_id: str, request: WorkflowRunCreate
+    run_id: str,
+    request: WorkflowRunCreate,
+    db: Session | None = None,
 ) -> WorkflowRunResponse:
-    route = model_router.route("action_extraction", request.data_tier)
-    action_items = _extract_stub_action_items(request.input_text, request.destination)
+    """Extract action items from meeting transcript using semantic and database context."""
+    # 1. Determine query text for context lookup (first 200 chars of transcript)
+    query_text = request.input_text[:200] if request.input_text else ""
+
+    # 2. Get context (best-effort)
+    context_docs = []
+    existing_items = []
+
+    from db.session import SessionLocal
+    from workflows.enricher import get_workflow_context_async
+
+    try:
+        if db is not None:
+            ctx = await get_workflow_context_async(
+                org_id=request.org_id,
+                query_text=query_text,
+                session=db,
+            )
+            context_docs = ctx.get("documents", [])
+            existing_items = ctx.get("action_items", [])
+        else:
+            with SessionLocal() as session:
+                ctx = await get_workflow_context_async(
+                    org_id=request.org_id,
+                    query_text=query_text,
+                    session=session,
+                )
+                context_docs = ctx.get("documents", [])
+                existing_items = ctx.get("action_items", [])
+    except Exception as exc:
+        logger.error(f"Failed to fetch context for workflow {run_id}: {exc}")
+
+    # 3. Call LLM execution path or fallback
+    if request.data_tier == "red":
+        return await _run_with_ollama(run_id, request, context_docs, existing_items)
+    if settings.gemini_api_key:
+        return await _run_with_gemini(run_id, request, context_docs, existing_items)
+    return _run_fallback(run_id, request, context_docs, existing_items)
+
+
+# ---------------------------------------------------------------------------
+# Ollama local path
+# ---------------------------------------------------------------------------
+
+
+async def _run_with_ollama(
+    run_id: str,
+    request: WorkflowRunCreate,
+    context_docs: list[dict] | None = None,
+    existing_items: list[dict] | None = None,
+) -> WorkflowRunResponse:
+    import json
+    import re
+
+    import httpx
+
+    prompt = build_extraction_prompt(
+        request.input_text,
+        request.destination,
+        context_docs,
+        existing_items,
+    )
+
+    url = f"{settings.ollama_url}/api/chat"
+    payload = {
+        "model": settings.ollama_model,
+        "messages": [
+            {"role": "user", "content": prompt},
+        ],
+        "format": "json",
+        "stream": False,
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.post(url, json=payload)
+            resp.raise_for_status()
+            data = resp.json()
+
+            content = data.get("message", {}).get("content", "")
+            # Clean content from markdown code blocks
+            cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", content.strip(), flags=re.MULTILINE)
+            parsed = json.loads(cleaned)
+            raw_items = parsed.get("items", [])
+    except Exception as exc:
+        logger.error(f"Error calling Ollama API for run {run_id}: {exc}")
+        return WorkflowRunResponse(
+            id=run_id,
+            status="failed",
+            model_route=f"ollama:{settings.ollama_model}:{PROMPT_VERSION}",
+            action_items=[],
+            audit_event_ids=[f"audit:{run_id}:ollama_error:{exc}"],
+        )
+
+    items = [
+        ActionItem(
+            title=str(item.get("title", ""))[:120],
+            owner=item.get("owner"),
+            due_date=item.get("due_date"),
+            destination=item.get("destination", request.destination),  # type: ignore[arg-type]
+            source_quote=item.get("source_quote"),
+            confidence=float(item.get("confidence", 0.5)),
+        )
+        for item in raw_items
+        if item.get("title")
+    ]
+
+    status = "needs_review" if items else "failed"
     return WorkflowRunResponse(
         id=run_id,
-        status="needs_review" if action_items else "failed",
-        model_route=route.name,
-        action_items=action_items,
+        status=status,
+        model_route=f"ollama:{settings.ollama_model}:{PROMPT_VERSION}",
+        action_items=items,
         audit_event_ids=[f"audit:{run_id}:created"],
     )
 
 
-def _extract_stub_action_items(input_text: str, destination: str) -> list[ActionItem]:
-    lines = [line.strip().lstrip("-*").strip() for line in input_text.splitlines() if line.strip()]
-    candidate = next((line for line in lines if len(line) > 10), None)
-    if not candidate:
-        return []
-    return [
-        ActionItem(
-            title=candidate[:120],
-            destination=destination,
-            source_quote=candidate,
-            confidence=0.35,
+# ---------------------------------------------------------------------------
+# Gemini path
+# ---------------------------------------------------------------------------
+
+
+async def _run_with_gemini(
+    run_id: str,
+    request: WorkflowRunCreate,
+    context_docs: list[dict] | None = None,
+    existing_items: list[dict] | None = None,
+) -> WorkflowRunResponse:
+    from llm.gemini import generate_json
+
+    prompt = build_extraction_prompt(
+        request.input_text,
+        request.destination,
+        context_docs,
+        existing_items,
+    )
+    try:
+        data = await generate_json(prompt)
+        raw_items: list[dict] = data.get("items", [])
+    except Exception as exc:
+        return WorkflowRunResponse(
+            id=run_id,
+            status="failed",
+            model_route=f"gemini:{settings.gemini_model}:{PROMPT_VERSION}",
+            action_items=[],
+            audit_event_ids=[f"audit:{run_id}:llm_error:{exc}"],
         )
+
+    items = [
+        ActionItem(
+            title=str(item.get("title", ""))[:120],
+            owner=item.get("owner"),
+            due_date=item.get("due_date"),
+            destination=item.get("destination", request.destination),  # type: ignore[arg-type]
+            source_quote=item.get("source_quote"),
+            confidence=float(item.get("confidence", 0.5)),
+        )
+        for item in raw_items
+        if item.get("title")
     ]
+
+    status = "needs_review" if items else "failed"
+    return WorkflowRunResponse(
+        id=run_id,
+        status=status,
+        model_route=f"gemini:{settings.gemini_model}:{PROMPT_VERSION}",
+        action_items=items,
+        audit_event_ids=[f"audit:{run_id}:created"],
+    )
+
+
+# ---------------------------------------------------------------------------
+# Fallback (no API key) — simple heuristic extraction
+# ---------------------------------------------------------------------------
+
+
+def _run_fallback(
+    run_id: str,
+    request: WorkflowRunCreate,
+    context_docs: list[dict] | None = None,
+    existing_items: list[dict] | None = None,
+) -> WorkflowRunResponse:
+    items: list[ActionItem] = []
+    for line in request.input_text.splitlines():
+        stripped = line.strip()
+        # Pick lines that look like tasks
+        if stripped and any(
+            stripped.lower().startswith(kw)
+            for kw in ("action:", "todo:", "- [ ]", "* [ ]", "task:", "follow up")
+        ):
+            items.append(
+                ActionItem(
+                    title=stripped[:120],
+                    destination=request.destination,
+                    source_quote=stripped,
+                    confidence=0.35,
+                )
+            )
+    if not items:
+        first_line = next((ln.strip() for ln in request.input_text.splitlines() if ln.strip()), "")
+        if first_line:
+            items.append(
+                ActionItem(
+                    title=first_line[:120],
+                    destination=request.destination,
+                    source_quote=first_line,
+                    confidence=0.2,
+                )
+            )
+
+    return WorkflowRunResponse(
+        id=run_id,
+        status="needs_review" if items else "failed",
+        model_route="action_extraction:heuristic-fallback",
+        action_items=items,
+        audit_event_ids=[f"audit:{run_id}:created"],
+    )

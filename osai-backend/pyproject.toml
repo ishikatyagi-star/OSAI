@@ -2,20 +2,21 @@
 name = "osai-backend"
 version = "0.1.0"
 description = "Connector-first backend for the OSAI MVP."
-readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "alembic>=1.17.0",
-    "celery>=5.5.0",
     "fastapi>=0.115.0",
     "httpx>=0.28.0",
     "psycopg[binary]>=3.3.0",
     "pydantic>=2.11.0",
     "pydantic-settings>=2.10.0",
+    "PyJWT>=2.9.0",
     "qdrant-client>=1.14.0",
-    "redis>=6.0.0",
     "sqlalchemy>=2.0.0",
     "uvicorn[standard]>=0.34.0",
+    "google-genai>=1.0.0",
+    "celery>=5.4.0",
+    "redis>=5.0.0",
 ]
 
 [dependency-groups]
@@ -36,3 +37,7 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+"db/migrations/versions/*.py" = ["E501"]
+"workflows/prompts/*.py" = ["E501"]

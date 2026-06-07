@@ -1,13 +1,28 @@
+# Python
 .env
+.env.*
+!.env.example
 .venv/
 __pycache__/
 .pytest_cache/
 .ruff_cache/
+*.pyc
+*.pyo
+
+# Node / Next.js
 node_modules/
 .next/
-dist/
-build/
-*.pyc
 *.tsbuildinfo
-logs/
-*.log
+out/
+
+# OS
+desktop.ini
+.DS_Store
+Thumbs.db
+
+# Claude internal
+.claude/
+
+# Build artefacts / scratch
+outputs/
+work/

@@ -4,22 +4,22 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from config import settings
 from db.repositories import list_sync_runs as list_db_sync_runs
 from db.repositories import try_db
-from db.session import get_db
+from db.session import get_db, get_org_id
 
 router = APIRouter(prefix="/sync-runs", tags=["sync-runs"])
 DbSession = Annotated[Session, Depends(get_db)]
+OrgId = Annotated[str, Depends(get_org_id)]
 
 
 @router.get("")
-async def list_sync_runs(db: DbSession) -> list[dict[str, object]]:
+async def list_sync_runs(db: DbSession, org_id: OrgId) -> list[dict[str, object]]:
     fallback = [
         {
             "id": "seed-sync-notion",
             "connector_key": "notion",
-            "status": "succeeded",
+            "status": "not_started",
             "started_at": datetime.now(UTC).isoformat(),
             "documents_seen": 0,
             "documents_indexed": 0,
@@ -29,17 +29,19 @@ async def list_sync_runs(db: DbSession) -> list[dict[str, object]]:
     return try_db(
         "list_sync_runs",
         fallback,
-        lambda: [
-            {
-                "id": run.id,
-                "connector_key": run.connector_key,
-                "status": run.status,
-                "started_at": run.started_at.isoformat(),
-                "documents_seen": run.documents_seen,
-                "documents_indexed": run.documents_indexed,
-                "error": run.error,
-            }
-            for run in list_db_sync_runs(db, settings.default_org_id)
-        ]
-        or fallback,
+        lambda: (
+            [
+                {
+                    "id": run.id,
+                    "connector_key": run.connector_key,
+                    "status": run.status,
+                    "started_at": run.started_at.isoformat(),
+                    "documents_seen": run.documents_seen,
+                    "documents_indexed": run.documents_indexed,
+                    "error": run.error,
+                }
+                for run in list_db_sync_runs(db, org_id)
+            ]
+            or fallback
+        ),
     )

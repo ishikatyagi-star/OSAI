@@ -1,40 +1,32 @@
-from datetime import UTC, datetime
+"""Workflow routes — Gemini extraction with DB persistence and approval flow."""
+
+from __future__ import annotations
+
 from typing import Annotated
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from api.schemas.workflow_run import WorkflowRunCreate, WorkflowRunResponse
-from config import settings
 from db.repositories import (
-    get_workflow_run as get_db_workflow_run,
-)
-from db.repositories import (
-    list_action_items,
+    get_workflow_run,
     list_workflow_runs,
-    record_workflow_run,
+    save_workflow_run,
     try_db,
 )
-from db.session import get_db
+from db.session import get_db, get_org_id
 from workflows.runner import run_action_item_workflow
 
 router = APIRouter(prefix="/workflows", tags=["workflows"])
 DbSession = Annotated[Session, Depends(get_db)]
+OrgId = Annotated[str, Depends(get_org_id)]
 
 
 @router.get("")
-async def list_workflows(db: DbSession) -> list[dict[str, object]]:
-    fallback = [
-        {
-            "id": "seed-workflow",
-            "kind": "meeting_action_items",
-            "status": "ready",
-            "created_at": datetime.now(UTC).isoformat(),
-            "model": "router:stub",
-            "actions_created": 0,
-        }
-    ]
+async def list_workflows(db: DbSession, org_id: OrgId) -> list[dict]:
+    """Return all workflow runs for the default org."""
+    fallback: list[dict] = []
     return try_db(
         "list_workflows",
         fallback,
@@ -43,76 +35,59 @@ async def list_workflows(db: DbSession) -> list[dict[str, object]]:
                 "id": run.id,
                 "kind": run.kind,
                 "status": run.status,
+                "destination": run.destination,
+                "model_route": run.model_route,
                 "created_at": run.created_at.isoformat(),
-                "model": run.model_route or "router:unknown",
-                "actions_created": len(list_action_items(db, run.id)),
             }
-            for run in list_workflow_runs(db, settings.default_org_id)
-        ]
-        or fallback,
+            for run in list_workflow_runs(db, org_id)
+        ],
     )
 
 
 @router.get("/{workflow_id}")
-async def get_workflow(workflow_id: str, db: DbSession) -> dict[str, object]:
-    fallback = {
-        "id": workflow_id,
-        "kind": "meeting_action_items",
-        "status": "ready",
-        "items": [],
-        "external_actions": [],
-        "audit_events": [],
-    }
-    return try_db(
-        "get_workflow",
-        fallback,
-        lambda: _serialize_workflow_detail(db, workflow_id) or fallback,
+async def get_workflow(workflow_id: str, db: DbSession) -> dict:
+    """Return a single workflow run with its action items."""
+    run = try_db(
+        "get_workflow_run",
+        None,
+        lambda: get_workflow_run(db, workflow_id),
     )
+    if run is None:
+        raise HTTPException(status_code=404, detail=f"Workflow run {workflow_id!r} not found")
+    return run
 
 
 @router.post("", response_model=WorkflowRunResponse)
 async def create_workflow(request: WorkflowRunCreate, db: DbSession) -> WorkflowRunResponse:
+    """Run Gemini action-item extraction and persist the result."""
     run_id = f"workflow-{uuid4()}"
-    response = await run_action_item_workflow(run_id=run_id, request=request)
+    response = await run_action_item_workflow(run_id=run_id, request=request, db=db)
+
+    # Persist to DB (best-effort; don't fail the response if DB is unavailable)
     try_db(
-        "record_workflow_run",
+        "save_workflow_run",
         None,
-        lambda: record_workflow_run(
+        lambda: save_workflow_run(
             db,
             run_id=run_id,
             org_id=request.org_id,
+            kind="meeting_action_items",
+            status=response.status,
             input_text=request.input_text,
             destination=request.destination,
             data_tier=request.data_tier,
-            status=response.status,
             model_route=response.model_route,
-            action_items=[item.model_dump() for item in response.action_items],
+            items=[
+                {
+                    "title": item.title,
+                    "owner": item.owner,
+                    "due_date": item.due_date,
+                    "source_quote": item.source_quote,
+                    "destination": item.destination,
+                    "confidence": item.confidence,
+                }
+                for item in response.action_items
+            ],
         ),
     )
     return response
-
-
-def _serialize_workflow_detail(db: Session, workflow_id: str) -> dict[str, object] | None:
-    workflow = get_db_workflow_run(db, workflow_id)
-    if workflow is None:
-        return None
-    return {
-        "id": workflow.id,
-        "kind": workflow.kind,
-        "status": workflow.status,
-        "model": workflow.model_route,
-        "items": [
-            {
-                "id": item.id,
-                "title": item.title,
-                "owner": item.owner,
-                "due_date": item.due_date.isoformat() if item.due_date else None,
-                "destination": item.destination,
-                "confidence": item.confidence / 100,
-                "status": item.status,
-            }
-            for item in list_action_items(db, workflow_id)
-        ],
-        "external_actions": [],
-        "audit_events": [],
-    }

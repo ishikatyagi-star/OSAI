@@ -20,7 +20,7 @@ class StubConnector(Connector):
         return AuthStatus(connector_key=self.key, connected=False)
 
     async def sync(self, org_id: str, cursor: str | None = None) -> SyncResult:
-        return SyncResult(connector_key=self.key, status="succeeded", cursor=cursor)
+        return SyncResult(connector_key=self.key, status="failed", error="Connector not configured")
 
     async def get_permissions(self, document: SourceDocument) -> PermissionSet:
         return PermissionSet(principals=document.permissions, public=not document.permissions)

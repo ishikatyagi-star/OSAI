@@ -8,15 +8,15 @@ def chunk_document(document: SourceDocument, max_chars: int = 4000) -> list[dict
         chunks.append(
             {
                 "chunk_id": f"{document.source_id}:{index}",
+                "chunk_index": index,
                 "source_document_id": document.source_id,
                 "org_id": document.org_id,
                 "source_type": document.source_type,
-                "title": document.title,
                 "text": text,
                 "content_preview": text[:240],
                 "permissions": document.permissions,
                 "data_tier": document.data_tier,
-                "url": document.url,
+                "metadata": {"title": document.title, "url": document.url},
             }
         )
     return chunks

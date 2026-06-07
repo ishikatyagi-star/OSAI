@@ -1,5 +1,8 @@
 from connectors.base import Connector
-from connectors.stubs import StubConnector
+from connectors.freshdesk import FreshdeskConnector
+from connectors.google_drive import GoogleDriveConnector
+from connectors.notion import NotionConnector
+from connectors.slack import SlackConnector
 
 
 class ConnectorRegistry:
@@ -17,7 +20,7 @@ class ConnectorRegistry:
 
 
 connector_registry = ConnectorRegistry()
-connector_registry.register(StubConnector("notion", "Notion", {"sync", "search", "execute"}))
-connector_registry.register(StubConnector("slack", "Slack", {"sync", "search", "execute"}))
-connector_registry.register(StubConnector("freshdesk", "Freshdesk", {"sync", "search", "execute"}))
-connector_registry.register(StubConnector("google_drive", "Google Drive", {"sync", "search"}))
+connector_registry.register(NotionConnector())
+connector_registry.register(SlackConnector())
+connector_registry.register(FreshdeskConnector())
+connector_registry.register(GoogleDriveConnector())

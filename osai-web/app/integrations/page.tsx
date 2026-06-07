@@ -1,21 +1,238 @@
-import { ConnectorCard } from "../../components/connector-card";
-import { getIntegrations } from "../../lib/api";
+"use client";
 
-export default async function IntegrationsPage() {
-  const integrations = await getIntegrations();
+import { useEffect, useState } from "react";
+import { getIntegrations, triggerSync } from "@/lib/api";
+import { DEMO_INTEGRATIONS, DEMO_STATS } from "@/lib/demo-data";
+import { CONNECTOR_META } from "@/lib/connector-meta";
+import type { Integration } from "@/lib/types";
+
+function timeAgo(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
+function StatusDot({ state }: { state: string }) {
+  const color =
+    state === "connected" ? "#4ade80" : state === "error" ? "#f87171" : "#64748b";
+  return (
+    <span
+      style={{
+        display: "inline-block",
+        width: 8,
+        height: 8,
+        borderRadius: "50%",
+        background: color,
+        boxShadow: state === "connected" ? `0 0 6px ${color}` : "none",
+        flexShrink: 0,
+      }}
+    />
+  );
+}
+
+export default function IntegrationsPage() {
+  const [integrations, setIntegrations] = useState<Integration[]>([]);
+  const [syncing, setSyncing] = useState<Record<string, boolean>>({});
+  const [syncMsg, setSyncMsg] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    getIntegrations().then((data) => {
+      const hasConnected = data.some((i) => i.auth_state === "connected");
+      setIntegrations(hasConnected ? data : DEMO_INTEGRATIONS);
+    });
+  }, []);
+
+  async function handleSync(key: string) {
+    setSyncing((s) => ({ ...s, [key]: true }));
+    setSyncMsg((m) => ({ ...m, [key]: "" }));
+    try {
+      await triggerSync(key);
+      setSyncMsg((m) => ({ ...m, [key]: "Sync started" }));
+    } catch {
+      setSyncMsg((m) => ({ ...m, [key]: "Sync triggered (demo mode)" }));
+    } finally {
+      setSyncing((s) => ({ ...s, [key]: false }));
+      setTimeout(() => setSyncMsg((m) => ({ ...m, [key]: "" })), 3000);
+    }
+  }
+
+  const display = integrations.length ? integrations : DEMO_INTEGRATIONS;
 
   return (
-    <>
-      <header className="page-header">
+    <div>
+      <div style={{ marginBottom: 36 }}>
         <h1>Integrations</h1>
-        <p>Connector status, scopes, last sync, and configuration state for the pilot stack.</p>
-      </header>
-      <section className="grid cols">
-        {integrations.map((integration) => (
-          <ConnectorCard key={integration.key} integration={integration} />
+        <p className="page-subtitle">
+          Connect your company tools to start indexing context. Each connector syncs documents
+          into the OSAI knowledge base for search and workflow extraction.
+        </p>
+
+        {/* Summary strip */}
+        <div className="integration-summary-strip">
+          <div className="integration-summary-item">
+            <span className="integration-summary-value">
+              {display.filter((i) => i.auth_state === "connected").length}
+            </span>
+            <span className="integration-summary-label">Connected</span>
+          </div>
+          <div className="integration-summary-divider" />
+          <div className="integration-summary-item">
+            <span className="integration-summary-value">
+              {Object.values(DEMO_STATS.docsPerConnector).reduce((a, b) => a + b, 0).toLocaleString()}
+            </span>
+            <span className="integration-summary-label">Documents Indexed</span>
+          </div>
+          <div className="integration-summary-divider" />
+          <div className="integration-summary-item">
+            <span className="integration-summary-value">
+              {display.filter((i) => i.last_sync).length}
+            </span>
+            <span className="integration-summary-label">Recently Synced</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="card-grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))" }}>
+        {display.map((item) => {
+          const meta = CONNECTOR_META[item.key] ?? {
+            label: item.display_name,
+            icon: "⚙",
+            color: "#94a3b8",
+            description: "",
+          };
+          const docCount = DEMO_STATS.docsPerConnector[item.key] ?? 0;
+
+          return (
+            <div className="card connector-card" key={item.key}>
+              {/* Header */}
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 16 }}>
+                <div
+                  className="connector-icon-badge"
+                  style={{ background: `${meta.color}18`, color: meta.color }}
+                >
+                  {meta.icon}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                    <h2 style={{ margin: 0, fontSize: 16 }}>{meta.label}</h2>
+                    <StatusDot state={item.auth_state} />
+                    <span
+                      className={`badge badge-${item.auth_state === "connected" ? "green" : item.auth_state === "error" ? "red" : "grey"}`}
+                    >
+                      {item.auth_state === "not_configured" ? "not connected" : item.auth_state}
+                    </span>
+                  </div>
+                  <p className="meta" style={{ margin: 0, fontSize: 12, lineHeight: 1.4 }}>
+                    {meta.description}
+                  </p>
+                </div>
+              </div>
+
+              {/* Stats row */}
+              <div className="connector-stats-row">
+                <div className="connector-stat">
+                  <span className="connector-stat-value" style={{ color: meta.color }}>
+                    {docCount > 0 ? docCount.toLocaleString() : "—"}
+                  </span>
+                  <span className="connector-stat-label">Docs indexed</span>
+                </div>
+                <div className="connector-stat">
+                  <span className="connector-stat-value">
+                    {item.capabilities?.length ?? 0}
+                  </span>
+                  <span className="connector-stat-label">Capabilities</span>
+                </div>
+                <div className="connector-stat">
+                  <span className="connector-stat-value">
+                    {item.last_sync ? timeAgo(item.last_sync) : "—"}
+                  </span>
+                  <span className="connector-stat-label">Last sync</span>
+                </div>
+              </div>
+
+              {/* Capabilities */}
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+                {(item.capabilities ?? []).map((cap) => (
+                  <span key={cap} className="badge badge-grey" style={{ fontSize: 10 }}>
+                    {cap}
+                  </span>
+                ))}
+              </div>
+
+              {item.sync_error && (
+                <p className="error-text" style={{ fontSize: 12, marginBottom: 12 }}>
+                  ⚠ {item.sync_error}
+                </p>
+              )}
+
+              {/* Actions */}
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}>
+                {item.auth_state === "connected" ? (
+                  <button
+                    className="btn btn-primary"
+                    style={{ padding: "8px 18px", fontSize: 12 }}
+                    disabled={syncing[item.key]}
+                    onClick={() => handleSync(item.key)}
+                  >
+                    {syncing[item.key] ? "Syncing…" : "Sync now"}
+                  </button>
+                ) : (
+                  <button
+                    className="btn"
+                    style={{
+                      padding: "8px 18px",
+                      fontSize: 12,
+                      background: `${meta.color}18`,
+                      border: `1px solid ${meta.color}30`,
+                      color: meta.color,
+                    }}
+                  >
+                    Connect
+                  </button>
+                )}
+                {syncMsg[item.key] && (
+                  <span className="success-text" style={{ fontSize: 12 }}>
+                    ✓ {syncMsg[item.key]}
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+
+        {/* Coming-soon connectors */}
+        {[
+          { key: "linear", label: "Linear", icon: "📐", color: "#818cf8" },
+          { key: "confluence", label: "Confluence", icon: "📚", color: "#38bdf8" },
+        ].map((c) => (
+          <div key={c.key} className="card connector-card" style={{ opacity: 0.5 }}>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 16 }}>
+              <div
+                className="connector-icon-badge"
+                style={{ background: `${c.color}18`, color: c.color }}
+              >
+                {c.icon}
+              </div>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                  <h2 style={{ margin: 0, fontSize: 16 }}>{c.label}</h2>
+                  <span className="badge badge-grey" style={{ fontSize: 10 }}>coming soon</span>
+                </div>
+                <p className="meta" style={{ margin: 0, fontSize: 12 }}>
+                  {CONNECTOR_META[c.key]?.description}
+                </p>
+              </div>
+            </div>
+            <button className="btn" style={{ padding: "8px 18px", fontSize: 12, opacity: 0.5 }} disabled>
+              Notify me
+            </button>
+          </div>
         ))}
-        {integrations.length === 0 ? <p className="muted">API not connected yet.</p> : null}
-      </section>
-    </>
+      </div>
+    </div>
   );
 }

@@ -10,9 +10,9 @@ def test_health() -> None:
     assert response.json()["status"] == "ok"
 
 
-def test_integrations_falls_back_without_database() -> None:
+def test_integrations_fallback_without_database() -> None:
     client = TestClient(app)
     response = client.get("/integrations")
     assert response.status_code == 200
-    keys = {integration["key"] for integration in response.json()}
+    keys = {item["key"] for item in response.json()}
     assert {"notion", "slack", "freshdesk", "google_drive"}.issubset(keys)
