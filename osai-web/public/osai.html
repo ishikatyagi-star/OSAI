@@ -98,6 +98,22 @@
 
   .nav-demo-btn:hover { opacity: 0.85; }
 
+  .nav-signin-btn {
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--ink);
+    text-decoration: none;
+    border: 1px solid var(--ink);
+    padding: 7px 18px;
+    border-radius: 2px;
+    transition: background 0.15s, color 0.15s;
+  }
+  .nav-signin-btn:hover {
+    background: var(--ink);
+    color: var(--paper);
+  }
+
 
   /* HERO */
   .hero {
@@ -802,6 +818,7 @@
   <a href="#" class="nav-logo">OS<span>AI</span></a>
   <div style="display:flex;align-items:center;gap:0">
     <a href="#contact" class="nav-cta">Get in touch</a>
+    <a href="/login" class="nav-signin-btn">Sign In</a>
     <a href="/demo" class="nav-demo-btn">Try Demo →</a>
   </div>
 </nav>
