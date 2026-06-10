@@ -940,8 +940,7 @@
         <p><strong>Not another ERP. Not another dashboard. Not another ticketing tool.</strong></p>
 
         <div class="not-list">
-          <div class="not-item"><strong>Another ERP &nbsp; Another dashboard &nbsp; Another ticketing tool</strong></div>
-        </div>
+          </div>
       </div>
       <div>
         <ul class="capability-list">
@@ -1017,16 +1016,6 @@
 
     <div class="team-grid fade-up">
       <div class="team-card">
-        <div class="team-name">Anish</div>
-        <div class="team-role">Engineering</div>
-        <ul class="team-bullets">
-          <li>Co-founded Astrazen, production-grade AI voice agent platform, engineered solo</li>
-          <li>Sub-second latency over live telephony: STT, LLM routing, TTS, SIP transport</li>
-          <li>OpenEnv Hackathon finalist, 53,000+ submissions (Meta × PyTorch × Scaler)</li>
-          <li>Built India's first food-serving robot at 13</li>
-        </ul>
-      </div>
-      <div class="team-card">
         <div class="team-name">Ishika</div>
         <div class="team-role">Product & Automation</div>
         <ul class="team-bullets">
@@ -1057,7 +1046,7 @@
       <div class="section-label">Get in touch</div>
       <h2>Shape what<br>this <em>becomes.</em></h2>
       <p>We're in early conversations with universities. If you're responsible for operations and want to be part of building the right solution, reach out.</p>
-      <a href="https://calendly.com" target="_blank" class="btn-primary" style="display:inline-flex;">Book a 30-min call →</a>
+      <a href="https://calendar.google.com/calendar/u/0/appointments/schedules/AcZssZ3qwSMjKMhXKW7-NFO0ZqHthdvO6MUio_sAy1UUk1qHU4jbXD6AZhcx5zOzlLeyxFFBdP923DBN" target="_blank" class="btn-primary" style="display:inline-flex;">Book a 30-min call →</a>
       <p class="contact-note">We respond within 24 hours.</p>
     </div>
 
@@ -1112,18 +1101,41 @@
   });
 
   // Form submit
+  const SHEET_URL = 'YOUR_APPS_SCRIPT_URL_HERE';
+
   function handleSubmit(btn) {
     const form = btn.closest('.contact-form');
-    const inputs = form.querySelectorAll('input, textarea');
-    let valid = true;
-    inputs.forEach(inp => {
-      if (inp.type !== 'submit' && inp.placeholder && !inp.value && inp.closest('.form-group label') && !inp.closest('.form-group label').textContent.includes('optional')) {
-        // simple check
-      }
-    });
-    btn.textContent = 'Message sent ✓';
-    btn.style.background = '#22c55e';
+    const [nameEl, institutionEl, emailEl, messageEl] = form.querySelectorAll('input, textarea');
+
+    if (!nameEl.value || !institutionEl.value || !emailEl.value) {
+      alert('Please fill in your name, institution, and email.');
+      return;
+    }
+
+    btn.textContent = 'Sending…';
     btn.disabled = true;
+
+    const payload = {
+      name: nameEl.value,
+      institution: institutionEl.value,
+      email: emailEl.value,
+      message: messageEl.value,
+    };
+
+    fetch(SHEET_URL, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+      .then(() => {
+        btn.textContent = 'Message sent ✓';
+        btn.style.background = '#22c55e';
+        form.querySelectorAll('input, textarea').forEach(el => el.value = '');
+      })
+      .catch(() => {
+        btn.textContent = 'Send message →';
+        btn.disabled = false;
+        alert('Something went wrong. Please try again.');
+      });
   }
 </script>
 </body>
