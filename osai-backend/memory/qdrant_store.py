@@ -62,7 +62,7 @@ class QdrantStore:
         )
         points = [
             models.PointStruct(
-                id=_stable_point_id(str(chunk["chunk_id"])),
+                id=_stable_point_id(f"{chunk['org_id']}:{chunk['chunk_id']}"),
                 vector=vector,
                 payload=_chunk_payload(chunk),
             )
@@ -72,11 +72,13 @@ class QdrantStore:
         return len(points)
 
 
-def _stable_point_id(chunk_id: str) -> str:
+def _stable_point_id(namespaced_chunk_id: str) -> str:
     # Qdrant accepts UUID strings; uuid5 keeps point ids stable across re-syncs.
+    # Caller namespaces by org (f"{org_id}:{chunk_id}") so two orgs that ingest
+    # the same document do not collide and overwrite each other's vectors.
     import uuid
 
-    return str(uuid.uuid5(uuid.NAMESPACE_URL, chunk_id))
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, namespaced_chunk_id))
 
 
 def _chunk_payload(chunk: dict[str, Any]) -> dict[str, Any]:
