@@ -67,8 +67,8 @@ async def retrieve_answer(request: SearchRequest) -> SearchResponse:
 
     context_text = "\n\n---\n\n".join(context_parts)
 
-    # 4. Synthesise answer with Gemini (if configured), else return raw snippets
-    if settings.gemini_api_key:
+    # 4. Synthesise answer with the configured LLM, else return raw snippets
+    if settings.openrouter_api_key or settings.gemini_api_key:
         try:
             answer = await _gemini_answer(request.query, context_text)
         except Exception as exc:
@@ -160,11 +160,8 @@ def mock_gemini_answer(query: str, context: str) -> str:
 
 
 async def _gemini_answer(query: str, context: str) -> str:
-    import asyncio
+    from llm.gemini import generate
 
-    from google import genai  # type: ignore[import-untyped]
-
-    client = genai.Client(api_key=settings.gemini_api_key)
     prompt = (
         "You are a precise enterprise knowledge assistant. "
         "Answer the question below using ONLY the provided context. "
@@ -173,12 +170,4 @@ async def _gemini_answer(query: str, context: str) -> str:
         f"QUESTION: {query}\n\n"
         "ANSWER:"
     )
-    loop = asyncio.get_event_loop()
-    response = await loop.run_in_executor(
-        None,
-        lambda: client.models.generate_content(
-            model=settings.gemini_model,
-            contents=prompt,
-        ),
-    )
-    return response.text.strip()
+    return await generate(prompt)
