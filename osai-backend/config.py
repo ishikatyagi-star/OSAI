@@ -39,6 +39,17 @@ class Settings(BaseSettings):
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
     openrouter_model: str = "google/gemini-2.0-flash-001"
 
+    # Composio — universal tool/integration layer (P2). When set, its tools are
+    # exposed to the agent alongside native connectors. no_auth tools (e.g. web
+    # search) work immediately; OAuth tools (Gmail, Calendar) need a connection.
+    composio_api_key: str | None = None
+    composio_base_url: str = "https://backend.composio.dev"
+    composio_toolkits: str = "composio_search"  # comma-separated toolkit slugs to expose
+
+    @property
+    def composio_toolkit_list(self) -> list[str]:
+        return [t.strip() for t in self.composio_toolkits.split(",") if t.strip()]
+
     # gbrain knowledge-graph sidecar (P4). When gbrain_home is set, OSAI can
     # read/write the org brain (pages + self-wiring typed graph). Vector/synthesis
     # features need an embedding key; pages + graph + keyword search are key-free.
