@@ -181,3 +181,25 @@ class ModelCall(Base):
     data_tier: Mapped[str] = mapped_column(String, default="normal")
     trace_id: Mapped[str] = mapped_column(String, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
+
+
+class OrgMemory(Base):
+    """Evolving agent/org state — distinct from the document knowledge base.
+
+    Holds facts, decisions, resolutions, and playbooks that OSAI accumulates and
+    reuses (per Needle's "vector DBs aren't memory"): the knowledge base answers
+    "what do the docs say", org_memory answers "what do we know / how do we
+    usually handle this".
+    """
+
+    __tablename__ = "org_memory"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
+    org_id: Mapped[str] = mapped_column(String, index=True)
+    user_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    # fact | preference | decision | resolution | playbook
+    kind: Mapped[str] = mapped_column(String, index=True)
+    content: Mapped[str] = mapped_column(Text)
+    keywords: Mapped[list[str]] = mapped_column(JSON, default=list)
+    source_run_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc, index=True)
