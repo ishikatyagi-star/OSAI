@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     # Gemini (LLM + embeddings) — required for real search/workflows
     gemini_api_key: str | None = None
     gemini_model: str = "gemini-2.0-flash"
-    gemini_embedding_model: str = "text-embedding-004"
+    gemini_embedding_model: str = "gemini-embedding-001"
 
     # Redis (for Celery)
     redis_url: str = "redis://localhost:6379/0"

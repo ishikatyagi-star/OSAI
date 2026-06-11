@@ -34,6 +34,25 @@ class QdrantStore:
             ),
         )
 
+    async def search(
+        self, query_vector: list[float], org_id: str, limit: int = 8
+    ) -> list[Any]:
+        """Vector search scoped to an org. Returns scored points (.score, .payload)."""
+        response = await self.client.query_points(
+            collection_name=self.collection_name,
+            query=query_vector,
+            limit=limit,
+            query_filter=models.Filter(
+                must=[
+                    models.FieldCondition(
+                        key="org_id", match=models.MatchValue(value=org_id)
+                    )
+                ]
+            ),
+            with_payload=True,
+        )
+        return response.points
+
     async def upsert_chunks(self, chunks: list[dict[str, Any]]) -> int:
         if not chunks:
             return 0

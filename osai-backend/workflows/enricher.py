@@ -34,13 +34,7 @@ async def get_workflow_context_async(
             query_vector = vectors[0]
 
             # Query Qdrant
-            hits = await qdrant.client.search(
-                collection_name=qdrant.collection_name,
-                query_vector=query_vector,
-                limit=limit_chunks,
-                query_filter={"must": [{"key": "org_id", "match": {"value": org_id}}]},
-                with_payload=True,
-            )
+            hits = await qdrant.search(query_vector, org_id, limit=limit_chunks)
 
             for hit in hits:
                 payload = hit.payload or {}
