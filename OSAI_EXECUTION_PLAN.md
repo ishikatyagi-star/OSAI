@@ -53,7 +53,26 @@ The backend is a real end-to-end slice. Confirmed by reading the code:
 | 5 | **Hermes Agent Self-Evolution** | https://github.com/NousResearch/hermes-agent-self-evolution | OSS | Python (DSPy + GEPA) | Offline **eval + automatic prompt/skill optimization**, ~$ a few dollars per run, no GPU | Run as an offline job against logged session data (P6). |
 | 6 | **AIOS** | https://github.com/agiresearch/AIOS | OSS | Python | Reference design for an "agent OS kernel" (scheduling, lifecycle) | **Reference only — do not fork.** Use to sanity-check our abstractions. |
 
-**Deliberately NOT used now:** OpenHuman (GPL-3 — would force our code open, avoid), Context.dev (external web context — only if we later need sales/marketing signals), Sentra (enterprise data-security — revisit when selling to large enterprises). All three are noted in the source PDF as "later / optional."
+**Deliberately NOT used now:** agentmemory + UltraContext (covered in-house to keep the stack lean), OpenHuman (GPL-3 — would force our code open, avoid), Context.dev (external web context — only if we later need sales/marketing signals), Sentra (enterprise data-security — revisit when selling to large enterprises).
+
+---
+
+## 2.5 How each repo is physically pulled & run (decided)
+
+Two integration styles. **Composio installs like any dependency. gbrain/Hermes are cloned.** We never copy a TypeScript project's source into Python.
+
+| Repo | How we get it | Lives where | How it runs | Status |
+|---|---|---|---|---|
+| **Composio** | `uv add composio` (a Python package) | inside `osai-backend` deps | in-process, in the backend | install at P2 — **no clone** |
+| **gbrain** | `git submodule` (already added) | `services/gbrain/` in this repo | its own container in the compose stack; `gbrain serve --http`, called over HTTP/MCP | ✅ **cloned now** |
+| **Hermes** | `git clone` when we reach P6 | `services/hermes/` (submodule) | offline job, run occasionally | clone later (P6) |
+
+**Why a submodule (not copy-paste):** our repo stores only a *pointer* to gbrain's commit, so we stay clean and can pull their updates — but it still lives "in one repo" for hosting. **One catch your co-founder must know:** after cloning the OSAI repo, they must run:
+```bash
+git submodule update --init --recursive   # otherwise services/gbrain is an empty folder
+```
+
+**Deployment:** a single top-level `docker-compose.yml` will define every service — OSAI API, worker, Postgres, Qdrant, Redis, **and gbrain** — so the whole product is `docker compose up` to **one** host. Building the gbrain container from `services/gbrain` is part of Phase 4.
 
 ---
 
@@ -63,9 +82,13 @@ These are decided. Do not re-litigate during execution.
 
 - **D1 — OSAI stays the thin Python harness.** We enrich it; we never fork AIOS/OpenHuman wholesale.
 - **D2 — Composio is the primary integration/action layer.** The existing hand-rolled connectors (Slack/Notion/GDrive/Freshdesk) **keep working** for ingestion, but **all new tools/actions go through Composio.** We do not hand-write new connectors. Retiring the native connectors entirely is allowed *later* once Composio coverage is proven (see open decision O1).
-- **D3 — Polyglot via sidecars.** gbrain / agentmemory / UltraContext run as separate services; Python talks to them over HTTP/MCP. (See rule 5.)
+- **D3 — One repo, one deploy stack, minimal sidecars.** Everything lives in the OSAI monorepo and deploys as **one Docker Compose stack to one host**. We use the *fewest possible* extra services:
+  - **Composio** — a Python **library** (`uv add composio`); runs *inside* OSAI, **no extra service, no clone**.
+  - **gbrain** — the **one** Node sidecar we adopt. Vendored into the repo as a **git submodule at `services/gbrain`** (MIT). Runs as a container in the same compose stack; Python calls it over HTTP/MCP.
+  - **agentmemory** and **UltraContext** — **NOT used.** Their jobs are covered in-house (a small Postgres `org_memory` table) to avoid extra services. Revisit only if proven insufficient.
+  - **Hermes** — cloned **later** (Phase 6); it's an offline job, not a hosted service.
 - **D4 — One agent first.** Build a single powerful "Ask OSAI" agent. Add multi-agent (planner/executor/critic) only if a concrete need appears.
-- **D5 — Memory is three distinct layers** (per Needle's "vector DBs aren't memory"): (a) **knowledge base** = Qdrant + gbrain (documents & entities), (b) **agent/org memory** = evolving state (preferences, past resolutions), (c) **session context** = UltraContext. Qdrant is explicitly **document retrieval only**.
+- **D5 — Memory is three distinct layers** (per Needle's "vector DBs aren't memory"): (a) **knowledge base** = Qdrant (documents) **+ gbrain** (typed entity graph), (b) **agent/org memory** = evolving state in the in-house `org_memory` table (preferences, past resolutions), (c) **session context** = kept simple in-app for now. Qdrant is explicitly **document retrieval only**. The typed knowledge graph is **delegated to gbrain** — we do **not** hand-build Entity/Edge tables.
 
 ---
 
@@ -74,7 +97,8 @@ These are decided. Do not re-litigate during execution.
 ### 4.1 Prerequisites (install once)
 - Docker + Docker Compose
 - `uv` (Python package manager) — backend
-- Node ≥ 22 + `bun` — for gbrain / UltraContext / agentmemory sidecars
+- Node ≥ 22 + `bun` — only for the gbrain service (`services/gbrain`); runs via Docker in the compose stack
+- `git submodule update --init --recursive` after cloning (pulls `services/gbrain`)
 - Git, and a Composio account (free tier) → API key from https://app.composio.dev
 
 ### 4.2 The port gotcha (read this — it breaks people)
@@ -116,14 +140,10 @@ OSAI_FRESHDESK_API_KEY=
 OSAI_GOOGLE_SERVICE_ACCOUNT_JSON=path/to/service_account.json
 OSAI_GOOGLE_DRIVE_FOLDER_ID=
 
-# NEW — Composio (P2)
+# NEW — Composio (P2) — Python library, just needs the key
 OSAI_COMPOSIO_API_KEY=
-# NEW — gbrain sidecar (P4)
-OSAI_GBRAIN_URL=http://localhost:4000
-# NEW — agentmemory sidecar (P3, if using the service instead of in-house table)
-OSAI_AGENTMEMORY_URL=http://localhost:4100
-# NEW — UltraContext sidecar (P5)
-OSAI_ULTRACONTEXT_URL=http://localhost:4200
+# NEW — gbrain service in the compose stack (P4)
+OSAI_GBRAIN_URL=http://gbrain:4000
 ```
 
 ---
@@ -228,21 +248,16 @@ Replace mock data in `osai-web/` with real calls to `http://localhost:8000`. Mak
 
 ---
 
-### PHASE 3 — Separate memory from retrieval  *(target: 1–1.5 weeks)*
-*Give OSAI a typed model of the org + evolving memory.*
+### PHASE 3 — Add evolving agent memory  *(target: 3–5 days)*
+*The typed knowledge graph is delegated to gbrain (Phase 4), so Phase 3 is just the in-house evolving-state layer. This is smaller than before.*
 
-**P3-T1 (B) — Typed schema migration.** New Alembic migration adding:
-- `entities` (id, org_id, type ∈ {person, org, course, department, ticket, document, meeting}, name, attributes JSON, timestamps)
-- `sources` (id, org_id, type, external_id, url, lineage JSON)
-- `edges` (id, org_id, src_entity_id, dst_entity_id, relation, attributes JSON)
-Add SQLAlchemy models in `db/models.py` mirroring these. **Align field names with what gbrain uses** (see P4) so they can sync later.
-✅ **Acceptance:** `uv run alembic upgrade head` then downgrade/upgrade both succeed; tests pass.
+> **Changed:** we do **not** hand-build `entities`/`sources`/`edges` tables — gbrain owns the typed graph (Phase 4). Phase 3 only adds the small `org_memory` table.
 
-**P3-T2 (B) — `org_memory`.** Migration + model for evolving state: `org_memory` (id, org_id, user_id?, kind ∈ {preference, decision, resolution, playbook}, content, embedding ref?, created_at, source_run_id). Create `memory/org_memory.py` with `record_memory(...)` and `fetch_relevant(org_id, query)`.
-> **Build vs. buy:** start in-house (a table) for speed and zero new infra. Only adopt the **agentmemory** sidecar (repo #3) if we need its richer capture/recall — gate behind `OSAI_AGENTMEMORY_URL`.
+**P3-T1 (B) — `org_memory`.** Migration + model for evolving state: `org_memory` (id, org_id, user_id?, kind ∈ {preference, decision, resolution, playbook}, content, embedding ref?, created_at, source_run_id). Create `memory/org_memory.py` with `record_memory(...)` and `fetch_relevant(org_id, query)`.
+> **Why in-house, not agentmemory:** a single Postgres table needs zero extra service and keeps the deploy to one stack (decision D3). agentmemory stays off the table unless recall quality proves insufficient.
 ✅ **Acceptance:** completing a workflow writes a `resolution` memory; `fetch_relevant` returns it for a similar later query.
 
-**P3-T3 (B) — Wire memory into the agent.** In the orchestrator: before answering, call `fetch_relevant` and add a "Memory" section to the prompt; after a workflow/action, call `record_memory`. Make Qdrant explicitly **document-retrieval only** (no agent state in vectors).
+**P3-T2 (B) — Wire memory into the agent.** In the orchestrator: before answering, call `fetch_relevant` and add a "Memory" section to the prompt; after a workflow/action, call `record_memory`. Make Qdrant explicitly **document-retrieval only** (no agent state in vectors).
 ✅ **Acceptance:** demo effect — "OSAI remembers how we handled a similar ticket last week and reuses that resolution."
 
 **📦 Phase 3 deliverable:** OSAI distinguishes knowledge (docs) from memory (evolving state) and is visibly "stateful."
@@ -251,10 +266,10 @@ Add SQLAlchemy models in `db/models.py` mirroring these. **Align field names wit
 
 ### PHASE 4 — Knowledge brain (gbrain)  *(target: 2–3 weeks)*
 
-**P4-T1 (B) — Spike & stand up gbrain.** Clone https://github.com/garrytan/gbrain, run it (Bun + Postgres) as a sidecar in `infra/sidecars/docker-compose.sidecars.yml`. Point it at a **per-org git repo** + Postgres/pgvector. Confirm its HTTP/MCP API responds. Set `OSAI_GBRAIN_URL`.
-✅ **Acceptance:** you can create a markdown page in gbrain and query it back via its API.
+**P4-T1 (B) — Stand up gbrain.** Already vendored at `services/gbrain` (submodule). Add it to the top-level `docker-compose.yml` as a service (build from `services/gbrain`, run `gbrain serve --http`). Set `OSAI_GBRAIN_URL` to the in-stack URL. Read `services/gbrain/AGENTS.md` + `llms.txt` for the exact serve command and API.
+✅ **Acceptance:** `docker compose up` brings gbrain up; you can create a markdown page in gbrain and query it back via its HTTP/MCP API.
 
-**P4-T2 (B) — Ingestion → brain.** After each connector/Composio sync, generate/update markdown pages in the org's brain repo (tickets, docs, recurring entities). Create `memory/gbrain_client.py` (Python HTTP client to the sidecar).
+**P4-T2 (B) — Ingestion → brain.** After each connector/Composio sync, generate/update markdown pages in the org's brain (tickets, docs, recurring entities). Create `memory/gbrain_client.py` (Python HTTP/MCP client to the gbrain service).
 ✅ **Acceptance:** syncing a Notion page creates/updates a corresponding gbrain markdown page + graph entities.
 
 **P4-T3 (B) — Hybrid retrieval.** Create `memory/hybrid_retriever.py`: query **both** Qdrant and gbrain, merge (top-k each) and rerank by relevance. Swap the agent's `search_knowledge` tool to use it.
