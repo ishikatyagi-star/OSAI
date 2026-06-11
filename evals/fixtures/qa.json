@@ -1,0 +1,65 @@
+[
+  {
+    "id": "qa-01",
+    "category": "qa",
+    "question": "What vector database replaced pgvector in the OSAI stack?",
+    "expected": "Qdrant",
+    "match_mode": "contains",
+    "tags": ["tech", "decision", "infrastructure"],
+    "notes": "Decision documented in Notion"
+  },
+  {
+    "id": "qa-02",
+    "category": "qa",
+    "question": "What is the day-1 onboarding task for new engineers?",
+    "expected": "Docker",
+    "match_mode": "contains",
+    "tags": ["process", "onboarding"],
+    "notes": "Read onboarding guide + set up Docker environment"
+  },
+  {
+    "id": "qa-03",
+    "category": "qa",
+    "question": "Which connector handles meeting transcripts?",
+    "expected": "Zoom",
+    "match_mode": "contains",
+    "tags": ["connector", "meetings"],
+    "notes": "Zoom connector ingests meeting transcripts"
+  },
+  {
+    "id": "qa-04",
+    "category": "qa",
+    "question": "What is the default LLM model route?",
+    "expected": "gemini-2.0-flash",
+    "match_mode": "contains",
+    "tags": ["llm", "config"],
+    "notes": "Default route set in llm/router.py"
+  },
+  {
+    "id": "qa-05",
+    "category": "qa",
+    "question": "What data-routing tier blocks LLM access entirely?",
+    "expected": "Red",
+    "match_mode": "contains",
+    "tags": ["security", "data-routing"],
+    "notes": "Red tier = no LLM allowed per data routing settings"
+  },
+  {
+    "id": "qa-06",
+    "category": "qa",
+    "question": "Name the three data-routing tiers.",
+    "expected": "Normal",
+    "match_mode": "contains",
+    "tags": ["security", "data-routing"],
+    "notes": "Normal, Amber, Red — all three should appear"
+  },
+  {
+    "id": "qa-07",
+    "category": "qa",
+    "question": "What are the Q3 2026 product priorities?",
+    "expected": "search",
+    "match_mode": "contains",
+    "tags": ["roadmap", "priorities"],
+    "notes": "Search quality, connector coverage, enterprise readiness"
+  }
+]

@@ -1,0 +1,38 @@
+[
+  {
+    "id": "route-01",
+    "category": "routing",
+    "question": "Where should a new product decision be logged?",
+    "expected": "Notion",
+    "match_mode": "contains",
+    "tags": ["destination", "decision", "notion"],
+    "notes": "Decision Log lives in Notion"
+  },
+  {
+    "id": "route-02",
+    "category": "routing",
+    "question": "Which Slack channel gets SLA-breach alerts?",
+    "expected": "#operations",
+    "match_mode": "contains",
+    "tags": ["slack", "alert", "sla"],
+    "notes": "Canonical channel name is #operations (not #ops)"
+  },
+  {
+    "id": "route-03",
+    "category": "routing",
+    "question": "Where do meeting action items get pushed after approval?",
+    "expected": "Notion",
+    "match_mode": "contains",
+    "tags": ["destination", "workflow", "action-items"],
+    "notes": "Default destination for meeting action items is Notion (or Slack per config)"
+  },
+  {
+    "id": "route-04",
+    "category": "routing",
+    "question": "If a student submits a support request, which system handles it?",
+    "expected": "Freshdesk",
+    "match_mode": "contains",
+    "tags": ["destination", "ticket", "student"],
+    "notes": "Support tickets routed to Freshdesk"
+  }
+]

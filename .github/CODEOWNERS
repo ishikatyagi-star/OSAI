@@ -1,0 +1,19 @@
+# OSAI Code Owners — auto-assigns reviewers per the parallel plan lane rules.
+# See OSAI_PARALLEL_PLAN.md §1 for the ownership table.
+
+# Backend lane — Ishika
+/osai-backend/          @ishikatyagi-star
+/infra/                 @ishikatyagi-star
+/docker-compose.yml     @ishikatyagi-star
+/services/              @ishikatyagi-star
+
+# Frontend lane — Co-founder
+/osai-web/              @23140-ITP
+/docs/design-system.md  @23140-ITP
+/docs/deploy.md         @23140-ITP
+/evals/fixtures/        @23140-ITP
+
+# Shared — both review
+/docs/api-contract.md   @ishikatyagi-star @23140-ITP
+/OSAI_*.md              @ishikatyagi-star @23140-ITP
+/.github/               @ishikatyagi-star @23140-ITP
