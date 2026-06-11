@@ -1,6 +1,12 @@
 import type {
   ApproveResult,
+  AskRequest,
+  AskResponse,
+  ConfirmActionResult,
   DataRouting,
+  EvalRun,
+  GraphEdge,
+  GraphEntity,
   Integration,
   SearchResponse,
   SyncRun,
@@ -180,4 +186,61 @@ export function patchDataRouting(routing: DataRouting) {
     "/settings/data-routing",
     { routing }
   );
+}
+
+// ─── Ask OSAI agent (Phase 1 — POST /ask) ────────────────────────────────────
+
+function currentOrgId(orgId?: string) {
+  return (
+    orgId ??
+    (typeof window !== "undefined"
+      ? localStorage.getItem("osai_org_id") ?? "demo-org"
+      : "demo-org")
+  );
+}
+
+export function askOsai(
+  question: string,
+  opts: { conversationId?: string | null; history?: AskRequest["history"]; orgId?: string } = {}
+): Promise<AskResponse> {
+  const body: AskRequest = {
+    org_id: currentOrgId(opts.orgId),
+    question,
+    conversation_id: opts.conversationId ?? null,
+    history: opts.history,
+  };
+  return apiPost<AskRequest, AskResponse>("/ask", body);
+}
+
+export function confirmAgentAction(
+  actionId: string,
+  conversationId: string
+): Promise<ConfirmActionResult> {
+  return apiPost<{ conversation_id: string }, ConfirmActionResult>(
+    `/ask/actions/${actionId}/confirm`,
+    { conversation_id: conversationId }
+  );
+}
+
+// ─── Org knowledge graph (Phase 4 — GET /graph/*) ────────────────────────────
+
+export function getGraphEntities(params: { type?: string; q?: string } = {}) {
+  const qs = new URLSearchParams();
+  if (params.type) qs.set("type", params.type);
+  if (params.q) qs.set("q", params.q);
+  const suffix = qs.toString() ? `?${qs.toString()}` : "";
+  return apiGet<GraphEntity[]>(`/graph/entities${suffix}`, []);
+}
+
+export function getGraphEdges(params: { entityId?: string } = {}) {
+  const suffix = params.entityId
+    ? `?entity_id=${encodeURIComponent(params.entityId)}`
+    : "";
+  return apiGet<GraphEdge[]>(`/graph/edges${suffix}`, []);
+}
+
+// ─── Evals (Phase 6 — GET /evals) ─────────────────────────────────────────────
+
+export function getEvalRun() {
+  return apiGet<EvalRun | null>("/evals", null);
 }

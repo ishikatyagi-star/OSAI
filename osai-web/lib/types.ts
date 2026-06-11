@@ -69,3 +69,117 @@ export type ApproveResult = {
   external_url: string | null;
   message: string;
 };
+
+
+// ─── Ask OSAI agent (Phase 1 — POST /ask) ───────────────────────────────────
+
+export type ChatRole = "user" | "assistant";
+
+export type ChatMessage = {
+  role: ChatRole;
+  content: string;
+};
+
+export type AgentActionStatus = "proposed" | "executed" | "failed" | "skipped";
+
+export type AgentAction = {
+  id: string;
+  tool: string;
+  action: string;
+  summary: string;
+  status: AgentActionStatus;
+  requires_confirmation: boolean;
+  params?: Record<string, unknown>;
+  external_url: string | null;
+  error: string | null;
+};
+
+export type AskRequest = {
+  org_id: string;
+  question: string;
+  conversation_id?: string | null;
+  history?: ChatMessage[];
+};
+
+export type AskResponse = {
+  conversation_id: string;
+  answer: string;
+  citations: SourceCitation[];
+  actions_taken: AgentAction[];
+  enough_context: boolean;
+  model_route?: string;
+  latency_ms?: number;
+};
+
+export type ConfirmActionResult = {
+  id: string;
+  status: "executed" | "failed";
+  external_url: string | null;
+  message: string;
+  error: string | null;
+};
+
+// ─── Org knowledge graph (Phase 4 — GET /graph/*) ────────────────────────────
+
+export type GraphEntityType =
+  | "person"
+  | "project"
+  | "decision"
+  | "source"
+  | "department"
+  | "ticket";
+
+export type GraphEntity = {
+  id: string;
+  type: GraphEntityType;
+  label: string;
+  summary: string | null;
+  source_tool: string | null;
+  attributes: Record<string, string>;
+  degree: number;
+};
+
+export type GraphEdgeType =
+  | "owns"
+  | "attended"
+  | "works_at"
+  | "references"
+  | "blocks"
+  | "decided";
+
+export type GraphEdge = {
+  id: string;
+  source_id: string;
+  target_id: string;
+  type: GraphEdgeType;
+  label: string;
+  confidence: number;
+  source_tool: string | null;
+};
+
+// ─── Evals (Phase 6 — GET /evals) ────────────────────────────────────────────
+
+export type EvalCategory = "ticket_triage" | "ownership" | "routing" | "qa";
+
+export type EvalCase = {
+  id: string;
+  category: EvalCategory;
+  question: string;
+  expected: string;
+  actual: string;
+  passed: boolean;
+  score: number;
+  latency_ms: number;
+  notes: string | null;
+};
+
+export type EvalRun = {
+  run_id: string;
+  created_at: string;
+  model_route: string;
+  pass_rate: number;
+  total: number;
+  passed: number;
+  failed: number;
+  cases: EvalCase[];
+};
