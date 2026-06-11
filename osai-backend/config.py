@@ -27,10 +27,17 @@ class Settings(BaseSettings):
     google_service_account_json: str | None = None  # path to service account JSON file
     google_drive_folder_id: str | None = None  # optional root folder to scope crawl
 
-    # Gemini (LLM + embeddings) — required for real search/workflows
+    # Gemini (embeddings always; text-gen if no OpenRouter key set)
     gemini_api_key: str | None = None
     gemini_model: str = "gemini-2.0-flash"
     gemini_embedding_model: str = "gemini-embedding-001"
+
+    # OpenRouter (OpenAI-compatible text generation gateway). When set, it is the
+    # preferred provider for answer synthesis / planning / extraction. Embeddings
+    # still use Gemini.
+    openrouter_api_key: str | None = None
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    openrouter_model: str = "google/gemini-2.0-flash-001"
 
     # Redis (for Celery)
     redis_url: str = "redis://localhost:6379/0"
