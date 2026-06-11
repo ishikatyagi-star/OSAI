@@ -4,6 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from api.routes import (
     agent,
     auth,
+    evals,
+    graph,
     health,
     integrations,
     orgs,
@@ -27,6 +29,8 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(agent.router)
+app.include_router(graph.router)
+app.include_router(evals.router)
 app.include_router(integrations.router)
 app.include_router(sync_runs.router)
 app.include_router(search.router)
