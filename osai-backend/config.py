@@ -39,6 +39,12 @@ class Settings(BaseSettings):
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
     openrouter_model: str = "google/gemini-2.0-flash-001"
 
+    # gbrain knowledge-graph sidecar (P4). When gbrain_home is set, OSAI can
+    # read/write the org brain (pages + self-wiring typed graph). Vector/synthesis
+    # features need an embedding key; pages + graph + keyword search are key-free.
+    gbrain_home: str | None = None  # path to the brain data dir (per org)
+    gbrain_cli_dir: str = "../services/gbrain"  # path to the gbrain repo (bun CLI)
+
     # Redis (for Celery)
     redis_url: str = "redis://localhost:6379/0"
 
