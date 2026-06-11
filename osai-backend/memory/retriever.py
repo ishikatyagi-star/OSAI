@@ -9,37 +9,29 @@ from memory.qdrant_store import get_default_qdrant_store
 
 
 async def retrieve_answer(request: SearchRequest) -> SearchResponse:
+    from memory.org_memory import fetch_relevant
+
     qdrant = get_default_qdrant_store()
 
-    # 1. Embed the query
+    # 0. Evolving org memory (facts/playbooks) — key-free, independent of vectors.
+    memories = fetch_relevant(request.org_id, request.query)
+
+    # 1. Vector search over the document knowledge base (best-effort).
+    hits: list = []
     try:
         vectors = await default_embedding_provider.embed_texts([request.query])
-        query_vector = vectors[0]
+        hits = await qdrant.search(vectors[0], request.org_id, limit=8)
     except Exception:
-        return SearchResponse(
-            answer="Embedding service unavailable.",
-            citations=[],
-            enough_context=False,
-        )
+        hits = []
 
-    # 2. Search Qdrant with org_id filter
-    try:
-        hits = await qdrant.search(query_vector, request.org_id, limit=8)
-    except Exception:
-        return SearchResponse(
-            answer="Vector store unavailable — run a connector sync first.",
-            citations=[],
-            enough_context=False,
-        )
-
-    if not hits:
+    if not hits and not memories:
         return SearchResponse(
             answer="No relevant context found. Trigger a connector sync to ingest data.",
             citations=[],
             enough_context=False,
         )
 
-    # 3. Build context snippets and citations
+    # 2. Build context snippets and citations
     context_parts: list[str] = []
     citations: list[SourceCitation] = []
     seen: set[str] = set()
@@ -65,25 +57,47 @@ async def retrieve_answer(request: SearchRequest) -> SearchResponse:
                 )
             )
 
+    # Evolving memory: surface as context + citations.
+    memory_lines = [f"- {m['content']}" for m in memories]
+    memory_block = "\n".join(memory_lines)
+    if memory_block:
+        context_parts.append(f"[OSAI memory]\n{memory_block}")
+        for mem in memories:
+            citations.append(
+                SourceCitation(
+                    source_tool="memory",
+                    source_record_title=mem["kind"],
+                    url=None,
+                    confidence=mem["score"],
+                )
+            )
+
     context_text = "\n\n---\n\n".join(context_parts)
 
-    # 4. Synthesise answer with the configured LLM, else return raw snippets
+    # 4. Synthesise answer with the configured LLM, else memory-aware fallback
     if settings.openrouter_api_key or settings.gemini_api_key:
         try:
             answer = await _gemini_answer(request.query, context_text)
-        except Exception as exc:
-            answer = (
-                f"LLM synthesis failed ({exc}). Mock fallback:\n\n"
-                + mock_gemini_answer(request.query, context_text)
-            )
+        except Exception:
+            answer = _fallback_answer(request.query, context_text, memory_block, bool(hits))
     else:
-        answer = mock_gemini_answer(request.query, context_text)
+        answer = _fallback_answer(request.query, context_text, memory_block, bool(hits))
 
     return SearchResponse(
         answer=answer,
         citations=citations,
         enough_context=True,
     )
+
+
+def _fallback_answer(query: str, context: str, memory_block: str, has_docs: bool) -> str:
+    """Deterministic answer when no LLM is available. Always surfaces memory."""
+    parts: list[str] = []
+    if memory_block:
+        parts.append("From OSAI's memory:\n" + memory_block)
+    if has_docs:
+        parts.append(mock_gemini_answer(query, context))
+    return "\n\n".join(parts) if parts else mock_gemini_answer(query, context)
 
 
 def mock_gemini_answer(query: str, context: str) -> str:

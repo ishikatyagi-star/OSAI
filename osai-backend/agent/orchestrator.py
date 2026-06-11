@@ -76,6 +76,7 @@ async def confirm_action(action_id: str, conversation_id: str) -> ConfirmActionR
         )
         _PROPOSED.pop(action_id, None)
         if result.status == "succeeded":
+            _remember_resolution(proposed)
             return ConfirmActionResult(
                 id=action_id,
                 status="executed",
@@ -146,8 +147,26 @@ def _record(
         "tool": tool,
         "action": action_slug,
         "payload": payload,
+        "summary": summary,
     }
     return action
+
+
+def _remember_resolution(proposed: dict) -> None:
+    """Record how an action was handled so OSAI can reuse it later."""
+    try:
+        from db.session import SessionLocal
+        from memory.org_memory import record_memory
+
+        with SessionLocal() as session:
+            record_memory(
+                session,
+                proposed["org_id"],
+                kind="resolution",
+                content=f"{proposed.get('summary', 'Action')} — handled via {proposed['tool']}.",
+            )
+    except Exception as exc:  # noqa: BLE001 — memory is best-effort
+        logger.info("Could not record resolution memory: %s", exc)
 
 
 async def _llm_plan(request: AskRequest, answer: str, tools: dict) -> list[AgentAction]:
@@ -270,6 +289,7 @@ async def _execute_composio(action_id: str, proposed: dict) -> ConfirmActionResu
         )
     _PROPOSED.pop(action_id, None)
     if result.get("successful"):
+        _remember_resolution(proposed)
         return ConfirmActionResult(
             id=action_id,
             status="executed",
