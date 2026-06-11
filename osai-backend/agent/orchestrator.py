@@ -39,15 +39,9 @@ async def run_ask(request: AskRequest) -> AskResponse:
         SearchRequest(org_id=request.org_id, query=request.question)
     )
 
-    # 2. Plan connector actions (proposed, never auto-executed).
+    # 2. Plan actions (proposed, never auto-executed). Planners record the
+    #    execution descriptor (provider + payload) into _PROPOSED themselves.
     actions = await _plan_actions(request, rag.answer)
-    for action in actions:
-        _PROPOSED[action.id] = {
-            "org_id": request.org_id,
-            "tool": action.tool,
-            "action": action.action,
-            "payload": build_payload(_tool_name(action.tool), action.params or {}),
-        }
 
     model_route = (
         f"gemini:{settings.gemini_model}" if settings.gemini_api_key else "mock-fallback"
@@ -72,6 +66,8 @@ async def confirm_action(action_id: str, conversation_id: str) -> ConfirmActionR
             message="Action not found or already handled.",
             error="unknown_action",
         )
+    if proposed.get("provider") == "composio":
+        return await _execute_composio(action_id, proposed)
     try:
         connector = connector_registry.get(proposed["tool"])
         result = await connector.execute_action(
@@ -112,15 +108,46 @@ async def confirm_action(action_id: str, conversation_id: str) -> ConfirmActionR
 
 
 async def _plan_actions(request: AskRequest, answer: str) -> list[AgentAction]:
+    from connectors.composio_tool import get_default_composio_client
+
     tools = available_action_tools()
-    if not tools:
+    composio = get_default_composio_client()
+    if not tools and not composio.available():
         return []
-    if settings.gemini_api_key:
+    if settings.gemini_api_key or settings.openrouter_api_key:
         try:
             return await _llm_plan(request, answer, tools)
         except Exception as exc:  # noqa: BLE001 — degrade to heuristic on any LLM failure
             logger.info("LLM action planning unavailable (%s); using heuristic.", exc)
-    return _heuristic_plan(request, answer, tools)
+    return _heuristic_plan(request, answer, tools, composio)
+
+
+def _record(
+    org_id: str,
+    provider: str,
+    tool: str,
+    action_slug: str,
+    payload: dict,
+    summary: str,
+) -> AgentAction:
+    """Build a proposed action and stash its execution descriptor for confirm."""
+    action = AgentAction(
+        id=str(uuid4()),
+        tool=tool,
+        action=action_slug,
+        summary=summary,
+        status="proposed",
+        requires_confirmation=True,
+        params=payload,
+    )
+    _PROPOSED[action.id] = {
+        "org_id": org_id,
+        "provider": provider,
+        "tool": tool,
+        "action": action_slug,
+        "payload": payload,
+    }
+    return action
 
 
 async def _llm_plan(request: AskRequest, answer: str, tools: dict) -> list[AgentAction]:
@@ -144,69 +171,113 @@ async def _llm_plan(request: AskRequest, answer: str, tools: dict) -> list[Agent
         if name not in tools:
             continue
         spec = tools[name]
+        payload = build_payload(name, item.get("params", {}))
         actions.append(
-            AgentAction(
-                id=str(uuid4()),
-                tool=spec["tool"],
-                action=spec["action"],
-                summary=item.get("summary", spec["description"]),
-                status="proposed",
-                requires_confirmation=True,
-                params=item.get("params", {}),
+            _record(
+                request.org_id,
+                "connector",
+                spec["tool"],
+                spec["action"],
+                payload,
+                item.get("summary", spec["description"]),
             )
         )
     return actions
 
 
-def _heuristic_plan(request: AskRequest, answer: str, tools: dict) -> list[AgentAction]:
+def _heuristic_plan(
+    request: AskRequest, answer: str, tools: dict, composio
+) -> list[AgentAction]:
     q = request.question.lower()
     summary_src = request.question.strip()
 
-    def make(name: str, params: dict, summary: str) -> list[AgentAction]:
-        spec = tools[name]
+    # Composio: real-time web search (no_auth, executes immediately).
+    _web_cues = ("search the web", "web search", "look up online", "search online", "latest news")
+    if composio.available() and any(k in q for k in _web_cues):
         return [
-            AgentAction(
-                id=str(uuid4()),
-                tool=spec["tool"],
-                action=spec["action"],
-                summary=summary,
-                status="proposed",
-                requires_confirmation=True,
-                params=params,
+            _record(
+                request.org_id,
+                "composio",
+                "composio_search",
+                "COMPOSIO_SEARCH_DUCK_DUCK_GO_SEARCH",
+                {"query": summary_src[:200]},
+                f"Search the web: {summary_src[:80]}",
             )
         ]
-
     if "create_freshdesk_ticket" in tools and any(
         k in q for k in ("ticket", "raise", "bug", "issue", "support", "complaint")
     ):
-        return make(
-            "create_freshdesk_ticket",
-            {"subject": summary_src[:120], "description": answer[:1000]},
-            f"Open a Freshdesk ticket: {summary_src[:80]}",
-        )
+        return [
+            _record(
+                request.org_id,
+                "connector",
+                "freshdesk",
+                "create_ticket",
+                build_payload(
+                    "create_freshdesk_ticket",
+                    {"subject": summary_src[:120], "description": answer[:1000]},
+                ),
+                f"Open a Freshdesk ticket: {summary_src[:80]}",
+            )
+        ]
     if "post_slack_message" in tools and any(
         k in q for k in ("slack", "notify", "announce", "message", "tell the team")
     ):
-        return make(
-            "post_slack_message",
-            {"channel": "general", "text": summary_src[:500]},
-            "Post a Slack message to #general",
-        )
+        return [
+            _record(
+                request.org_id,
+                "connector",
+                "slack",
+                "post_message",
+                build_payload(
+                    "post_slack_message",
+                    {"channel": "general", "text": summary_src[:500]},
+                ),
+                "Post a Slack message to #general",
+            )
+        ]
     if "create_notion_page" in tools and any(
         k in q for k in ("notion", "document", "write up", "note", "page", "doc")
     ):
-        return make(
-            "create_notion_page",
-            {"title": summary_src[:120], "description": answer[:1000]},
-            f"Create a Notion page: {summary_src[:80]}",
-        )
+        return [
+            _record(
+                request.org_id,
+                "connector",
+                "notion",
+                "create_page",
+                build_payload(
+                    "create_notion_page",
+                    {"title": summary_src[:120], "description": answer[:1000]},
+                ),
+                f"Create a Notion page: {summary_src[:80]}",
+            )
+        ]
     return []
 
 
-def _tool_name(tool: str) -> str:
-    mapping = {
-        "freshdesk": "create_freshdesk_ticket",
-        "slack": "post_slack_message",
-        "notion": "create_notion_page",
-    }
-    return mapping.get(tool, tool)
+async def _execute_composio(action_id: str, proposed: dict) -> ConfirmActionResult:
+    from connectors.composio_tool import get_default_composio_client
+
+    client = get_default_composio_client()
+    try:
+        result = await client.execute(
+            proposed["action"], proposed["payload"], proposed["org_id"]
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Composio execute %s failed: %s", proposed["action"], exc)
+        return ConfirmActionResult(
+            id=action_id, status="failed", message="Composio execution error.", error=str(exc)
+        )
+    _PROPOSED.pop(action_id, None)
+    if result.get("successful"):
+        return ConfirmActionResult(
+            id=action_id,
+            status="executed",
+            message=f"Executed {proposed['action']} via Composio.",
+        )
+    return ConfirmActionResult(
+        id=action_id,
+        status="failed",
+        message=f"Composio {proposed['action']} did not succeed.",
+        error=str(result.get("error")),
+    )
