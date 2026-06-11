@@ -1,0 +1,96 @@
+/* ───────────────────────────────────────────────────────────────────────────
+   Tailwind v4 + shadcn/ui theme for OSAI.
+
+   IMPORTANT: We intentionally import Tailwind WITHOUT preflight (the `base`
+   layer) so it does not reset / clobber the existing hand-written design system
+   in globals.css. We only pull in the `theme` (tokens) and `utilities` layers,
+   which is all shadcn/ui components need. Animations come from tw-animate-css.
+
+   shadcn design tokens are mapped 1:1 to OSAI's palette so generated components
+   (Button, Card, Input, Badge, Tabs, …) look native to the product.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+@import "tw-animate-css";
+
+/* ─── shadcn variables, mapped to the OSAI dark/teal palette ────────────────── */
+:root {
+  --radius: 0.5rem;
+
+  --background: #0a0a0a;
+  --foreground: #f0f0f0;
+
+  --card: #111111;
+  --card-foreground: #f0f0f0;
+
+  --popover: #1a1a1a;
+  --popover-foreground: #f0f0f0;
+
+  --primary: #00c896;
+  --primary-foreground: #00150e;
+
+  --secondary: #1a1a1a;
+  --secondary-foreground: #f0f0f0;
+
+  --muted: #1a1a1a;
+  --muted-foreground: #888888;
+
+  --accent: #222222;
+  --accent-foreground: #f0f0f0;
+
+  --destructive: #ff4d4d;
+  --destructive-foreground: #ffffff;
+
+  --success: #00c896;
+  --warning: #f5c842;
+  --info: #4d9fff;
+
+  --border: rgba(255, 255, 255, 0.08);
+  --input: rgba(255, 255, 255, 0.12);
+  --ring: #00c896;
+}
+
+/* ─── Expose tokens as Tailwind utilities (bg-card, text-muted-foreground, …) ── */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}

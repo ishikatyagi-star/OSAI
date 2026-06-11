@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
+import "./theme.css";
 import AuthWrapper from "../components/auth-wrapper";
 import AppShell from "../components/app-shell";
 
