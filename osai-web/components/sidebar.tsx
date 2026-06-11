@@ -5,13 +5,16 @@ import { usePathname } from "next/navigation";
 
 const NAV = [
   { href: "/dashboard", icon: "◈", label: "Dashboard" },
+  { href: "/ask", icon: "✦", label: "Ask OSAI" },
   { href: "/inbox", icon: "⬡", label: "Context Inbox", badge: 8 },
   { href: "/decisions", icon: "◎", label: "Decision Log" },
   { href: "/board", icon: "▦", label: "Team Board", badge: 12 },
   { href: "/search", icon: "⌕", label: "Search" },
+  { href: "/graph", icon: "◍", label: "Org Graph" },
   { href: "/workflows", icon: "⚡", label: "Workflows" },
   { href: "/integrations", icon: "⬡", label: "Integrations" },
   { href: "/sync-runs", icon: "↻", label: "Sync Runs" },
+  { href: "/evals", icon: "▤", label: "Evals" },
   { href: "/settings/data-routing", icon: "⊞", label: "Data Routing" },
 ];
 

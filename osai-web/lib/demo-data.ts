@@ -577,3 +577,165 @@ export const DEMO_BOARD_TASKS: BoardTask[] = [
   { id: "bt-14", title: "Set up Okta SSO prototype in staging environment",       priority: "high",     type: "action-item", assignee: "Dev T.",   source: "Notion",    dueDate: "Jun 20",  column: "pending" },
   { id: "bt-15", title: "Conduct security audit on connector credential storage", priority: "critical", type: "blocker",     assignee: "Yash K.",  source: "Notion",    dueDate: "Jun 9",   column: "overdue" },
 ];
+
+
+// ─── Ask OSAI demo answers (fallback for POST /ask) ──────────────────────────
+
+import type {
+  AskResponse,
+  GraphEntity,
+  GraphEdge,
+  EvalRun,
+} from "./types";
+
+export const DEMO_ASK_SUGGESTIONS = [
+  "What are the Q3 priorities?",
+  "Who owns the VPC security setup and is it done?",
+  "Summarise open SLA escalations in Freshdesk",
+  "Open a Freshdesk ticket for the Redis connection pool issue",
+];
+
+export const DEMO_ASK_ANSWERS: Record<string, AskResponse> = {
+  default: {
+    conversation_id: "conv-demo",
+    answer:
+      "I can answer questions across everything OSAI has indexed — Notion, Slack, Google Drive, Freshdesk and Zoom transcripts — and take actions in your connected tools. Try one of the suggested prompts to see a cited answer, and ask me to *open a ticket* or *post to Slack* to see an action-confirmation card.",
+    citations: [],
+    actions_taken: [],
+    enough_context: true,
+    model_route: "gemini-2.0-flash",
+    latency_ms: 120,
+  },
+  "what are the q3 priorities": {
+    conversation_id: "conv-demo",
+    answer:
+      "Your **Q3 priorities** centre on three themes:\n\n1. **Search & retrieval quality** — improve citation accuracy and reduce hallucination in the RAG pipeline.\n2. **Connector coverage** — ship Linear and Confluence connectors (7 sources total).\n3. **Enterprise readiness** — SSO, audit-log export, and SLA-backed uptime.\n\nAll three are tracked in Notion with owners and weekly check-ins.",
+    citations: [
+      { source_tool: "notion", source_record_title: "Q3 2026 Product Roadmap", url: null, confidence: 0.96 },
+      { source_tool: "slack", source_record_title: "#product-strategy — Jun 4 thread", url: null, confidence: 0.87 },
+    ],
+    actions_taken: [],
+    enough_context: true,
+    model_route: "gemini-2.0-flash",
+    latency_ms: 1840,
+  },
+  "who owns the vpc security setup and is it done": {
+    conversation_id: "conv-demo",
+    answer:
+      "The VPC security setup is owned by **Yash** (yash@company.com). Per the Security Audit workflow, both tracked tasks are **done**:\n\n- Mapping VPC security groups for Ollama services ✅\n- Encrypting all Red-tier databases on local Qdrant ✅\n\nThe work was auto-pushed to Freshdesk ticket #101.",
+    citations: [
+      { source_tool: "notion", source_record_title: "VPC and Ollama Security Setup", url: null, confidence: 0.95 },
+      { source_tool: "freshdesk", source_record_title: "Ticket #101 — VPC Security Encryption", url: "https://freshdesk.com/tickets/101", confidence: 0.91 },
+    ],
+    actions_taken: [],
+    enough_context: true,
+    model_route: "gemini-2.0-flash",
+    latency_ms: 1610,
+  },
+  "summarise open sla escalations in freshdesk": {
+    conversation_id: "conv-demo",
+    answer:
+      "There are **2 open SLA escalations** in Freshdesk:\n\n1. **#204** — Meridian Corp, P1 API auth bug. SLA deadline in ~18 min. Owner: support@company.com\n2. **#198** — Apex Ventures, Google Drive sync failure. Within SLA but approaching the amber threshold.\n\nBoth will trigger a Slack alert in #operations if breached.",
+    citations: [
+      { source_tool: "freshdesk", source_record_title: "Ticket #204 — P1 Auth API Bug (Meridian Corp)", url: null, confidence: 0.99 },
+      { source_tool: "freshdesk", source_record_title: "Ticket #198 — Google Drive Sync Failure (Apex Ventures)", url: null, confidence: 0.94 },
+    ],
+    actions_taken: [],
+    enough_context: true,
+    model_route: "gemini-2.0-flash",
+    latency_ms: 1490,
+  },
+  "open a freshdesk ticket for the redis connection pool issue": {
+    conversation_id: "conv-demo",
+    answer:
+      "I found the issue in Slack #engineering: the **Redis connection pool is exhausting under load** (>500 concurrent tasks), flagged by Dev T. ahead of the June 12 production deploy. I've drafted a Freshdesk ticket — review and approve it below and I'll create it.",
+    citations: [
+      { source_tool: "slack", source_record_title: "#engineering — Redis pool exhaustion", url: null, confidence: 0.92 },
+    ],
+    actions_taken: [
+      {
+        id: "act-redis-1",
+        tool: "freshdesk",
+        action: "create_ticket",
+        summary: "Create a Freshdesk ticket: \"Redis connection pool exhaustion under load\" (priority: high, assignee: Dev T.)",
+        status: "proposed",
+        requires_confirmation: true,
+        params: {
+          subject: "Redis connection pool exhaustion under load",
+          priority: "high",
+          assignee: "dev@company.com",
+          description: "Redis connection pool exhausts under >500 concurrent tasks. Needs tuning before the June 12 production deploy.",
+        },
+        external_url: null,
+        error: null,
+      },
+    ],
+    enough_context: true,
+    model_route: "gemini-2.0-flash",
+    latency_ms: 2210,
+  },
+};
+
+// ─── Org knowledge graph demo (fallback for GET /graph/*) ────────────────────
+
+export const DEMO_GRAPH_ENTITIES: GraphEntity[] = [
+  { id: "ent-yash", type: "person", label: "Yash K.", summary: "Engineering — owns infra & security", source_tool: "notion", attributes: { email: "yash@company.com", department: "Engineering" }, degree: 5 },
+  { id: "ent-ishika", type: "person", label: "Ishika T.", summary: "Product & backend", source_tool: "notion", attributes: { email: "ishika@company.com", department: "Product" }, degree: 4 },
+  { id: "ent-sarah", type: "person", label: "Sarah R.", summary: "Eng lead", source_tool: "slack", attributes: { email: "sarah@company.com", department: "Engineering" }, degree: 3 },
+  { id: "ent-anish", type: "person", label: "Anish M.", summary: "Sales / partnerships", source_tool: "zoom", attributes: { email: "anish@company.com", department: "Sales" }, degree: 2 },
+  { id: "ent-eng", type: "department", label: "Engineering", summary: "Infra, connectors, RAG pipeline", source_tool: null, attributes: {}, degree: 4 },
+  { id: "ent-product", type: "department", label: "Product", summary: "Roadmap & design", source_tool: null, attributes: {}, degree: 3 },
+  { id: "ent-vpc", type: "project", label: "VPC Security Setup", summary: "Harden Ollama + Qdrant networking", source_tool: "notion", attributes: { status: "done" }, degree: 3 },
+  { id: "ent-q3", type: "project", label: "Q3 Roadmap", summary: "Search quality, connectors, enterprise", source_tool: "notion", attributes: { status: "active" }, degree: 4 },
+  { id: "ent-dec-qdrant", type: "decision", label: "Adopt Qdrant as vector store", summary: "Replaces pgvector", source_tool: "notion", attributes: { impact: "critical" }, degree: 2 },
+  { id: "ent-dec-sso", type: "decision", label: "Add SSO before enterprise launch", summary: "Okta integration", source_tool: "notion", attributes: { impact: "critical" }, degree: 2 },
+  { id: "ent-tkt-204", type: "ticket", label: "Freshdesk #204", summary: "P1 API auth bug — Meridian Corp", source_tool: "freshdesk", attributes: { priority: "P1" }, degree: 2 },
+  { id: "ent-tkt-101", type: "ticket", label: "Freshdesk #101", summary: "VPC security encryption", source_tool: "freshdesk", attributes: { priority: "P2" }, degree: 2 },
+];
+
+export const DEMO_GRAPH_EDGES: GraphEdge[] = [
+  { id: "e1", source_id: "ent-yash", target_id: "ent-eng", type: "works_at", label: "works in", confidence: 0.98, source_tool: "notion" },
+  { id: "e2", source_id: "ent-sarah", target_id: "ent-eng", type: "works_at", label: "works in", confidence: 0.97, source_tool: "slack" },
+  { id: "e3", source_id: "ent-ishika", target_id: "ent-product", type: "works_at", label: "works in", confidence: 0.96, source_tool: "notion" },
+  { id: "e4", source_id: "ent-anish", target_id: "ent-product", type: "works_at", label: "collaborates with", confidence: 0.72, source_tool: "zoom" },
+  { id: "e5", source_id: "ent-yash", target_id: "ent-vpc", type: "owns", label: "owns", confidence: 0.95, source_tool: "notion" },
+  { id: "e6", source_id: "ent-vpc", target_id: "ent-tkt-101", type: "references", label: "tracked in", confidence: 0.9, source_tool: "freshdesk" },
+  { id: "e7", source_id: "ent-ishika", target_id: "ent-q3", type: "owns", label: "owns", confidence: 0.88, source_tool: "notion" },
+  { id: "e8", source_id: "ent-q3", target_id: "ent-dec-sso", type: "references", label: "includes", confidence: 0.8, source_tool: "notion" },
+  { id: "e9", source_id: "ent-yash", target_id: "ent-dec-qdrant", type: "decided", label: "decided", confidence: 0.85, source_tool: "notion" },
+  { id: "e10", source_id: "ent-sarah", target_id: "ent-q3", type: "references", label: "contributes to", confidence: 0.7, source_tool: "slack" },
+  { id: "e11", source_id: "ent-anish", target_id: "ent-tkt-204", type: "references", label: "raised", confidence: 0.65, source_tool: "zoom" },
+  { id: "e12", source_id: "ent-vpc", target_id: "ent-dec-qdrant", type: "references", label: "depends on", confidence: 0.6, source_tool: "notion" },
+];
+
+// ─── Evals demo (fallback for GET /evals) ────────────────────────────────────
+
+export const DEMO_EVAL_RUN: EvalRun = {
+  run_id: "eval_2026_06_11",
+  created_at: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+  model_route: "gemini-2.0-flash",
+  pass_rate: 0.83,
+  total: 18,
+  passed: 15,
+  failed: 3,
+  cases: [
+    { id: "own-01", category: "ownership", question: "Who owns the VPC security setup?", expected: "Yash", actual: "Yash K.", passed: true, score: 0.97, latency_ms: 1620, notes: null },
+    { id: "own-02", category: "ownership", question: "Who is responsible for the Q3 roadmap?", expected: "Ishika", actual: "Ishika T.", passed: true, score: 0.95, latency_ms: 1490, notes: null },
+    { id: "triage-01", category: "ticket_triage", question: "Which open ticket is closest to SLA breach?", expected: "#204", actual: "#204 (Meridian Corp)", passed: true, score: 0.99, latency_ms: 1710, notes: null },
+    { id: "triage-02", category: "ticket_triage", question: "What priority should the Redis pool issue be?", expected: "high", actual: "high", passed: true, score: 0.94, latency_ms: 1550, notes: null },
+    { id: "route-01", category: "routing", question: "Where should a new product decision be logged?", expected: "Decision Log (Notion)", actual: "Notion Decision Log", passed: true, score: 0.9, latency_ms: 1400, notes: null },
+    { id: "route-02", category: "routing", question: "Which channel gets SLA-breach alerts?", expected: "#operations", actual: "#ops", passed: false, score: 0.55, latency_ms: 1380, notes: "Returned an alias, not the canonical channel name." },
+    { id: "qa-01", category: "qa", question: "What replaced pgvector?", expected: "Qdrant", actual: "Qdrant", passed: true, score: 0.98, latency_ms: 1320, notes: null },
+    { id: "qa-02", category: "qa", question: "What is the onboarding day-1 task?", expected: "Read onboarding guide + set up Docker", actual: "Set up Docker environment", passed: false, score: 0.62, latency_ms: 1600, notes: "Partial — missed the onboarding-guide step." },
+    { id: "qa-03", category: "qa", question: "Which connector handles meeting transcripts?", expected: "Zoom", actual: "Zoom", passed: true, score: 0.96, latency_ms: 1280, notes: null },
+    { id: "own-03", category: "ownership", question: "Who raised the Meridian Corp escalation?", expected: "Anish", actual: "Unclear from context", passed: false, score: 0.4, latency_ms: 1720, notes: "Low retrieval confidence on the Zoom transcript." },
+    { id: "triage-03", category: "ticket_triage", question: "How many open SLA escalations exist?", expected: "2", actual: "2", passed: true, score: 0.93, latency_ms: 1510, notes: null },
+    { id: "route-03", category: "routing", question: "Where do meeting action items get pushed?", expected: "Notion / Slack per destination", actual: "Notion or Slack", passed: true, score: 0.88, latency_ms: 1450, notes: null },
+    { id: "qa-04", category: "qa", question: "What is the default LLM route?", expected: "gemini-2.0-flash", actual: "Gemini 2.0 Flash", passed: true, score: 0.95, latency_ms: 1300, notes: null },
+    { id: "qa-05", category: "qa", question: "What tier blocks LLM access entirely?", expected: "Red", actual: "Red tier", passed: true, score: 0.97, latency_ms: 1250, notes: null },
+    { id: "own-04", category: "ownership", question: "Who owns the Redis pool fix?", expected: "Dev", actual: "Dev T.", passed: true, score: 0.92, latency_ms: 1480, notes: null },
+    { id: "triage-04", category: "ticket_triage", question: "Is ticket #101 resolved?", expected: "Yes", actual: "Yes — executed", passed: true, score: 0.94, latency_ms: 1390, notes: null },
+    { id: "route-04", category: "routing", question: "Which connector is document-retrieval only?", expected: "Qdrant", actual: "Qdrant", passed: true, score: 0.96, latency_ms: 1270, notes: null },
+    { id: "qa-06", category: "qa", question: "Name the three data-routing tiers.", expected: "Normal, Amber, Red", actual: "Normal, Amber, Red", passed: true, score: 0.99, latency_ms: 1230, notes: null },
+  ],
+};

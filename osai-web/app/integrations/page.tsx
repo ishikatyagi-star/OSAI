@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { getIntegrations, triggerSync } from "@/lib/api";
-import { DEMO_INTEGRATIONS, DEMO_STATS } from "@/lib/demo-data";
+import { useEffect, useMemo, useState } from "react";
+import { getIntegrations, getSyncRuns, triggerSync } from "@/lib/api";
+import { DEMO_INTEGRATIONS, DEMO_STATS, DEMO_SYNC_RUNS } from "@/lib/demo-data";
 import { CONNECTOR_META } from "@/lib/connector-meta";
-import type { Integration } from "@/lib/types";
+import type { Integration, SyncRun } from "@/lib/types";
+import { ConnectorManager } from "@/components/integrations/connector-manager";
 
 function timeAgo(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();
@@ -38,11 +39,16 @@ export default function IntegrationsPage() {
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [syncing, setSyncing] = useState<Record<string, boolean>>({});
   const [syncMsg, setSyncMsg] = useState<Record<string, string>>({});
+  const [syncRuns, setSyncRuns] = useState<SyncRun[]>([]);
+  const [managedKey, setManagedKey] = useState<string | null>(null);
 
   useEffect(() => {
     getIntegrations().then((data) => {
       const hasConnected = data.some((i) => i.auth_state === "connected");
       setIntegrations(hasConnected ? data : DEMO_INTEGRATIONS);
+    });
+    getSyncRuns().then((runs) => {
+      setSyncRuns(runs.length ? runs : DEMO_SYNC_RUNS);
     });
   }, []);
 
@@ -60,7 +66,30 @@ export default function IntegrationsPage() {
     }
   }
 
+  function handleToggleConnection(key: string, connect: boolean) {
+    setIntegrations((prev) =>
+      prev.map((i) =>
+        i.key === key
+          ? {
+              ...i,
+              auth_state: connect ? "connected" : "not_configured",
+              sync_error: null,
+              last_sync: connect ? i.last_sync : null,
+            }
+          : i
+      )
+    );
+  }
+
   const display = integrations.length ? integrations : DEMO_INTEGRATIONS;
+  const managed = display.find((i) => i.key === managedKey) ?? null;
+  const managedRuns = useMemo(
+    () =>
+      managedKey
+        ? syncRuns.filter((r) => r.connector_key === managedKey)
+        : [],
+    [syncRuns, managedKey]
+  );
 
   return (
     <div>
@@ -190,10 +219,18 @@ export default function IntegrationsPage() {
                       border: `1px solid ${meta.color}30`,
                       color: meta.color,
                     }}
+                    onClick={() => setManagedKey(item.key)}
                   >
                     Connect
                   </button>
                 )}
+                <button
+                  className="btn"
+                  style={{ padding: "8px 16px", fontSize: 12 }}
+                  onClick={() => setManagedKey(item.key)}
+                >
+                  Manage
+                </button>
                 {syncMsg[item.key] && (
                   <span className="success-text" style={{ fontSize: 12 }}>
                     ✓ {syncMsg[item.key]}
@@ -233,6 +270,16 @@ export default function IntegrationsPage() {
           </div>
         ))}
       </div>
+
+      <ConnectorManager
+        integration={managed}
+        open={managedKey !== null}
+        onOpenChange={(o) => setManagedKey(o ? managedKey : null)}
+        recentRuns={managedRuns}
+        syncing={managedKey ? !!syncing[managedKey] : false}
+        onSync={handleSync}
+        onToggleConnection={handleToggleConnection}
+      />
     </div>
   );
 }
