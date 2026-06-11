@@ -2,7 +2,10 @@ from api.schemas.workflow_run import WorkflowRunCreate
 from workflows.runner import run_action_item_workflow
 
 
-async def test_workflow_returns_valid_action_item_shape() -> None:
+async def test_workflow_returns_valid_action_item_shape(monkeypatch) -> None:
+    # Force the deterministic heuristic path so the test never depends on a live
+    # LLM (a configured-but-rate-limited Gemini key would otherwise fail the run).
+    monkeypatch.setattr("workflows.runner.settings.gemini_api_key", None)
     response = await run_action_item_workflow(
         "workflow-test",
         WorkflowRunCreate(

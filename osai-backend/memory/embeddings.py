@@ -51,15 +51,18 @@ class HashEmbeddingProvider(EmbeddingProvider):
 
 
 class GeminiEmbeddingProvider(EmbeddingProvider):
-    """Production embeddings via Google Gemini text-embedding-004."""
+    """Production embeddings via Google Gemini (gemini-embedding-001)."""
 
-    dimension = 768
-
-    def __init__(self, api_key: str, model: str = "text-embedding-004") -> None:
+    def __init__(
+        self, api_key: str, model: str = "gemini-embedding-001", dimension: int = 768
+    ) -> None:
         from google import genai  # type: ignore[import-untyped]
 
         self._client = genai.Client(api_key=api_key)
         self._model = model
+        # gemini-embedding-001 returns 3072 dims by default; request the
+        # collection dimension explicitly so vectors stay consistent.
+        self.dimension = dimension
 
     async def embed_texts(self, texts: list[str]) -> list[list[float]]:
         # Gemini embed_content is synchronous; run in batches of 100 (API limit).
@@ -77,11 +80,18 @@ class GeminiEmbeddingProvider(EmbeddingProvider):
                 lambda b=batch: self._client.models.embed_content(
                     model=self._model,
                     contents=b,
-                    config=genai_types.EmbedContentConfig(task_type="RETRIEVAL_DOCUMENT"),
+                    config=genai_types.EmbedContentConfig(
+                        task_type="RETRIEVAL_DOCUMENT",
+                        output_dimensionality=self.dimension,
+                    ),
                 ),
             )
             for emb in response.embeddings:
-                results.append(list(emb.values))
+                # Truncated (sub-3072) MRL embeddings are not unit-normalized;
+                # normalize so cosine similarity in Qdrant is meaningful.
+                values = list(emb.values)
+                norm = math.sqrt(sum(v * v for v in values)) or 1.0
+                results.append([v / norm for v in values])
         return results
 
 
@@ -95,6 +105,7 @@ def _build_default_provider() -> EmbeddingProvider:
         return GeminiEmbeddingProvider(
             api_key=settings.gemini_api_key,
             model=settings.gemini_embedding_model,
+            dimension=settings.embedding_dimension,
         )
     return HashEmbeddingProvider(dimension=settings.embedding_dimension)
 

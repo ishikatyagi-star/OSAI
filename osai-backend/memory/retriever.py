@@ -24,13 +24,7 @@ async def retrieve_answer(request: SearchRequest) -> SearchResponse:
 
     # 2. Search Qdrant with org_id filter
     try:
-        hits = await qdrant.client.search(
-            collection_name=qdrant.collection_name,
-            query_vector=query_vector,
-            limit=8,
-            query_filter={"must": [{"key": "org_id", "match": {"value": request.org_id}}]},
-            with_payload=True,
-        )
+        hits = await qdrant.search(query_vector, request.org_id, limit=8)
     except Exception:
         return SearchResponse(
             answer="Vector store unavailable — run a connector sync first.",

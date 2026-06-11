@@ -67,7 +67,7 @@ def test_get_workflow_context_db_retrieval() -> None:
         async def mock_search(*args, **kwargs):
             return [mock_hit]
 
-        mock_qdrant.client.search.side_effect = mock_search
+        mock_qdrant.search.side_effect = mock_search
         mock_qdrant_store.return_value = mock_qdrant
 
         # Mock embed_texts method
