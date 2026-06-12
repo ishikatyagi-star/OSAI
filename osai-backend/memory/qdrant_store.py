@@ -24,15 +24,24 @@ class QdrantStore:
     async def ensure_collection(self) -> None:
         collections = await self.client.get_collections()
         names = {collection.name for collection in collections.collections}
-        if self.collection_name in names:
-            return
-        await self.client.create_collection(
-            collection_name=self.collection_name,
-            vectors_config=models.VectorParams(
-                size=self.embedding_provider.dimension,
-                distance=models.Distance.COSINE,
-            ),
-        )
+        if self.collection_name not in names:
+            await self.client.create_collection(
+                collection_name=self.collection_name,
+                vectors_config=models.VectorParams(
+                    size=self.embedding_provider.dimension,
+                    distance=models.Distance.COSINE,
+                ),
+            )
+        # Qdrant Cloud rejects filtering on an unindexed field; every search is
+        # org-scoped, so ensure a keyword index on org_id. Idempotent.
+        try:
+            await self.client.create_payload_index(
+                collection_name=self.collection_name,
+                field_name="org_id",
+                field_schema=models.PayloadSchemaType.KEYWORD,
+            )
+        except Exception:
+            pass  # index already exists
 
     async def search(
         self, query_vector: list[float], org_id: str, limit: int = 8
