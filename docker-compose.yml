@@ -7,7 +7,7 @@ services:
       - ./osai-backend:/app
       - /app/.venv
     env_file:
-      - ./osai-backend/.env.example
+      - ./osai-backend/.env
     environment:
       - OSAI_DATABASE_URL=postgresql+psycopg://osai:osai@postgres:5432/osai
       - OSAI_REDIS_URL=redis://redis:6379/0
@@ -26,7 +26,7 @@ services:
       - ./osai-backend:/app
       - /app/.venv
     env_file:
-      - ./osai-backend/.env.example
+      - ./osai-backend/.env
     environment:
       - OSAI_DATABASE_URL=postgresql+psycopg://osai:osai@postgres:5432/osai
       - OSAI_REDIS_URL=redis://redis:6379/0
@@ -43,6 +43,8 @@ services:
       POSTGRES_DB: osai
     ports:
       - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
   redis:
     image: redis:7-alpine
     ports:
@@ -51,3 +53,9 @@ services:
     image: qdrant/qdrant:v1.14.1
     ports:
       - "6333:6333"
+    volumes:
+      - qdrantdata:/qdrant/storage
+
+volumes:
+  pgdata:
+  qdrantdata:

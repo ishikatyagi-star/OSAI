@@ -73,6 +73,18 @@ uv run pytest          # live-key tests skip automatically when keys are unset
 
 CI (`.github/workflows/ci.yml`) runs lint + tests on every backend PR against real Postgres/Qdrant/Redis.
 
+## Deploy
+
+The backend is a Docker image (`osai-backend/Dockerfile`) that migrates on start and serves on `:8000`. The full stack (API + worker + Postgres + Redis + Qdrant) runs via Compose with **persistent volumes**:
+
+```bash
+cp osai-backend/.env.example osai-backend/.env   # set keys (OSAI_LLM_API_KEY etc.)
+docker compose up -d --build
+docker compose exec api uv run python -m db.seed   # first run: seed demo data
+```
+
+**Hosted deployment:** push the `osai-backend` image to your platform and provide managed Postgres + Redis + Qdrant (e.g. Render/Railway/Fly + Qdrant Cloud). Required env: `OSAI_DATABASE_URL`, `OSAI_REDIS_URL`, `OSAI_QDRANT_URL`, `OSAI_GEMINI_API_KEY` (embeddings), `OSAI_LLM_API_KEY` (+ `OSAI_LLM_BASE_URL`/`OSAI_LLM_MODEL`), `OSAI_COMPOSIO_API_KEY`, `OSAI_ALLOWED_ORIGINS` (your Vercel frontend URL). Frontend (`osai-web`) deploys to Vercel; point it at the backend via `NEXT_PUBLIC_API_BASE_URL`.
+
 ## Contributing (two-lane workflow)
 
 Backend lives in `osai-backend/`, frontend in `osai-web/` — work in your lane, branch per task (`be/...` / `fe/...`), open a PR. See [`OSAI_PARALLEL_PLAN.md`](OSAI_PARALLEL_PLAN.md).
