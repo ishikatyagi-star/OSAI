@@ -51,10 +51,10 @@ export default function SyncRunsPage() {
       <div style={{ display: "flex", gap: 16, marginBottom: 32, flexWrap: "wrap" }}>
         {[
           { label: "Total runs", value: display.length, color: undefined },
-          { label: "Succeeded", value: succeeded, color: "#4ade80" },
-          { label: "Failed", value: failed, color: failed > 0 ? "#f87171" : undefined },
-          { label: "Docs indexed (session)", value: totalDocs.toLocaleString(), color: "#60a5fa" },
-          { label: "Total in knowledge base", value: DEMO_STATS.documentsIndexed.toLocaleString(), color: "#c084fc" },
+          { label: "Succeeded", value: succeeded, color: "#22c55e" },
+          { label: "Failed", value: failed, color: failed > 0 ? "#ff5577" : undefined },
+          { label: "Docs indexed (session)", value: totalDocs.toLocaleString(), color: "#0099ff" },
+          { label: "Total in knowledge base", value: DEMO_STATS.documentsIndexed.toLocaleString(), color: "#b3a0ff" },
         ].map((s) => (
           <div key={s.label} className="mini-stat">
             <span className="mini-stat-value" style={{ color: s.color }}>{s.value}</span>
@@ -77,7 +77,7 @@ export default function SyncRunsPage() {
                 style={{ borderColor: `${meta.color}25`, background: `${meta.color}08` }}
               >
                 <span style={{ color: meta.color }}>{meta.icon}</span>
-                <span style={{ color: "#e2e8f0", fontWeight: 600 }}>{meta.label}</span>
+                <span style={{ color: "var(--text-primary)", fontWeight: 600 }}>{meta.label}</span>
                 <span className="badge badge-grey" style={{ fontSize: 10 }}>
                   {count.toLocaleString()} docs
                 </span>
@@ -98,7 +98,7 @@ export default function SyncRunsPage() {
           const meta = CONNECTOR_META[run.connector_key] ?? {
             label: run.connector_key,
             icon: "⚙",
-            color: "#94a3b8",
+            color: "var(--text-secondary)",
           };
           const isLast = i === display.length - 1;
 
@@ -114,11 +114,11 @@ export default function SyncRunsPage() {
                     width: 10,
                     height: 10,
                     borderRadius: "50%",
-                    background: run.status === "succeeded" ? "#4ade80" : run.status === "failed" ? "#f87171" : "#94a3b8",
+                    background: run.status === "succeeded" ? "#22c55e" : run.status === "failed" ? "#ff5577" : "var(--text-secondary)",
                     border: "2px solid rgba(255,255,255,0.1)",
                     marginTop: 18,
                     flexShrink: 0,
-                    boxShadow: run.status === "succeeded" ? "0 0 6px #4ade8060" : "none",
+                    boxShadow: run.status === "succeeded" ? "0 0 6px #22c55e60" : "none",
                   }}
                 />
                 {!isLast && (
@@ -138,11 +138,11 @@ export default function SyncRunsPage() {
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
                   <span style={{ fontSize: 16, color: meta.color }}>{meta.icon}</span>
-                  <span style={{ fontWeight: 600, fontSize: 13, color: "#e2e8f0" }}>{meta.label}</span>
+                  <span style={{ fontWeight: 600, fontSize: 13, color: "var(--text-primary)" }}>{meta.label}</span>
                   <span className={`badge ${STATUS_BADGE[run.status] ?? "badge-grey"}`}>
                     {run.status}
                   </span>
-                  <span style={{ marginLeft: "auto", fontSize: 11, color: "#64748b" }}>
+                  <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--text-muted)" }}>
                     {timeAgo(run.started_at)}
                   </span>
                 </div>
@@ -152,7 +152,7 @@ export default function SyncRunsPage() {
                     <span className="meta">📥 {run.documents_seen} seen</span>
                   </div>
                   <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                    <span className="meta" style={{ color: run.documents_indexed > 0 ? "#4ade80" : undefined }}>
+                    <span className="meta" style={{ color: run.documents_indexed > 0 ? "#22c55e" : undefined }}>
                       ✓ {run.documents_indexed} indexed
                     </span>
                   </div>
@@ -163,12 +163,12 @@ export default function SyncRunsPage() {
                           style={{
                             width: `${(run.documents_indexed / run.documents_seen) * 100}%`,
                             height: "100%",
-                            background: "#4ade80",
+                            background: "#22c55e",
                             borderRadius: 9999,
                           }}
                         />
                       </div>
-                      <span style={{ fontSize: 10, color: "#4ade80", fontWeight: 600 }}>
+                      <span style={{ fontSize: 10, color: "#22c55e", fontWeight: 600 }}>
                         {Math.round((run.documents_indexed / run.documents_seen) * 100)}%
                       </span>
                     </div>

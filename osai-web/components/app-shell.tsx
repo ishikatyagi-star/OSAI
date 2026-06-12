@@ -31,11 +31,12 @@ export default function AppShell({ children }: { children: ReactNode }) {
             <span
               style={{
                 fontSize: 10,
-                padding: "2px 6px",
-                background: "rgba(0,200,150,0.1)",
-                color: "var(--teal)",
-                borderRadius: 4,
+                padding: "2px 8px",
+                background: "var(--green-dim)",
+                color: "var(--green)",
+                borderRadius: 100,
                 fontWeight: 700,
+                letterSpacing: 0.3,
               }}
             >
               LIVE

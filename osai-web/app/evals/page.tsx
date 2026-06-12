@@ -54,7 +54,7 @@ function StatCard({
 
 function PassRateBar({ rate }: { rate: number }) {
   const pct = Math.round(rate * 100);
-  const color = pct >= 80 ? "#00c896" : pct >= 60 ? "#f5c842" : "#ff4d4d";
+  const color = pct >= 80 ? "#22c55e" : pct >= 60 ? "#f5c842" : "#ff5577";
   return (
     <div className="flex items-center gap-2">
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">

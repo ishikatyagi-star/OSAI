@@ -8,12 +8,12 @@ export type EntityTypeMeta = {
 };
 
 export const ENTITY_TYPE_META: Record<GraphEntityType, EntityTypeMeta> = {
-  person: { label: "Person", color: "#00c896", icon: "●" },
-  project: { label: "Project", color: "#4d9fff", icon: "◆" },
-  decision: { label: "Decision", color: "#a855f7", icon: "◇" },
-  source: { label: "Source", color: "#888888", icon: "▣" },
+  person: { label: "Person", color: "#0099ff", icon: "●" },
+  project: { label: "Project", color: "#6a4cf5", icon: "◆" },
+  decision: { label: "Decision", color: "#d44df0", icon: "◇" },
+  source: { label: "Source", color: "#999999", icon: "▣" },
   department: { label: "Department", color: "#f5c842", icon: "▰" },
-  ticket: { label: "Ticket", color: "#ff8c42", icon: "▲" },
+  ticket: { label: "Ticket", color: "#ff7a3d", icon: "▲" },
 };
 
 export const ENTITY_TYPE_ORDER: GraphEntityType[] = [

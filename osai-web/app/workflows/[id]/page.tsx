@@ -9,9 +9,9 @@ import { CONNECTOR_META } from "@/lib/connector-meta";
 import type { ActionItem, WorkflowRun } from "@/lib/types";
 
 const TIER_COLORS: Record<string, string> = {
-  normal: "#4ade80",
-  amber: "#fb923c",
-  red: "#f87171",
+  normal: "#22c55e",
+  amber: "#f5c842",
+  red: "#ff5577",
 };
 
 function statusClass(status: string) {
@@ -80,7 +80,7 @@ export default function WorkflowDetailPage() {
     return (
       <div>
         <p className="error-text">Workflow run not found.</p>
-        <Link href="/workflows" style={{ fontSize: 13, color: "#60a5fa" }}>← Back to workflows</Link>
+        <Link href="/workflows" style={{ fontSize: 13, color: "var(--accent)" }}>← Back to workflows</Link>
       </div>
     );
   }
@@ -93,8 +93,8 @@ export default function WorkflowDetailPage() {
   return (
     <div>
       {/* Breadcrumb */}
-      <p style={{ fontSize: 12, color: "#64748b", marginBottom: 20 }}>
-        <Link href="/workflows" style={{ color: "#60a5fa" }}>Workflows</Link>
+      <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 20 }}>
+        <Link href="/workflows" style={{ color: "var(--accent)" }}>Workflows</Link>
         {" / "}
         <span className="run-link">{run.id}</span>
       </p>
@@ -125,10 +125,10 @@ export default function WorkflowDetailPage() {
             { label: "Action Items", value: items.length.toString() },
           ].map((f) => (
             <div key={f.label}>
-              <p style={{ fontSize: 10, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>
+              <p style={{ fontSize: 10, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>
                 {f.label}
               </p>
-              <p style={{ fontSize: 13, color: f.color ?? "#e2e8f0", fontWeight: 600, margin: 0 }}>{f.value}</p>
+              <p style={{ fontSize: 13, color: f.color ?? "var(--text-primary)", fontWeight: 600, margin: 0 }}>{f.value}</p>
             </div>
           ))}
         </div>
@@ -155,7 +155,7 @@ export default function WorkflowDetailPage() {
                 )}
                 <div style={{ flex: 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                    <strong style={{ fontSize: 14, color: "#e2e8f0" }}>{item.title}</strong>
+                    <strong style={{ fontSize: 14, color: "var(--text-primary)" }}>{item.title}</strong>
                     <span className={statusClass(item.status)}>{item.status}</span>
                   </div>
                   <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>

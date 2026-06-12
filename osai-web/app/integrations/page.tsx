@@ -19,7 +19,7 @@ function timeAgo(iso: string) {
 
 function StatusDot({ state }: { state: string }) {
   const color =
-    state === "connected" ? "#4ade80" : state === "error" ? "#f87171" : "#64748b";
+    state === "connected" ? "#22c55e" : state === "error" ? "#ff5577" : "var(--text-muted)";
   return (
     <span
       style={{
@@ -130,7 +130,7 @@ export default function IntegrationsPage() {
           const meta = CONNECTOR_META[item.key] ?? {
             label: item.display_name,
             icon: "⚙",
-            color: "#94a3b8",
+            color: "var(--text-secondary)",
             description: "",
           };
           const docCount = DEMO_STATS.docsPerConnector[item.key] ?? 0;
@@ -243,8 +243,8 @@ export default function IntegrationsPage() {
 
         {/* Coming-soon connectors */}
         {[
-          { key: "linear", label: "Linear", icon: "📐", color: "#818cf8" },
-          { key: "confluence", label: "Confluence", icon: "📚", color: "#38bdf8" },
+          { key: "linear", label: "Linear", icon: "📐", color: "#6a4cf5" },
+          { key: "confluence", label: "Confluence", icon: "📚", color: "#0099ff" },
         ].map((c) => (
           <div key={c.key} className="card connector-card" style={{ opacity: 0.5 }}>
             <div style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 16 }}>

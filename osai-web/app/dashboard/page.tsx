@@ -57,6 +57,47 @@ export default function DashboardPage() {
         </Link>
       </div>
 
+      {/* Gradient spotlight banner — framer signature atmosphere tile */}
+      <div
+        className="spotlight spotlight-violet"
+        style={{
+          marginBottom: 24,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 24,
+          flexWrap: "wrap",
+        }}
+      >
+        <div style={{ maxWidth: 560 }}>
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              letterSpacing: 1.2,
+              textTransform: "uppercase",
+              color: "rgba(255,255,255,0.7)",
+              marginBottom: 10,
+            }}
+          >
+            Company pulse
+          </div>
+          <h2 style={{ fontSize: 30, lineHeight: 1.05, letterSpacing: "-1.4px", margin: 0 }}>
+            Your company context, working for you.
+          </h2>
+          <p style={{ marginTop: 10, fontSize: 15, maxWidth: 480 }}>
+            {DEMO_STATS.documentsIndexed.toLocaleString()} sources indexed across every connector — ask anything, surface blockers, and keep decisions moving.
+          </p>
+        </div>
+        <Link
+          href="/ask"
+          className="btn btn-primary"
+          style={{ flexShrink: 0 }}
+        >
+          Ask OSAI →
+        </Link>
+      </div>
+
       {/* Stat cards */}
       <div className="stats-grid">
         {[
@@ -84,7 +125,7 @@ export default function DashboardPage() {
           {active.length === 0 && (
             <div className="card" style={{ textAlign: "center", padding: "32px 20px" }}>
               <p style={{ fontSize: 20, marginBottom: 8 }}>✓</p>
-              <p style={{ color: "var(--teal)", fontWeight: 600, fontSize: 13 }}>All clear!</p>
+              <p style={{ color: "var(--green)", fontWeight: 600, fontSize: 13 }}>All clear!</p>
               <p className="meta" style={{ marginTop: 4 }}>No blockers or follow-ups right now.</p>
             </div>
           )}
@@ -175,8 +216,8 @@ export default function DashboardPage() {
                       width: 7,
                       height: 7,
                       borderRadius: "50%",
-                      background: "var(--teal)",
-                      boxShadow: "0 0 6px var(--teal)",
+                      background: "var(--green)",
+                      boxShadow: "0 0 6px var(--green)",
                       display: "inline-block",
                     }}
                   />

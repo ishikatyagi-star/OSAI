@@ -17,9 +17,9 @@ function timeAgo(iso: string) {
 }
 
 const TIER_COLORS: Record<string, string> = {
-  normal: "#4ade80",
-  amber: "#fb923c",
-  red: "#f87171",
+  normal: "#22c55e",
+  amber: "#f5c842",
+  red: "#ff5577",
 };
 
 const STATUS_BADGE: Record<string, string> = {
@@ -60,7 +60,7 @@ function ActionItemRow({
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
           <span style={{ fontSize: 13 }}>{DESTINATION_ICONS[item.destination] ?? "⚙"}</span>
-          <span style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0" }}>{item.title}</span>
+          <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>{item.title}</span>
         </div>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           {item.owner && (
@@ -98,7 +98,7 @@ function ActionItemRow({
             href={item.external_url}
             target="_blank"
             rel="noopener noreferrer"
-            style={{ fontSize: 11, color: "#60a5fa" }}
+            style={{ fontSize: 11, color: "#0099ff" }}
           >
             View →
           </a>
@@ -173,7 +173,7 @@ function RunCard({
           </div>
         </div>
 
-        <span style={{ color: "#64748b", fontSize: 12, flexShrink: 0 }}>
+        <span style={{ color: "var(--text-muted)", fontSize: 12, flexShrink: 0 }}>
           {expanded ? "▲" : "▼"}
         </span>
       </button>
@@ -314,14 +314,14 @@ export default function WorkflowsPage() {
           {
             label: "Completed",
             value: runs.filter((r) => r.status === "completed" || r.status === "succeeded").length,
-            color: "#4ade80",
+            color: "#22c55e",
           },
           {
             label: "Needs review",
             value: runs.filter((r) => r.status === "needs_review").length,
             color: "#facc15",
           },
-          { label: "Action items pending", value: pendingTotal, color: "#fb923c" },
+          { label: "Action items pending", value: pendingTotal, color: "#f5c842" },
         ].map((s) => (
           <div key={s.label} className="mini-stat">
             <span className="mini-stat-value" style={{ color: s.color }}>{s.value}</span>

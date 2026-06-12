@@ -27,7 +27,7 @@ function getDemoAnswer(query: string): SearchResponse {
 
 function ConfidenceBar({ value }: { value: number }) {
   const pct = Math.round(value * 100);
-  const color = pct > 90 ? "#4ade80" : pct > 75 ? "#60a5fa" : "#facc15";
+  const color = pct > 90 ? "#22c55e" : pct > 75 ? "#0099ff" : "#f5c842";
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
       <div style={{ flex: 1, height: 3, background: "rgba(255,255,255,0.08)", borderRadius: 9999 }}>
@@ -102,7 +102,7 @@ export default function SearchPage() {
         {/* Suggested searches */}
         {!result && (
           <div style={{ marginBottom: 32 }}>
-            <p style={{ fontSize: 11, color: "#64748b", marginBottom: 10, fontWeight: 600, letterSpacing: "0.5px", textTransform: "uppercase" }}>
+            <p style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 10, fontWeight: 600, letterSpacing: "0.5px", textTransform: "uppercase" }}>
               Suggested searches
             </p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -129,7 +129,7 @@ export default function SearchPage() {
               <span /><span /><span />
             </div>
           </div>
-          <p style={{ color: "#94a3b8", fontSize: 14 }}>Searching across your connected knowledge base…</p>
+          <p style={{ color: "var(--text-secondary)", fontSize: 14 }}>Searching across your connected knowledge base…</p>
         </div>
       )}
 
@@ -140,8 +140,8 @@ export default function SearchPage() {
       {result && !loading && (
         <div className="search-result">
           {/* Query echo */}
-          <p style={{ fontSize: 12, color: "#64748b", marginBottom: 16 }}>
-            Results for: <span style={{ color: "#94a3b8", fontStyle: "italic" }}>&ldquo;{lastQuery}&rdquo;</span>
+          <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 16 }}>
+            Results for: <span style={{ color: "var(--text-secondary)", fontStyle: "italic" }}>&ldquo;{lastQuery}&rdquo;</span>
           </p>
 
           {/* Answer card */}
@@ -160,12 +160,12 @@ export default function SearchPage() {
                 whiteSpace: "pre-wrap",
                 lineHeight: 1.7,
                 fontSize: 14,
-                color: "#e2e8f0",
+                color: "var(--text-primary)",
               }}
               dangerouslySetInnerHTML={{
                 __html: result.answer
                   .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-                  .replace(/✅/g, "<span style='color:#4ade80'>✅</span>"),
+                  .replace(/✅/g, "<span style='color:#22c55e'>✅</span>"),
               }}
             />
             {!result.enough_context && (
@@ -178,7 +178,7 @@ export default function SearchPage() {
           {/* Citations */}
           {result.citations.length > 0 && (
             <div>
-              <h2 style={{ fontSize: 14, marginBottom: 12, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+              <h2 style={{ fontSize: 14, marginBottom: 12, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
                 Sources ({result.citations.length})
               </h2>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -190,7 +190,7 @@ export default function SearchPage() {
                         {meta && (
                           <span style={{ fontSize: 14, color: meta.color }}>{meta.icon}</span>
                         )}
-                        <span style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0", flex: 1 }}>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", flex: 1 }}>
                           {c.source_record_title}
                         </span>
                         <span className="badge badge-grey" style={{ fontSize: 10 }}>
@@ -203,7 +203,7 @@ export default function SearchPage() {
                           href={c.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          style={{ display: "block", marginTop: 8, fontSize: 11, color: "#60a5fa" }}
+                          style={{ display: "block", marginTop: 8, fontSize: 11, color: "#0099ff" }}
                         >
                           {c.url}
                         </a>

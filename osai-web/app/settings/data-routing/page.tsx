@@ -11,7 +11,7 @@ type Tier = (typeof TIERS)[number];
 
 const TIER_META: Record<Tier, { color: string; icon: string; title: string; description: string; badge: string }> = {
   normal: {
-    color: "#4ade80",
+    color: "#22c55e",
     icon: "🟢",
     title: "Normal",
     description:
@@ -19,7 +19,7 @@ const TIER_META: Record<Tier, { color: string; icon: string; title: string; desc
     badge: "badge-green",
   },
   amber: {
-    color: "#fb923c",
+    color: "#f5c842",
     icon: "🟡",
     title: "Amber",
     description:
@@ -27,7 +27,7 @@ const TIER_META: Record<Tier, { color: string; icon: string; title: string; desc
     badge: "badge-amber",
   },
   red: {
-    color: "#f87171",
+    color: "#ff5577",
     icon: "🔴",
     title: "Red",
     description:
@@ -143,7 +143,7 @@ export default function DataRoutingPage() {
                 <div style={{ display: "flex", gap: 32, flexWrap: "wrap", alignItems: "flex-start" }}>
                   {/* Connector toggles */}
                   <div style={{ flex: 1 }}>
-                    <p style={{ fontWeight: 600, fontSize: 12, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 10 }}>
+                    <p style={{ fontWeight: 600, fontSize: 12, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 10 }}>
                       Allowed Connectors
                     </p>
                     <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -165,7 +165,7 @@ export default function DataRoutingPage() {
                               transition: "all 0.2s",
                               fontSize: 12,
                               fontWeight: 500,
-                              color: checked ? (cm?.color ?? meta.color) : "#64748b",
+                              color: checked ? (cm?.color ?? meta.color) : "var(--text-muted)",
                             }}
                           >
                             <input
@@ -176,7 +176,7 @@ export default function DataRoutingPage() {
                             />
                             <span>{cm?.icon ?? "⚙"}</span>
                             <span>{cm?.label ?? key}</span>
-                            {checked && <span style={{ color: "#4ade80", fontSize: 10 }}>✓</span>}
+                            {checked && <span style={{ color: "#22c55e", fontSize: 10 }}>✓</span>}
                           </label>
                         );
                       })}
@@ -185,7 +185,7 @@ export default function DataRoutingPage() {
 
                   {/* LLM toggle */}
                   <div>
-                    <p style={{ fontWeight: 600, fontSize: 12, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 10 }}>
+                    <p style={{ fontWeight: 600, fontSize: 12, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 10 }}>
                       LLM Processing
                     </p>
                     <label
@@ -208,7 +208,7 @@ export default function DataRoutingPage() {
                           width: 32,
                           height: 18,
                           borderRadius: 9999,
-                          background: config.llm_allowed ? "#60a5fa" : "rgba(255,255,255,0.1)",
+                          background: config.llm_allowed ? "#0099ff" : "rgba(255,255,255,0.1)",
                           position: "relative",
                           transition: "background 0.2s",
                           flexShrink: 0,
@@ -227,7 +227,7 @@ export default function DataRoutingPage() {
                           }}
                         />
                       </div>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: config.llm_allowed ? "#93c5fd" : "#64748b" }}>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: config.llm_allowed ? "#66c2ff" : "var(--text-muted)" }}>
                         {config.llm_allowed ? "Allowed" : "Disabled"}
                       </span>
                     </label>

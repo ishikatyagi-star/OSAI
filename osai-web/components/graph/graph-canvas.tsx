@@ -79,7 +79,7 @@ export function GraphCanvas({
                   y1={a.y}
                   x2={b.x}
                   y2={b.y}
-                  stroke={active ? "#00c896" : "rgba(255,255,255,0.16)"}
+                  stroke={active ? "#0099ff" : "rgba(255,255,255,0.16)"}
                   strokeWidth={active ? 1.6 : 1}
                 />
                 {active && (

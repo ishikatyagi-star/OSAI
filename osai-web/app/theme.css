@@ -15,41 +15,42 @@
 @import "tailwindcss/utilities.css" layer(utilities);
 @import "tw-animate-css";
 
-/* ─── shadcn variables, mapped to the OSAI dark/teal palette ────────────────── */
+/* ─── shadcn variables, mapped to the FRAMER dark palette ───────────────────── */
 :root {
-  --radius: 0.5rem;
+  --radius: 0.625rem;
 
-  --background: #0a0a0a;
-  --foreground: #f0f0f0;
+  --background: #090909;
+  --foreground: #ffffff;
 
-  --card: #111111;
-  --card-foreground: #f0f0f0;
+  --card: #141414;
+  --card-foreground: #ffffff;
 
-  --popover: #1a1a1a;
-  --popover-foreground: #f0f0f0;
+  --popover: #1c1c1c;
+  --popover-foreground: #ffffff;
 
-  --primary: #00c896;
-  --primary-foreground: #00150e;
+  /* Framer primary CTA is a WHITE pill on dark (blue is never a fill) */
+  --primary: #ffffff;
+  --primary-foreground: #000000;
 
-  --secondary: #1a1a1a;
-  --secondary-foreground: #f0f0f0;
+  --secondary: #1c1c1c;
+  --secondary-foreground: #ffffff;
 
-  --muted: #1a1a1a;
-  --muted-foreground: #888888;
+  --muted: #1c1c1c;
+  --muted-foreground: #999999;
 
-  --accent: #222222;
-  --accent-foreground: #f0f0f0;
+  --accent: #1c1c1c;
+  --accent-foreground: #ffffff;
 
-  --destructive: #ff4d4d;
+  --destructive: #ff5577;
   --destructive-foreground: #ffffff;
 
-  --success: #00c896;
+  --success: #22c55e;
   --warning: #f5c842;
-  --info: #4d9fff;
+  --info: #0099ff;
 
-  --border: rgba(255, 255, 255, 0.08);
-  --input: rgba(255, 255, 255, 0.12);
-  --ring: #00c896;
+  --border: #262626;
+  --input: #262626;
+  --ring: #0099ff;
 }
 
 /* ─── Expose tokens as Tailwind utilities (bg-card, text-muted-foreground, …) ── */

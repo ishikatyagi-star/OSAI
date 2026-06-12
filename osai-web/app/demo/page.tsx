@@ -26,7 +26,7 @@ export default function DemoPage() {
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        background: "#0a0a0a",
+        background: "#090909",
         gap: 20,
       }}
     >
@@ -35,16 +35,17 @@ export default function DemoPage() {
         style={{
           width: 52,
           height: 52,
-          borderRadius: 14,
-          background: "linear-gradient(135deg, #00c896 0%, #00a37a 100%)",
+          borderRadius: 16,
+          background:
+            "radial-gradient(120% 120% at 25% 15%, #8b6bff 0%, #6a4cf5 45%, #d44df0 100%)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           fontSize: 24,
           fontWeight: 800,
-          color: "#0a0a0a",
-          fontFamily: "monospace",
-          boxShadow: "0 0 40px rgba(0,200,150,0.25)",
+          color: "#fff",
+          letterSpacing: -1,
+          boxShadow: "0 0 40px rgba(106,76,245,0.4)",
         }}
       >
         O
@@ -54,8 +55,8 @@ export default function DemoPage() {
         <p
           style={{
             fontFamily: "monospace",
-            fontSize: 13,
-            color: "#00c896",
+            fontSize: 12,
+            color: "#999999",
             fontWeight: 600,
             letterSpacing: 2,
             textTransform: "uppercase",
@@ -64,7 +65,7 @@ export default function DemoPage() {
         >
           Entering Demo
         </p>
-        <p style={{ fontSize: 12, color: "#475569" }}>
+        <p style={{ fontSize: 13, color: "#6a6a6a" }}>
           Loading Intellact AI workspace…
         </p>
       </div>
@@ -78,7 +79,7 @@ export default function DemoPage() {
               width: 6,
               height: 6,
               borderRadius: "50%",
-              background: "#00c896",
+              background: "#ffffff",
               animation: "pulse 1.2s ease-in-out infinite",
               animationDelay: `${i * 0.2}s`,
               opacity: 0.4,
