@@ -1,7 +1,14 @@
-# Render Blueprint for the OSAI backend.
-# Deploy: push to GitHub → Render → New → Blueprint → pick this repo.
-# Fill the `sync: false` secrets in the Render dashboard after the first deploy.
-# Frontend (osai-web) stays on Vercel; set OSAI_ALLOWED_ORIGINS to its URL.
+# Render Blueprint for the OSAI backend — FREE TIER.
+# Only free-eligible service types are used: web service, Postgres, Key Value.
+# Qdrant runs on Qdrant Cloud's free tier (create a free cluster at
+# https://cloud.qdrant.io and paste its URL + API key below as secrets).
+#
+# Deploy: Render → New → Blueprint → pick this repo. After it provisions, set
+# the `sync: false` secrets in the osai-api service's Environment tab.
+#
+# The Celery background worker is omitted (it needs a paid plan). The demo runs
+# fully synchronously in the API; add a `type: worker` service later if you need
+# async ingestion at scale.
 
 databases:
   - name: osai-postgres
@@ -10,32 +17,21 @@ databases:
     user: osai
 
 services:
-  # Redis / Key Value store for Celery.
+  # Redis / Key Value store (free). Used by Celery if you later add a worker.
   - type: keyvalue
     name: osai-redis
     plan: free
     ipAllowList: []
 
-  # Qdrant vector store as a private service with a persistent disk.
-  - type: pserv
-    name: osai-qdrant
-    runtime: image
-    image:
-      url: qdrant/qdrant:v1.14.1
-    disk:
-      name: qdrant-storage
-      mountPath: /qdrant/storage
-      sizeGB: 1
-
-  # FastAPI API.
+  # FastAPI API (free web service, Docker).
   - type: web
     name: osai-api
     runtime: docker
     dockerfilePath: ./osai-backend/Dockerfile
     dockerContext: ./osai-backend
     healthCheckPath: /health
-    plan: starter
-    envVars: &osai_env
+    plan: free
+    envVars:
       - key: OSAI_DATABASE_URL
         fromDatabase:
           name: osai-postgres
@@ -45,8 +41,10 @@ services:
           type: keyvalue
           name: osai-redis
           property: connectionString
-      - key: OSAI_QDRANT_URL          # internal address of the qdrant private service
-        value: http://osai-qdrant:6333
+      - key: OSAI_QDRANT_URL          # your Qdrant Cloud cluster URL (https://...)
+        sync: false
+      - key: OSAI_QDRANT_API_KEY      # your Qdrant Cloud API key
+        sync: false
       - key: OSAI_GEMINI_API_KEY      # embeddings
         sync: false
       - key: OSAI_LLM_API_KEY          # Groq (text generation)
@@ -59,13 +57,3 @@ services:
         sync: false
       - key: OSAI_ALLOWED_ORIGINS      # your Vercel frontend URL
         sync: false
-
-  # Celery worker (same image, different command).
-  - type: worker
-    name: osai-worker
-    runtime: docker
-    dockerfilePath: ./osai-backend/Dockerfile
-    dockerContext: ./osai-backend
-    dockerCommand: uv run celery -A workers.celery_app worker --loglevel=info
-    plan: starter
-    envVars: *osai_env

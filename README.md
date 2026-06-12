@@ -83,15 +83,16 @@ docker compose up -d --build
 docker compose exec api uv run python -m db.seed   # first run: seed demo data
 ```
 
-**Hosted deployment (Render):** the repo ships a [`render.yaml`](render.yaml) Blueprint that provisions Postgres, Redis (Key Value), a Qdrant private service with a disk, the API, and the Celery worker.
+**Hosted deployment (Render — free tier):** [`render.yaml`](render.yaml) provisions only free-eligible services — a Web service (API), free Postgres, and free Key Value (Redis). Qdrant runs on **Qdrant Cloud's free tier** (Render's private services and background workers require a paid plan, so they're left out; the demo runs fully synchronously in the API).
 
-1. Render → **New → Blueprint** → pick this repo (it reads `render.yaml`).
-2. After the first deploy, set the secret env vars (marked `sync: false`): `OSAI_GEMINI_API_KEY`, `OSAI_LLM_API_KEY` (your Groq key), `OSAI_COMPOSIO_API_KEY`, and `OSAI_ALLOWED_ORIGINS` (your Vercel URL).
-3. Migrations run automatically on boot; seed once with the Render shell: `uv run python -m db.seed`.
+1. Create a free Qdrant cluster at [cloud.qdrant.io](https://cloud.qdrant.io) → copy its **URL** and **API key**.
+2. Render → **New → Blueprint** → pick this repo (it reads `render.yaml`).
+3. After it provisions, set the `sync: false` secrets on the `osai-api` service: `OSAI_QDRANT_URL`, `OSAI_QDRANT_API_KEY` (from step 1), `OSAI_GEMINI_API_KEY`, `OSAI_LLM_API_KEY` (Groq), `OSAI_COMPOSIO_API_KEY`, `OSAI_ALLOWED_ORIGINS` (your Vercel URL).
+4. Migrations run on boot; seed once via the Render shell: `uv run python -m db.seed`.
 
-`OSAI_DATABASE_URL`/`OSAI_REDIS_URL`/`OSAI_QDRANT_URL` are wired by the Blueprint. The app auto-converts Render's `postgresql://` URL to the psycopg driver. Frontend (`osai-web`) stays on Vercel — point it at the API via `NEXT_PUBLIC_API_BASE_URL`.
+`OSAI_DATABASE_URL`/`OSAI_REDIS_URL` are wired by the Blueprint; the app auto-converts Render's `postgresql://` URL to the psycopg driver. Note: free web services cold-start after inactivity, and free Postgres is time-limited — fine for a pilot, upgrade for production. Frontend (`osai-web`) stays on Vercel — point it at the API via `NEXT_PUBLIC_API_BASE_URL`.
 
-**Other platforms (Railway/Fly):** same image + the env-var checklist above; provide managed Postgres + Redis + a Qdrant service.
+**Async at scale (paid):** add a `type: worker` service (Celery) for background ingestion when you outgrow synchronous processing.
 
 ## Contributing (two-lane workflow)
 

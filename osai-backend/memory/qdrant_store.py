@@ -19,7 +19,7 @@ class QdrantStore:
         self.url = url
         self.collection_name = collection_name
         self.embedding_provider = embedding_provider
-        self.client = client or AsyncQdrantClient(url=url)
+        self.client = client or AsyncQdrantClient(url=url, api_key=settings.qdrant_api_key)
 
     async def ensure_collection(self) -> None:
         collections = await self.client.get_collections()
