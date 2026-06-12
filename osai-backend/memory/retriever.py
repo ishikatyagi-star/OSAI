@@ -91,15 +91,16 @@ async def retrieve_answer(request: SearchRequest) -> SearchResponse:
             )
 
     context_text = "\n\n---\n\n".join(context_parts)
+    doc_titles = [c.source_record_title for c in citations if c.source_tool != "memory"]
 
-    # 4. Synthesise answer with the configured LLM, else memory-aware fallback
+    # 4. Synthesise answer with the configured LLM, else an honest fallback.
     if settings.llm_api_key or settings.gemini_api_key:
         try:
             answer = await _gemini_answer(request.query, context_text)
         except Exception:
-            answer = _fallback_answer(request.query, context_text, memory_block, bool(hits))
+            answer = _fallback_answer(memory_block, doc_titles)
     else:
-        answer = _fallback_answer(request.query, context_text, memory_block, bool(hits))
+        answer = _fallback_answer(memory_block, doc_titles)
 
     return SearchResponse(
         answer=answer,
@@ -108,86 +109,21 @@ async def retrieve_answer(request: SearchRequest) -> SearchResponse:
     )
 
 
-def _fallback_answer(query: str, context: str, memory_block: str, has_docs: bool) -> str:
-    """Deterministic answer when no LLM is available. Always surfaces memory."""
+def _fallback_answer(memory_block: str, doc_titles: list[str]) -> str:
+    """Honest answer when the LLM is unavailable (rate-limited / error). Surfaces
+    the real retrieved material instead of fabricating a synthesis."""
     parts: list[str] = []
     if memory_block:
         parts.append("From OSAI's memory:\n" + memory_block)
-    if has_docs:
-        parts.append(mock_gemini_answer(query, context))
-    return "\n\n".join(parts) if parts else mock_gemini_answer(query, context)
-
-
-def mock_gemini_answer(query: str, context: str) -> str:
-    q = query.lower()
-    if "linear" in q:
-        return (
-            "Based on the 'Linear Sync Integration Guidelines' document, "
-            "here is how OSAI integrates with Linear:\n\n"
-            "1. **Automatic Issue Creation**: OSAI automatically creates Linear issues "
-            "from extracted action items.\n"
-            "2. **Assignee Mapping**: Extracted assignee emails are mapped directly "
-            "to active Linear user IDs. If the assignee email does not match any "
-            "team member in Linear, the issue will be created as unassigned.\n"
-            "3. **Required Scopes**: You must grant read/write scope permissions "
-            "to enable the automatic push functionality.\n"
-            "4. **Project Configuration**: The default destination project for created "
-            "tickets is configured in the connector payload."
+    if doc_titles:
+        parts.append(
+            "I found relevant documents but couldn't generate a summary right now "
+            "(the language model is busy — please retry in a moment).\nSources: "
+            + ", ".join(doc_titles)
         )
-    elif any(x in q for x in ("tier", "classification", "routing", "normal", "amber", "red")):
-        return (
-            "OSAI classifies all data and routing operations into three tiers:\n\n"
-            "- **Normal**: Allows all standard cloud API routings and external model usage.\n"
-            "- **Amber**: Restricts certain third-party connectors and disables "
-            "cloud-based LLM executions (only runs search).\n"
-            "- **Red**: Strictly enforces local data privacy. All queries are routed "
-            "internally to Ollama (llama3/mistral) and stored in private VPC Qdrant storage. "
-            "No external internet or API requests are permitted under Red tier configurations."
-        )
-    elif any(x in q for x in ("vpc", "ollama", "security", "encrypt")):
-        return (
-            "To secure enterprise company context, VPC and Ollama are configured as follows:\n\n"
-            "1. **Isolated Processing**: All Red-tier processing is strictly confined "
-            "to private VPC subnets.\n"
-            "2. **Local Models**: The Ollama service hosts models like llama3 or mistral "
-            "locally to prevent cloud data leakage.\n"
-            "3. **Authentication**: Inbound requests from the Celery worker to the database "
-            "are authenticated via SSL client certificates.\n"
-            "4. **No External Calls**: Any external API calls or network egress "
-            "are blocked for Red-tier resources."
-        )
-    elif any(x in q for x in ("slack", "onboard")):
-        return (
-            "According to the 'OSAI Team Onboarding Guidelines' channel message:\n\n"
-            "- The onboarding guide is located in Notion.\n"
-            "- Developers must configure their local bridge network in Docker and ensure "
-            "the `.env` file is populated.\n"
-            "- The backend API runs on port 8000, and Qdrant runs on port 6333.\n"
-            "- Linear accounts must be linked for task syncing."
-        )
-    elif any(x in q for x in ("freshdesk", "sla", "escalation")):
-        return (
-            "Freshdesk tickets are synchronized every 30 minutes. If a support ticket "
-            "transitions to 'urgent':\n\n"
-            "- An immediate notification alert is pushed to the Slack `#operations` channel.\n"
-            "- For Enterprise plan clients, a 4-hour SLA response limit is enforced.\n"
-            "- Action items extracted from SLA tickets are pushed automatically to developer "
-            "streams."
-        )
-
-    # Generic smart answer
-    titles = []
-    for line in context.split("\n"):
-        if line.startswith("[") and line.endswith("]"):
-            titles.append(line[1:-1])
-
-    title_str = ", ".join(titles) if titles else "synced knowledge bases"
-    return (
-        f"Based on the references found in {title_str}, I found matching context "
-        f"for your query '{query}':\n\n"
-        "The system has successfully mapped this query to your company's internal "
-        "documentation. To perform execution or push tasks, verify that the respective "
-        "connector credentials are green."
+    return "\n\n".join(parts) if parts else (
+        "I couldn't generate an answer right now (the language model is busy). "
+        "Please retry in a moment."
     )
 
 
@@ -195,9 +131,12 @@ async def _gemini_answer(query: str, context: str) -> str:
     from llm.gemini import generate
 
     prompt = (
-        "You are a precise enterprise knowledge assistant. "
-        "Answer the question below using ONLY the provided context. "
-        "Be concise. Cite the document titles inline where relevant.\n\n"
+        "You are a precise enterprise knowledge assistant for university operations. "
+        "Answer the question using ONLY the provided context (documents + OSAI memory). "
+        "Cite document titles inline. Be concise.\n"
+        "IMPORTANT: If the context does not actually contain the answer, say plainly "
+        "that you don't have that information in the connected sources — do NOT guess "
+        "or invent details.\n\n"
         f"CONTEXT:\n{context}\n\n"
         f"QUESTION: {query}\n\n"
         "ANSWER:"
