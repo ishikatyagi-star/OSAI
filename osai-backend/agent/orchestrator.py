@@ -43,9 +43,12 @@ async def run_ask(request: AskRequest) -> AskResponse:
     #    execution descriptor (provider + payload) into _PROPOSED themselves.
     actions = await _plan_actions(request, rag.answer)
 
-    model_route = (
-        f"gemini:{settings.gemini_model}" if settings.gemini_api_key else "mock-fallback"
-    )
+    if settings.llm_api_key:
+        model_route = f"llm:{settings.llm_model}"
+    elif settings.gemini_api_key:
+        model_route = f"gemini:{settings.gemini_model}"
+    else:
+        model_route = "mock-fallback"
     return AskResponse(
         conversation_id=conversation_id,
         answer=rag.answer,
@@ -115,7 +118,7 @@ async def _plan_actions(request: AskRequest, answer: str) -> list[AgentAction]:
     composio = get_default_composio_client()
     if not tools and not composio.available():
         return []
-    if settings.gemini_api_key or settings.openrouter_api_key:
+    if settings.gemini_api_key or settings.llm_api_key:
         try:
             return await _llm_plan(request, answer, tools)
         except Exception as exc:  # noqa: BLE001 — degrade to heuristic on any LLM failure

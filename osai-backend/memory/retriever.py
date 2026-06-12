@@ -93,7 +93,7 @@ async def retrieve_answer(request: SearchRequest) -> SearchResponse:
     context_text = "\n\n---\n\n".join(context_parts)
 
     # 4. Synthesise answer with the configured LLM, else memory-aware fallback
-    if settings.openrouter_api_key or settings.gemini_api_key:
+    if settings.llm_api_key or settings.gemini_api_key:
         try:
             answer = await _gemini_answer(request.query, context_text)
         except Exception:

@@ -21,8 +21,8 @@ PASS_THRESHOLD = 0.5
 
 
 def _model_route() -> str:
-    if settings.openrouter_api_key:
-        return f"openrouter:{settings.openrouter_model}"
+    if settings.llm_api_key:
+        return f"llm:{settings.llm_model}"
     if settings.gemini_api_key:
         return f"gemini:{settings.gemini_model}"
     return "mock-fallback"

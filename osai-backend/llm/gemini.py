@@ -25,8 +25,8 @@ def _get_client():
 
 async def generate(prompt: str, model: str | None = None) -> str:
     """Run a single-turn prompt and return the text response."""
-    if settings.openrouter_api_key:
-        return await _openrouter_generate(prompt, model)
+    if settings.llm_api_key:
+        return await _openai_compatible_generate(prompt, model)
     return await _gemini_generate(prompt, model)
 
 
@@ -41,12 +41,12 @@ async def _gemini_generate(prompt: str, model: str | None = None) -> str:
     return response.text.strip()
 
 
-async def _openrouter_generate(prompt: str, model: str | None = None) -> str:
-    _model = model or settings.openrouter_model
+async def _openai_compatible_generate(prompt: str, model: str | None = None) -> str:
+    _model = model or settings.llm_model
     async with httpx.AsyncClient(timeout=60) as client:
         resp = await client.post(
-            f"{settings.openrouter_base_url}/chat/completions",
-            headers={"Authorization": f"Bearer {settings.openrouter_api_key}"},
+            f"{settings.llm_base_url}/chat/completions",
+            headers={"Authorization": f"Bearer {settings.llm_api_key}"},
             json={"model": _model, "messages": [{"role": "user", "content": prompt}]},
         )
         resp.raise_for_status()
