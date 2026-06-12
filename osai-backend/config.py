@@ -19,6 +19,7 @@ class Settings(BaseSettings):
             v = "postgresql+psycopg://" + v[len("postgresql://") :]
         return v
     qdrant_url: str = "http://localhost:6333"
+    qdrant_api_key: str | None = None  # required for Qdrant Cloud (free tier)
     qdrant_collection: str = "osai_chunks"
     embedding_dimension: int = 768  # Gemini text-embedding-004; set 64 to use hash fallback
     default_org_id: str = "demo-org"
