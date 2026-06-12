@@ -1,3 +1,4 @@
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -6,6 +7,17 @@ class Settings(BaseSettings):
 
     env: str = "local"
     database_url: str = "postgresql+psycopg://osai:osai@localhost:5433/osai"
+
+    @field_validator("database_url")
+    @classmethod
+    def _use_psycopg_driver(cls, v: str) -> str:
+        # Managed providers (Render, Railway, Heroku) hand out postgres:// or
+        # postgresql:// URLs; SQLAlchemy here needs the psycopg driver prefix.
+        if v.startswith("postgres://"):
+            v = "postgresql://" + v[len("postgres://") :]
+        if v.startswith("postgresql://"):
+            v = "postgresql+psycopg://" + v[len("postgresql://") :]
+        return v
     qdrant_url: str = "http://localhost:6333"
     qdrant_collection: str = "osai_chunks"
     embedding_dimension: int = 768  # Gemini text-embedding-004; set 64 to use hash fallback

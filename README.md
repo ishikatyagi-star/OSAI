@@ -83,7 +83,15 @@ docker compose up -d --build
 docker compose exec api uv run python -m db.seed   # first run: seed demo data
 ```
 
-**Hosted deployment:** push the `osai-backend` image to your platform and provide managed Postgres + Redis + Qdrant (e.g. Render/Railway/Fly + Qdrant Cloud). Required env: `OSAI_DATABASE_URL`, `OSAI_REDIS_URL`, `OSAI_QDRANT_URL`, `OSAI_GEMINI_API_KEY` (embeddings), `OSAI_LLM_API_KEY` (+ `OSAI_LLM_BASE_URL`/`OSAI_LLM_MODEL`), `OSAI_COMPOSIO_API_KEY`, `OSAI_ALLOWED_ORIGINS` (your Vercel frontend URL). Frontend (`osai-web`) deploys to Vercel; point it at the backend via `NEXT_PUBLIC_API_BASE_URL`.
+**Hosted deployment (Render):** the repo ships a [`render.yaml`](render.yaml) Blueprint that provisions Postgres, Redis (Key Value), a Qdrant private service with a disk, the API, and the Celery worker.
+
+1. Render → **New → Blueprint** → pick this repo (it reads `render.yaml`).
+2. After the first deploy, set the secret env vars (marked `sync: false`): `OSAI_GEMINI_API_KEY`, `OSAI_LLM_API_KEY` (your Groq key), `OSAI_COMPOSIO_API_KEY`, and `OSAI_ALLOWED_ORIGINS` (your Vercel URL).
+3. Migrations run automatically on boot; seed once with the Render shell: `uv run python -m db.seed`.
+
+`OSAI_DATABASE_URL`/`OSAI_REDIS_URL`/`OSAI_QDRANT_URL` are wired by the Blueprint. The app auto-converts Render's `postgresql://` URL to the psycopg driver. Frontend (`osai-web`) stays on Vercel — point it at the API via `NEXT_PUBLIC_API_BASE_URL`.
+
+**Other platforms (Railway/Fly):** same image + the env-var checklist above; provide managed Postgres + Redis + a Qdrant service.
 
 ## Contributing (two-lane workflow)
 
