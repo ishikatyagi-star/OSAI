@@ -135,6 +135,11 @@ async def index_seeded_chunks_to_qdrant(org_id: str = "demo-org") -> None:
     docs = _get_mock_docs(org_id)
     chunks = []
     for d in docs:
+        # Most docs are public; security material is restricted to demonstrate
+        # permission-aware retrieval (data governance).
+        is_security = any(
+            kw in (d["title"] or "").lower() for kw in ("security", "vpc", "ollama")
+        )
         chunks.append(
             {
                 "chunk_id": f"chunk-{d['id']}",
@@ -144,8 +149,8 @@ async def index_seeded_chunks_to_qdrant(org_id: str = "demo-org") -> None:
                 "content_preview": d["text"][:100] + "...",
                 "text": d["text"],
                 "metadata": {"title": d["title"]},
-                "permissions": ["source:all"],
-                "data_tier": "normal",
+                "permissions": ["role:security"] if is_security else ["source:all"],
+                "data_tier": "amber" if is_security else "normal",
             }
         )
     await qdrant.upsert_chunks(chunks)

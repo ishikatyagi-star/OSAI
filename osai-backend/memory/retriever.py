@@ -8,6 +8,17 @@ from memory.embeddings import default_embedding_provider
 from memory.qdrant_store import get_default_qdrant_store
 
 
+def _visible(chunk_permissions: list[str] | None, requester_permissions: list[str]) -> bool:
+    """Data-governance check. Empty/admin requester = system context (sees all);
+    otherwise a chunk is visible only if it's public or shares a permission grant."""
+    if not requester_permissions or "role:admin" in requester_permissions:
+        return True
+    chunk_permissions = chunk_permissions or []
+    if not chunk_permissions or "source:all" in chunk_permissions:
+        return True
+    return bool(set(chunk_permissions) & set(requester_permissions))
+
+
 async def retrieve_answer(request: SearchRequest) -> SearchResponse:
     from memory.org_memory import fetch_relevant
 
@@ -23,6 +34,13 @@ async def retrieve_answer(request: SearchRequest) -> SearchResponse:
         hits = await qdrant.search(vectors[0], request.org_id, limit=8)
     except Exception:
         hits = []
+
+    # Data governance: drop chunks the requester isn't permitted to see.
+    hits = [
+        h
+        for h in hits
+        if _visible((h.payload or {}).get("permissions"), request.requester_permissions)
+    ]
 
     if not hits and not memories:
         return SearchResponse(
