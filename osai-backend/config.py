@@ -32,12 +32,12 @@ class Settings(BaseSettings):
     gemini_model: str = "gemini-2.0-flash"
     gemini_embedding_model: str = "gemini-embedding-001"
 
-    # OpenRouter (OpenAI-compatible text generation gateway). When set, it is the
-    # preferred provider for answer synthesis / planning / extraction. Embeddings
-    # still use Gemini.
-    openrouter_api_key: str | None = None
-    openrouter_base_url: str = "https://openrouter.ai/api/v1"
-    openrouter_model: str = "google/gemini-2.0-flash-001"
+    # LLM text generation — any OpenAI-compatible provider (Groq, OpenRouter,
+    # GitHub Models, Cerebras, Mistral, …). When set, it is the preferred provider
+    # for answer synthesis / planning / extraction. Embeddings still use Gemini.
+    llm_api_key: str | None = None
+    llm_base_url: str = "https://api.groq.com/openai/v1"
+    llm_model: str = "llama-3.3-70b-versatile"
 
     # Composio — universal tool/integration layer (P2). When set, its tools are
     # exposed to the agent alongside native connectors. no_auth tools (e.g. web
