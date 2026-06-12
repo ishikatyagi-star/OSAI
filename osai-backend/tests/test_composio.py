@@ -3,15 +3,19 @@
 from __future__ import annotations
 
 import pytest
+from fastapi.testclient import TestClient
 
+from api.main import app
 from connectors.composio_tool import ComposioClient
+
+client = TestClient(app)
 
 
 def _client_or_skip() -> ComposioClient:
-    client = ComposioClient()
-    if not client.available():
+    cl = ComposioClient()
+    if not cl.available():
         pytest.skip("OSAI_COMPOSIO_API_KEY not set")
-    return client
+    return cl
 
 
 async def test_composio_list_tools_maps_to_specs():
@@ -33,3 +37,12 @@ async def test_composio_execute_no_auth_search():
     )
     assert result["successful"] is True
     assert result["data"] is not None
+
+
+def test_composio_toolkits_endpoint():
+    _client_or_skip()
+    resp = client.get("/integrations/composio/toolkits")
+    assert resp.status_code == 200
+    toolkits = resp.json()
+    assert len(toolkits) >= 1
+    assert all("slug" in t for t in toolkits)

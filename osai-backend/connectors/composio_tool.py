@@ -53,6 +53,95 @@ class ComposioClient:
                     specs.append(_to_spec(tool))
         return specs
 
+    async def list_toolkits(self, limit: int = 50) -> list[dict[str, Any]]:
+        """Available Composio toolkits (apps) with auth + tool counts."""
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.get(
+                f"{self.base_url}/api/v3/toolkits",
+                headers=self._headers(),
+                params={"limit": limit},
+            )
+        if resp.status_code != 200:
+            return []
+        out = []
+        for tk in resp.json().get("items", []):
+            meta = tk.get("meta", {})
+            out.append(
+                {
+                    "slug": tk.get("slug"),
+                    "name": tk.get("name"),
+                    "auth_schemes": tk.get("auth_schemes", []),
+                    "no_auth": not tk.get("auth_schemes"),
+                    "tools_count": meta.get("tools_count"),
+                    "logo": meta.get("logo"),
+                    "categories": [c.get("name") for c in meta.get("categories", [])],
+                }
+            )
+        return out
+
+    async def _ensure_auth_config(self, client: httpx.AsyncClient, toolkit: str) -> str | None:
+        """Return an auth_config id for a toolkit, creating a managed one if needed."""
+        resp = await client.get(
+            f"{self.base_url}/api/v3/auth_configs",
+            headers=self._headers(),
+            params={"toolkit_slug": toolkit, "limit": 1},
+        )
+        if resp.status_code == 200:
+            items = resp.json().get("items", [])
+            if items:
+                return items[0].get("id")
+        created = await client.post(
+            f"{self.base_url}/api/v3/auth_configs",
+            headers=self._headers(),
+            json={
+                "toolkit": {"slug": toolkit},
+                "auth_config": {"type": "use_composio_managed_auth"},
+            },
+        )
+        if created.status_code in (200, 201):
+            body = created.json()
+            return body.get("auth_config", body).get("id")
+        logger.warning("Composio auth_config create %s -> %s", toolkit, created.status_code)
+        return None
+
+    async def connect(self, toolkit: str, user_id: str) -> dict[str, Any]:
+        """Start an OAuth connection. Returns {redirect_url, connected_account_id}."""
+        async with httpx.AsyncClient(timeout=30) as client:
+            auth_config_id = await self._ensure_auth_config(client, toolkit)
+            if not auth_config_id:
+                return {"error": f"Could not get auth config for {toolkit}"}
+            resp = await client.post(
+                f"{self.base_url}/api/v3/connected_accounts/link",
+                headers=self._headers(),
+                json={"auth_config_id": auth_config_id, "user_id": user_id},
+            )
+        if resp.status_code not in (200, 201):
+            return {"error": f"HTTP {resp.status_code}: {resp.text[:200]}"}
+        body = resp.json()
+        return {
+            "redirect_url": body.get("redirect_url"),
+            "connected_account_id": body.get("connected_account_id"),
+            "expires_at": body.get("expires_at"),
+        }
+
+    async def list_connections(self, user_id: str) -> list[dict[str, Any]]:
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.get(
+                f"{self.base_url}/api/v3/connected_accounts",
+                headers=self._headers(),
+                params={"user_ids": user_id, "limit": 50},
+            )
+        if resp.status_code != 200:
+            return []
+        return [
+            {
+                "id": c.get("id"),
+                "toolkit": (c.get("toolkit") or {}).get("slug"),
+                "status": c.get("status"),
+            }
+            for c in resp.json().get("items", [])
+        ]
+
     async def execute(
         self, slug: str, arguments: dict[str, Any], user_id: str
     ) -> dict[str, Any]:
