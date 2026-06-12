@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from api.routes import (
     agent,
     auth,
+    composio,
     evals,
     graph,
     health,
@@ -31,6 +32,7 @@ app.include_router(health.router)
 app.include_router(agent.router)
 app.include_router(graph.router)
 app.include_router(evals.router)
+app.include_router(composio.router)
 app.include_router(integrations.router)
 app.include_router(sync_runs.router)
 app.include_router(search.router)
