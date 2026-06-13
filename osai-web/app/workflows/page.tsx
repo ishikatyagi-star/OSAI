@@ -17,9 +17,9 @@ function timeAgo(iso: string) {
 }
 
 const TIER_COLORS: Record<string, string> = {
-  normal: "#22c55e",
-  amber: "#f5c842",
-  red: "#ff5577",
+  normal: "var(--text-muted)",
+  amber: "var(--yellow)",
+  red: "var(--red)",
 };
 
 const STATUS_BADGE: Record<string, string> = {
@@ -98,7 +98,7 @@ function ActionItemRow({
             href={item.external_url}
             target="_blank"
             rel="noopener noreferrer"
-            style={{ fontSize: 11, color: "#0099ff" }}
+            style={{ fontSize: 11, color: "var(--accent)" }}
           >
             View →
           </a>
@@ -179,7 +179,7 @@ function RunCard({
       </button>
 
       {expanded && items.length > 0 && (
-        <div style={{ borderTop: "1px solid rgba(255,255,255,0.05)", padding: "0 22px 18px" }}>
+        <div style={{ borderTop: "1px solid var(--border)", padding: "0 22px 18px" }}>
           {items.map((item) => (
             <ActionItemRow key={item.id} item={item} runId={run.id} onApprove={onApprove} />
           ))}
@@ -187,7 +187,7 @@ function RunCard({
       )}
 
       {expanded && items.length === 0 && (
-        <div style={{ padding: "12px 22px 18px", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+        <div style={{ padding: "12px 22px 18px", borderTop: "1px solid var(--border)" }}>
           <p className="meta">No action items extracted from this run.</p>
         </div>
       )}
@@ -291,41 +291,40 @@ export default function WorkflowsPage() {
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 32 }}>
-        <div>
+      <div className="page-header">
+        <div className="page-header-left">
           <h1>Workflows</h1>
-          <p className="page-subtitle" style={{ marginBottom: 0 }}>
+          <p>
             Paste meeting notes or transcripts — OSAI extracts action items and pushes them to your tools.
           </p>
         </div>
         <button
           className="btn btn-primary"
-          style={{ padding: "10px 20px", flexShrink: 0 }}
           onClick={() => setShowCreate((v) => !v)}
         >
           + New Workflow
         </button>
       </div>
 
-      {/* Stats row */}
-      <div style={{ display: "flex", gap: 16, marginBottom: 28, flexWrap: "wrap" }}>
+      {/* Stats — dashboard stat-card styling; color reserved for true status */}
+      <div className="stats-grid stats-grid--auto">
         {[
-          { label: "Total runs", value: runs.length },
+          { label: "Total runs", value: runs.length, color: "var(--text-primary)" },
           {
             label: "Completed",
             value: runs.filter((r) => r.status === "completed" || r.status === "succeeded").length,
-            color: "#22c55e",
+            color: "var(--green)",
           },
           {
             label: "Needs review",
             value: runs.filter((r) => r.status === "needs_review").length,
-            color: "#facc15",
+            color: "var(--yellow)",
           },
-          { label: "Action items pending", value: pendingTotal, color: "#f5c842" },
+          { label: "Action items pending", value: pendingTotal, color: "var(--text-primary)" },
         ].map((s) => (
-          <div key={s.label} className="mini-stat">
-            <span className="mini-stat-value" style={{ color: s.color }}>{s.value}</span>
-            <span className="mini-stat-label">{s.label}</span>
+          <div key={s.label} className="stat-card">
+            <div className="stat-card-label">{s.label}</div>
+            <div className="stat-card-value" style={{ color: s.color }}>{s.value}</div>
           </div>
         ))}
       </div>
@@ -343,7 +342,7 @@ export default function WorkflowsPage() {
               onChange={(e) => setInputText(e.target.value)}
             />
             <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 12, flexWrap: "wrap" }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "#94a3b8" }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>
                 Push items to:
               </label>
               <select
@@ -362,8 +361,7 @@ export default function WorkflowsPage() {
               </button>
               <button
                 type="button"
-                className="btn"
-                style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.1)", color: "#94a3b8" }}
+                className="btn btn-ghost"
                 onClick={() => setShowCreate(false)}
               >
                 Cancel
