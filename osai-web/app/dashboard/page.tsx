@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { DEMO_WORKFLOW_RUNS, DEMO_STATS, DEMO_INBOX_ITEMS, DEMO_DECISIONS } from "@/lib/demo-data";
 
@@ -35,6 +35,14 @@ export default function DashboardPage() {
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [snoozed, setSnoozed] = useState<Set<string>>(new Set());
 
+  // Time-of-day greeting, resolved on the client to match the viewer's clock
+  // (avoids a server/client hydration mismatch).
+  const [greeting, setGreeting] = useState("Welcome");
+  useEffect(() => {
+    const h = new Date().getHours();
+    setGreeting(h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening");
+  }, []);
+
   const pendingActions = DEMO_WORKFLOW_RUNS
     .flatMap((r) => r.action_items ?? [])
     .filter((a) => a.status === "needs_review").length;
@@ -50,7 +58,7 @@ export default function DashboardPage() {
       <div className="page-header">
         <div className="page-header-left">
           <h1>Dashboard</h1>
-          <p>Good morning — here's what needs your attention today.</p>
+          <p>{greeting} — here&apos;s what needs your attention today.</p>
         </div>
         <Link href="/inbox" className="btn btn-primary">
           + Add Context

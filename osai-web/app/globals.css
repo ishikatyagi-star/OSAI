@@ -193,10 +193,22 @@ a { color: inherit; }
 .sidebar-nav-item.active .nav-icon { color: var(--accent); }
 
 .sidebar-nav-item .nav-icon {
-  font-size: 15px;
   width: 18px;
-  text-align: center;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
+}
+
+/* Sidebar links use a contained inset ring on focus instead of the global
+   outer glow, so navigating never paints a blue halo over the item text. */
+.sidebar-nav-item:focus-visible {
+  box-shadow: inset 0 0 0 1px var(--accent-ring);
+}
+
+.sidebar-nav-item.active:focus-visible {
+  box-shadow: inset 2px 0 0 var(--accent), inset 0 0 0 1px var(--accent-ring);
 }
 
 .sidebar-nav-badge {
