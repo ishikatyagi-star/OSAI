@@ -362,7 +362,29 @@ main {
   font-size: 14px;
   color: var(--text-secondary);
   letter-spacing: -0.14px;
+  max-width: 760px;
 }
+
+/* Right-hand cluster of a page header: primary action(s) and/or meta counts.
+   Shared by every tab so headers read identically to the dashboard. */
+.page-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.page-header-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.page-header-meta .sep { color: var(--border); }
 
 /* ─── Typography ────────────────────────────────────────────────────────────── */
 h1 {
@@ -598,6 +620,17 @@ h2 {
 
 @media (max-width: 900px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
 
+/* Flexible variant: lets secondary pages (Workflows, Sync Runs, Integrations)
+   reuse the dashboard's exact stat-card styling with any number of stats while
+   staying perfectly aligned. */
+.stats-grid.stats-grid--auto {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+@media (max-width: 900px) {
+  .stats-grid.stats-grid--auto { grid-template-columns: repeat(2, 1fr); }
+}
+
 .stat-card {
   background: var(--bg-surface);
   border: 1px solid var(--border);
@@ -821,6 +854,14 @@ h2 {
 }
 
 .suggestion-chip:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+
+/* Selected filter state — single source of truth so pages no longer inline
+   the accent color on every chip. */
+.suggestion-chip.active {
   border-color: var(--accent);
   color: var(--accent);
   background: var(--accent-dim);
