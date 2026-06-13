@@ -118,9 +118,12 @@ export default function IntegrationsPage() {
           </div>
         </div>
         <div className="stat-card">
-          <div className="stat-card-label">Recently Synced</div>
+          <div className="stat-card-label">Synced (last 24h)</div>
           <div className="stat-card-value">
-            {display.filter((i) => i.last_sync).length}
+            {display.filter((i) => {
+              if (!i.last_sync) return false;
+              return Date.now() - new Date(i.last_sync).getTime() < 24 * 60 * 60 * 1000;
+            }).length}
           </div>
         </div>
       </div>

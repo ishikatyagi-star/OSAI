@@ -15,6 +15,7 @@ import type {
   GraphEntityType,
 } from "@/lib/types";
 import { GraphCanvas } from "@/components/graph/graph-canvas";
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -169,12 +170,50 @@ export default function GraphPage() {
       {/* Canvas + side panel */}
       <div className="flex min-h-0 flex-1 gap-4">
         <div className="min-w-0 flex-1">
-          <GraphCanvas
-            entities={visibleEntities}
-            edges={visibleEdges}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
-          />
+          {visibleEntities.length === 0 ? (
+            <div className="flex h-full flex-col items-center justify-center rounded-lg border border-border bg-[#0c0c0c] px-6 text-center">
+              {entities.length > 0 ? (
+                <>
+                  <p className="text-sm font-semibold text-foreground">
+                    No entities match your filters
+                  </p>
+                  <p className="mt-1.5 max-w-sm text-xs text-muted-foreground">
+                    Try a different search term or entity type to see connections.
+                  </p>
+                  <button
+                    className="btn"
+                    style={{ marginTop: 16 }}
+                    onClick={() => {
+                      setActiveTypes(new Set());
+                      setQuery("");
+                    }}
+                  >
+                    Clear filters
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-semibold text-foreground">
+                    Your org graph is empty
+                  </p>
+                  <p className="mt-1.5 max-w-sm text-xs text-muted-foreground">
+                    The graph populates once OSAI indexes your context and extracts people,
+                    projects, decisions and tickets. Connect your tools to get started.
+                  </p>
+                  <Link href="/integrations" className="btn btn-primary" style={{ marginTop: 16 }}>
+                    Go to Integrations →
+                  </Link>
+                </>
+              )}
+            </div>
+          ) : (
+            <GraphCanvas
+              entities={visibleEntities}
+              edges={visibleEdges}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+            />
+          )}
         </div>
 
         {/* Side panel */}

@@ -34,6 +34,13 @@ export default function AskPage() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [busyActionId, setBusyActionId] = useState<string | null>(null);
   const threadRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Focus the composer on mount and whenever a response finishes, so the user
+  // can start (or keep) typing without clicking into the field.
+  useEffect(() => {
+    if (!pending) inputRef.current?.focus();
+  }, [pending]);
 
   const scrollToBottom = useCallback(() => {
     requestAnimationFrame(() => {
@@ -183,27 +190,27 @@ export default function AskPage() {
       {/* Thread */}
       <div
         ref={threadRef}
-        className="min-h-0 flex-1 space-y-6 overflow-y-auto pr-1"
+        className={`min-h-0 flex-1 overflow-y-auto ${empty ? "flex items-center justify-center" : ""}`}
       >
         {empty ? (
-          <div className="mx-auto flex max-w-2xl flex-col items-center justify-center gap-6 py-12 text-center">
-            <div className="flex size-14 items-center justify-center rounded-2xl bg-primary/15 text-2xl font-extrabold text-primary">
+          <div className="mx-auto flex w-full max-w-2xl flex-col items-center gap-6 px-4 pb-8 text-center">
+            <div className="flex size-14 items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated)] text-2xl font-extrabold text-[var(--text-primary)]">
               O
             </div>
-            <div className="space-y-1.5">
-              <h2 className="text-lg">What would you like to know?</h2>
-              <p className="max-w-md text-sm text-muted-foreground">
+            <div className="space-y-2">
+              <h2 className="text-xl">What would you like to know?</h2>
+              <p className="mx-auto max-w-md text-sm text-muted-foreground">
                 OSAI answers from everything it has indexed across Notion, Slack, Google
                 Drive, Freshdesk and Zoom — and can take actions on your behalf.
               </p>
             </div>
-            <div className="grid w-full max-w-xl gap-2 sm:grid-cols-2">
+            <div className="grid w-full gap-2.5 sm:grid-cols-2">
               {DEMO_ASK_SUGGESTIONS.map((s) => (
                 <button
                   key={s}
                   type="button"
                   onClick={() => send(s)}
-                  className="rounded-lg border border-border bg-card px-4 py-3 text-left text-sm text-foreground/90 transition-colors hover:border-input hover:bg-accent"
+                  className="rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] px-4 py-3 text-left text-sm text-[var(--text-secondary)] transition-colors hover:border-[var(--border-hover)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
                 >
                   {s}
                 </button>
@@ -211,7 +218,7 @@ export default function AskPage() {
             </div>
           </div>
         ) : (
-          <>
+          <div className="mx-auto w-full max-w-3xl space-y-6 py-1">
             {turns.map((t) => (
               <MessageBubble
                 key={t.id}
@@ -232,33 +239,41 @@ export default function AskPage() {
                 </div>
               </div>
             )}
-          </>
+          </div>
         )}
       </div>
 
       {/* Composer */}
       <form onSubmit={handleSubmit} className="shrink-0 pt-4">
-        <div className="flex items-end gap-2 rounded-xl border border-border bg-card p-2 focus-within:border-input">
-          <Textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            rows={1}
-            placeholder="Ask OSAI anything, or tell it to take an action…"
-            className="max-h-40 min-h-[40px] flex-1 border-0 bg-transparent shadow-none focus-visible:ring-0"
-            autoFocus
-          />
-          <Button type="submit" size="icon" disabled={pending || !input.trim()}>
-            {pending ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <Send className="size-4" />
-            )}
-          </Button>
+        <div className="mx-auto w-full max-w-3xl">
+          <div className="flex items-end gap-2 rounded-2xl border border-[var(--border)] bg-[var(--bg-surface)] p-2 transition-colors focus-within:border-[var(--accent)]">
+            <Textarea
+              ref={inputRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              rows={1}
+              placeholder="Ask OSAI anything, or tell it to take an action…"
+              className="max-h-40 min-h-[40px] flex-1 resize-none border-0 bg-transparent px-2 py-2 text-sm shadow-none focus-visible:ring-0"
+              autoFocus
+            />
+            <Button
+              type="submit"
+              size="icon"
+              className="shrink-0 rounded-full"
+              disabled={pending || !input.trim()}
+            >
+              {pending ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Send className="size-4" />
+              )}
+            </Button>
+          </div>
+          <p className="mt-2 text-center text-[11px] text-muted-foreground">
+            OSAI can make mistakes. Actions that change your tools always require approval.
+          </p>
         </div>
-        <p className="mt-1.5 text-center text-[11px] text-muted-foreground">
-          OSAI can make mistakes. Actions that change your tools always require approval.
-        </p>
       </form>
     </div>
   );

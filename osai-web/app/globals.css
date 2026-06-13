@@ -70,6 +70,12 @@
 
 html, body { height: 100%; }
 
+/* Tailwind's preflight is intentionally disabled (see theme.css) so it can't
+   clobber this design system — but that also means form controls no longer
+   inherit the body font and fall back to the browser default (which renders
+   <textarea> in monospace). Restore inheritance for shadcn inputs/buttons. */
+input, textarea, select, button { font-family: inherit; }
+
 body {
   background: var(--bg);
   color: var(--text-primary);
@@ -187,10 +193,22 @@ a { color: inherit; }
 .sidebar-nav-item.active .nav-icon { color: var(--accent); }
 
 .sidebar-nav-item .nav-icon {
-  font-size: 15px;
   width: 18px;
-  text-align: center;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
+}
+
+/* Sidebar links use a contained inset ring on focus instead of the global
+   outer glow, so navigating never paints a blue halo over the item text. */
+.sidebar-nav-item:focus-visible {
+  box-shadow: inset 0 0 0 1px var(--accent-ring);
+}
+
+.sidebar-nav-item.active:focus-visible {
+  box-shadow: inset 2px 0 0 var(--accent), inset 0 0 0 1px var(--accent-ring);
 }
 
 .sidebar-nav-badge {
@@ -868,6 +886,63 @@ h2 {
 }
 
 .suggestion-chip:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Small uppercase caption that labels a group of filter chips. */
+.filter-group-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+}
+
+/* ─── Modal / confirmation dialog ────────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.modal-card {
+  width: 100%;
+  max-width: 440px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+}
+
+.modal-card h2 { font-size: 18px; margin-bottom: 8px; letter-spacing: -0.4px; }
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+/* Sortable data-table header cell. */
+.data-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.data-table th.sortable:hover { color: var(--text-secondary); }
+
+.data-table th .sort-caret {
+  margin-left: 4px;
+  opacity: 0.9;
+}
+
+.data-table th .sort-caret.inactive { opacity: 0.25; }
 
 /* ─── Answer card ────────────────────────────────────────────────────────────── */
 .answer-card {
