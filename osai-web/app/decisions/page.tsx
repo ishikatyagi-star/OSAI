@@ -32,6 +32,58 @@ export default function DecisionsPage() {
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [pendingDelete, setPendingDelete] = useState<Decision | null>(null);
 
+  // Add / edit editor. `editing` holds the working draft; `isNew` decides
+  // whether saving inserts or updates. Tags are edited as a raw comma string.
+  const [editing, setEditing] = useState<Decision | null>(null);
+  const [isNew, setIsNew] = useState(false);
+  const [tagsInput, setTagsInput] = useState("");
+
+  function blankDecision(): Decision {
+    return {
+      id: `dec-${Date.now()}`,
+      title: "",
+      tags: [],
+      status: "proposed",
+      impact: "medium",
+      owner: "",
+      date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+    };
+  }
+
+  function openAdd() {
+    setEditing(blankDecision());
+    setIsNew(true);
+    setTagsInput("");
+  }
+
+  function openEdit(d: Decision) {
+    setEditing({ ...d });
+    setIsNew(false);
+    setTagsInput(d.tags.join(", "));
+  }
+
+  function patchDraft(patch: Partial<Decision>) {
+    setEditing((e) => (e ? { ...e, ...patch } : e));
+  }
+
+  function saveDecision() {
+    if (!editing) return;
+    const title = editing.title.trim();
+    if (!title) return;
+    const record: Decision = {
+      ...editing,
+      title,
+      owner: editing.owner.trim() || "Unassigned",
+      tags: tagsInput.split(",").map((t) => t.trim()).filter(Boolean),
+    };
+    setDecisions((prev) =>
+      prev.some((d) => d.id === record.id)
+        ? prev.map((d) => (d.id === record.id ? record : d))
+        : [record, ...prev]
+    );
+    setEditing(null);
+  }
+
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -107,7 +159,7 @@ export default function DecisionsPage() {
           <h1>Decision Log</h1>
           <p>Track all key decisions made across your org — owned, dated, and tagged.</p>
         </div>
-        <button className="btn btn-primary">+ Add Decision</button>
+        <button className="btn btn-primary" onClick={openAdd}>+ Add Decision</button>
       </div>
 
       {/* Search + filters */}
@@ -184,7 +236,13 @@ export default function DecisionsPage() {
               </td>
               <td>
                 <div style={{ display: "flex", gap: 6 }}>
-                  <button className="btn-ghost btn" style={{ fontSize: 11, padding: "3px 7px" }}>Edit</button>
+                  <button
+                    className="btn-ghost btn"
+                    style={{ fontSize: 11, padding: "3px 7px" }}
+                    onClick={() => openEdit(d)}
+                  >
+                    Edit
+                  </button>
                   <button
                     className="btn-ghost btn btn-danger"
                     style={{ fontSize: 11, padding: "3px 7px" }}
@@ -219,6 +277,98 @@ export default function DecisionsPage() {
             <div className="modal-actions">
               <button className="btn" onClick={() => setPendingDelete(null)}>Cancel</button>
               <button className="btn btn-danger" onClick={confirmDelete}>Delete decision</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add / edit editor */}
+      {editing && (
+        <div className="modal-overlay" onClick={() => setEditing(null)} role="dialog" aria-modal="true">
+          <div className="modal-card" style={{ maxWidth: 520 }} onClick={(e) => e.stopPropagation()}>
+            <h2>{isNew ? "Add decision" : "Edit decision"}</h2>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 16 }}>
+              <div className="form-group">
+                <label>Decision</label>
+                <input
+                  className="auth-input"
+                  autoFocus
+                  placeholder="What was decided?"
+                  value={editing.title}
+                  onChange={(e) => patchDraft({ title: e.target.value })}
+                />
+              </div>
+
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                <div className="form-group" style={{ flex: 1, minWidth: 140 }}>
+                  <label>Status</label>
+                  <select
+                    className="select"
+                    value={editing.status}
+                    onChange={(e) => patchDraft({ status: e.target.value as Decision["status"] })}
+                  >
+                    <option value="proposed">Proposed</option>
+                    <option value="approved">Approved</option>
+                    <option value="rejected">Rejected</option>
+                  </select>
+                </div>
+                <div className="form-group" style={{ flex: 1, minWidth: 140 }}>
+                  <label>Impact</label>
+                  <select
+                    className="select"
+                    value={editing.impact}
+                    onChange={(e) => patchDraft({ impact: e.target.value as Decision["impact"] })}
+                  >
+                    <option value="critical">Critical</option>
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                <div className="form-group" style={{ flex: 1, minWidth: 140 }}>
+                  <label>Owner</label>
+                  <input
+                    className="auth-input"
+                    placeholder="e.g. Ishika T."
+                    value={editing.owner}
+                    onChange={(e) => patchDraft({ owner: e.target.value })}
+                  />
+                </div>
+                <div className="form-group" style={{ flex: 1, minWidth: 140 }}>
+                  <label>Date</label>
+                  <input
+                    className="auth-input"
+                    placeholder="Jun 13, 2026"
+                    value={editing.date}
+                    onChange={(e) => patchDraft({ date: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Tags</label>
+                <input
+                  className="auth-input"
+                  placeholder="comma separated, e.g. architecture, data"
+                  value={tagsInput}
+                  onChange={(e) => setTagsInput(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="modal-actions">
+              <button className="btn" onClick={() => setEditing(null)}>Cancel</button>
+              <button
+                className="btn btn-primary"
+                onClick={saveDecision}
+                disabled={!editing.title.trim()}
+              >
+                {isNew ? "Add decision" : "Save changes"}
+              </button>
             </div>
           </div>
         </div>

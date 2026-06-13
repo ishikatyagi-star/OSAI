@@ -20,7 +20,7 @@ const TIER_META: Record<Tier, { color: string; icon: string; title: string; desc
     icon: "🟢",
     title: "Normal",
     description:
-      "Standard company data. All connectors and cloud LLM processing allowed. Documents indexed to Qdrant with standard access controls.",
+      "Standard company data. Cloud LLM processing allowed; documents indexed to Qdrant with standard access controls.",
     badge: "badge-green",
   },
   amber: {
@@ -28,7 +28,7 @@ const TIER_META: Record<Tier, { color: string; icon: string; title: string; desc
     icon: "🟡",
     title: "Amber",
     description:
-      "Sensitive business data. Restricted connector set — only Notion and Google Drive permitted. Cloud LLM processing disabled; search-only mode.",
+      "Sensitive business data. Restricted connector set; cloud LLM processing disabled (search-only mode).",
     badge: "badge-amber",
   },
   red: {
@@ -178,6 +178,16 @@ export default function DataRoutingPage() {
                       </div>
                       <p className="meta" style={{ margin: 0, fontSize: 12, lineHeight: 1.4 }}>
                         {meta.description}
+                      </p>
+                      <p className="meta" style={{ margin: "6px 0 0", fontSize: 11 }}>
+                        Permitted connectors:{" "}
+                        <span style={{ color: "var(--text-secondary)", fontWeight: 600 }}>
+                          {config.allowed_connectors.length
+                            ? config.allowed_connectors
+                                .map((k) => CONNECTOR_META[k]?.label ?? k)
+                                .join(", ")
+                            : "None — local processing only"}
+                        </span>
                       </p>
                     </div>
                   </div>
