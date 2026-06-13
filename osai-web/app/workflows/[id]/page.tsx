@@ -9,9 +9,9 @@ import { CONNECTOR_META } from "@/lib/connector-meta";
 import type { ActionItem, WorkflowRun } from "@/lib/types";
 
 const TIER_COLORS: Record<string, string> = {
-  normal: "#22c55e",
-  amber: "#f5c842",
-  red: "#ff5577",
+  normal: "var(--text-muted)",
+  amber: "var(--yellow)",
+  red: "var(--red)",
 };
 
 function statusClass(status: string) {
@@ -100,10 +100,10 @@ export default function WorkflowDetailPage() {
       </p>
 
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
-        <div>
+      <div className="page-header">
+        <div className="page-header-left">
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-            <h1 style={{ margin: 0, fontSize: 28 }}>Workflow Run</h1>
+            <h1>Workflow Run</h1>
             <span className={statusClass(run.status)}>{run.status}</span>
             {pendingCount > 0 && (
               <span className="badge badge-yellow">{pendingCount} pending approval</span>
@@ -151,7 +151,7 @@ export default function WorkflowDetailPage() {
             <div className="card" key={item.id} style={{ padding: "18px 22px" }}>
               <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 12 }}>
                 {destMeta && (
-                  <span style={{ fontSize: 20, color: destMeta.color, marginTop: 1 }}>{destMeta.icon}</span>
+                  <span style={{ fontSize: 20, marginTop: 1 }}>{destMeta.icon}</span>
                 )}
                 <div style={{ flex: 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
@@ -176,7 +176,7 @@ export default function WorkflowDetailPage() {
                   href={item.external_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  style={{ fontSize: 12, color: "#60a5fa", display: "block", marginTop: 8 }}
+                  style={{ fontSize: 12, color: "var(--accent)", display: "block", marginTop: 8 }}
                 >
                   View in {destMeta?.label ?? item.destination} ↗
                 </a>
