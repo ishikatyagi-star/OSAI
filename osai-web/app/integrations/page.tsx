@@ -19,7 +19,7 @@ function timeAgo(iso: string) {
 
 function StatusDot({ state }: { state: string }) {
   const color =
-    state === "connected" ? "#22c55e" : state === "error" ? "#ff5577" : "var(--text-muted)";
+    state === "connected" ? "var(--green)" : state === "error" ? "var(--red)" : "var(--text-muted)";
   return (
     <span
       style={{
@@ -28,7 +28,7 @@ function StatusDot({ state }: { state: string }) {
         height: 8,
         borderRadius: "50%",
         background: color,
-        boxShadow: state === "connected" ? `0 0 6px ${color}` : "none",
+        boxShadow: state === "connected" ? "0 0 6px var(--green)" : "none",
         flexShrink: 0,
       }}
     />
@@ -93,34 +93,34 @@ export default function IntegrationsPage() {
 
   return (
     <div>
-      <div style={{ marginBottom: 36 }}>
-        <h1>Integrations</h1>
-        <p className="page-subtitle">
-          Connect your company tools to start indexing context. Each connector syncs documents
-          into the OSAI knowledge base for search and workflow extraction.
-        </p>
+      <div className="page-header">
+        <div className="page-header-left">
+          <h1>Integrations</h1>
+          <p>
+            Connect your company tools to start indexing context. Each connector syncs documents
+            into the OSAI knowledge base for search and workflow extraction.
+          </p>
+        </div>
+      </div>
 
-        {/* Summary strip */}
-        <div className="integration-summary-strip">
-          <div className="integration-summary-item">
-            <span className="integration-summary-value">
-              {display.filter((i) => i.auth_state === "connected").length}
-            </span>
-            <span className="integration-summary-label">Connected</span>
+      {/* Summary — dashboard stat-card styling */}
+      <div className="stats-grid stats-grid--auto">
+        <div className="stat-card">
+          <div className="stat-card-label">Connected</div>
+          <div className="stat-card-value">
+            {display.filter((i) => i.auth_state === "connected").length}
           </div>
-          <div className="integration-summary-divider" />
-          <div className="integration-summary-item">
-            <span className="integration-summary-value">
-              {Object.values(DEMO_STATS.docsPerConnector).reduce((a, b) => a + b, 0).toLocaleString()}
-            </span>
-            <span className="integration-summary-label">Documents Indexed</span>
+        </div>
+        <div className="stat-card">
+          <div className="stat-card-label">Documents Indexed</div>
+          <div className="stat-card-value">
+            {Object.values(DEMO_STATS.docsPerConnector).reduce((a, b) => a + b, 0).toLocaleString()}
           </div>
-          <div className="integration-summary-divider" />
-          <div className="integration-summary-item">
-            <span className="integration-summary-value">
-              {display.filter((i) => i.last_sync).length}
-            </span>
-            <span className="integration-summary-label">Recently Synced</span>
+        </div>
+        <div className="stat-card">
+          <div className="stat-card-label">Recently Synced</div>
+          <div className="stat-card-value">
+            {display.filter((i) => i.last_sync).length}
           </div>
         </div>
       </div>
@@ -141,7 +141,7 @@ export default function IntegrationsPage() {
               <div style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 16 }}>
                 <div
                   className="connector-icon-badge"
-                  style={{ background: `${meta.color}18`, color: meta.color }}
+                  style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)" }}
                 >
                   {meta.icon}
                 </div>
@@ -164,7 +164,7 @@ export default function IntegrationsPage() {
               {/* Stats row */}
               <div className="connector-stats-row">
                 <div className="connector-stat">
-                  <span className="connector-stat-value" style={{ color: meta.color }}>
+                  <span className="connector-stat-value">
                     {docCount > 0 ? docCount.toLocaleString() : "—"}
                   </span>
                   <span className="connector-stat-label">Docs indexed</span>
@@ -212,13 +212,7 @@ export default function IntegrationsPage() {
                 ) : (
                   <button
                     className="btn"
-                    style={{
-                      padding: "8px 18px",
-                      fontSize: 12,
-                      background: `${meta.color}18`,
-                      border: `1px solid ${meta.color}30`,
-                      color: meta.color,
-                    }}
+                    style={{ padding: "8px 18px", fontSize: 12 }}
                     onClick={() => setManagedKey(item.key)}
                   >
                     Connect
@@ -243,14 +237,14 @@ export default function IntegrationsPage() {
 
         {/* Coming-soon connectors */}
         {[
-          { key: "linear", label: "Linear", icon: "📐", color: "#6a4cf5" },
-          { key: "confluence", label: "Confluence", icon: "📚", color: "#0099ff" },
+          { key: "linear", label: "Linear", icon: "📐" },
+          { key: "confluence", label: "Confluence", icon: "📚" },
         ].map((c) => (
           <div key={c.key} className="card connector-card" style={{ opacity: 0.5 }}>
             <div style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 16 }}>
               <div
                 className="connector-icon-badge"
-                style={{ background: `${c.color}18`, color: c.color }}
+                style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)" }}
               >
                 {c.icon}
               </div>

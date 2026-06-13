@@ -5,11 +5,13 @@ import { DEMO_BOARD_TASKS, type BoardTask } from "@/lib/demo-data";
 
 type Column = BoardTask["column"];
 
-const COLUMNS: { id: Column; label: string; color: string }[] = [
-  { id: "pending",     label: "PENDING",     color: "var(--text-muted)" },
-  { id: "in_progress", label: "IN PROGRESS", color: "var(--blue)" },
-  { id: "done",        label: "DONE",        color: "var(--teal)" },
-  { id: "overdue",     label: "OVERDUE",     color: "var(--red)" },
+// Column chrome stays neutral — color is reserved for the one true alert state
+// (overdue) and for the priority/type badges on the cards themselves.
+const COLUMNS: { id: Column; label: string; accent?: string }[] = [
+  { id: "pending",     label: "PENDING" },
+  { id: "in_progress", label: "IN PROGRESS" },
+  { id: "done",        label: "DONE" },
+  { id: "overdue",     label: "OVERDUE", accent: "var(--red)" },
 ];
 
 const PRIORITY_META: Record<BoardTask["priority"], { cls: string }> = {
@@ -96,6 +98,7 @@ export default function BoardPage() {
       <div style={{ display: "flex", gap: 12, marginBottom: 20 }}>
         {COLUMNS.map((col) => {
           const count = byColumn(col.id).length;
+          const accent = col.accent ?? "var(--text-secondary)";
           return (
             <div
               key={col.id}
@@ -109,14 +112,14 @@ export default function BoardPage() {
                 borderRadius: 6,
                 fontSize: 11,
                 fontWeight: 700,
-                color: count > 0 ? col.color : "var(--text-muted)",
+                color: count > 0 ? accent : "var(--text-muted)",
               }}
             >
               {col.label}
               <span
                 style={{
-                  background: count > 0 ? col.color : "var(--bg-hover)",
-                  color: count > 0 ? "#000" : "var(--text-muted)",
+                  background: "var(--bg-hover)",
+                  color: count > 0 ? accent : "var(--text-muted)",
                   borderRadius: "50%",
                   width: 18,
                   height: 18,
@@ -148,18 +151,18 @@ export default function BoardPage() {
                   gap: 8,
                   marginBottom: 12,
                   paddingBottom: 10,
-                  borderBottom: `2px solid ${col.color}`,
+                  borderBottom: "1px solid var(--border)",
                 }}
               >
-                <span style={{ fontSize: 11, fontWeight: 800, color: col.color, letterSpacing: 0.6 }}>
+                <span style={{ fontSize: 11, fontWeight: 800, color: col.accent ?? "var(--text-secondary)", letterSpacing: 0.6 }}>
                   {col.label}
                 </span>
                 <span
                   style={{
                     fontSize: 10,
-                    background: col.id === "overdue" ? "var(--red-dim)" : "var(--bg-elevated)",
-                    color: col.color,
-                    border: `1px solid ${col.color}30`,
+                    background: "var(--bg-elevated)",
+                    color: "var(--text-secondary)",
+                    border: "1px solid var(--border)",
                     borderRadius: 4,
                     padding: "1px 6px",
                     fontWeight: 700,

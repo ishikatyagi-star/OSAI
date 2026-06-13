@@ -27,7 +27,7 @@ function getDemoAnswer(query: string): SearchResponse {
 
 function ConfidenceBar({ value }: { value: number }) {
   const pct = Math.round(value * 100);
-  const color = pct > 90 ? "#22c55e" : pct > 75 ? "#0099ff" : "#f5c842";
+  const color = pct > 90 ? "var(--green)" : pct > 75 ? "var(--accent)" : "var(--yellow)";
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
       <div style={{ flex: 1, height: 3, background: "rgba(255,255,255,0.08)", borderRadius: 9999 }}>
@@ -70,11 +70,15 @@ export default function SearchPage() {
 
   return (
     <div>
-      <h1>Search</h1>
-      <p className="page-subtitle">
-        Ask anything about your company knowledge base — get a synthesised answer with inline citations
-        from Notion, Slack, Google Drive, and Freshdesk.
-      </p>
+      <div className="page-header">
+        <div className="page-header-left">
+          <h1>Search</h1>
+          <p>
+            Ask anything about your company knowledge base — get a synthesised answer with inline
+            citations from Notion, Slack, Google Drive, and Freshdesk.
+          </p>
+        </div>
+      </div>
 
       {/* Search form */}
       <div className="search-container">
@@ -165,7 +169,7 @@ export default function SearchPage() {
               dangerouslySetInnerHTML={{
                 __html: result.answer
                   .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-                  .replace(/✅/g, "<span style='color:#22c55e'>✅</span>"),
+                  .replace(/✅/g, "<span style='color:var(--green)'>✅</span>"),
               }}
             />
             {!result.enough_context && (
@@ -203,7 +207,7 @@ export default function SearchPage() {
                           href={c.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          style={{ display: "block", marginTop: 8, fontSize: 11, color: "#0099ff" }}
+                          style={{ display: "block", marginTop: 8, fontSize: 11, color: "var(--accent)" }}
                         >
                           {c.url}
                         </a>
@@ -223,7 +227,7 @@ export default function SearchPage() {
             >
               ← New search
             </button>
-            <span style={{ marginLeft: 12, fontSize: 12, color: "#64748b" }}>or try another suggestion above</span>
+            <span style={{ marginLeft: 12, fontSize: 12, color: "var(--text-muted)" }}>or try another suggestion above</span>
           </div>
         </div>
       )}

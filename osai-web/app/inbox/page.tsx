@@ -48,8 +48,7 @@ export default function InboxPage() {
           <button
             key={t}
             onClick={() => setFilter(t)}
-            className="suggestion-chip"
-            style={filter === t ? { borderColor: "var(--teal)", color: "var(--teal)", background: "var(--teal-dim)" } : {}}
+            className={`suggestion-chip${filter === t ? " active" : ""}`}
           >
             {t === "all" ? "All types" : t}
           </button>
@@ -59,8 +58,7 @@ export default function InboxPage() {
           <button
             key={s}
             onClick={() => setStatusFilter(s)}
-            className="suggestion-chip"
-            style={statusFilter === s ? { borderColor: "var(--teal)", color: "var(--teal)", background: "var(--teal-dim)" } : {}}
+            className={`suggestion-chip${statusFilter === s ? " active" : ""}`}
           >
             {s === "all" ? "All statuses" : s}
           </button>
