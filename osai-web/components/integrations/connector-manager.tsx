@@ -94,11 +94,7 @@ export function ConnectorManager({
         <DialogHeader>
           <div className="flex items-center gap-3">
             <div
-              className="flex size-10 items-center justify-center rounded-lg text-xl"
-              style={{
-                background: meta ? `${meta.color}1a` : "var(--secondary)",
-                color: meta?.color,
-              }}
+              className="flex size-10 items-center justify-center rounded-lg border border-border bg-secondary text-xl"
               aria-hidden
             >
               {meta?.icon ?? "⚙"}

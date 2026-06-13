@@ -41,24 +41,28 @@ export default function SyncRunsPage() {
 
   return (
     <div>
-      <h1>Sync Runs</h1>
-      <p className="page-subtitle">
-        Ingestion activity across all connected sources. Each run fetches, chunks, and indexes
-        documents into the OSAI knowledge base.
-      </p>
+      <div className="page-header">
+        <div className="page-header-left">
+          <h1>Sync Runs</h1>
+          <p>
+            Ingestion activity across all connected sources. Each run fetches, chunks, and indexes
+            documents into the OSAI knowledge base.
+          </p>
+        </div>
+      </div>
 
-      {/* Summary stats */}
-      <div style={{ display: "flex", gap: 16, marginBottom: 32, flexWrap: "wrap" }}>
+      {/* Summary stats — dashboard stat-card styling; color reserved for status */}
+      <div className="stats-grid stats-grid--auto">
         {[
-          { label: "Total runs", value: display.length, color: undefined },
-          { label: "Succeeded", value: succeeded, color: "#22c55e" },
-          { label: "Failed", value: failed, color: failed > 0 ? "#ff5577" : undefined },
-          { label: "Docs indexed (session)", value: totalDocs.toLocaleString(), color: "#0099ff" },
-          { label: "Total in knowledge base", value: DEMO_STATS.documentsIndexed.toLocaleString(), color: "#b3a0ff" },
+          { label: "Total runs", value: display.length, color: "var(--text-primary)" },
+          { label: "Succeeded", value: succeeded, color: "var(--green)" },
+          { label: "Failed", value: failed, color: failed > 0 ? "var(--red)" : "var(--text-primary)" },
+          { label: "Docs indexed (session)", value: totalDocs.toLocaleString(), color: "var(--text-primary)" },
+          { label: "Total in knowledge base", value: DEMO_STATS.documentsIndexed.toLocaleString(), color: "var(--text-primary)" },
         ].map((s) => (
-          <div key={s.label} className="mini-stat">
-            <span className="mini-stat-value" style={{ color: s.color }}>{s.value}</span>
-            <span className="mini-stat-label">{s.label}</span>
+          <div key={s.label} className="stat-card">
+            <div className="stat-card-label">{s.label}</div>
+            <div className="stat-card-value" style={{ color: s.color }}>{s.value}</div>
           </div>
         ))}
       </div>
@@ -71,12 +75,8 @@ export default function SyncRunsPage() {
             const meta = CONNECTOR_META[key];
             if (!meta) return null;
             return (
-              <div
-                key={key}
-                className="connector-pill"
-                style={{ borderColor: `${meta.color}25`, background: `${meta.color}08` }}
-              >
-                <span style={{ color: meta.color }}>{meta.icon}</span>
+              <div key={key} className="connector-pill">
+                <span>{meta.icon}</span>
                 <span style={{ color: "var(--text-primary)", fontWeight: 600 }}>{meta.label}</span>
                 <span className="badge badge-grey" style={{ fontSize: 10 }}>
                   {count.toLocaleString()} docs
@@ -114,15 +114,15 @@ export default function SyncRunsPage() {
                     width: 10,
                     height: 10,
                     borderRadius: "50%",
-                    background: run.status === "succeeded" ? "#22c55e" : run.status === "failed" ? "#ff5577" : "var(--text-secondary)",
-                    border: "2px solid rgba(255,255,255,0.1)",
+                    background: run.status === "succeeded" ? "var(--green)" : run.status === "failed" ? "var(--red)" : "var(--text-secondary)",
+                    border: "2px solid var(--border)",
                     marginTop: 18,
                     flexShrink: 0,
-                    boxShadow: run.status === "succeeded" ? "0 0 6px #22c55e60" : "none",
+                    boxShadow: run.status === "succeeded" ? "0 0 6px var(--green)" : "none",
                   }}
                 />
                 {!isLast && (
-                  <div style={{ flex: 1, width: 1, background: "rgba(255,255,255,0.06)", marginTop: 4 }} />
+                  <div style={{ flex: 1, width: 1, background: "var(--border)", marginTop: 4 }} />
                 )}
               </div>
 
@@ -137,7 +137,7 @@ export default function SyncRunsPage() {
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                  <span style={{ fontSize: 16, color: meta.color }}>{meta.icon}</span>
+                  <span style={{ fontSize: 16 }}>{meta.icon}</span>
                   <span style={{ fontWeight: 600, fontSize: 13, color: "var(--text-primary)" }}>{meta.label}</span>
                   <span className={`badge ${STATUS_BADGE[run.status] ?? "badge-grey"}`}>
                     {run.status}
@@ -152,7 +152,7 @@ export default function SyncRunsPage() {
                     <span className="meta">📥 {run.documents_seen} seen</span>
                   </div>
                   <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                    <span className="meta" style={{ color: run.documents_indexed > 0 ? "#22c55e" : undefined }}>
+                    <span className="meta" style={{ color: run.documents_indexed > 0 ? "var(--green)" : undefined }}>
                       ✓ {run.documents_indexed} indexed
                     </span>
                   </div>
@@ -163,12 +163,12 @@ export default function SyncRunsPage() {
                           style={{
                             width: `${(run.documents_indexed / run.documents_seen) * 100}%`,
                             height: "100%",
-                            background: "#22c55e",
+                            background: "var(--green)",
                             borderRadius: 9999,
                           }}
                         />
                       </div>
-                      <span style={{ fontSize: 10, color: "#22c55e", fontWeight: 600 }}>
+                      <span style={{ fontSize: 10, color: "var(--green)", fontWeight: 600 }}>
                         {Math.round((run.documents_indexed / run.documents_seen) * 100)}%
                       </span>
                     </div>
