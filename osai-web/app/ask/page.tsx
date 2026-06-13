@@ -34,6 +34,13 @@ export default function AskPage() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [busyActionId, setBusyActionId] = useState<string | null>(null);
   const threadRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Focus the composer on mount and whenever a response finishes, so the user
+  // can start (or keep) typing without clicking into the field.
+  useEffect(() => {
+    if (!pending) inputRef.current?.focus();
+  }, [pending]);
 
   const scrollToBottom = useCallback(() => {
     requestAnimationFrame(() => {
@@ -241,6 +248,7 @@ export default function AskPage() {
         <div className="mx-auto w-full max-w-3xl">
           <div className="flex items-end gap-2 rounded-2xl border border-[var(--border)] bg-[var(--bg-surface)] p-2 transition-colors focus-within:border-[var(--accent)]">
             <Textarea
+              ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
