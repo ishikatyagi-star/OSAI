@@ -306,25 +306,30 @@ export default function WorkflowsPage() {
         </button>
       </div>
 
-      {/* Stats — dashboard stat-card styling; color reserved for true status */}
+      {/* Stats — dashboard stat-card styling; color only appears when it carries meaning */}
       <div className="stats-grid stats-grid--auto">
-        {[
-          { label: "Total runs", value: runs.length, color: "var(--text-primary)" },
+        {([
+          { label: "Total runs", value: runs.length },
           {
             label: "Completed",
             value: runs.filter((r) => r.status === "completed" || r.status === "succeeded").length,
-            color: "var(--green)",
+            tone: "var(--green)",
           },
           {
             label: "Needs review",
             value: runs.filter((r) => r.status === "needs_review").length,
-            color: "var(--yellow)",
+            tone: "var(--yellow)",
           },
-          { label: "Action items pending", value: pendingTotal, color: "var(--text-primary)" },
-        ].map((s) => (
+          { label: "Action items pending", value: pendingTotal },
+        ] as { label: string; value: number; tone?: string }[]).map((s) => (
           <div key={s.label} className="stat-card">
             <div className="stat-card-label">{s.label}</div>
-            <div className="stat-card-value" style={{ color: s.color }}>{s.value}</div>
+            <div
+              className="stat-card-value"
+              style={{ color: s.value > 0 && s.tone ? s.tone : "var(--text-primary)" }}
+            >
+              {s.value}
+            </div>
           </div>
         ))}
       </div>
@@ -379,7 +384,19 @@ export default function WorkflowsPage() {
       </div>
 
       {runs.length === 0 && (
-        <p className="empty-state">No runs yet. Click &ldquo;New Workflow&rdquo; to get started.</p>
+        <div className="card" style={{ textAlign: "center", padding: "40px 24px" }}>
+          <p style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>No workflow runs yet</p>
+          <p className="meta" style={{ maxWidth: 460, margin: "0 auto 8px", lineHeight: 1.5 }}>
+            Paste meeting notes or a transcript and OSAI extracts the action items — owner, due date
+            and a source quote — then pushes them to Notion, Slack, Freshdesk or manual review.
+          </p>
+          <p className="meta" style={{ maxWidth: 460, margin: "0 auto 18px", fontStyle: "italic" }}>
+            e.g. “Sarah: I’ll prepare the roadmap by Friday. Anish: I’ll schedule the interviews.”
+          </p>
+          <button className="btn btn-primary" onClick={() => setShowCreate(true)} style={{ display: "inline-flex" }}>
+            + New Workflow
+          </button>
+        </div>
       )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
