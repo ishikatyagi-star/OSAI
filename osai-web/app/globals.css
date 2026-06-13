@@ -884,6 +884,54 @@ h2 {
   color: var(--text-muted);
 }
 
+/* ─── Modal / confirmation dialog ────────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.modal-card {
+  width: 100%;
+  max-width: 440px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+}
+
+.modal-card h2 { font-size: 18px; margin-bottom: 8px; letter-spacing: -0.4px; }
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+/* Sortable data-table header cell. */
+.data-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.data-table th.sortable:hover { color: var(--text-secondary); }
+
+.data-table th .sort-caret {
+  margin-left: 4px;
+  opacity: 0.9;
+}
+
+.data-table th .sort-caret.inactive { opacity: 0.25; }
+
 /* ─── Answer card ────────────────────────────────────────────────────────────── */
 .answer-card {
   border-color: rgba(0, 153, 255, 0.22);
