@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, Plus, Send, Sparkles } from "lucide-react";
+import { Loader2, Plus, Send } from "lucide-react";
 import { askOsai, confirmAgentAction } from "@/lib/api";
 import { DEMO_ASK_ANSWERS, DEMO_ASK_SUGGESTIONS } from "@/lib/demo-data";
 import type { AgentAction, AskResponse } from "@/lib/types";
@@ -160,27 +160,23 @@ export default function AskPage() {
   return (
     <div className="flex h-[calc(100vh-128px)] flex-col">
       {/* Header */}
-      <div className="flex shrink-0 items-center justify-between pb-4">
-        <div>
-          <h1 className="flex items-center gap-2">
-            <Sparkles className="size-5 text-primary" />
-            Ask OSAI
-          </h1>
-          <p className="page-subtitle" style={{ marginBottom: 0 }}>
+      <div className="page-header shrink-0">
+        <div className="page-header-left">
+          <h1>Ask OSAI</h1>
+          <p>
             Ask anything about your org — get a cited answer and let OSAI take action in your tools.
           </p>
         </div>
         {!empty && (
-          <Button
-            variant="secondary"
-            size="sm"
+          <button
+            className="btn"
             onClick={() => {
               setTurns([]);
               setConversationId(null);
             }}
           >
             <Plus className="size-3.5" /> New chat
-          </Button>
+          </button>
         )}
       </div>
 
