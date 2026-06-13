@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   CheckCircle2,
   ChevronDown,
   Clock,
   Cpu,
+  RotateCw,
   XCircle,
 } from "lucide-react";
 import { getEvalRun } from "@/lib/api";
@@ -22,6 +23,12 @@ const CATEGORY_LABEL: Record<EvalCategory, string> = {
   routing: "Routing",
   qa: "Q&A",
 };
+
+// Hard cap so the page can never sit on a spinner indefinitely, even if the
+// request never settles. apiGet already aborts at 8s; this is belt-and-braces.
+const LOAD_TIMEOUT_MS = 10000;
+
+type LoadState = "loading" | "ready" | "error";
 
 function StatCard({
   label,
@@ -141,25 +148,38 @@ function CaseRow({ c }: { c: EvalCase }) {
 export default function EvalsPage() {
   const [run, setRun] = useState<EvalRun | null>(null);
   const [usingDemo, setUsingDemo] = useState(false);
+  const [loadState, setLoadState] = useState<LoadState>("loading");
   const [filter, setFilter] = useState<EvalCategory | "all">("all");
+
+  const load = useCallback(async () => {
+    setLoadState("loading");
+    try {
+      const res = await getEvalRun();
+      if (res) {
+        setRun(res);
+        setUsingDemo(false);
+      } else {
+        // No backend reachable — fall back to the bundled demo run.
+        setRun(DEMO_EVAL_RUN);
+        setUsingDemo(true);
+      }
+      setLoadState("ready");
+    } catch {
+      setLoadState("error");
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      const res = await getEvalRun();
-      if (cancelled) return;
-      if (!res) {
-        setRun(DEMO_EVAL_RUN);
-        setUsingDemo(true);
-      } else {
-        setRun(res);
-        setUsingDemo(false);
-      }
-    })();
+    load();
+    const t = setTimeout(() => {
+      if (!cancelled) setLoadState((s) => (s === "loading" ? "error" : s));
+    }, LOAD_TIMEOUT_MS);
     return () => {
       cancelled = true;
+      clearTimeout(t);
     };
-  }, []);
+  }, [load]);
 
   const categoryStats = useMemo(() => {
     if (!run) return [];
@@ -183,90 +203,124 @@ export default function EvalsPage() {
     return run.cases.filter((c) => c.category === filter);
   }, [run, filter]);
 
-  if (!run) {
-    return (
-      <div className="flex h-[60vh] items-center justify-center text-sm text-muted-foreground">
-        Loading eval run…
-      </div>
-    );
-  }
+  const isEmpty = loadState === "ready" && run != null && run.cases.length === 0;
+  const hasData = loadState === "ready" && run != null && run.cases.length > 0;
 
   return (
     <div className="pb-10">
       <div className="page-header">
         <div className="page-header-left">
           <h1>Evals</h1>
-          <p>
-            Quality and regression tracking for OSAI&apos;s answers and routing.
+          <p>Quality and regression tracking for OSAI&apos;s answers and routing.</p>
+        </div>
+        {hasData && run && (
+          <div className="page-header-meta">
+            <span className="inline-flex items-center gap-1">
+              <Cpu className="size-3" />
+              {run.model_route}
+            </span>
+            <span className="sep">·</span>
+            <span className="font-mono">{run.run_id}</span>
+            {usingDemo && <Badge variant="muted">demo data</Badge>}
+          </div>
+        )}
+      </div>
+
+      {/* Loading */}
+      {loadState === "loading" && (
+        <div className="card" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14, padding: "48px 24px" }}>
+          <div className="search-thinking-dots">
+            <span /><span /><span />
+          </div>
+          <p className="meta">Loading the latest eval run…</p>
+        </div>
+      )}
+
+      {/* Error + retry */}
+      {loadState === "error" && (
+        <div className="card" style={{ textAlign: "center", padding: "44px 24px" }}>
+          <p style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Couldn&apos;t load eval results</p>
+          <p className="meta" style={{ marginBottom: 18 }}>
+            The eval service didn&apos;t respond. Check that the backend is reachable, then try again.
+          </p>
+          <button className="btn btn-primary" onClick={load} style={{ display: "inline-flex" }}>
+            <RotateCw className="size-3.5" /> Retry
+          </button>
+        </div>
+      )}
+
+      {/* Empty (reached backend, no cases yet) */}
+      {isEmpty && (
+        <div className="card" style={{ textAlign: "center", padding: "44px 24px" }}>
+          <p style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>No eval cases yet</p>
+          <p className="meta" style={{ maxWidth: 420, margin: "0 auto" }}>
+            Once the eval suite runs against your indexed data, pass rates and per-case results
+            will appear here.
           </p>
         </div>
-        <div className="page-header-meta">
-          <span className="inline-flex items-center gap-1">
-            <Cpu className="size-3" />
-            {run.model_route}
-          </span>
-          <span className="sep">·</span>
-          <span className="font-mono">{run.run_id}</span>
-          {usingDemo && <Badge variant="muted">demo data</Badge>}
-        </div>
-      </div>
+      )}
 
-      {/* Summary */}
-      <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatCard
-          label="Pass rate"
-          value={`${Math.round(run.pass_rate * 100)}%`}
-          tone={run.pass_rate >= 0.8 ? "success" : "destructive"}
-        />
-        <StatCard label="Total cases" value={String(run.total)} />
-        <StatCard label="Passed" value={String(run.passed)} tone="success" />
-        <StatCard label="Failed" value={String(run.failed)} tone="destructive" />
-      </div>
+      {/* Data */}
+      {hasData && run && (
+        <>
+          {/* Summary */}
+          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <StatCard
+              label="Pass rate"
+              value={`${Math.round(run.pass_rate * 100)}%`}
+              tone={run.pass_rate >= 0.8 ? "success" : "destructive"}
+            />
+            <StatCard label="Total cases" value={String(run.total)} />
+            <StatCard label="Passed" value={String(run.passed)} tone="success" />
+            <StatCard label="Failed" value={String(run.failed)} tone={run.failed > 0 ? "destructive" : "default"} />
+          </div>
 
-      {/* Category breakdown */}
-      <Card className="mt-4 p-4">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          By category
-        </p>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          {categoryStats.map((s) => (
-            <div key={s.category} className="space-y-1">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-foreground/90">
-                  {CATEGORY_LABEL[s.category]}
-                </span>
-                <span className="text-xs tabular-nums text-muted-foreground">
-                  {s.passed}/{s.total}
-                </span>
-              </div>
-              <PassRateBar rate={s.rate} />
+          {/* Category breakdown */}
+          <Card className="mt-4 p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              By category
+            </p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              {categoryStats.map((s) => (
+                <div key={s.category} className="space-y-1">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-foreground/90">
+                      {CATEGORY_LABEL[s.category]}
+                    </span>
+                    <span className="text-xs tabular-nums text-muted-foreground">
+                      {s.passed}/{s.total}
+                    </span>
+                  </div>
+                  <PassRateBar rate={s.rate} />
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      </Card>
+          </Card>
 
-      {/* Cases */}
-      <div className="mt-6">
-        <Tabs
-          value={filter}
-          onValueChange={(v) => setFilter(v as EvalCategory | "all")}
-        >
-          <TabsList>
-            <TabsTrigger value="all">All</TabsTrigger>
-            {(Object.keys(CATEGORY_LABEL) as EvalCategory[]).map((c) => (
-              <TabsTrigger key={c} value={c}>
-                {CATEGORY_LABEL[c]}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
+          {/* Cases */}
+          <div className="mt-6">
+            <Tabs
+              value={filter}
+              onValueChange={(v) => setFilter(v as EvalCategory | "all")}
+            >
+              <TabsList>
+                <TabsTrigger value="all">All</TabsTrigger>
+                {(Object.keys(CATEGORY_LABEL) as EvalCategory[]).map((c) => (
+                  <TabsTrigger key={c} value={c}>
+                    {CATEGORY_LABEL[c]}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
 
-        <div className="mt-4 space-y-2">
-          {visibleCases.map((c) => (
-            <CaseRow key={c.id} c={c} />
-          ))}
-        </div>
-      </div>
+            <div className="mt-4 space-y-2">
+              {visibleCases.map((c) => (
+                <CaseRow key={c.id} c={c} />
+              ))}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -29,16 +29,30 @@ function getHeaders(extraHeaders: Record<string, string> = {}): Record<string, s
   return headers;
 }
 
-async function apiGet<T>(path: string, fallback: T): Promise<T> {
+// Network requests are bounded by a timeout so a slow/unreachable backend can
+// never leave the UI hanging on a spinner — on timeout or error we resolve to
+// the provided fallback (typically demo data or null).
+const DEFAULT_TIMEOUT_MS = 8000;
+
+async function apiGet<T>(
+  path: string,
+  fallback: T,
+  timeoutMs: number = DEFAULT_TIMEOUT_MS
+): Promise<T> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(`${API_BASE_URL}${path}`, {
       cache: "no-store",
       headers: getHeaders(),
+      signal: controller.signal,
     });
     if (!res.ok) return fallback;
     return (await res.json()) as T;
   } catch {
     return fallback;
+  } finally {
+    clearTimeout(timer);
   }
 }
 

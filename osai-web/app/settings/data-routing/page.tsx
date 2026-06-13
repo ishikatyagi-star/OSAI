@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { RotateCw } from "lucide-react";
 import { getDataRouting, patchDataRouting } from "@/lib/api";
 import { DEMO_DATA_ROUTING } from "@/lib/demo-data";
 import { CONNECTOR_META } from "@/lib/connector-meta";
@@ -9,9 +10,13 @@ import type { DataRouting } from "@/lib/types";
 const TIERS = ["normal", "amber", "red"] as const;
 type Tier = (typeof TIERS)[number];
 
+// Hard cap so the page can never sit on a spinner indefinitely.
+const LOAD_TIMEOUT_MS = 10000;
+type LoadState = "loading" | "ready" | "error";
+
 const TIER_META: Record<Tier, { color: string; icon: string; title: string; description: string; badge: string }> = {
   normal: {
-    color: "#22c55e",
+    color: "var(--green)",
     icon: "🟢",
     title: "Normal",
     description:
@@ -19,7 +24,7 @@ const TIER_META: Record<Tier, { color: string; icon: string; title: string; desc
     badge: "badge-green",
   },
   amber: {
-    color: "#f5c842",
+    color: "var(--yellow)",
     icon: "🟡",
     title: "Amber",
     description:
@@ -27,7 +32,7 @@ const TIER_META: Record<Tier, { color: string; icon: string; title: string; desc
     badge: "badge-amber",
   },
   red: {
-    color: "#ff5577",
+    color: "var(--red)",
     icon: "🔴",
     title: "Red",
     description:
@@ -40,13 +45,33 @@ const ALL_CONNECTORS = ["notion", "slack", "freshdesk", "google_drive"];
 
 export default function DataRoutingPage() {
   const [routing, setRouting] = useState<DataRouting | null>(null);
+  const [loadState, setLoadState] = useState<LoadState>("loading");
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState("");
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    getDataRouting().then((d) => setRouting(d ?? DEMO_DATA_ROUTING));
+  const load = useCallback(async () => {
+    setLoadState("loading");
+    try {
+      const d = await getDataRouting();
+      setRouting(d ?? DEMO_DATA_ROUTING);
+      setLoadState("ready");
+    } catch {
+      setLoadState("error");
+    }
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    load();
+    const t = setTimeout(() => {
+      if (!cancelled) setLoadState((s) => (s === "loading" ? "error" : s));
+    }, LOAD_TIMEOUT_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [load]);
 
   async function handleSave() {
     if (!routing) return;
@@ -79,178 +104,199 @@ export default function DataRoutingPage() {
     setRouting({ ...routing, [tier]: { ...routing[tier], llm_allowed: !routing[tier].llm_allowed } });
   }
 
-  if (!routing) {
-    return (
-      <div>
-        <h1>Data Routing</h1>
-        <p className="meta">Loading…</p>
-      </div>
-    );
-  }
-
   return (
     <div>
-      <h1>Data Routing</h1>
-      <p className="page-subtitle">
-        Classify your data into sensitivity tiers to control which connectors and LLM providers
-        are permitted. Ensures compliance with internal data governance policies.
-      </p>
+      <div className="page-header">
+        <div className="page-header-left">
+          <h1>Data Routing</h1>
+          <p>
+            Classify your data into sensitivity tiers to control which connectors and LLM providers
+            are permitted. Ensures compliance with internal data governance policies.
+          </p>
+        </div>
+      </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 20, marginBottom: 28 }}>
-        {TIERS.map((tier) => {
-          const meta = TIER_META[tier];
-          const config = routing[tier];
+      {/* Loading */}
+      {loadState === "loading" && (
+        <div className="card" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14, padding: "48px 24px" }}>
+          <div className="search-thinking-dots">
+            <span /><span /><span />
+          </div>
+          <p className="meta">Loading data routing policies…</p>
+        </div>
+      )}
 
-          return (
-            <div
-              key={tier}
-              className="card"
-              style={{ borderColor: `${meta.color}20`, padding: 0, overflow: "hidden" }}
-            >
-              {/* Tier header */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 14,
-                  padding: "18px 22px",
-                  background: `${meta.color}06`,
-                  borderBottom: "1px solid rgba(255,255,255,0.05)",
-                }}
-              >
+      {/* Error + retry */}
+      {loadState === "error" && (
+        <div className="card" style={{ textAlign: "center", padding: "44px 24px" }}>
+          <p style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Couldn&apos;t load routing settings</p>
+          <p className="meta" style={{ marginBottom: 18 }}>
+            The settings service didn&apos;t respond. Check that the backend is reachable, then try again.
+          </p>
+          <button className="btn btn-primary" onClick={load} style={{ display: "inline-flex" }}>
+            <RotateCw className="size-3.5" /> Retry
+          </button>
+        </div>
+      )}
+
+      {loadState === "ready" && routing && (
+        <>
+          <div style={{ display: "flex", flexDirection: "column", gap: 20, marginBottom: 28 }}>
+            {TIERS.map((tier) => {
+              const meta = TIER_META[tier];
+              const config = routing[tier];
+
+              return (
                 <div
-                  style={{
-                    width: 4,
-                    height: 40,
-                    borderRadius: 9999,
-                    background: meta.color,
-                    flexShrink: 0,
-                  }}
-                />
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-                    <h2 style={{ margin: 0, fontSize: 16 }}>{meta.icon} {meta.title} Tier</h2>
-                    <span className={`badge ${meta.badge}`}>{tier}</span>
-                  </div>
-                  <p className="meta" style={{ margin: 0, fontSize: 12, lineHeight: 1.4 }}>
-                    {meta.description}
-                  </p>
-                </div>
-              </div>
-
-              {/* Controls */}
-              <div style={{ padding: "18px 22px" }}>
-                <div style={{ display: "flex", gap: 32, flexWrap: "wrap", alignItems: "flex-start" }}>
-                  {/* Connector toggles */}
-                  <div style={{ flex: 1 }}>
-                    <p style={{ fontWeight: 600, fontSize: 12, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 10 }}>
-                      Allowed Connectors
-                    </p>
-                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                      {ALL_CONNECTORS.map((key) => {
-                        const cm = CONNECTOR_META[key];
-                        const checked = config.allowed_connectors.includes(key);
-                        return (
-                          <label
-                            key={key}
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 7,
-                              padding: "7px 14px",
-                              borderRadius: 8,
-                              border: `1px solid ${checked ? `${cm?.color ?? meta.color}30` : "rgba(255,255,255,0.07)"}`,
-                              background: checked ? `${cm?.color ?? meta.color}0d` : "rgba(255,255,255,0.02)",
-                              cursor: "pointer",
-                              transition: "all 0.2s",
-                              fontSize: 12,
-                              fontWeight: 500,
-                              color: checked ? (cm?.color ?? meta.color) : "var(--text-muted)",
-                            }}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={() => toggleConnector(tier, key)}
-                              style={{ display: "none" }}
-                            />
-                            <span>{cm?.icon ?? "⚙"}</span>
-                            <span>{cm?.label ?? key}</span>
-                            {checked && <span style={{ color: "#22c55e", fontSize: 10 }}>✓</span>}
-                          </label>
-                        );
-                      })}
+                  key={tier}
+                  className="card"
+                  style={{ padding: 0, overflow: "hidden" }}
+                >
+                  {/* Tier header */}
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 14,
+                      padding: "18px 22px",
+                      borderBottom: "1px solid var(--border)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 4,
+                        height: 40,
+                        borderRadius: 9999,
+                        background: meta.color,
+                        flexShrink: 0,
+                      }}
+                    />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+                        <h2 style={{ margin: 0, fontSize: 16 }}>{meta.icon} {meta.title} Tier</h2>
+                        <span className={`badge ${meta.badge}`}>{tier}</span>
+                      </div>
+                      <p className="meta" style={{ margin: 0, fontSize: 12, lineHeight: 1.4 }}>
+                        {meta.description}
+                      </p>
                     </div>
                   </div>
 
-                  {/* LLM toggle */}
-                  <div>
-                    <p style={{ fontWeight: 600, fontSize: 12, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 10 }}>
-                      LLM Processing
-                    </p>
-                    <label
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 10,
-                        cursor: "pointer",
-                        padding: "7px 14px",
-                        borderRadius: 8,
-                        border: `1px solid ${config.llm_allowed ? "rgba(96,165,250,0.25)" : "rgba(255,255,255,0.07)"}`,
-                        background: config.llm_allowed ? "rgba(96,165,250,0.07)" : "rgba(255,255,255,0.02)",
-                        transition: "all 0.2s",
-                        minWidth: 160,
-                      }}
-                    >
-                      <input type="checkbox" checked={config.llm_allowed} onChange={() => toggleLlm(tier)} style={{ display: "none" }} />
-                      <div
-                        style={{
-                          width: 32,
-                          height: 18,
-                          borderRadius: 9999,
-                          background: config.llm_allowed ? "#0099ff" : "rgba(255,255,255,0.1)",
-                          position: "relative",
-                          transition: "background 0.2s",
-                          flexShrink: 0,
-                        }}
-                      >
-                        <div
-                          style={{
-                            position: "absolute",
-                            top: 2,
-                            left: config.llm_allowed ? 16 : 2,
-                            width: 14,
-                            height: 14,
-                            borderRadius: "50%",
-                            background: "#fff",
-                            transition: "left 0.2s",
-                          }}
-                        />
+                  {/* Controls */}
+                  <div style={{ padding: "18px 22px" }}>
+                    <div style={{ display: "flex", gap: 32, flexWrap: "wrap", alignItems: "flex-start" }}>
+                      {/* Connector toggles */}
+                      <div style={{ flex: 1 }}>
+                        <p style={{ fontWeight: 600, fontSize: 12, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 10 }}>
+                          Allowed Connectors
+                        </p>
+                        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                          {ALL_CONNECTORS.map((key) => {
+                            const cm = CONNECTOR_META[key];
+                            const checked = config.allowed_connectors.includes(key);
+                            return (
+                              <label
+                                key={key}
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 7,
+                                  padding: "7px 14px",
+                                  borderRadius: 8,
+                                  border: checked ? "1px solid var(--accent-ring)" : "1px solid var(--border)",
+                                  background: checked ? "var(--accent-dim)" : "var(--bg-surface)",
+                                  cursor: "pointer",
+                                  transition: "all 0.2s",
+                                  fontSize: 12,
+                                  fontWeight: 500,
+                                  color: checked ? "var(--accent)" : "var(--text-muted)",
+                                }}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() => toggleConnector(tier, key)}
+                                  style={{ display: "none" }}
+                                />
+                                <span>{cm?.icon ?? "⚙"}</span>
+                                <span>{cm?.label ?? key}</span>
+                                {checked && <span style={{ fontSize: 10 }}>✓</span>}
+                              </label>
+                            );
+                          })}
+                        </div>
                       </div>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: config.llm_allowed ? "#66c2ff" : "var(--text-muted)" }}>
-                        {config.llm_allowed ? "Allowed" : "Disabled"}
-                      </span>
-                    </label>
+
+                      {/* LLM toggle */}
+                      <div>
+                        <p style={{ fontWeight: 600, fontSize: 12, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 10 }}>
+                          LLM Processing
+                        </p>
+                        <label
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 10,
+                            cursor: "pointer",
+                            padding: "7px 14px",
+                            borderRadius: 8,
+                            border: config.llm_allowed ? "1px solid var(--accent-ring)" : "1px solid var(--border)",
+                            background: config.llm_allowed ? "var(--accent-dim)" : "var(--bg-surface)",
+                            transition: "all 0.2s",
+                            minWidth: 160,
+                          }}
+                        >
+                          <input type="checkbox" checked={config.llm_allowed} onChange={() => toggleLlm(tier)} style={{ display: "none" }} />
+                          <div
+                            style={{
+                              width: 32,
+                              height: 18,
+                              borderRadius: 9999,
+                              background: config.llm_allowed ? "var(--accent)" : "var(--bg-hover)",
+                              position: "relative",
+                              transition: "background 0.2s",
+                              flexShrink: 0,
+                            }}
+                          >
+                            <div
+                              style={{
+                                position: "absolute",
+                                top: 2,
+                                left: config.llm_allowed ? 16 : 2,
+                                width: 14,
+                                height: 14,
+                                borderRadius: "50%",
+                                background: "#fff",
+                                transition: "left 0.2s",
+                              }}
+                            />
+                          </div>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: config.llm_allowed ? "var(--accent)" : "var(--text-muted)" }}>
+                            {config.llm_allowed ? "Allowed" : "Disabled"}
+                          </span>
+                        </label>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+              );
+            })}
+          </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-        <button
-          className="btn btn-primary"
-          onClick={handleSave}
-          disabled={saving}
-          style={{ padding: "11px 28px" }}
-        >
-          {saving ? "Saving…" : "Save Changes"}
-        </button>
-        {savedMsg && <span className="success-text" style={{ fontSize: 13 }}>✓ {savedMsg}</span>}
-        {error && <span className="error-text" style={{ fontSize: 13 }}>{error}</span>}
-      </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <button
+              className="btn btn-primary"
+              onClick={handleSave}
+              disabled={saving}
+              style={{ padding: "11px 28px" }}
+            >
+              {saving ? "Saving…" : "Save Changes"}
+            </button>
+            {savedMsg && <span className="success-text" style={{ fontSize: 13 }}>✓ {savedMsg}</span>}
+            {error && <span className="error-text" style={{ fontSize: 13 }}>{error}</span>}
+          </div>
+        </>
+      )}
     </div>
   );
 }
