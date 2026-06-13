@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { getSyncRuns } from "@/lib/api";
 import { DEMO_SYNC_RUNS, DEMO_STATS } from "@/lib/demo-data";
 import { CONNECTOR_META } from "@/lib/connector-meta";
@@ -156,6 +157,17 @@ export default function SyncRunsPage() {
                       ✓ {run.documents_indexed} indexed
                     </span>
                   </div>
+                  {run.status === "succeeded" && run.documents_seen - run.documents_indexed > 0 && (
+                    <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                      <span
+                        className="meta"
+                        title="Skipped during indexing — usually empty, too short, or an unsupported format."
+                        style={{ cursor: "help" }}
+                      >
+                        ⓘ {run.documents_seen - run.documents_indexed} skipped
+                      </span>
+                    </div>
+                  )}
                   {run.documents_indexed > 0 && run.documents_seen > 0 && (
                     <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, minWidth: 120 }}>
                       <div style={{ flex: 1, height: 3, background: "rgba(255,255,255,0.08)", borderRadius: 9999 }}>
@@ -176,7 +188,15 @@ export default function SyncRunsPage() {
                 </div>
 
                 {run.error && (
-                  <p className="error-text" style={{ marginTop: 8, fontSize: 12 }}>⚠ {run.error}</p>
+                  <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                    <span className="error-text" style={{ fontSize: 12 }}>⚠ {run.error}</span>
+                    <Link
+                      href="/integrations"
+                      style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, whiteSpace: "nowrap" }}
+                    >
+                      Fix in Integrations →
+                    </Link>
+                  </div>
                 )}
               </div>
             </div>
