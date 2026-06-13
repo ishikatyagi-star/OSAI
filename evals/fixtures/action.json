@@ -1,0 +1,38 @@
+[
+  {
+    "id": "action-01",
+    "category": "action",
+    "question": "Open a Freshdesk ticket for the Redis connection pool exhaustion issue.",
+    "expected": "freshdesk:create_ticket",
+    "match_mode": "contains",
+    "tags": ["freshdesk", "create", "infra"],
+    "notes": "Should propose creating a ticket with subject about Redis pool, priority high"
+  },
+  {
+    "id": "action-02",
+    "category": "action",
+    "question": "Post a summary of today's standup to #engineering on Slack.",
+    "expected": "slack:post_message",
+    "match_mode": "contains",
+    "tags": ["slack", "post", "meeting"],
+    "notes": "Should propose posting to #engineering channel"
+  },
+  {
+    "id": "action-03",
+    "category": "action",
+    "question": "Create a Notion page documenting the SSO decision for Q3.",
+    "expected": "notion:create_page",
+    "match_mode": "contains",
+    "tags": ["notion", "create", "decision"],
+    "notes": "Should propose creating a page in the Decision Log"
+  },
+  {
+    "id": "action-04",
+    "category": "action",
+    "question": "Send an email to the Meridian Corp account manager about the SLA breach.",
+    "expected": "gmail:send_email",
+    "match_mode": "contains",
+    "tags": ["gmail", "composio", "escalation"],
+    "notes": "Composio-backed action — tests tool breadth"
+  }
+]

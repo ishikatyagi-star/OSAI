@@ -1,0 +1,47 @@
+[
+  {
+    "id": "own-01",
+    "category": "ownership",
+    "question": "Who owns the VPC security setup?",
+    "expected": "Yash",
+    "match_mode": "contains",
+    "tags": ["person", "infra", "security"],
+    "notes": "Source: Notion — VPC and Ollama Security Setup page"
+  },
+  {
+    "id": "own-02",
+    "category": "ownership",
+    "question": "Who is responsible for the Q3 product roadmap?",
+    "expected": "Ishika",
+    "match_mode": "contains",
+    "tags": ["person", "product", "roadmap"],
+    "notes": "Source: Notion — Q3 2026 Product Roadmap"
+  },
+  {
+    "id": "own-03",
+    "category": "ownership",
+    "question": "Who raised the Meridian Corp SLA escalation?",
+    "expected": "Anish",
+    "match_mode": "contains",
+    "tags": ["person", "ticket", "escalation"],
+    "notes": "Source: Zoom transcript — flagged by Anish in sales call"
+  },
+  {
+    "id": "own-04",
+    "category": "ownership",
+    "question": "Who is fixing the Redis connection pool exhaustion?",
+    "expected": "Dev",
+    "match_mode": "contains",
+    "tags": ["person", "infra", "bug"],
+    "notes": "Source: Slack #engineering thread"
+  },
+  {
+    "id": "own-05",
+    "category": "ownership",
+    "question": "Which department owns the onboarding process for new hires?",
+    "expected": "Product",
+    "match_mode": "contains",
+    "tags": ["department", "process"],
+    "notes": "Source: Notion — Onboarding guide owned by Product team"
+  }
+]

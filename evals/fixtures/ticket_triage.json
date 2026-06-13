@@ -1,0 +1,47 @@
+[
+  {
+    "id": "triage-01",
+    "category": "ticket_triage",
+    "question": "Which open ticket is closest to SLA breach?",
+    "expected": "#204",
+    "match_mode": "contains",
+    "tags": ["freshdesk", "sla", "priority"],
+    "notes": "Ticket #204 — Meridian Corp P1 auth bug, <20 min to breach"
+  },
+  {
+    "id": "triage-02",
+    "category": "ticket_triage",
+    "question": "What priority should the Redis connection pool issue be assigned?",
+    "expected": "high",
+    "match_mode": "contains",
+    "tags": ["freshdesk", "priority", "infra"],
+    "notes": "Production-impacting issue flagged before deploy"
+  },
+  {
+    "id": "triage-03",
+    "category": "ticket_triage",
+    "question": "How many open SLA escalations are there in Freshdesk?",
+    "expected": "2",
+    "match_mode": "contains",
+    "tags": ["freshdesk", "count", "sla"],
+    "notes": "#204 (Meridian) and #198 (Apex Ventures)"
+  },
+  {
+    "id": "triage-04",
+    "category": "ticket_triage",
+    "question": "Is ticket #101 (VPC security encryption) resolved?",
+    "expected": "yes",
+    "match_mode": "contains",
+    "tags": ["freshdesk", "status", "resolved"],
+    "notes": "Marked executed after VPC work completed"
+  },
+  {
+    "id": "triage-05",
+    "category": "ticket_triage",
+    "question": "What company is affected by the P1 API auth bug?",
+    "expected": "Meridian",
+    "match_mode": "contains",
+    "tags": ["freshdesk", "customer", "escalation"],
+    "notes": "Meridian Corp — ticket #204"
+  }
+]
