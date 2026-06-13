@@ -875,6 +875,15 @@ h2 {
 
 .suggestion-chip:disabled { opacity: 0.4; cursor: not-allowed; }
 
+/* Small uppercase caption that labels a group of filter chips. */
+.filter-group-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+}
+
 /* ─── Answer card ────────────────────────────────────────────────────────────── */
 .answer-card {
   border-color: rgba(0, 153, 255, 0.22);

@@ -15,9 +15,9 @@ export default function InboxPage() {
   const [filter, setFilter] = useState<"all" | InboxItem["type"]>("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "inbox" | "reviewed">("all");
 
-  function markReviewed(id: string) {
+  function setItemStatus(id: string, status: InboxItem["status"]) {
     setItems((prev) =>
-      prev.map((i) => (i.id === id ? { ...i, status: "reviewed" } : i))
+      prev.map((i) => (i.id === id ? { ...i, status } : i))
     );
   }
 
@@ -42,27 +42,35 @@ export default function InboxPage() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
-        {(["all", "blocker", "follow-up", "priority", "update"] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => setFilter(t)}
-            className={`suggestion-chip${filter === t ? " active" : ""}`}
-          >
-            {t === "all" ? "All types" : t}
-          </button>
-        ))}
-        <div style={{ flex: 1 }} />
-        {(["all", "inbox", "reviewed"] as const).map((s) => (
-          <button
-            key={s}
-            onClick={() => setStatusFilter(s)}
-            className={`suggestion-chip${statusFilter === s ? " active" : ""}`}
-          >
-            {s === "all" ? "All statuses" : s}
-          </button>
-        ))}
+      {/* Filters — grouped and labelled so the active selection is unambiguous */}
+      <div style={{ display: "flex", gap: 16, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <span className="filter-group-label">Type</span>
+          {(["all", "blocker", "follow-up", "priority", "update"] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => setFilter(t)}
+              className={`suggestion-chip${filter === t ? " active" : ""}`}
+              aria-pressed={filter === t}
+            >
+              {t === "all" ? "All types" : t}
+            </button>
+          ))}
+        </div>
+        <div style={{ flex: 1, minWidth: 12 }} />
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <span className="filter-group-label">Status</span>
+          {(["all", "inbox", "reviewed"] as const).map((s) => (
+            <button
+              key={s}
+              onClick={() => setStatusFilter(s)}
+              className={`suggestion-chip${statusFilter === s ? " active" : ""}`}
+              aria-pressed={statusFilter === s}
+            >
+              {s === "all" ? "All statuses" : s}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Items */}
@@ -94,21 +102,39 @@ export default function InboxPage() {
               </div>
 
               <div className="context-item-actions">
-                {item.status === "inbox" && (
-                  <button
-                    className="btn btn-primary"
-                    style={{ fontSize: 11, padding: "5px 12px" }}
-                    onClick={() => markReviewed(item.id)}
-                  >
-                    Mark Reviewed
-                  </button>
+                {item.status === "inbox" ? (
+                  <>
+                    <button
+                      className="btn btn-primary"
+                      style={{ fontSize: 11, padding: "5px 12px" }}
+                      onClick={() => setItemStatus(item.id, "reviewed")}
+                    >
+                      Mark Reviewed
+                    </button>
+                    <button className="btn" style={{ fontSize: 11, padding: "5px 12px" }}>
+                      Add to Decision Log
+                    </button>
+                    <button className="btn" style={{ fontSize: 11, padding: "5px 12px" }}>
+                      Create Task
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <span
+                      className="meta"
+                      style={{ display: "inline-flex", alignItems: "center", gap: 5, color: "var(--green)", fontSize: 11, fontWeight: 600 }}
+                    >
+                      ✓ Reviewed
+                    </span>
+                    <button
+                      className="btn btn-ghost"
+                      style={{ fontSize: 11, padding: "5px 12px" }}
+                      onClick={() => setItemStatus(item.id, "inbox")}
+                    >
+                      Reopen
+                    </button>
+                  </>
                 )}
-                <button className="btn" style={{ fontSize: 11, padding: "5px 12px" }}>
-                  Add to Decision Log
-                </button>
-                <button className="btn" style={{ fontSize: 11, padding: "5px 12px" }}>
-                  Create Task
-                </button>
               </div>
             </div>
           );
