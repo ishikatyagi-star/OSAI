@@ -70,6 +70,12 @@
 
 html, body { height: 100%; }
 
+/* Tailwind's preflight is intentionally disabled (see theme.css) so it can't
+   clobber this design system — but that also means form controls no longer
+   inherit the body font and fall back to the browser default (which renders
+   <textarea> in monospace). Restore inheritance for shadcn inputs/buttons. */
+input, textarea, select, button { font-family: inherit; }
+
 body {
   background: var(--bg);
   color: var(--text-primary);
