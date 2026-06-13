@@ -21,7 +21,17 @@ const PRIORITY_META: Record<BoardTask["priority"], { cls: string }> = {
   low:      { cls: "badge-grey" },
 };
 
+// Only the transitions that make sense from each column are offered, so a card
+// never shows its current state or illogical jumps as an action.
+const NEXT_ACTIONS: Record<Column, { label: string; target: Column; primary?: boolean }[]> = {
+  pending:     [{ label: "→ In Progress", target: "in_progress" }],
+  overdue:     [{ label: "→ In Progress", target: "in_progress" }, { label: "✓ Done", target: "done", primary: true }],
+  in_progress: [{ label: "✓ Done", target: "done", primary: true }],
+  done:        [{ label: "↩ Reopen", target: "in_progress" }],
+};
+
 function TaskCard({ task, onMove }: { task: BoardTask; onMove: (id: string, col: Column) => void }) {
+  const actions = NEXT_ACTIONS[task.column];
   return (
     <div
       className="card"
@@ -51,24 +61,18 @@ function TaskCard({ task, onMove }: { task: BoardTask; onMove: (id: string, col:
           </span>
         )}
       </div>
-      {task.column !== "done" && (
+      {actions.length > 0 && (
         <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
-          {task.column !== "in_progress" && (
+          {actions.map((a) => (
             <button
-              className="btn"
+              key={a.target + a.label}
+              className={`btn${a.primary ? " btn-primary" : ""}`}
               style={{ fontSize: 10, padding: "3px 8px" }}
-              onClick={() => onMove(task.id, "in_progress")}
+              onClick={() => onMove(task.id, a.target)}
             >
-              → In Progress
+              {a.label}
             </button>
-          )}
-          <button
-            className="btn btn-primary"
-            style={{ fontSize: 10, padding: "3px 8px" }}
-            onClick={() => onMove(task.id, "done")}
-          >
-            ✓ Done
-          </button>
+          ))}
         </div>
       )}
     </div>
@@ -161,7 +165,7 @@ export default function BoardPage() {
                   style={{
                     fontSize: 10,
                     background: "var(--bg-elevated)",
-                    color: "var(--text-secondary)",
+                    color: col.accent ?? "var(--text-secondary)",
                     border: "1px solid var(--border)",
                     borderRadius: 4,
                     padding: "1px 6px",
