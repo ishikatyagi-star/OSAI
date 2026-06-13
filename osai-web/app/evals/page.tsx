@@ -6,7 +6,6 @@ import {
   ChevronDown,
   Clock,
   Cpu,
-  FlaskConical,
   XCircle,
 } from "lucide-react";
 import { getEvalRun } from "@/lib/api";
@@ -54,7 +53,7 @@ function StatCard({
 
 function PassRateBar({ rate }: { rate: number }) {
   const pct = Math.round(rate * 100);
-  const color = pct >= 80 ? "#22c55e" : pct >= 60 ? "#f5c842" : "#ff5577";
+  const color = pct >= 80 ? "var(--green)" : pct >= 60 ? "var(--yellow)" : "var(--red)";
   return (
     <div className="flex items-center gap-2">
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
@@ -194,22 +193,19 @@ export default function EvalsPage() {
 
   return (
     <div className="pb-10">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="flex items-center gap-2">
-            <FlaskConical className="size-5 text-primary" />
-            Eval Dashboard
-          </h1>
-          <p className="page-subtitle" style={{ marginBottom: 0 }}>
+      <div className="page-header">
+        <div className="page-header-left">
+          <h1>Evals</h1>
+          <p>
             Quality and regression tracking for OSAI&apos;s answers and routing.
           </p>
         </div>
-        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+        <div className="page-header-meta">
           <span className="inline-flex items-center gap-1">
             <Cpu className="size-3" />
             {run.model_route}
           </span>
-          <span className="text-border">·</span>
+          <span className="sep">·</span>
           <span className="font-mono">{run.run_id}</span>
           {usingDemo && <Badge variant="muted">demo data</Badge>}
         </div>

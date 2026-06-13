@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Network, Search, X } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { getGraphEdges, getGraphEntities } from "@/lib/api";
 import {
   DEMO_GRAPH_EDGES,
@@ -102,26 +102,23 @@ export default function GraphPage() {
     <div className="flex h-[calc(100vh-128px)] flex-col">
       {/* Header */}
       <div className="shrink-0 pb-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="flex items-center gap-2">
-              <Network className="size-5 text-primary" />
-              Org Graph
-            </h1>
-            <p className="page-subtitle" style={{ marginBottom: 0 }}>
+        <div className="page-header" style={{ marginBottom: 16 }}>
+          <div className="page-header-left">
+            <h1>Org Graph</h1>
+            <p>
               Explore people, projects, decisions and tickets, and how they connect across your sources.
             </p>
           </div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <div className="page-header-meta">
             <span>{visibleEntities.length} entities</span>
-            <span className="text-border">·</span>
+            <span className="sep">·</span>
             <span>{visibleEdges.length} relationships</span>
             {usingDemo && <Badge variant="muted">demo data</Badge>}
           </div>
         </div>
 
         {/* Filters */}
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
