@@ -5,12 +5,15 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
 
+from connectors.composio_ingest import ingest_composio_toolkit
 from connectors.composio_tool import get_default_composio_client
-from db.session import get_org_id
+from db.session import get_db, get_org_id
 
 router = APIRouter(prefix="/integrations/composio", tags=["composio"])
 OrgId = Annotated[str, Depends(get_org_id)]
+DbSession = Annotated[Session, Depends(get_db)]
 
 
 def _client_or_404():
@@ -47,3 +50,17 @@ async def connect(toolkit: str, org_id: OrgId) -> dict:
 async def list_connections(org_id: OrgId) -> list[dict]:
     """Connected accounts for this org."""
     return await _client_or_404().list_connections(org_id)
+
+
+@router.post("/{toolkit}/ingest")
+async def ingest(toolkit: str, org_id: OrgId, db: DbSession) -> dict:
+    """Pull documents from a Composio-connected app into OSAI's searchable brain.
+
+    Requires the toolkit to be connected first (POST /connect/{toolkit}). Notion
+    is supported today; other toolkits return a clear 'not implemented'.
+    """
+    _client_or_404()
+    result = await ingest_composio_toolkit(org_id, toolkit, db)
+    if result.get("status") == "failed":
+        raise HTTPException(status_code=400, detail=result.get("error"))
+    return result
