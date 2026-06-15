@@ -5,9 +5,11 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
-from connectors.composio_ingest import ingest_composio_toolkit
+from config import settings
+from connectors.composio_ingest import ingest_composio_toolkit, sync_all_connections
 from connectors.composio_tool import get_default_composio_client
 from db.session import get_db, get_org_id
 
@@ -39,11 +41,39 @@ async def list_tools(toolkit: str | None = None) -> list[dict]:
 
 @router.post("/connect/{toolkit}")
 async def connect(toolkit: str, org_id: OrgId) -> dict:
-    """Begin an OAuth connection for a toolkit. Returns a redirect_url for the user."""
-    result = await _client_or_404().connect(toolkit, org_id)
+    """Begin an OAuth connection for a toolkit. Returns a redirect_url for the user.
+
+    Passes a callback so that, after the user authorizes, OSAI auto-ingests the
+    app's data with no further action (see GET /callback)."""
+    callback_url = None
+    if settings.public_base_url:
+        callback_url = (
+            f"{settings.public_base_url.rstrip('/')}"
+            f"/integrations/composio/callback?org_id={org_id}"
+        )
+    result = await _client_or_404().connect(toolkit, org_id, callback_url=callback_url)
     if result.get("error"):
         raise HTTPException(status_code=400, detail=result["error"])
     return result
+
+
+@router.get("/callback")
+async def callback(org_id: str, db: DbSession) -> RedirectResponse:
+    """Where Composio sends the user after authorizing. Auto-ingests every active
+    connection for the org, then redirects back to the frontend."""
+    client = get_default_composio_client()
+    if client.available():
+        try:
+            await sync_all_connections(org_id, db)
+        except Exception:  # noqa: BLE001 — never break the user's redirect
+            pass
+    return RedirectResponse(url=settings.frontend_redirect)
+
+
+@router.post("/sync")
+async def sync(org_id: OrgId, db: DbSession) -> dict:
+    """Auto-detect all connected apps for the org and ingest them (idempotent)."""
+    return await sync_all_connections(org_id, db)
 
 
 @router.get("/connections")
