@@ -104,16 +104,22 @@ class ComposioClient:
         logger.warning("Composio auth_config create %s -> %s", toolkit, created.status_code)
         return None
 
-    async def connect(self, toolkit: str, user_id: str) -> dict[str, Any]:
-        """Start an OAuth connection. Returns {redirect_url, connected_account_id}."""
+    async def connect(
+        self, toolkit: str, user_id: str, callback_url: str | None = None
+    ) -> dict[str, Any]:
+        """Start an OAuth connection. Returns {redirect_url, connected_account_id}.
+        callback_url is where Composio sends the user after authorizing."""
         async with httpx.AsyncClient(timeout=30) as client:
             auth_config_id = await self._ensure_auth_config(client, toolkit)
             if not auth_config_id:
                 return {"error": f"Could not get auth config for {toolkit}"}
+            payload = {"auth_config_id": auth_config_id, "user_id": user_id}
+            if callback_url:
+                payload["callback_url"] = callback_url
             resp = await client.post(
                 f"{self.base_url}/api/v3/connected_accounts/link",
                 headers=self._headers(),
-                json={"auth_config_id": auth_config_id, "user_id": user_id},
+                json=payload,
             )
         if resp.status_code not in (200, 201):
             return {"error": f"HTTP {resp.status_code}: {resp.text[:200]}"}

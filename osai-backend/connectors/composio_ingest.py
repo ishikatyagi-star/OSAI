@@ -158,6 +158,126 @@ def _notion_blocks_text(data: dict) -> str:
     return "\n".join(p for p in parts if p)
 
 
+async def _fetch_googledrive(
+    client: ComposioClient, org_id: str, limit: int
+) -> list[SourceDocument]:
+    res = await client.execute("GOOGLEDRIVE_LIST_FILES", {"page_size": limit}, org_id)
+    data = res.get("data") or {}
+    files = _first_list(_dig(data, "response_data", "files"), _dig(data, "files"))
+
+    documents: list[SourceDocument] = []
+    for f in files[:limit]:
+        fid = f.get("id")
+        if not fid:
+            continue
+        name = f.get("name") or "Untitled"
+        url = f.get("webViewLink") or f.get("web_view_link")
+        text = ""
+        try:
+            content = await client.execute("GOOGLEDRIVE_DOWNLOAD_FILE", {"file_id": fid}, org_id)
+            text = _plain_text(content.get("data") or {})
+        except Exception:  # noqa: BLE001
+            text = ""
+        documents.append(
+            SourceDocument(
+                source_id=f"gdrive:{fid}",
+                source_type="google_drive",
+                org_id=org_id,
+                external_id=fid,
+                title=name,
+                url=url,
+                text=text or name,
+                permissions=["source:all"],
+            )
+        )
+    return documents
+
+
+async def _fetch_slack(client: ComposioClient, org_id: str, limit: int) -> list[SourceDocument]:
+    res = await client.execute("SLACK_LIST_ALL_CHANNELS", {"limit": 20}, org_id)
+    data = res.get("data") or {}
+    channels = _first_list(
+        _dig(data, "response_data", "channels"), _dig(data, "channels")
+    )
+
+    documents: list[SourceDocument] = []
+    for ch in channels[:limit]:
+        cid = ch.get("id")
+        if not cid:
+            continue
+        name = ch.get("name") or cid
+        try:
+            hist = await client.execute(
+                "SLACK_FETCH_CONVERSATION_HISTORY", {"channel": cid, "limit": 50}, org_id
+            )
+            hdata = hist.get("data") or {}
+            messages = _first_list(
+                _dig(hdata, "response_data", "messages"), _dig(hdata, "messages")
+            )
+            text = "\n".join(
+                m.get("text", "") for m in messages if isinstance(m, dict) and m.get("text")
+            )
+        except Exception:  # noqa: BLE001
+            text = ""
+        documents.append(
+            SourceDocument(
+                source_id=f"slack:{cid}",
+                source_type="slack",
+                org_id=org_id,
+                external_id=cid,
+                title=f"#{name}",
+                text=text or f"#{name}",
+                permissions=["source:all"],
+            )
+        )
+    return documents
+
+
+def _plain_text(data: Any) -> str:
+    """Best-effort text extraction from a Composio file/content payload."""
+    if isinstance(data, str):
+        return data
+    if isinstance(data, dict):
+        for key in ("text", "content", "body", "plain_text"):
+            v = data.get(key)
+            if isinstance(v, str) and v.strip():
+                return v
+    return ""
+
+
 _FETCHERS = {
     "notion": _fetch_notion,
+    "googledrive": _fetch_googledrive,
+    "slack": _fetch_slack,
 }
+
+
+async def sync_all_connections(
+    org_id: str,
+    session: Session,
+    *,
+    client: ComposioClient | None = None,
+    qdrant_store: QdrantStore | None = None,
+    limit: int = 25,
+) -> dict[str, Any]:
+    """Auto-detect every active Composio connection for an org and ingest each
+    one that OSAI knows how to read. Idempotent — safe to call on every connect."""
+    client = client or get_default_composio_client()
+    if not client.available():
+        return {"status": "skipped", "reason": "composio not configured", "synced": []}
+
+    connections = await client.list_connections(org_id)
+    synced: list[dict[str, Any]] = []
+    for conn in connections:
+        toolkit = conn.get("toolkit")
+        status = (conn.get("status") or "").upper()
+        if status and status != "ACTIVE":
+            continue
+        if toolkit not in _FETCHERS:
+            continue
+        synced.append(
+            await ingest_composio_toolkit(
+                org_id, toolkit, session, client=client, qdrant_store=qdrant_store, limit=limit
+            )
+        )
+    return {"status": "ok", "synced": synced}

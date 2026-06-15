@@ -85,3 +85,26 @@ async def test_unsupported_toolkit_is_rejected():
     )
     assert result["status"] == "failed"
     assert "not implemented" in result["error"].lower()
+
+
+class _FakeComposioWithConnections(_FakeComposio):
+    async def list_connections(self, user_id):
+        # one supported (notion), one unsupported (salesforce), one inactive
+        return [
+            {"id": "ca_1", "toolkit": "notion", "status": "ACTIVE"},
+            {"id": "ca_2", "toolkit": "salesforce", "status": "ACTIVE"},
+            {"id": "ca_3", "toolkit": "slack", "status": "INITIATED"},
+        ]
+
+
+async def test_sync_all_only_ingests_active_supported_connections():
+    from connectors.composio_ingest import sync_all_connections
+
+    session = _session()
+    result = await sync_all_connections(
+        "demo-org", session, client=_FakeComposioWithConnections(), qdrant_store=_FakeQdrant()
+    )
+    assert result["status"] == "ok"
+    # Only the active, supported (notion) connection should have been ingested.
+    assert len(result["synced"]) == 1
+    assert result["synced"][0]["toolkit"] == "notion"

@@ -24,6 +24,16 @@ class Settings(BaseSettings):
     embedding_dimension: int = 768  # Gemini text-embedding-004; set 64 to use hash fallback
     default_org_id: str = "demo-org"
     allowed_origins: str = "http://localhost:3000"
+    # Public URLs (for the OAuth auto-ingest callback). On Render set these to the
+    # live API URL and the Vercel frontend URL.
+    public_base_url: str | None = None
+    frontend_url: str | None = None
+
+    @property
+    def frontend_redirect(self) -> str:
+        if self.frontend_url:
+            return self.frontend_url
+        return self.allowed_origin_list[0] if self.allowed_origin_list else "/"
 
     # Notion
     notion_api_token: str | None = None
