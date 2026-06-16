@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from api.schemas.graph import GraphEdge, GraphEntity
 from db.repositories import try_db
 from db.session import get_db, get_org_id
-from graph.provider import build_graph
+from graph.provider import build_access_graph, build_graph
 
 router = APIRouter(prefix="/graph", tags=["graph"])
 DbSession = Annotated[Session, Depends(get_db)]
@@ -35,6 +35,17 @@ async def list_entities(
             if needle in e.label.lower() or needle in (e.summary or "").lower()
         ]
     return entities
+
+
+@router.get("/access")
+async def access_map(db: DbSession, org_id: OrgId) -> dict:
+    """Who-can-access-what: users (by role) ↔ connectors, annotated with the
+    highest data tier each user is cleared for. Powers the simplified org graph."""
+    return try_db(
+        "build_access_graph",
+        {"users": [], "connectors": [], "access": []},
+        lambda: build_access_graph(db, org_id),
+    )
 
 
 @router.get("/edges", response_model=list[GraphEdge])

@@ -50,6 +50,21 @@ class Settings(BaseSettings):
     google_service_account_json: str | None = None  # path to service account JSON file
     google_drive_folder_id: str | None = None  # optional root folder to scope crawl
 
+    # Google sign-in (OAuth 2.0 / OIDC). Distinct from the Drive service account
+    # above — these power "Continue with Google" user authentication. Register the
+    # redirect URI in the Google Cloud OAuth consent screen (dev + prod).
+    google_oauth_client_id: str | None = None
+    google_oauth_client_secret: str | None = None
+    google_oauth_redirect_uri: str | None = None  # e.g. http://localhost:8000/auth/google/callback
+
+    @property
+    def google_oauth_enabled(self) -> bool:
+        return bool(
+            self.google_oauth_client_id
+            and self.google_oauth_client_secret
+            and self.google_oauth_redirect_uri
+        )
+
     # Gemini (embeddings always; text-gen if no OpenRouter key set)
     gemini_api_key: str | None = None
     gemini_model: str = "gemini-2.0-flash"

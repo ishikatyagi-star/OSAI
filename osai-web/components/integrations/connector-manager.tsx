@@ -7,12 +7,16 @@ import {
   Loader2,
   Plug,
   PlugZap,
+  Plus,
   RefreshCw,
+  ShieldAlert,
+  Trash2,
   XCircle,
 } from "lucide-react";
-import { getHealthcheck } from "@/lib/api";
+import { getHealthcheck, getTierRules, putTierRules, type TierRule } from "@/lib/api";
 import { CONNECTOR_META } from "@/lib/connector-meta";
 import type { Integration, SyncRun } from "@/lib/types";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -62,6 +66,13 @@ export function ConnectorManager({
   const [health, setHealth] = useState<Health>(null);
   const [checking, setChecking] = useState(false);
 
+  // Per-info data-tier rules (e.g. a specific Drive folder = Red).
+  const [rules, setRules] = useState<TierRule[]>([]);
+  const [newPattern, setNewPattern] = useState("");
+  const [newTier, setNewTier] = useState<TierRule["tier"]>("red");
+  const [rulesSaving, setRulesSaving] = useState(false);
+  const [rulesSaved, setRulesSaved] = useState(false);
+
   const meta =
     integration && CONNECTOR_META[integration.key]
       ? CONNECTOR_META[integration.key]
@@ -77,16 +88,54 @@ export function ConnectorManager({
     }
   }
 
-  // Auto health-check whenever a connected connector's manager opens.
+  // Auto health-check + load tier rules whenever a connected connector opens.
   useEffect(() => {
     if (open && integration && integration.auth_state === "connected") {
       runHealthcheck(integration.key);
+      getTierRules(integration.key).then((r) => setRules(r.rules));
     } else {
       setHealth(null);
+      setRules([]);
     }
+    setNewPattern("");
+    setRulesSaved(false);
   }, [open, integration]);
 
+  function addRule() {
+    const pattern = newPattern.trim();
+    if (!pattern) return;
+    setRules((prev) => [...prev.filter((r) => r.pattern !== pattern), { pattern, tier: newTier }]);
+    setNewPattern("");
+    setRulesSaved(false);
+  }
+
+  function removeRule(pattern: string) {
+    setRules((prev) => prev.filter((r) => r.pattern !== pattern));
+    setRulesSaved(false);
+  }
+
+  async function saveRules() {
+    if (!integration) return;
+    setRulesSaving(true);
+    try {
+      const res = await putTierRules(integration.key, rules);
+      setRules(res.rules);
+      setRulesSaved(true);
+    } catch {
+      // Backend unreachable — keep local state; surfaced by absence of saved tick.
+    } finally {
+      setRulesSaving(false);
+      setTimeout(() => setRulesSaved(false), 3000);
+    }
+  }
+
   if (!integration) return null;
+
+  const TIER_DOT: Record<TierRule["tier"], string> = {
+    normal: "var(--green)",
+    amber: "var(--yellow, var(--orange))",
+    red: "var(--red)",
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -210,6 +259,85 @@ export function ConnectorManager({
                 ))}
               </ul>
             )}
+          </section>
+        )}
+
+        {/* Per-info data sensitivity rules */}
+        {connected && (
+          <section className="rounded-lg border border-border bg-background/40 p-3">
+            <p className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <ShieldAlert className="size-3.5" /> Data sensitivity rules
+            </p>
+            <p className="mb-2.5 text-[11px] text-muted-foreground">
+              Tag specific folders, paths or keywords inside this source with a tier. Content
+              matching a rule inherits that tier on the next sync (most-specific match wins).
+            </p>
+
+            {rules.length > 0 && (
+              <ul className="mb-2.5 space-y-1">
+                {rules.map((r) => (
+                  <li
+                    key={r.pattern}
+                    className="flex items-center gap-2 rounded-md border border-border bg-card px-2.5 py-1.5 text-xs"
+                  >
+                    <span
+                      className="inline-block size-2 shrink-0 rounded-full"
+                      style={{ background: TIER_DOT[r.tier] }}
+                    />
+                    <span className="min-w-0 flex-1 truncate font-mono text-foreground/90">
+                      {r.pattern}
+                    </span>
+                    <Badge variant="muted" className="capitalize">{r.tier}</Badge>
+                    <button
+                      type="button"
+                      onClick={() => removeRule(r.pattern)}
+                      className="text-muted-foreground hover:text-destructive"
+                      aria-label={`Remove rule ${r.pattern}`}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <div className="flex items-center gap-1.5">
+              <Input
+                value={newPattern}
+                onChange={(e) => setNewPattern(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addRule();
+                  }
+                }}
+                placeholder="e.g. /Finance/Confidential"
+                className="h-8 flex-1"
+              />
+              <select
+                className="select"
+                style={{ height: 32, fontSize: 12 }}
+                value={newTier}
+                onChange={(e) => setNewTier(e.target.value as TierRule["tier"])}
+              >
+                <option value="normal">Normal</option>
+                <option value="amber">Amber</option>
+                <option value="red">Red</option>
+              </select>
+              <Button variant="ghost" size="sm" className="h-8" onClick={addRule}>
+                <Plus className="size-3.5" /> Add
+              </Button>
+            </div>
+
+            <div className="mt-2.5 flex items-center gap-2">
+              <Button size="sm" className="h-7" disabled={rulesSaving} onClick={saveRules}>
+                {rulesSaving ? <Loader2 className="size-3.5 animate-spin" /> : null}
+                Save rules
+              </Button>
+              {rulesSaved && (
+                <span className="text-xs text-success">✓ Saved — applies on next sync</span>
+              )}
+            </div>
           </section>
         )}
 

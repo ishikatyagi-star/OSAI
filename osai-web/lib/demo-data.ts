@@ -472,6 +472,11 @@ export type Decision = {
   impact: "critical" | "high" | "medium" | "low";
   owner: string;
   date: string;
+  // Where this surfaced from. `identifiedBy: "osai"` marks items OSAI inferred
+  // from context that are NOT tracked in the source tool (the merged Team Board's
+  // reason to exist — e.g. the 11th/12th task Notion never listed).
+  source: string;
+  identifiedBy: "source" | "osai";
 };
 
 export const DEMO_DECISIONS: Decision[] = [
@@ -483,6 +488,8 @@ export const DEMO_DECISIONS: Decision[] = [
     impact: "critical",
     owner: "Yash K.",
     date: "Jun 3, 2026",
+    source: "Notion",
+    identifiedBy: "source",
   },
   {
     id: "dec-2",
@@ -492,6 +499,8 @@ export const DEMO_DECISIONS: Decision[] = [
     impact: "high",
     owner: "Ishika T.",
     date: "Jun 4, 2026",
+    source: "Notion",
+    identifiedBy: "source",
   },
   {
     id: "dec-3",
@@ -501,6 +510,8 @@ export const DEMO_DECISIONS: Decision[] = [
     impact: "high",
     owner: "Priya S.",
     date: "Jun 1, 2026",
+    source: "Notion",
+    identifiedBy: "source",
   },
   {
     id: "dec-4",
@@ -510,6 +521,8 @@ export const DEMO_DECISIONS: Decision[] = [
     impact: "medium",
     owner: "Anish M.",
     date: "Jun 2, 2026",
+    source: "Notion",
+    identifiedBy: "source",
   },
   {
     id: "dec-5",
@@ -519,6 +532,8 @@ export const DEMO_DECISIONS: Decision[] = [
     impact: "critical",
     owner: "Dev T.",
     date: "Jun 6, 2026",
+    source: "Notion",
+    identifiedBy: "source",
   },
   {
     id: "dec-6",
@@ -528,6 +543,8 @@ export const DEMO_DECISIONS: Decision[] = [
     impact: "high",
     owner: "Ishika T.",
     date: "Jun 7, 2026",
+    source: "Notion",
+    identifiedBy: "source",
   },
   {
     id: "dec-7",
@@ -537,6 +554,8 @@ export const DEMO_DECISIONS: Decision[] = [
     impact: "medium",
     owner: "Yash K.",
     date: "May 30, 2026",
+    source: "Slack",
+    identifiedBy: "source",
   },
   {
     id: "dec-8",
@@ -546,6 +565,32 @@ export const DEMO_DECISIONS: Decision[] = [
     impact: "medium",
     owner: "Ishika T.",
     date: "Jun 5, 2026",
+    source: "Notion",
+    identifiedBy: "source",
+  },
+  // OSAI-identified — surfaced from Slack/Freshdesk context but never logged in
+  // Notion. These are what the old Team Board existed to highlight.
+  {
+    id: "dec-9",
+    title: "Resolve Redis connection-pool exhaustion before next load test",
+    tags: ["infra", "blocker"],
+    status: "proposed",
+    impact: "critical",
+    owner: "Dev T.",
+    date: "Jun 12, 2026",
+    source: "Slack",
+    identifiedBy: "osai",
+  },
+  {
+    id: "dec-10",
+    title: "Escalate Freshdesk P1 #FD-2891 — SLA breach risk for Meridian Corp",
+    tags: ["support", "sla"],
+    status: "proposed",
+    impact: "high",
+    owner: "Priya S.",
+    date: "Jun 8, 2026",
+    source: "Freshdesk",
+    identifiedBy: "osai",
   },
 ];
 

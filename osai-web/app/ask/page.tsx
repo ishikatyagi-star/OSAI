@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, Plus, Send } from "lucide-react";
 import { askOsai, confirmAgentAction } from "@/lib/api";
 import { DEMO_ASK_ANSWERS, DEMO_ASK_SUGGESTIONS } from "@/lib/demo-data";
+import { isDemo } from "@/lib/demo";
 import type { AgentAction, AskResponse } from "@/lib/types";
 import { MessageBubble, type AskTurn } from "@/components/ask/message-bubble";
 import { Button } from "@/components/ui/button";
@@ -78,10 +79,23 @@ export default function AskPage() {
         setConversationId(res.conversation_id ?? conversationId);
         setTurns((prev) => [...prev, toTurn(res)]);
       } catch {
-        // Live API unavailable — fall back to demo answers (same pattern as Search).
-        const demo = getDemoAnswer(q);
-        setConversationId(demo.conversation_id ?? conversationId);
-        setTurns((prev) => [...prev, toTurn(demo)]);
+        // Live API unavailable. In demo mode, fall back to canned answers; otherwise
+        // surface an honest error rather than fabricating a response.
+        if (isDemo()) {
+          const demo = getDemoAnswer(q);
+          setConversationId(demo.conversation_id ?? conversationId);
+          setTurns((prev) => [...prev, toTurn(demo)]);
+        } else {
+          setTurns((prev) => [
+            ...prev,
+            {
+              id: uid("a"),
+              role: "assistant",
+              content:
+                "I couldn't reach the OSAI backend just now. Check your connection and try again.",
+            },
+          ]);
+        }
       } finally {
         setPending(false);
       }

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getSyncRuns } from "@/lib/api";
 import { DEMO_SYNC_RUNS, DEMO_STATS } from "@/lib/demo-data";
+import { isDemo } from "@/lib/demo";
 import { CONNECTOR_META } from "@/lib/connector-meta";
 import type { SyncRun } from "@/lib/types";
 
@@ -29,12 +30,13 @@ export default function SyncRunsPage() {
 
   useEffect(() => {
     getSyncRuns().then((data) => {
-      const hasReal = data.some((r) => r.documents_indexed > 0);
-      setRuns(hasReal ? data : DEMO_SYNC_RUNS);
+      if (data.length) setRuns(data);
+      else if (isDemo()) setRuns(DEMO_SYNC_RUNS);
     });
   }, []);
 
-  const display = runs.length ? runs : DEMO_SYNC_RUNS;
+  const demo = isDemo();
+  const display = runs.length ? runs : demo ? DEMO_SYNC_RUNS : [];
 
   const totalDocs = display.reduce((sum, r) => sum + (r.documents_indexed ?? 0), 0);
   const succeeded = display.filter((r) => r.status === "succeeded").length;
@@ -59,7 +61,7 @@ export default function SyncRunsPage() {
           { label: "Succeeded", value: succeeded, color: "var(--green)" },
           { label: "Failed", value: failed, color: failed > 0 ? "var(--red)" : "var(--text-primary)" },
           { label: "Docs indexed (session)", value: totalDocs.toLocaleString(), color: "var(--text-primary)" },
-          { label: "Total in knowledge base", value: DEMO_STATS.documentsIndexed.toLocaleString(), color: "var(--text-primary)" },
+          { label: "Total in knowledge base", value: (demo ? DEMO_STATS.documentsIndexed : totalDocs).toLocaleString(), color: "var(--text-primary)" },
         ].map((s) => (
           <div key={s.label} className="stat-card">
             <div className="stat-card-label">{s.label}</div>
@@ -69,7 +71,7 @@ export default function SyncRunsPage() {
       </div>
 
       {/* Per-connector summary */}
-      <div style={{ marginBottom: 28 }}>
+      <div style={{ marginBottom: 28, display: demo ? "block" : "none" }}>
         <h2 style={{ marginBottom: 12 }}>Source Breakdown</h2>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           {Object.entries(DEMO_STATS.docsPerConnector).map(([key, count]) => {

@@ -90,6 +90,23 @@ async function apiPatch<TBody, TResult>(
   return (await res.json()) as TResult;
 }
 
+async function apiPut<TBody, TResult>(
+  path: string,
+  body: TBody
+): Promise<TResult> {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: "PUT",
+    headers: getHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(body),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(`PUT ${path} failed (${res.status}): ${detail}`);
+  }
+  return (await res.json()) as TResult;
+}
+
 // ─── Authentication & Onboarding ─────────────────────────────────────────────
 
 export type LoginCredentials = {
@@ -120,6 +137,18 @@ export function login(credentials: LoginCredentials): Promise<LoginSession> {
   return apiPost<LoginCredentials, LoginSession>("/auth/login", credentials);
 }
 
+// Whether "Continue with Google" is available on this backend.
+export function getAuthConfig() {
+  return apiGet<{ google_enabled: boolean }>("/auth/config", {
+    google_enabled: false,
+  });
+}
+
+// Full URL to kick off the Google OAuth flow (browser navigates here).
+export function googleSignInUrl(): string {
+  return `${API_BASE_URL}/auth/google/start`;
+}
+
 export function onboardOrg(payload: OrgOnboardPayload): Promise<OrgOnboardResponse> {
   return apiPost<OrgOnboardPayload, OrgOnboardResponse>("/orgs", payload);
 }
@@ -141,6 +170,24 @@ export function getHealthcheck(connectorKey: string) {
   return apiGet<{ healthy: boolean; message: string }>(
     `/integrations/${connectorKey}/healthcheck`,
     { healthy: false, message: "Unknown" }
+  );
+}
+
+// ─── Per-info data-tier rules ─────────────────────────────────────────────────
+
+export type TierRule = { pattern: string; tier: "normal" | "amber" | "red" };
+
+export function getTierRules(connectorKey: string) {
+  return apiGet<{ connector_key: string; rules: TierRule[] }>(
+    `/integrations/${connectorKey}/tier-rules`,
+    { connector_key: connectorKey, rules: [] }
+  );
+}
+
+export function putTierRules(connectorKey: string, rules: TierRule[]) {
+  return apiPut<{ rules: TierRule[] }, { connector_key: string; rules: TierRule[] }>(
+    `/integrations/${connectorKey}/tier-rules`,
+    { rules }
   );
 }
 
@@ -251,6 +298,27 @@ export function getGraphEdges(params: { entityId?: string } = {}) {
     ? `?entity_id=${encodeURIComponent(params.entityId)}`
     : "";
   return apiGet<GraphEdge[]>(`/graph/edges${suffix}`, []);
+}
+
+// ─── Access map (who can access which tools, and at what data tier) ───────────
+
+export type AccessMap = {
+  users: { id: string; label: string; role: string }[];
+  connectors: { key: string; label: string; connected: boolean }[];
+  access: {
+    user_id: string;
+    connector_key: string;
+    tier: "normal" | "amber" | "red";
+    doc_count: number;
+  }[];
+};
+
+export function getAccessMap() {
+  return apiGet<AccessMap>("/graph/access", {
+    users: [],
+    connectors: [],
+    access: [],
+  });
 }
 
 // ─── Evals (Phase 6 — GET /evals) ─────────────────────────────────────────────

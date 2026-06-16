@@ -916,3 +916,75 @@ def provision_org(
 
     session.commit()
     return org, user
+
+
+# --- Per-info data-tier classification -------------------------------------
+
+VALID_TIERS = ("normal", "amber", "red")
+_TIER_RANK = {"normal": 0, "amber": 1, "red": 2}
+
+
+def get_tier_rules(session: Session, org_id: str, connector_key: str) -> list[dict]:
+    """Return the per-info tier rules configured for a connector account."""
+    account = session.scalar(
+        select(ConnectorAccount).where(
+            ConnectorAccount.org_id == org_id,
+            ConnectorAccount.connector_key == connector_key,
+        )
+    )
+    return list(account.tier_rules or []) if account else []
+
+
+def set_tier_rules(
+    session: Session, org_id: str, connector_key: str, rules: list[dict]
+) -> list[dict]:
+    """Validate and persist tier rules for a connector account (creating it if needed)."""
+    clean: list[dict] = []
+    for rule in rules:
+        pattern = str(rule.get("pattern", "")).strip()
+        tier = str(rule.get("tier", "")).strip().lower()
+        if not pattern or tier not in VALID_TIERS:
+            continue
+        clean.append({"pattern": pattern, "tier": tier})
+
+    account = session.scalar(
+        select(ConnectorAccount).where(
+            ConnectorAccount.org_id == org_id,
+            ConnectorAccount.connector_key == connector_key,
+        )
+    )
+    if account is None:
+        account = ConnectorAccount(org_id=org_id, connector_key=connector_key)
+        session.add(account)
+    account.tier_rules = clean
+    session.commit()
+    return clean
+
+
+def _document_haystack(document: SourceDocument) -> str:
+    parts = [document.title or "", document.url or "", document.external_id or ""]
+    path = document.metadata.get("path") or document.metadata.get("folder")
+    if path:
+        parts.append(str(path))
+    return " ".join(parts).lower()
+
+
+def apply_tier_rules(
+    session: Session, org_id: str, connector_key: str, documents: list[SourceDocument]
+) -> None:
+    """Override each document's data_tier in place from the connector's tier rules.
+
+    Most-specific match wins (longest matching pattern). A document keeps the
+    connector's default tier when no rule matches.
+    """
+    rules = get_tier_rules(session, org_id, connector_key)
+    if not rules:
+        return
+    # Longest pattern first so a specific folder beats a broad one.
+    rules = sorted(rules, key=lambda r: len(r.get("pattern", "")), reverse=True)
+    for document in documents:
+        haystack = _document_haystack(document)
+        for rule in rules:
+            if rule["pattern"].lower() in haystack:
+                document.data_tier = rule["tier"]
+                break

@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { DEMO_WORKFLOW_RUNS, DEMO_STATS, DEMO_INBOX_ITEMS, DEMO_DECISIONS } from "@/lib/demo-data";
+import { DEMO_WORKFLOW_RUNS, DEMO_STATS, DEMO_DECISIONS } from "@/lib/demo-data";
+import { isDemo } from "@/lib/demo";
 
-const ATTENTION_ITEMS = [
+const DEMO_ATTENTION_ITEMS = [
   {
     id: "a1",
     tag: "blocker",
@@ -43,15 +44,33 @@ export default function DashboardPage() {
     setGreeting(h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening");
   }, []);
 
-  const pendingActions = DEMO_WORKFLOW_RUNS
-    .flatMap((r) => r.action_items ?? [])
-    .filter((a) => a.status === "needs_review").length;
+  const demo = isDemo();
 
-  const active = ATTENTION_ITEMS.filter(
+  const pendingActions = demo
+    ? DEMO_WORKFLOW_RUNS.flatMap((r) => r.action_items ?? []).filter(
+        (a) => a.status === "needs_review"
+      ).length
+    : 0;
+
+  const attentionItems = demo ? DEMO_ATTENTION_ITEMS : [];
+  const active = attentionItems.filter(
     (i) => !dismissed.has(i.id) && !snoozed.has(i.id)
   );
 
-  const pendingDecisions = DEMO_DECISIONS?.filter((d) => d.status === "proposed").length ?? 2;
+  const pendingDecisions = demo
+    ? DEMO_DECISIONS.filter((d) => d.status === "proposed").length
+    : 0;
+  const documentsIndexed = demo ? DEMO_STATS.documentsIndexed : 0;
+  const recentDecisions = demo ? DEMO_DECISIONS.slice(0, 4) : [];
+  const connectorHealth = demo
+    ? [
+        { key: "notion", icon: "📝", label: "Notion", docs: 847, status: "connected" },
+        { key: "slack", icon: "💬", label: "Slack", docs: 302, status: "connected" },
+        { key: "google_drive", icon: "📁", label: "Google Drive", docs: 98, status: "connected" },
+        { key: "freshdesk", icon: "🎫", label: "Freshdesk", docs: 47, status: "connected" },
+        { key: "zoom", icon: "📹", label: "Zoom", docs: 12, status: "connected" },
+      ]
+    : [];
 
   return (
     <div>
@@ -94,7 +113,9 @@ export default function DashboardPage() {
             Your company context, working for you.
           </h2>
           <p style={{ marginTop: 10, fontSize: 15, maxWidth: 480 }}>
-            {DEMO_STATS.documentsIndexed.toLocaleString()} sources indexed across every connector — ask anything, surface blockers, and keep decisions moving.
+            {documentsIndexed > 0
+              ? `${documentsIndexed.toLocaleString()} sources indexed across every connector — ask anything, surface blockers, and keep decisions moving.`
+              : "Connect your tools to index your company context — then ask anything, surface blockers, and keep decisions moving."}
           </p>
         </div>
         <Link
@@ -111,8 +132,8 @@ export default function DashboardPage() {
         {[
           { label: "Active Blockers", value: active.filter(i => i.tag === "blocker").length, color: "var(--red)", link: "/inbox" },
           { label: "Pending Decisions", value: pendingDecisions, color: "var(--orange)", link: "/decisions" },
-          { label: "Overdue Follow-ups", value: active.filter(i => i.tag === "follow-up").length, color: "var(--yellow)", link: "/board" },
-          { label: "Context This Week", value: DEMO_STATS.documentsIndexed, color: "var(--teal)", link: "/inbox" },
+          { label: "Overdue Follow-ups", value: active.filter(i => i.tag === "follow-up").length, color: "var(--yellow)", link: "/decisions?source=osai" },
+          { label: "Context This Week", value: documentsIndexed, color: "var(--teal)", link: "/inbox" },
         ].map((s) => (
           <Link key={s.label} href={s.link} className="stat-card" style={{ textDecoration: "none" }}>
             <div className="stat-card-label">{s.label}</div>
@@ -170,7 +191,12 @@ export default function DashboardPage() {
               <Link href="/decisions">View all →</Link>
             </div>
             <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-              {(DEMO_DECISIONS ?? []).slice(0, 4).map((d, i) => (
+              {recentDecisions.length === 0 && (
+                <div style={{ padding: "20px 16px", textAlign: "center" }}>
+                  <p className="meta">No decisions logged yet.</p>
+                </div>
+              )}
+              {recentDecisions.map((d, i) => (
                 <div
                   key={d.id}
                   className="activity-row"
@@ -202,17 +228,19 @@ export default function DashboardPage() {
               <Link href="/integrations">Manage →</Link>
             </div>
             <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-              {[
-                { key: "notion", icon: "📝", label: "Notion", docs: 847, status: "connected" },
-                { key: "slack", icon: "💬", label: "Slack", docs: 302, status: "connected" },
-                { key: "google_drive", icon: "📁", label: "Google Drive", docs: 98, status: "connected" },
-                { key: "freshdesk", icon: "🎫", label: "Freshdesk", docs: 47, status: "connected" },
-                { key: "zoom", icon: "📹", label: "Zoom", docs: 12, status: "connected" },
-              ].map((c, i) => (
+              {connectorHealth.length === 0 && (
+                <div style={{ padding: "20px 16px", textAlign: "center" }}>
+                  <p className="meta" style={{ marginBottom: 10 }}>No connectors syncing yet.</p>
+                  <Link href="/integrations" className="btn" style={{ display: "inline-flex" }}>
+                    Connect tools →
+                  </Link>
+                </div>
+              )}
+              {connectorHealth.map((c, i) => (
                 <div
                   key={c.key}
                   className="activity-row"
-                  style={{ padding: "10px 16px", borderBottom: i < 4 ? "1px solid var(--border)" : "none" }}
+                  style={{ padding: "10px 16px", borderBottom: i < connectorHealth.length - 1 ? "1px solid var(--border)" : "none" }}
                 >
                   <span style={{ fontSize: 15 }}>{c.icon}</span>
                   <div style={{ flex: 1 }}>
