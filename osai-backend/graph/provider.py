@@ -12,7 +12,17 @@ from collections import Counter
 from sqlalchemy.orm import Session
 
 from api.schemas.graph import GraphEdge, GraphEntity
-from db.models import ActionItemRecord, SourceDocumentRecord, WorkflowRun
+from db.models import (
+    ActionItemRecord,
+    ConnectorAccount,
+    ConnectorRecord,
+    SourceDocumentRecord,
+    User,
+    WorkflowRun,
+)
+from memory.retriever import _visible
+
+_TIER_RANK = {"normal": 0, "amber": 1, "red": 2}
 
 
 def _person_id(email: str) -> str:
@@ -118,3 +128,80 @@ def build_graph(session: Session, org_id: str) -> tuple[list[GraphEntity], list[
         entity.degree = degree[entity.id]
 
     return list(entities.values()), edges
+
+
+def build_access_graph(session: Session, org_id: str) -> dict:
+    """Who-can-access-what map: users (by role) ↔ connectors they can reach.
+
+    Each access edge carries the highest data tier the user is cleared for in that
+    connector, derived from the same permission rule the retriever enforces
+    (`_visible`). This is the "org chart of access", not an entity explorer.
+    """
+    users = session.query(User).filter(User.org_id == org_id).all()
+    accounts = (
+        session.query(ConnectorAccount)
+        .filter(ConnectorAccount.org_id == org_id)
+        .all()
+    )
+    records = {r.key: r for r in session.query(ConnectorRecord).all()}
+    docs = (
+        session.query(SourceDocumentRecord)
+        .filter(SourceDocumentRecord.org_id == org_id)
+        .all()
+    )
+
+    # Group documents (tier + permissions) by connector key (== source_type).
+    docs_by_connector: dict[str, list[SourceDocumentRecord]] = {}
+    for doc in docs:
+        docs_by_connector.setdefault(doc.source_type, []).append(doc)
+
+    connector_keys = [a.connector_key for a in accounts] or list(docs_by_connector)
+    connectors = [
+        {
+            "key": key,
+            "label": records[key].display_name if key in records else key.title(),
+            "connected": next(
+                (a.auth_state == "connected" for a in accounts if a.connector_key == key),
+                False,
+            ),
+        }
+        for key in dict.fromkeys(connector_keys)  # de-dupe, preserve order
+    ]
+
+    user_nodes = [
+        {"id": u.id, "label": u.display_name or u.email, "role": u.role}
+        for u in users
+    ]
+
+    access: list[dict] = []
+    for u in users:
+        for c in connectors:
+            visible_docs = [
+                d
+                for d in docs_by_connector.get(c["key"], [])
+                if _visible(d.permissions, u.permissions)
+            ]
+            # A user with no visible docs in a connector still has access to the
+            # tool itself if it's connected and they're an admin/source:all holder.
+            is_privileged = (
+                not u.permissions
+                or "role:admin" in u.permissions
+                or "org:admin" in u.permissions
+                or "source:all" in u.permissions
+            )
+            if not visible_docs and not (c["connected"] and is_privileged):
+                continue
+            top_tier = "normal"
+            for d in visible_docs:
+                if _TIER_RANK.get(d.data_tier, 0) > _TIER_RANK.get(top_tier, 0):
+                    top_tier = d.data_tier
+            access.append(
+                {
+                    "user_id": u.id,
+                    "connector_key": c["key"],
+                    "tier": top_tier,
+                    "doc_count": len(visible_docs),
+                }
+            )
+
+    return {"users": user_nodes, "connectors": connectors, "access": access}

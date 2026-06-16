@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { DEMO_INBOX_ITEMS, type InboxItem } from "@/lib/demo-data";
+import { isDemo } from "@/lib/demo";
 
 const TYPE_META: Record<InboxItem["type"], { label: string; cls: string }> = {
   blocker:   { label: "blocker",   cls: "tag-blocker" },
@@ -11,7 +12,9 @@ const TYPE_META: Record<InboxItem["type"], { label: string; cls: string }> = {
 };
 
 export default function InboxPage() {
-  const [items, setItems] = useState<InboxItem[]>(DEMO_INBOX_ITEMS);
+  const [items, setItems] = useState<InboxItem[]>(() =>
+    isDemo() ? DEMO_INBOX_ITEMS : []
+  );
   const [filter, setFilter] = useState<"all" | InboxItem["type"]>("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "inbox" | "reviewed">("all");
 

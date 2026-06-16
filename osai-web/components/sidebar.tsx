@@ -3,15 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  FlaskConical,
   Inbox,
   LayoutDashboard,
-  LayoutGrid,
   Plug,
   RefreshCw,
-  Route,
   ScrollText,
-  Search,
+  Settings,
   Share2,
   Sparkles,
   Zap,
@@ -25,21 +22,18 @@ type NavItem = {
   badge?: number;
 };
 
-// One consistent icon set (lucide, outline, uniform stroke) so no item reads as
-// heavier or differently styled than the others.
+// Decluttered IA: Search folds into Ask OSAI, Team Board folds into Decision Log,
+// and Evals + Data Routing move into Settings / Integrations. One consistent icon
+// set (lucide, outline, uniform stroke) so no item reads heavier than the others.
 const NAV: NavItem[] = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/ask", icon: Sparkles, label: "Ask OSAI" },
-  { href: "/inbox", icon: Inbox, label: "Context Inbox", badge: 8 },
+  { href: "/inbox", icon: Inbox, label: "Context Inbox" },
   { href: "/decisions", icon: ScrollText, label: "Decision Log" },
-  { href: "/board", icon: LayoutGrid, label: "Team Board", badge: 12 },
-  { href: "/search", icon: Search, label: "Search" },
   { href: "/graph", icon: Share2, label: "Org Graph" },
   { href: "/workflows", icon: Zap, label: "Workflows" },
   { href: "/integrations", icon: Plug, label: "Integrations" },
   { href: "/sync-runs", icon: RefreshCw, label: "Sync Runs" },
-  { href: "/evals", icon: FlaskConical, label: "Evals" },
-  { href: "/settings/data-routing", icon: Route, label: "Data Routing" },
 ];
 
 export default function Sidebar() {
@@ -82,6 +76,15 @@ export default function Sidebar() {
 
       {/* Footer */}
       <div className="sidebar-footer">
+        <Link
+          href="/settings"
+          className={`sidebar-nav-item${pathname.startsWith("/settings") ? " active" : ""}`}
+        >
+          <span className="nav-icon">
+            <Settings size={16} strokeWidth={1.75} />
+          </span>
+          <span>Settings</span>
+        </Link>
         <div className="sidebar-user">
           <div className="sidebar-avatar">A</div>
           <div className="sidebar-user-info">

@@ -57,6 +57,10 @@ class ConnectorAccount(Base):
     auth_state: Mapped[str] = mapped_column(String, default="not_configured")
     scopes: Mapped[list[str]] = mapped_column(JSON, default=list)
     config: Mapped[dict] = mapped_column(JSON, default=dict)
+    # Per-info sensitivity overrides: list of {"pattern": str, "tier": str}. On
+    # ingest, a document whose path/url/title contains `pattern` inherits `tier`
+    # (most-specific match wins) instead of the connector's flat default.
+    tier_rules: Mapped[list[dict]] = mapped_column(JSON, default=list)
     last_sync_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)

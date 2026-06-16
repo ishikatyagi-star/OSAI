@@ -1,7 +1,12 @@
 from sqlalchemy.orm import Session
 
 from connectors.registry import connector_registry
-from db.repositories import chunks_for_documents, record_sync_result, upsert_source_documents
+from db.repositories import (
+    apply_tier_rules,
+    chunks_for_documents,
+    record_sync_result,
+    upsert_source_documents,
+)
 from memory.qdrant_store import QdrantStore, get_default_qdrant_store
 
 
@@ -18,6 +23,10 @@ async def sync_connector(
     vector_indexed = 0
     vector_error = None
     if result.documents:
+        # Apply per-info sensitivity overrides before persisting/indexing so that
+        # e.g. a single "red" Drive folder is classified even if the connector
+        # tagged everything "normal".
+        apply_tier_rules(session, org_id, connector_key, result.documents)
         indexed = upsert_source_documents(session, result.documents)
         try:
             vector_indexed = await qdrant_store.upsert_chunks(

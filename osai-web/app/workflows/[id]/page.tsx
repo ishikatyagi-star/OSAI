@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { approveActionItem, getWorkflowRun } from "@/lib/api";
 import { DEMO_WORKFLOW_RUNS } from "@/lib/demo-data";
+import { isDemo } from "@/lib/demo";
 import { CONNECTOR_META } from "@/lib/connector-meta";
 import type { ActionItem, WorkflowRun } from "@/lib/types";
 
@@ -35,9 +36,10 @@ export default function WorkflowDetailPage() {
     getWorkflowRun(runId).then((data) => {
       if (data) {
         setRun(data);
+      } else if (isDemo()) {
+        setRun(DEMO_WORKFLOW_RUNS.find((r) => r.id === runId) ?? null);
       } else {
-        const demo = DEMO_WORKFLOW_RUNS.find((r) => r.id === runId) ?? null;
-        setRun(demo);
+        setRun(null);
       }
       setLoading(false);
     });

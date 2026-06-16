@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getWorkflowRuns, postWorkflow, approveActionItem } from "@/lib/api";
 import { DEMO_WORKFLOW_RUNS } from "@/lib/demo-data";
+import { isDemo } from "@/lib/demo";
 import type { WorkflowRun, ActionItem } from "@/lib/types";
 
 function timeAgo(iso: string) {
@@ -207,7 +208,7 @@ export default function WorkflowsPage() {
   useEffect(() => {
     getWorkflowRuns().then((data) => {
       const hasReal = data.some((w) => (w.action_items ?? []).length > 0);
-      const display = hasReal ? data : DEMO_WORKFLOW_RUNS;
+      const display = hasReal ? data : isDemo() ? DEMO_WORKFLOW_RUNS : data;
       setRuns(display);
       if (display[0]) setExpandedIds(new Set([display[0].id]));
     });

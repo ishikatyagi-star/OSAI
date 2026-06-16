@@ -1,330 +1,195 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Search, X } from "lucide-react";
-import { getGraphEdges, getGraphEntities } from "@/lib/api";
-import {
-  DEMO_GRAPH_EDGES,
-  DEMO_GRAPH_ENTITIES,
-} from "@/lib/demo-data";
-import { ENTITY_TYPE_META, ENTITY_TYPE_ORDER } from "@/lib/graph-meta";
-import { CONNECTOR_META } from "@/lib/connector-meta";
-import type {
-  GraphEdge,
-  GraphEntity,
-  GraphEntityType,
-} from "@/lib/types";
-import { GraphCanvas } from "@/components/graph/graph-canvas";
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { getAccessMap, type AccessMap } from "@/lib/api";
+import { isDemo } from "@/lib/demo";
+import { CONNECTOR_META } from "@/lib/connector-meta";
+
+type Tier = "normal" | "amber" | "red";
+
+const TIER_META: Record<Tier, { label: string; color: string }> = {
+  normal: { label: "Normal", color: "var(--green)" },
+  amber: { label: "Amber", color: "var(--orange)" },
+  red: { label: "Red", color: "var(--red)" },
+};
+
+// Small populated example for the demo/pitch view when the backend has no data.
+const DEMO_ACCESS: AccessMap = {
+  users: [
+    { id: "u1", label: "Ishika T.", role: "admin" },
+    { id: "u2", label: "Yash K.", role: "engineer" },
+    { id: "u3", label: "Priya S.", role: "security" },
+    { id: "u4", label: "Anish M.", role: "analyst" },
+  ],
+  connectors: [
+    { key: "notion", label: "Notion", connected: true },
+    { key: "google_drive", label: "Google Drive", connected: true },
+    { key: "slack", label: "Slack", connected: true },
+    { key: "freshdesk", label: "Freshdesk", connected: true },
+  ],
+  access: [
+    { user_id: "u1", connector_key: "notion", tier: "red", doc_count: 42 },
+    { user_id: "u1", connector_key: "google_drive", tier: "red", doc_count: 30 },
+    { user_id: "u1", connector_key: "slack", tier: "amber", doc_count: 18 },
+    { user_id: "u1", connector_key: "freshdesk", tier: "amber", doc_count: 12 },
+    { user_id: "u2", connector_key: "notion", tier: "amber", doc_count: 21 },
+    { user_id: "u2", connector_key: "google_drive", tier: "amber", doc_count: 14 },
+    { user_id: "u2", connector_key: "slack", tier: "normal", doc_count: 9 },
+    { user_id: "u3", connector_key: "notion", tier: "red", doc_count: 20 },
+    { user_id: "u3", connector_key: "freshdesk", tier: "red", doc_count: 8 },
+    { user_id: "u4", connector_key: "notion", tier: "normal", doc_count: 11 },
+    { user_id: "u4", connector_key: "slack", tier: "normal", doc_count: 6 },
+  ],
+};
 
 export default function GraphPage() {
-  const [entities, setEntities] = useState<GraphEntity[]>([]);
-  const [edges, setEdges] = useState<GraphEdge[]>([]);
-  const [activeTypes, setActiveTypes] = useState<Set<GraphEntityType>>(new Set());
-  const [query, setQuery] = useState("");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [usingDemo, setUsingDemo] = useState(false);
+  const [data, setData] = useState<AccessMap>({ users: [], connectors: [], access: [] });
+  const [roleFilter, setRoleFilter] = useState<string>("all");
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      const [ents, eds] = await Promise.all([
-        getGraphEntities(),
-        getGraphEdges(),
-      ]);
+    getAccessMap().then((res) => {
       if (cancelled) return;
-      if (ents.length === 0) {
-        setEntities(DEMO_GRAPH_ENTITIES);
-        setEdges(DEMO_GRAPH_EDGES);
-        setUsingDemo(true);
-      } else {
-        setEntities(ents);
-        setEdges(eds);
-        setUsingDemo(false);
-      }
-    })();
+      const empty = res.users.length === 0;
+      setData(empty && isDemo() ? DEMO_ACCESS : res);
+      setLoaded(true);
+    });
     return () => {
       cancelled = true;
     };
   }, []);
 
-  function toggleType(t: GraphEntityType) {
-    setActiveTypes((prev) => {
-      const next = new Set(prev);
-      if (next.has(t)) next.delete(t);
-      else next.add(t);
-      return next;
-    });
-  }
-
-  const visibleEntities = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return entities.filter((e) => {
-      if (activeTypes.size > 0 && !activeTypes.has(e.type)) return false;
-      if (q && !`${e.label} ${e.summary ?? ""}`.toLowerCase().includes(q))
-        return false;
-      return true;
-    });
-  }, [entities, activeTypes, query]);
-
-  const visibleIds = useMemo(
-    () => new Set(visibleEntities.map((e) => e.id)),
-    [visibleEntities]
+  const roles = useMemo(
+    () => Array.from(new Set(data.users.map((u) => u.role))).sort(),
+    [data.users]
   );
 
-  const visibleEdges = useMemo(
-    () =>
-      edges.filter(
-        (e) => visibleIds.has(e.source_id) && visibleIds.has(e.target_id)
-      ),
-    [edges, visibleIds]
+  const visibleUsers = useMemo(
+    () => data.users.filter((u) => roleFilter === "all" || u.role === roleFilter),
+    [data.users, roleFilter]
   );
 
-  const selected = entities.find((e) => e.id === selectedId) ?? null;
-
-  const connections = useMemo(() => {
-    if (!selected) return [];
-    const out: { entity: GraphEntity; label: string }[] = [];
-    for (const e of edges) {
-      let otherId: string | null = null;
-      if (e.source_id === selected.id) otherId = e.target_id;
-      else if (e.target_id === selected.id) otherId = e.source_id;
-      if (!otherId) continue;
-      const other = entities.find((x) => x.id === otherId);
-      if (other) out.push({ entity: other, label: e.label });
+  // Quick lookup: user_id → connector_key → access row.
+  const accessByUser = useMemo(() => {
+    const map = new Map<string, Map<string, AccessMap["access"][number]>>();
+    for (const a of data.access) {
+      if (!map.has(a.user_id)) map.set(a.user_id, new Map());
+      map.get(a.user_id)!.set(a.connector_key, a);
     }
-    return out;
-  }, [selected, edges, entities]);
+    return map;
+  }, [data.access]);
 
   return (
-    <div className="flex h-[calc(100vh-128px)] flex-col">
-      {/* Header */}
-      <div className="shrink-0 pb-4">
-        <div className="page-header" style={{ marginBottom: 16 }}>
-          <div className="page-header-left">
-            <h1>Org Graph</h1>
-            <p>
-              Explore people, projects, decisions and tickets, and how they connect across your sources.
-            </p>
-          </div>
-          <div className="page-header-meta">
-            <span>{visibleEntities.length} entities</span>
-            <span className="sep">·</span>
-            <span>{visibleEdges.length} relationships</span>
-            {usingDemo && <Badge variant="muted">demo data</Badge>}
-          </div>
+    <div>
+      <div className="page-header">
+        <div className="page-header-left">
+          <h1>Org Graph · Access Map</h1>
+          <p>
+            Who can access which connected tools, and the highest data tier each person is cleared
+            for. Roles without clearance for Amber or Red information simply don&apos;t see it.
+          </p>
         </div>
-
-        {/* Filters */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search entities…"
-              className="h-8 w-56 pl-8"
-            />
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {ENTITY_TYPE_ORDER.map((t) => {
-              const meta = ENTITY_TYPE_META[t];
-              const active = activeTypes.has(t);
-              return (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => toggleType(t)}
-                  className="inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium transition-colors"
-                  style={{
-                    borderColor: active ? meta.color : "var(--border)",
-                    background: active ? `${meta.color}22` : "transparent",
-                    color: active ? meta.color : "var(--text-secondary)",
-                  }}
-                >
-                  <span
-                    className="inline-block size-2 rounded-full"
-                    style={{ background: meta.color }}
-                  />
-                  {meta.label}
-                </button>
-              );
-            })}
-            {activeTypes.size > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7"
-                onClick={() => setActiveTypes(new Set())}
-              >
-                Clear
-              </Button>
-            )}
-          </div>
+        <div className="page-header-meta">
+          <span>{visibleUsers.length} people</span>
+          <span className="sep">·</span>
+          <span>{data.connectors.length} tools</span>
         </div>
       </div>
 
-      {/* Canvas + side panel */}
-      <div className="flex min-h-0 flex-1 gap-4">
-        <div className="min-w-0 flex-1">
-          {visibleEntities.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center rounded-lg border border-border bg-[#0c0c0c] px-6 text-center">
-              {entities.length > 0 ? (
-                <>
-                  <p className="text-sm font-semibold text-foreground">
-                    No entities match your filters
-                  </p>
-                  <p className="mt-1.5 max-w-sm text-xs text-muted-foreground">
-                    Try a different search term or entity type to see connections.
-                  </p>
-                  <button
-                    className="btn"
-                    style={{ marginTop: 16 }}
-                    onClick={() => {
-                      setActiveTypes(new Set());
-                      setQuery("");
-                    }}
-                  >
-                    Clear filters
-                  </button>
-                </>
-              ) : (
-                <>
-                  <p className="text-sm font-semibold text-foreground">
-                    Your org graph is empty
-                  </p>
-                  <p className="mt-1.5 max-w-sm text-xs text-muted-foreground">
-                    The graph populates once OSAI indexes your context and extracts people,
-                    projects, decisions and tickets. Connect your tools to get started.
-                  </p>
-                  <Link href="/integrations" className="btn btn-primary" style={{ marginTop: 16 }}>
-                    Go to Integrations →
-                  </Link>
-                </>
-              )}
-            </div>
-          ) : (
-            <GraphCanvas
-              entities={visibleEntities}
-              edges={visibleEdges}
-              selectedId={selectedId}
-              onSelect={setSelectedId}
-            />
-          )}
+      {/* Role filter + tier legend */}
+      <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 18, flexWrap: "wrap" }}>
+        <select className="select" value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
+          <option value="all">All roles</option>
+          {roles.map((r) => (
+            <option key={r} value={r}>{r}</option>
+          ))}
+        </select>
+        <div style={{ display: "flex", gap: 12, marginLeft: "auto" }}>
+          {(Object.keys(TIER_META) as Tier[]).map((t) => (
+            <span key={t} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-secondary)" }}>
+              <span style={{ width: 10, height: 10, borderRadius: "50%", background: TIER_META[t].color }} />
+              {TIER_META[t].label}
+            </span>
+          ))}
         </div>
+      </div>
 
-        {/* Side panel */}
-        <aside className="hidden w-80 shrink-0 lg:block">
-          {selected ? (
-            <div className="flex h-full flex-col overflow-y-auto rounded-lg border border-border bg-card p-4">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <Badge
-                    variant="outline"
-                    style={{
-                      color: ENTITY_TYPE_META[selected.type].color,
-                      borderColor: ENTITY_TYPE_META[selected.type].color,
-                    }}
-                  >
-                    {ENTITY_TYPE_META[selected.type].label}
-                  </Badge>
-                  <h2 className="mt-2 text-base font-semibold text-foreground">
-                    {selected.label}
-                  </h2>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setSelectedId(null)}
-                  className="text-muted-foreground hover:text-foreground"
-                  aria-label="Close details"
-                >
-                  <X className="size-4" />
-                </button>
-              </div>
-
-              {selected.summary && (
-                <p className="mt-2 text-sm text-foreground/80">
-                  {selected.summary}
-                </p>
-              )}
-
-              {selected.source_tool && CONNECTOR_META[selected.source_tool] && (
-                <div className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <span style={{ color: CONNECTOR_META[selected.source_tool].color }}>
-                    {CONNECTOR_META[selected.source_tool].icon}
-                  </span>
-                  Sourced from {CONNECTOR_META[selected.source_tool].label}
-                </div>
-              )}
-
-              {Object.keys(selected.attributes).length > 0 && (
-                <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 rounded-md border border-border bg-background/40 p-2.5 text-xs">
-                  {Object.entries(selected.attributes).map(([k, v]) => (
-                    <div key={k} className="contents">
-                      <dt className="font-mono text-muted-foreground">{k}</dt>
-                      <dd className="truncate text-foreground/80">{v}</dd>
-                    </div>
-                  ))}
-                </dl>
-              )}
-
-              <div className="mt-4">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Connections ({connections.length})
-                </p>
-                <ul className="mt-2 space-y-1.5">
-                  {connections.map(({ entity, label }) => (
-                    <li key={entity.id}>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedId(entity.id)}
-                        className="flex w-full items-center gap-2 rounded-md border border-border bg-background/40 px-2.5 py-1.5 text-left text-xs transition-colors hover:bg-accent"
-                      >
-                        <span
-                          className="inline-block size-2 shrink-0 rounded-full"
-                          style={{ background: ENTITY_TYPE_META[entity.type].color }}
-                        />
-                        <span className="truncate font-medium text-foreground">
-                          {entity.label}
-                        </span>
-                        <span className="ml-auto shrink-0 font-mono text-muted-foreground">
-                          {label}
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          ) : (
-            <div className="flex h-full flex-col rounded-lg border border-border bg-card p-4">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Legend
-              </p>
-              <ul className="mt-3 space-y-2">
-                {ENTITY_TYPE_ORDER.map((t) => (
-                  <li key={t} className="flex items-center gap-2 text-sm">
-                    <span
-                      className="inline-block size-3 rounded-full"
-                      style={{ background: ENTITY_TYPE_META[t].color }}
-                    />
-                    <span className="text-foreground/80">
-                      {ENTITY_TYPE_META[t].label}
+      {loaded && data.users.length === 0 ? (
+        <div className="card" style={{ textAlign: "center", padding: "48px 24px" }}>
+          <p style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>No access map yet</p>
+          <p className="meta" style={{ maxWidth: 460, margin: "0 auto 16px" }}>
+            The access map is built from your team members and the tools they can reach. Connect a
+            source and invite your team to populate it.
+          </p>
+          <Link href="/integrations" className="btn btn-primary">Go to Integrations →</Link>
+        </div>
+      ) : (
+        <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+          <table className="data-table" style={{ margin: 0 }}>
+            <thead>
+              <tr>
+                <th style={{ width: 220 }}>Person</th>
+                {data.connectors.map((c) => (
+                  <th key={c.key} style={{ textAlign: "center" }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      <span>{CONNECTOR_META[c.key]?.icon ?? "⚙"}</span>
+                      {CONNECTOR_META[c.key]?.label ?? c.label}
                     </span>
-                  </li>
+                  </th>
                 ))}
-              </ul>
-              <p className="mt-auto pt-4 text-xs text-muted-foreground">
-                Click a node to inspect its details and connections. Node size
-                reflects how connected an entity is.
-              </p>
-            </div>
-          )}
-        </aside>
-      </div>
+              </tr>
+            </thead>
+            <tbody>
+              {visibleUsers.map((u) => {
+                const row = accessByUser.get(u.id);
+                return (
+                  <tr key={u.id}>
+                    <td>
+                      <div style={{ fontWeight: 600, fontSize: 13, color: "var(--text-primary)" }}>{u.label}</div>
+                      <span className="badge badge-grey" style={{ fontSize: 10 }}>{u.role}</span>
+                    </td>
+                    {data.connectors.map((c) => {
+                      const a = row?.get(c.key);
+                      if (!a) {
+                        return (
+                          <td key={c.key} style={{ textAlign: "center", color: "var(--text-muted)" }}>
+                            <span title="No access" style={{ fontSize: 14 }}>—</span>
+                          </td>
+                        );
+                      }
+                      const meta = TIER_META[a.tier];
+                      return (
+                        <td key={c.key} style={{ textAlign: "center" }}>
+                          <span
+                            title={`${meta.label} tier · ${a.doc_count} docs`}
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 6,
+                              padding: "3px 10px",
+                              borderRadius: 9999,
+                              fontSize: 11,
+                              fontWeight: 600,
+                              color: meta.color,
+                              background: `color-mix(in srgb, ${meta.color} 14%, transparent)`,
+                              border: `1px solid color-mix(in srgb, ${meta.color} 35%, transparent)`,
+                            }}
+                          >
+                            <span style={{ width: 7, height: 7, borderRadius: "50%", background: meta.color }} />
+                            {meta.label}
+                          </span>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

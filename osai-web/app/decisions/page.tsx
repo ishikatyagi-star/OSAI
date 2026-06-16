@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { DEMO_DECISIONS, type Decision } from "@/lib/demo-data";
+import { isDemo } from "@/lib/demo";
 
 const IMPACT_META: Record<Decision["impact"], { cls: string }> = {
   critical: { cls: "badge-red" },
@@ -22,15 +23,34 @@ const STATUS_RANK: Record<Decision["status"], number> = { proposed: 0, approved:
 
 type SortKey = "title" | "status" | "impact" | "owner" | "date";
 type SortDir = "asc" | "desc";
+type OwnerFilter = "all" | "mine";
+type SourceFilter = "all" | "osai";
+
+// First token of the signed-in user's name, used to match decisions to "me".
+function myNameToken(): string {
+  if (typeof window === "undefined") return "";
+  const name = localStorage.getItem("osai_user_name") || "";
+  return name.trim().split(/\s+/)[0]?.toLowerCase() ?? "";
+}
 
 export default function DecisionsPage() {
-  const [decisions, setDecisions] = useState<Decision[]>(DEMO_DECISIONS);
+  const [decisions, setDecisions] = useState<Decision[]>(() =>
+    isDemo() ? DEMO_DECISIONS : []
+  );
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | Decision["status"]>("all");
   const [impactFilter, setImpactFilter] = useState<"all" | Decision["impact"]>("all");
+  const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>("all");
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [pendingDelete, setPendingDelete] = useState<Decision | null>(null);
+
+  // /board redirects here with ?source=osai — honour it as the initial filter.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("source") === "osai") setSourceFilter("osai");
+  }, []);
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -48,6 +68,7 @@ export default function DecisionsPage() {
   }
 
   const filtered = useMemo(() => {
+    const token = myNameToken();
     const result = decisions.filter((d) => {
       const matchesSearch =
         search === "" ||
@@ -55,7 +76,10 @@ export default function DecisionsPage() {
         d.tags.some((t) => t.includes(search.toLowerCase()));
       const matchesStatus = statusFilter === "all" || d.status === statusFilter;
       const matchesImpact = impactFilter === "all" || d.impact === impactFilter;
-      return matchesSearch && matchesStatus && matchesImpact;
+      const matchesOwner =
+        ownerFilter === "all" || (token !== "" && d.owner.toLowerCase().includes(token));
+      const matchesSource = sourceFilter === "all" || d.identifiedBy === "osai";
+      return matchesSearch && matchesStatus && matchesImpact && matchesOwner && matchesSource;
     });
 
     if (sortKey) {
@@ -81,7 +105,12 @@ export default function DecisionsPage() {
       });
     }
     return result;
-  }, [decisions, search, statusFilter, impactFilter, sortKey, sortDir]);
+  }, [decisions, search, statusFilter, impactFilter, ownerFilter, sourceFilter, sortKey, sortDir]);
+
+  const osaiCount = useMemo(
+    () => decisions.filter((d) => d.identifiedBy === "osai").length,
+    [decisions]
+  );
 
   function SortableTh({ label, k, width }: { label: string; k: SortKey; width?: number }) {
     const active = sortKey === k;
@@ -105,9 +134,37 @@ export default function DecisionsPage() {
       <div className="page-header">
         <div className="page-header-left">
           <h1>Decision Log</h1>
-          <p>Track all key decisions made across your org — owned, dated, and tagged.</p>
+          <p>
+            Every key decision and action across your org — owned, dated, and tagged. Items OSAI
+            inferred from context but that aren&apos;t tracked in your tools are marked{" "}
+            <span className="badge badge-purple" style={{ fontSize: 10 }}>OSAI found this</span>.
+          </p>
         </div>
         <button className="btn btn-primary">+ Add Decision</button>
+      </div>
+
+      {/* Segmented owner / source filters (the merged Team Board lens) */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+        {([
+          { key: "all", label: "All decisions" },
+          { key: "mine", label: "My decisions" },
+        ] as const).map((opt) => (
+          <button
+            key={opt.key}
+            className={`btn${ownerFilter === opt.key ? " btn-primary" : ""}`}
+            style={{ fontSize: 12, padding: "6px 14px" }}
+            onClick={() => setOwnerFilter(opt.key)}
+          >
+            {opt.label}
+          </button>
+        ))}
+        <button
+          className={`btn${sourceFilter === "osai" ? " btn-primary" : ""}`}
+          style={{ fontSize: 12, padding: "6px 14px" }}
+          onClick={() => setSourceFilter((s) => (s === "osai" ? "all" : "osai"))}
+        >
+          ✨ OSAI-identified{osaiCount > 0 ? ` (${osaiCount})` : ""}
+        </button>
       </div>
 
       {/* Search + filters */}
@@ -153,6 +210,7 @@ export default function DecisionsPage() {
             <SortableTh label="Status" k="status" />
             <SortableTh label="Impact" k="impact" />
             <SortableTh label="Owner" k="owner" />
+            <th>Source</th>
             <SortableTh label="Date" k="date" />
             <th style={{ width: 80 }}>Actions</th>
           </tr>
@@ -165,6 +223,11 @@ export default function DecisionsPage() {
                   {d.title}
                 </div>
                 <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                  {d.identifiedBy === "osai" && (
+                    <span className="badge badge-purple" style={{ fontSize: 10 }}>
+                      ✨ OSAI found this
+                    </span>
+                  )}
                   {d.tags.map((t) => (
                     <span key={t} className="badge badge-grey" style={{ fontSize: 10 }}>{t}</span>
                   ))}
@@ -178,6 +241,9 @@ export default function DecisionsPage() {
               </td>
               <td>
                 <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{d.owner}</span>
+              </td>
+              <td>
+                <span className="meta" style={{ fontSize: 11 }}>{d.source}</span>
               </td>
               <td>
                 <span className="mono">{d.date}</span>
@@ -199,8 +265,10 @@ export default function DecisionsPage() {
           ))}
           {filtered.length === 0 && (
             <tr>
-              <td colSpan={6} style={{ textAlign: "center", color: "var(--text-muted)", padding: "32px 0" }}>
-                No decisions match this filter.
+              <td colSpan={7} style={{ textAlign: "center", color: "var(--text-muted)", padding: "32px 0" }}>
+                {decisions.length === 0
+                  ? "No decisions yet. OSAI logs decisions and surfaces uncaptured action items as it indexes your connected tools."
+                  : "No decisions match this filter."}
               </td>
             </tr>
           )}
