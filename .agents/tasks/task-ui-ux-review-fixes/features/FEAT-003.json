@@ -2,7 +2,7 @@
   "id": "FEAT-003",
   "type": "refactor",
   "description": "P2 - Refactor Decisions, Workflows, Workflow Detail, Graph, Login, and Auth pages: eliminate inline styles, add shared classes, fix Login page (oauth btn class, terms links, spinner loading states), fix Settings/Advanced back link accent",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "In osai-web/app/decisions/page.tsx: (a) Replace inline style={{fontSize:12, padding:'6px 14px'}} on filter buttons with btn-sm class. (b) Replace inline style={{fontSize:11, padding:'3px 7px'}} on action buttons with btn-xs class. (c) Remove other inline style overrides (marginBottom, gap, flexWrap, etc) by adding utility classes to globals.css where needed or using existing ones.",
     "In osai-web/app/workflows/page.tsx: (a) Replace the expand caret characters ('▲'/'▼') with lucide ChevronDown/ChevronUp icons. (b) Replace inline style on the RunCard button (width:100%, background:none, border:none, padding, cursor, textAlign, display:flex) with a .workflow-run-header class in globals.css. (c) Replace inline padding overrides on btn elements with btn-sm class. (d) Replace emoji 👤 with lucide User icon.",
@@ -30,5 +30,5 @@
     "cd /projects/sandbox/OSAI/osai-web && npm run build"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "All acceptance criteria met. Typecheck and build pass cleanly. animate-spin utility is provided by tw-animate-css package (imported in theme.css). The @keyframes spin is also defined in globals.css as a fallback. No remaining inline style violations in the modified pages. No emoji icons remain in workflows pages."
 }
