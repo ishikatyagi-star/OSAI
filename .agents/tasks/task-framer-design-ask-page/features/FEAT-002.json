@@ -2,7 +2,7 @@
   "id": "FEAT-002",
   "type": "feat",
   "description": "Apply the full Framer design system to the Ask OSAI page and its sub-components, ensuring every visual element follows the DESIGN.md spec: poster-grade display type with aggressive negative tracking, dark canvas, white pill CTAs, charcoal surfaces, gradient spotlight workflow cards, and the Inter Variable OpenType features.",
-  "status": "pending",
+  "status": "in_progress",
   "steps": [
     "Review the current DESIGN.md and any files added by the getdesign CLI in FEAT-001. Understand what tokens are now available.",
     "Update the Ask page empty state heading section in `app/ask/page.tsx`: Make the title use poster-grade display typography with aggressive negative tracking matching DESIGN.md display-lg (62px, -3.1px tracking, weight 600, line-height 1.0). Use the `.display-lg` or equivalent class.",

@@ -76,6 +76,7 @@ const ASK_MODES: {
   desc: string;
   example: string;
   sources: string[];
+  gradient: string;
 }[] = [
   {
     id: "context",
@@ -84,6 +85,7 @@ const ASK_MODES: {
     desc: "Get a cited answer pulled from across your tools.",
     example: "Who owns the VPC security setup and is it done?",
     sources: ["Notion", "Slack"],
+    gradient: "ask-mode-card--violet",
   },
   {
     id: "summarize",
@@ -92,6 +94,7 @@ const ASK_MODES: {
     desc: "Roll up threads, tickets and docs into one answer.",
     example: "Summarise open SLA escalations in Freshdesk",
     sources: ["Freshdesk", "Zoom"],
+    gradient: "ask-mode-card--magenta",
   },
   {
     id: "action",
@@ -100,6 +103,7 @@ const ASK_MODES: {
     desc: "Open tickets, assign owners or post updates — with approval.",
     example: "Open a Freshdesk ticket for the Redis connection pool issue",
     sources: ["Freshdesk"],
+    gradient: "ask-mode-card--orange",
   },
 ];
 
@@ -284,7 +288,7 @@ export default function AskPage() {
         /* ─── EMPTY STATE — one clean, centered command column ─────────────── */
         <div className="ask-scroll min-h-0 flex-1 overflow-y-auto">
           <div className="flex min-h-full items-center justify-center px-4 py-8">
-            <div className="ask-column flex w-full max-w-[760px] flex-col gap-7 text-left">
+            <div className="ask-column flex w-full max-w-[760px] flex-col gap-8 text-left">
               {/* Heading + subtext */}
               <div className="flex flex-col gap-4">
                 <span className="ask-eyebrow">Command center</span>
@@ -364,7 +368,7 @@ export default function AskPage() {
               {/* Recommended workflows — three modes, each with a concrete example */}
               <div className="flex flex-col gap-3">
                 <span className="ask-section-label">Recommended workflows</span>
-                <div className="grid gap-2.5 sm:grid-cols-3">
+                <div className="grid gap-4 sm:grid-cols-3">
                   {ASK_MODES.map((m) => {
                     const Icon = m.icon;
                     return (
@@ -372,7 +376,7 @@ export default function AskPage() {
                         key={m.id}
                         type="button"
                         onClick={() => send(m.example)}
-                        className="ask-mode-card"
+                        className={cn("ask-mode-card", m.gradient)}
                       >
                         <span className="ask-mode-card-icon">
                           <Icon className="size-4" />
@@ -420,10 +424,10 @@ export default function AskPage() {
               ))}
               {pending && (
                 <div className="flex gap-3">
-                  <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-sm font-extrabold text-primary-foreground">
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-extrabold text-primary-foreground">
                     O
                   </div>
-                  <div className="flex items-center gap-2 rounded-2xl rounded-tl-sm border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-2 rounded-xl rounded-tl-sm border border-[var(--border)] bg-[var(--bg-surface)] px-4 py-3 text-sm text-muted-foreground">
                     <Loader2 className="size-4 animate-spin text-primary" />
                     Searching across your connected knowledge base…
                   </div>
