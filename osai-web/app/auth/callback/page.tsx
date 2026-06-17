@@ -26,6 +26,7 @@ export default function AuthCallbackPage() {
 
     localStorage.setItem("osai_token", token);
     localStorage.setItem("osai_org_id", orgId);
+    if (params.get("org_name")) localStorage.setItem("osai_org_name", params.get("org_name")!);
     if (params.get("user_id")) localStorage.setItem("osai_user_id", params.get("user_id")!);
     if (params.get("email")) localStorage.setItem("osai_user_email", params.get("email")!);
     if (params.get("name")) localStorage.setItem("osai_user_name", params.get("name")!);

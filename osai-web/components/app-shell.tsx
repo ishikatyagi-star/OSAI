@@ -15,10 +15,12 @@ export default function AppShell({ children }: { children: ReactNode }) {
   // Resolve the platform-correct shortcut on the client to avoid showing the
   // Mac ⌘ to Windows/Linux users. Rendered only after mount (no hydration gap).
   const [shortcut, setShortcut] = useState<string | null>(null);
+  const [workspace, setWorkspace] = useState("");
   useEffect(() => {
     const isMac = /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent);
     setShortcut(isMac ? "⌘K" : "Ctrl K");
-  }, []);
+    setWorkspace(localStorage.getItem("osai_org_name") || "Your workspace");
+  }, [pathname]);
 
   // Make the shortcut real: ⌘/Ctrl+K jumps to the Search page.
   useEffect(() => {
@@ -55,7 +57,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
           )}
           <div className="topbar-workspace">
             <span>Workspace:</span>
-            <span className="topbar-workspace-name">Intellact AI</span>
+            <span className="topbar-workspace-name">{workspace}</span>
             <span
               style={{
                 fontSize: 10,
