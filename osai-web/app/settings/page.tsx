@@ -125,7 +125,7 @@ export default function SettingsPage() {
             {resetMsg && (
               <p className="success-text" style={{ marginBottom: 10 }}>{resetMsg}</p>
             )}
-            <button className="btn btn-danger" onClick={() => setDialogOpen(true)}>
+            <button className="btn btn-danger" onClick={() => { setResetMsg(""); setDialogOpen(true); }}>
               Clear workspace data
             </button>
           </div>
