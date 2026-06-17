@@ -166,7 +166,7 @@ export default function GraphPage() {
                             title={`${meta.label} tier · ${a.doc_count} docs`}
                             className={`tier-badge tier-badge--${a.tier}`}
                           >
-                            <span style={{ width: 7, height: 7, borderRadius: "50%", background: meta.color }} />
+                            <span className="tier-badge-dot" />
                             {meta.label}
                           </span>
                         </td>
