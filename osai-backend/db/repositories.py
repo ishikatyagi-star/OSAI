@@ -607,6 +607,11 @@ def upsert_source_documents(session: Session, documents: list[SourceDocument]) -
             for key, value in values.items():
                 setattr(record, key, value)
 
+        # The session is autoflush=False, so flush the parent document now to
+        # guarantee its row exists before we insert child chunks (otherwise the
+        # chunk FK to source_documents fails on a fresh sync).
+        session.flush()
+
         session.query(Chunk).filter(Chunk.source_document_id == document.source_id).delete()
         for chunk in chunk_document(document):
             session.add(
