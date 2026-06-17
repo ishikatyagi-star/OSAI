@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   Inbox,
   LayoutDashboard,
@@ -38,6 +39,13 @@ const NAV: NavItem[] = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const [userName, setUserName] = useState("");
+  const [orgName, setOrgName] = useState("");
+  useEffect(() => {
+    setUserName(localStorage.getItem("osai_user_name") || "You");
+    setOrgName(localStorage.getItem("osai_org_name") || "Your workspace");
+  }, []);
+  const initial = (userName || "U").trim().charAt(0).toUpperCase();
 
   return (
     <aside className="sidebar">
@@ -86,10 +94,10 @@ export default function Sidebar() {
           <span>Settings</span>
         </Link>
         <div className="sidebar-user">
-          <div className="sidebar-avatar">A</div>
+          <div className="sidebar-avatar">{initial}</div>
           <div className="sidebar-user-info">
-            <div className="sidebar-user-name">Admin</div>
-            <div className="sidebar-user-role">Intellact AI</div>
+            <div className="sidebar-user-name">{userName}</div>
+            <div className="sidebar-user-role">{orgName}</div>
           </div>
         </div>
       </div>

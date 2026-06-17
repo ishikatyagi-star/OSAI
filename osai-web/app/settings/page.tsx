@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { FlaskConical, Route, ChevronRight, type LucideIcon } from "lucide-react";
+import { FlaskConical, Route, ChevronRight, Trash2, type LucideIcon } from "lucide-react";
+import { resetWorkspaceContent } from "@/lib/api";
 
 type SettingsLink = {
   href: string;
@@ -28,6 +30,27 @@ const LINKS: SettingsLink[] = [
 ];
 
 export default function SettingsPage() {
+  const [confirming, setConfirming] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [resetMsg, setResetMsg] = useState("");
+
+  async function handleReset() {
+    const orgId = localStorage.getItem("osai_org_id");
+    if (!orgId) return;
+    setResetting(true);
+    setResetMsg("");
+    try {
+      const res = await resetWorkspaceContent(orgId);
+      const total = Object.values(res.deleted).reduce((a, b) => a + b, 0);
+      setResetMsg(`Cleared ${total} records. Re-sync your connectors to pull real data.`);
+      setConfirming(false);
+    } catch {
+      setResetMsg("Couldn't reset — please try again.");
+    } finally {
+      setResetting(false);
+    }
+  }
+
   return (
     <div>
       <div className="page-header">
@@ -62,6 +85,45 @@ export default function SettingsPage() {
             </Link>
           );
         })}
+      </div>
+
+      {/* Danger zone — clear seeded/ingested content */}
+      <div
+        className="card"
+        style={{ marginTop: 28, borderColor: "color-mix(in srgb, var(--red) 35%, var(--border))" }}
+      >
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
+          <div
+            className="connector-icon-badge"
+            style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", color: "var(--red)" }}
+          >
+            <Trash2 size={18} strokeWidth={1.75} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <h2 style={{ margin: 0, fontSize: 15 }}>Reset workspace data</h2>
+            <p className="meta" style={{ margin: "4px 0 12px", fontSize: 12, lineHeight: 1.5 }}>
+              Delete all indexed documents, decisions, workflows and sample data. Your connected
+              tools stay connected — just click “Sync now” afterwards to pull your real data back in.
+            </p>
+            {resetMsg && (
+              <p className="success-text" style={{ fontSize: 12, marginBottom: 10 }}>{resetMsg}</p>
+            )}
+            {confirming ? (
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <button className="btn btn-danger" onClick={handleReset} disabled={resetting}>
+                  {resetting ? "Clearing…" : "Yes, clear everything"}
+                </button>
+                <button className="btn" onClick={() => setConfirming(false)} disabled={resetting}>
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button className="btn btn-danger" onClick={() => setConfirming(true)}>
+                Clear workspace data
+              </button>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

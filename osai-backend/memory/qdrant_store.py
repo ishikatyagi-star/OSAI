@@ -80,6 +80,21 @@ class QdrantStore:
         await self.client.upsert(collection_name=self.collection_name, points=points)
         return len(points)
 
+    async def delete_org(self, org_id: str) -> None:
+        """Delete all vectors for an org (used when resetting workspace content)."""
+        await self.client.delete(
+            collection_name=self.collection_name,
+            points_selector=models.FilterSelector(
+                filter=models.Filter(
+                    must=[
+                        models.FieldCondition(
+                            key="org_id", match=models.MatchValue(value=org_id)
+                        )
+                    ]
+                )
+            ),
+        )
+
 
 def _stable_point_id(namespaced_chunk_id: str) -> str:
     # Qdrant accepts UUID strings; uuid5 keeps point ids stable across re-syncs.

@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from db.repositories import provision_org, try_db
+from db.repositories import provision_org, reset_org_content, try_db
 from db.session import get_db
 
 router = APIRouter(prefix="/orgs", tags=["orgs"])
@@ -56,3 +56,19 @@ async def create_org(body: OrgCreate, db: DbSession) -> OrgResponse:
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/{org_id}/reset-content")
+async def reset_content(org_id: str, db: DbSession) -> dict[str, object]:
+    """Delete all ingested/derived content for an org (documents, chunks, sync
+    runs, workflows, memory) while keeping the org, users, and connector
+    connections. Clears seed/demo data so a fresh re-sync pulls only real data."""
+    counts = reset_org_content(db, org_id)
+    # Best-effort: also clear this org's vectors from Qdrant.
+    try:
+        from memory.qdrant_store import get_default_qdrant_store
+
+        await get_default_qdrant_store().delete_org(org_id)
+    except Exception:  # noqa: BLE001 — vector cleanup is best-effort
+        pass
+    return {"org_id": org_id, "deleted": counts}

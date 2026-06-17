@@ -13,6 +13,7 @@ from db.models import (
     ConnectorAction,
     ConnectorRecord,
     Org,
+    OrgMemory,
     SourceDocumentRecord,
     SyncRun,
     User,
@@ -1000,3 +1001,34 @@ def apply_tier_rules(
             if rule["pattern"].lower() in haystack:
                 document.data_tier = rule["tier"]
                 break
+
+
+def reset_org_content(session: Session, org_id: str) -> dict[str, int]:
+    """Delete all ingested/derived content for an org (documents, chunks, sync
+    runs, workflow runs + action items, org memory) while KEEPING the org, its
+    users, and connector connections. Use to clear seed/demo data so a fresh
+    re-sync repopulates only the customer's real data."""
+    run_ids = [
+        r[0]
+        for r in session.query(WorkflowRun.id).filter(WorkflowRun.org_id == org_id).all()
+    ]
+    counts = {
+        "chunks": session.query(Chunk).filter(Chunk.org_id == org_id).delete(),
+        "documents": session.query(SourceDocumentRecord)
+        .filter(SourceDocumentRecord.org_id == org_id)
+        .delete(),
+        "action_items": (
+            session.query(ActionItemRecord)
+            .filter(ActionItemRecord.workflow_run_id.in_(run_ids))
+            .delete(synchronize_session=False)
+            if run_ids
+            else 0
+        ),
+        "workflow_runs": session.query(WorkflowRun)
+        .filter(WorkflowRun.org_id == org_id)
+        .delete(),
+        "org_memory": session.query(OrgMemory).filter(OrgMemory.org_id == org_id).delete(),
+        "sync_runs": session.query(SyncRun).filter(SyncRun.org_id == org_id).delete(),
+    }
+    session.commit()
+    return counts

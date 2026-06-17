@@ -16,7 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from config import settings
-from db.models import User
+from db.models import Org, User
 from db.repositories import provision_org, try_db
 from db.session import get_db
 
@@ -152,13 +152,16 @@ def _verify_id_token(id_token: str) -> dict:
     return claims
 
 
-def _frontend_redirect(token: str, user: User, *, is_new: bool) -> RedirectResponse:
+def _frontend_redirect(
+    token: str, user: User, org_name: str, *, is_new: bool
+) -> RedirectResponse:
     base = settings.frontend_redirect.rstrip("/")
     # Token is passed in the URL fragment so it never hits server access logs.
     fragment = urlencode(
         {
             "token": token,
             "org_id": user.org_id,
+            "org_name": org_name,
             "user_id": user.id,
             "email": user.email,
             "name": user.display_name,
@@ -214,6 +217,9 @@ async def google_callback(
         db.commit()
         is_new = True
 
-    resp = _frontend_redirect(_issue_token(user.id), user, is_new=is_new)
+    org = db.get(Org, user.org_id)
+    resp = _frontend_redirect(
+        _issue_token(user.id), user, org.name if org else "", is_new=is_new
+    )
     resp.delete_cookie(_OAUTH_STATE_COOKIE)
     return resp

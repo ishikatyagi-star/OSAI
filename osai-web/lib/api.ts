@@ -153,6 +153,15 @@ export function onboardOrg(payload: OrgOnboardPayload): Promise<OrgOnboardRespon
   return apiPost<OrgOnboardPayload, OrgOnboardResponse>("/orgs", payload);
 }
 
+// Delete all ingested content for the current org (keeps connections) — used to
+// clear seed/demo data before showing a customer their own workspace.
+export function resetWorkspaceContent(orgId: string) {
+  return apiPost<Record<string, never>, { org_id: string; deleted: Record<string, number> }>(
+    `/orgs/${orgId}/reset-content`,
+    {}
+  );
+}
+
 // ─── Integrations ────────────────────────────────────────────────────────────
 
 export function getIntegrations() {
