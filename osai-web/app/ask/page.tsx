@@ -1,10 +1,20 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, Plus, Send } from "lucide-react";
+import {
+  ArrowUp,
+  Layers,
+  Loader2,
+  Plus,
+  Search,
+  ShieldCheck,
+  Sparkles,
+  Zap,
+} from "lucide-react";
 import { askOsai, confirmAgentAction } from "@/lib/api";
-import { DEMO_ASK_ANSWERS, DEMO_ASK_SUGGESTIONS } from "@/lib/demo-data";
+import { DEMO_ASK_ANSWERS } from "@/lib/demo-data";
 import { isDemo } from "@/lib/demo";
+import { cn } from "@/lib/utils";
 import type { AgentAction, AskResponse } from "@/lib/types";
 import { MessageBubble, type AskTurn } from "@/components/ask/message-bubble";
 import { Button } from "@/components/ui/button";
@@ -28,9 +38,75 @@ function uid(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+/** Composer modes — the command-center's core differentiator. Each mode reframes
+ *  the placeholder so the box clearly does more than chat. */
+type ComposerMode = "ask" | "search" | "action";
+
+const COMPOSER_MODES: {
+  id: ComposerMode;
+  label: string;
+  icon: typeof Sparkles;
+  placeholder: string;
+}[] = [
+  {
+    id: "ask",
+    label: "Ask",
+    icon: Sparkles,
+    placeholder: "Ask anything about your org — projects, owners, decisions, status…",
+  },
+  {
+    id: "search",
+    label: "Search",
+    icon: Search,
+    placeholder: "Search across Notion, Slack, Google Drive, Freshdesk and Zoom…",
+  },
+  {
+    id: "action",
+    label: "Take action",
+    icon: Zap,
+    placeholder: "Tell OSAI to open a ticket, assign an owner, or post a status update…",
+  },
+];
+
+/** Three onboarding modes shown as recommended workflows (not passive chips). */
+const ASK_MODES: {
+  id: string;
+  icon: typeof Sparkles;
+  label: string;
+  desc: string;
+  example: string;
+  sources: string[];
+}[] = [
+  {
+    id: "context",
+    icon: Sparkles,
+    label: "Ask about context",
+    desc: "Get a cited answer pulled from across your tools.",
+    example: "Who owns the VPC security setup and is it done?",
+    sources: ["Notion", "Slack"],
+  },
+  {
+    id: "summarize",
+    icon: Layers,
+    label: "Summarize across tools",
+    desc: "Roll up threads, tickets and docs into one answer.",
+    example: "Summarise open SLA escalations in Freshdesk",
+    sources: ["Freshdesk", "Zoom"],
+  },
+  {
+    id: "action",
+    icon: Zap,
+    label: "Take an action",
+    desc: "Open tickets, assign owners or post updates — with approval.",
+    example: "Open a Freshdesk ticket for the Redis connection pool issue",
+    sources: ["Freshdesk"],
+  },
+];
+
 export default function AskPage() {
   const [turns, setTurns] = useState<AskTurn[]>([]);
   const [input, setInput] = useState("");
+  const [mode, setMode] = useState<ComposerMode>("ask");
   const [pending, setPending] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [busyActionId, setBusyActionId] = useState<string | null>(null);
@@ -177,15 +253,18 @@ export default function AskPage() {
   );
 
   const empty = turns.length === 0;
+  const activeMode =
+    COMPOSER_MODES.find((m) => m.id === mode) ?? COMPOSER_MODES[0];
 
   return (
-    <div className="flex h-[calc(100vh-128px)] flex-col">
+    <div className="ask-canvas flex h-[calc(100vh-128px)] flex-col">
       {/* Header */}
       <div className="page-header shrink-0">
         <div className="page-header-left">
           <h1>Ask OSAI</h1>
           <p>
-            Ask anything about your org — get a cited answer and let OSAI take action in your tools.
+            Ask anything about your org and get a cited answer — or have OSAI open
+            tickets, chase follow-ups, pull status, and check ownership.
           </p>
         </div>
         {!empty && (
@@ -201,94 +280,194 @@ export default function AskPage() {
         )}
       </div>
 
-      {/* Thread */}
-      <div
-        ref={threadRef}
-        className={`min-h-0 flex-1 overflow-y-auto ${empty ? "flex items-center justify-center" : ""}`}
-      >
-        {empty ? (
-          <div className="mx-auto flex w-full max-w-2xl flex-col items-center gap-6 px-4 pb-8 text-center">
-            <div className="flex size-14 items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated)] text-2xl font-extrabold text-[var(--text-primary)]">
-              O
-            </div>
-            <div className="space-y-2">
-              <h2 className="text-xl">What would you like to know?</h2>
-              <p className="mx-auto max-w-md text-sm text-muted-foreground">
-                OSAI answers from everything it has indexed across Notion, Slack, Google
-                Drive, Freshdesk and Zoom — and can take actions on your behalf.
-              </p>
-            </div>
-            <div className="grid w-full gap-2.5 sm:grid-cols-2">
-              {DEMO_ASK_SUGGESTIONS.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => send(s)}
-                  className="rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] px-4 py-3 text-left text-sm text-[var(--text-secondary)] transition-colors hover:border-[var(--border-hover)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div className="mx-auto w-full max-w-3xl space-y-6 py-1">
-            {turns.map((t) => (
-              <MessageBubble
-                key={t.id}
-                turn={t}
-                busyActionId={busyActionId}
-                onApprove={handleApprove}
-                onDismiss={handleDismiss}
-              />
-            ))}
-            {pending && (
-              <div className="flex gap-3">
-                <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-sm font-extrabold text-primary-foreground">
-                  O
+      {empty ? (
+        /* ─── EMPTY STATE — one clean, centered command column ─────────────── */
+        <div className="ask-scroll min-h-0 flex-1 overflow-y-auto">
+          <div className="flex min-h-full items-center justify-center px-4 py-8">
+            <div className="ask-column flex w-full max-w-[760px] flex-col gap-6 text-left">
+              {/* Heading + subtext */}
+              <div className="flex flex-col gap-3">
+                <span className="ask-eyebrow">Command center</span>
+                <h2 className="ask-title">What would you like to know?</h2>
+                <p className="ask-subtext">
+                  OSAI answers from everything it has indexed across Notion, Slack,
+                  Google Drive, Freshdesk and Zoom — and can act on your behalf:
+                  open tickets, chase follow-ups, pull status, and check ownership.
+                </p>
+              </div>
+
+              {/* HERO composer — the product's core differentiator */}
+              <form onSubmit={handleSubmit} className="w-full">
+                <div className="ask-composer ask-composer-hero">
+                  {/* Mode tabs */}
+                  <div className="flex items-center gap-1 border-b border-[var(--border)] px-2.5 py-2">
+                    {COMPOSER_MODES.map((m) => {
+                      const Icon = m.icon;
+                      return (
+                        <button
+                          key={m.id}
+                          type="button"
+                          data-active={mode === m.id}
+                          onClick={() => {
+                            setMode(m.id);
+                            inputRef.current?.focus();
+                          }}
+                          className="ask-mode-tab"
+                        >
+                          <Icon className="size-3.5" />
+                          {m.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {/* Input row — placeholder + send vertically centered */}
+                  <div className="flex items-center gap-2 px-3 py-2.5">
+                    <Textarea
+                      ref={inputRef}
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      rows={1}
+                      placeholder={activeMode.placeholder}
+                      className="max-h-44 min-h-[44px] flex-1 resize-none self-center border-0 bg-transparent px-1 py-1 text-base shadow-none focus-visible:ring-0"
+                      autoFocus
+                    />
+                    <Button
+                      type="submit"
+                      size="icon"
+                      className="size-10 shrink-0 self-center rounded-full"
+                      disabled={pending || !input.trim()}
+                      aria-label="Send"
+                    >
+                      {pending ? (
+                        <Loader2 className="size-5 animate-spin" />
+                      ) : (
+                        <ArrowUp className="size-5" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 rounded-2xl rounded-tl-sm border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
-                  <Loader2 className="size-4 animate-spin text-primary" />
-                  Searching across your connected knowledge base…
+              </form>
+
+              {/* Response expectations — sets a quality bar before the first query */}
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
+                <span className="ask-expectation">
+                  <ShieldCheck className="size-3.5 text-[var(--accent)]" />
+                  Answers include sources and confidence
+                </span>
+                <span className="ask-expectation">
+                  <Zap className="size-3.5 text-[var(--accent)]" />
+                  Actions run only after you approve
+                </span>
+              </div>
+
+              {/* Recommended workflows — three modes, each with a concrete example */}
+              <div className="flex flex-col gap-3">
+                <span className="ask-section-label">Recommended workflows</span>
+                <div className="grid gap-2.5 sm:grid-cols-3">
+                  {ASK_MODES.map((m) => {
+                    const Icon = m.icon;
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => send(m.example)}
+                        className="ask-mode-card"
+                      >
+                        <span className="ask-mode-card-icon">
+                          <Icon className="size-4" />
+                        </span>
+                        <span className="ask-mode-card-title">{m.label}</span>
+                        <span className="ask-mode-card-desc">{m.desc}</span>
+                        <span className="ask-example">“{m.example}”</span>
+                        <span className="flex flex-wrap gap-1.5">
+                          {m.sources.map((s) => (
+                            <span key={s} className="ask-source-badge">
+                              {s}
+                            </span>
+                          ))}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
-            )}
-          </div>
-        )}
-      </div>
 
-      {/* Composer */}
-      <form onSubmit={handleSubmit} className="shrink-0 pt-4">
-        <div className="mx-auto w-full max-w-3xl">
-          <div className="flex items-end gap-2 rounded-2xl border border-[var(--border)] bg-[var(--bg-surface)] p-2 transition-colors focus-within:border-[var(--accent)]">
-            <Textarea
-              ref={inputRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              rows={1}
-              placeholder="Ask OSAI anything, or tell it to take an action…"
-              className="max-h-40 min-h-[40px] flex-1 resize-none border-0 bg-transparent px-2 py-2 text-sm shadow-none focus-visible:ring-0"
-              autoFocus
-            />
-            <Button
-              type="submit"
-              size="icon"
-              className="shrink-0 rounded-full"
-              disabled={pending || !input.trim()}
-            >
-              {pending ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <Send className="size-4" />
-              )}
-            </Button>
+              {/* Disclaimer */}
+              <p className="ask-disclaimer">
+                OSAI can make mistakes. Actions that change your tools always
+                require approval.
+              </p>
+            </div>
           </div>
-          <p className="mt-2 text-center text-[11px] text-muted-foreground">
-            OSAI can make mistakes. Actions that change your tools always require approval.
-          </p>
         </div>
-      </form>
+      ) : (
+        /* ─── CONVERSATION STATE ──────────────────────────────────────────── */
+        <>
+          <div
+            ref={threadRef}
+            className="ask-scroll min-h-0 flex-1 overflow-y-auto"
+          >
+            <div className="mx-auto w-full max-w-3xl space-y-6 py-1">
+              {turns.map((t) => (
+                <MessageBubble
+                  key={t.id}
+                  turn={t}
+                  busyActionId={busyActionId}
+                  onApprove={handleApprove}
+                  onDismiss={handleDismiss}
+                />
+              ))}
+              {pending && (
+                <div className="flex gap-3">
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-sm font-extrabold text-primary-foreground">
+                    O
+                  </div>
+                  <div className="flex items-center gap-2 rounded-2xl rounded-tl-sm border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+                    <Loader2 className="size-4 animate-spin text-primary" />
+                    Searching across your connected knowledge base…
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Composer pinned to the bottom of the thread */}
+          <form onSubmit={handleSubmit} className="shrink-0 pt-4">
+            <div className="mx-auto w-full max-w-3xl">
+              <div className="ask-composer flex items-center gap-2 px-3 py-2">
+                <Textarea
+                  ref={inputRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  rows={1}
+                  placeholder="Ask a follow-up, or tell OSAI to take an action…"
+                  className="max-h-40 min-h-[40px] flex-1 resize-none self-center border-0 bg-transparent px-1 py-1.5 text-sm shadow-none focus-visible:ring-0"
+                  autoFocus
+                />
+                <Button
+                  type="submit"
+                  size="icon"
+                  className="shrink-0 self-center rounded-full"
+                  disabled={pending || !input.trim()}
+                  aria-label="Send"
+                >
+                  {pending ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <ArrowUp className="size-4" />
+                  )}
+                </Button>
+              </div>
+              <p className="ask-disclaimer mt-2 text-center">
+                OSAI can make mistakes. Actions that change your tools always
+                require approval.
+              </p>
+            </div>
+          </form>
+        </>
+      )}
     </div>
   );
 }
