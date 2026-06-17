@@ -184,7 +184,7 @@ export default function SyncRunsPage() {
                     <Link
                       href="/integrations"
                       className="text-micro font-semibold"
-                      style={{ color: "var(--accent)", whiteSpace: "nowrap" }}
+                      style={{ color: "#ffffff", whiteSpace: "nowrap" }}
                     >
                       Fix in Integrations →
                     </Link>
