@@ -5,10 +5,11 @@ from pydantic import BaseModel
 from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
+from connectors.composio_ingest import ingest_composio_toolkit
 from connectors.composio_tool import get_default_composio_client
 from connectors.registry import connector_registry
 from connectors.sync_service import sync_connector
-from connectors.toolkit_map import to_native_key
+from connectors.toolkit_map import NATIVE_TO_COMPOSIO, to_native_key
 from db.models import SourceDocumentRecord
 from db.repositories import get_tier_rules, set_tier_rules, try_db
 from db.repositories import list_integrations as list_db_integrations
@@ -84,6 +85,24 @@ async def list_connector_documents(
 async def trigger_sync(connector_key: str, db: DbSession, org_id: OrgId) -> dict[str, object]:
     if connector_key not in {connector.key for connector in connector_registry.all()}:
         raise HTTPException(status_code=404, detail="Unknown connector")
+
+    # If this app is connected through Composio OAuth, ingest via Composio (no
+    # native service-account credentials needed, e.g. Google Drive). Only fall
+    # back to the native connector when there's no active Composio connection.
+    client = get_default_composio_client()
+    if client.available():
+        slug = NATIVE_TO_COMPOSIO.get(connector_key, connector_key)
+        try:
+            connections = await client.list_connections(org_id)
+            has_active = any(
+                c.get("toolkit") == slug and (c.get("status") or "").upper() == "ACTIVE"
+                for c in connections
+            )
+        except Exception:  # noqa: BLE001 — fall back to native sync on lookup failure
+            has_active = False
+        if has_active:
+            return await ingest_composio_toolkit(org_id, slug, db)
+
     return await sync_connector(connector_key, org_id, db)
 
 
