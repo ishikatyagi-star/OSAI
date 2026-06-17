@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 from config import settings
 from db.models import Org, User
-from db.repositories import provision_org, try_db
+from db.repositories import accept_invite_for_email, provision_org, try_db
 from db.session import get_db
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -205,17 +205,23 @@ async def google_callback(
     user = db.scalar(select(User).where(User.email == email))
     is_new = False
     if user is None:
-        # First sign-in: provision a workspace for this user.
-        org_name = f"{display_name}'s workspace"
-        _, user = try_db(
-            "provision_org_google",
-            (None, None),
-            lambda: provision_org(db, name=org_name, admin_email=email, admin_name=display_name),
-        )
+        # If an admin invited this email, join that existing org with the assigned
+        # role/department — so a team lands in one workspace.
+        user = accept_invite_for_email(db, email, display_name)
         if user is None:
-            raise HTTPException(status_code=500, detail="Could not provision a workspace.")
-        db.commit()
-        is_new = True
+            # No invite: this is a brand-new org owner (e.g. the first admin).
+            org_name = f"{display_name}'s workspace"
+            _, user = try_db(
+                "provision_org_google",
+                (None, None),
+                lambda: provision_org(
+                    db, name=org_name, admin_email=email, admin_name=display_name
+                ),
+            )
+            if user is None:
+                raise HTTPException(status_code=500, detail="Could not provision a workspace.")
+            db.commit()
+            is_new = True
 
     org = db.get(Org, user.org_id)
     resp = _frontend_redirect(

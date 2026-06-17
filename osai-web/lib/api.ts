@@ -162,6 +162,65 @@ export function resetWorkspaceContent(orgId: string) {
   );
 }
 
+// ─── Team (members, departments, invites) ────────────────────────────────────
+
+export type TeamMember = {
+  id: string;
+  email: string;
+  display_name: string;
+  role: string;
+  department_id: string | null;
+  department: string | null;
+  status: string;
+};
+
+export type Department = { id: string; name: string; color: string; members: number };
+
+export type TeamInvite = {
+  id: string;
+  email: string;
+  role: string;
+  department_id: string | null;
+  status: string;
+  invite_link: string;
+};
+
+export function getTeamMembers() {
+  return apiGet<TeamMember[]>("/team/members", []);
+}
+
+export function getDepartments() {
+  return apiGet<Department[]>("/team/departments", []);
+}
+
+export function createDepartment(name: string, color?: string) {
+  return apiPost<{ name: string; color?: string }, Department>("/team/departments", {
+    name,
+    color,
+  });
+}
+
+export function getInvites() {
+  return apiGet<TeamInvite[]>("/team/invites", []);
+}
+
+export function createInvite(email: string, role: string, departmentId?: string | null) {
+  return apiPost<
+    { email: string; role: string; department_id?: string | null },
+    TeamInvite
+  >("/team/invites", { email, role, department_id: departmentId ?? null });
+}
+
+export function updateMember(
+  userId: string,
+  patch: { role?: string; department_id?: string | null }
+) {
+  return apiPatch<typeof patch, { id: string; role: string; department_id: string | null }>(
+    `/team/members/${userId}`,
+    patch
+  );
+}
+
 // ─── Integrations ────────────────────────────────────────────────────────────
 
 export function getIntegrations() {

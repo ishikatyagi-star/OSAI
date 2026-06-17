@@ -1,3 +1,4 @@
+import secrets
 from collections.abc import Sequence
 
 from sqlalchemy import desc, select
@@ -12,6 +13,8 @@ from db.models import (
     ConnectorAccount,
     ConnectorAction,
     ConnectorRecord,
+    Department,
+    Invite,
     Org,
     OrgMemory,
     SourceDocumentRecord,
@@ -903,19 +906,10 @@ def provision_org(
             )
         )
 
-    # Automatically populate the new org with rich dummy workflows and sync logs
-    seed_rich_demo_data(session, org_id=org.id)
-
-    # Index seeded chunks to Qdrant asynchronously
-    try:
-        import asyncio
-        try:
-            loop = asyncio.get_running_loop()
-            loop.create_task(index_seeded_chunks_to_qdrant(org.id))
-        except RuntimeError:
-            asyncio.run(index_seeded_chunks_to_qdrant(org.id))
-    except Exception as exc:
-        print(f"Warning: Qdrant indexing failed for org {org.id}: {exc}")
+    # Seed default departments so the org chart is organized from day one. Real
+    # orgs must start clean — no demo documents/workflows are injected here.
+    for dept_name in ("Engineering", "Product", "Marketing", "Sales", "Customer Support"):
+        session.add(Department(org_id=org.id, name=dept_name))
 
     # Log audit event
     session.add(
@@ -1032,3 +1026,125 @@ def reset_org_content(session: Session, org_id: str) -> dict[str, int]:
     }
     session.commit()
     return counts
+
+
+# --- Team: departments, invites, members -----------------------------------
+
+def permissions_for_role(role: str) -> list[str]:
+    """Map a role to data-access grants used by permission-aware retrieval."""
+    if role == "admin":
+        return ["org:admin", "source:all"]
+    return ["source:all"]
+
+
+def list_departments(session: Session, org_id: str) -> list[Department]:
+    return (
+        session.query(Department)
+        .filter(Department.org_id == org_id)
+        .order_by(Department.name)
+        .all()
+    )
+
+
+def create_department(
+    session: Session, org_id: str, name: str, color: str | None = None
+) -> Department:
+    dept = Department(org_id=org_id, name=name.strip(), color=color or "#6a4cf5")
+    session.add(dept)
+    session.commit()
+    return dept
+
+
+def list_members(session: Session, org_id: str) -> list[User]:
+    return (
+        session.query(User)
+        .filter(User.org_id == org_id)
+        .order_by(User.created_at)
+        .all()
+    )
+
+
+def update_member(
+    session: Session,
+    user_id: str,
+    org_id: str,
+    *,
+    role: str | None = None,
+    department_id: str | None = None,
+) -> User | None:
+    user = session.scalar(
+        select(User).where(User.id == user_id, User.org_id == org_id)
+    )
+    if user is None:
+        return None
+    if role is not None:
+        user.role = role
+        user.permissions = permissions_for_role(role)
+    if department_id is not None:
+        user.department_id = department_id or None
+    session.commit()
+    return user
+
+
+def create_invite(
+    session: Session,
+    org_id: str,
+    email: str,
+    role: str = "member",
+    department_id: str | None = None,
+) -> Invite:
+    """Create (or refresh) a pending invite for an email in an org."""
+    email = email.strip().lower()
+    existing = session.scalar(
+        select(Invite).where(
+            Invite.org_id == org_id, Invite.email == email, Invite.status == "pending"
+        )
+    )
+    if existing:
+        existing.role = role
+        existing.department_id = department_id
+        session.commit()
+        return existing
+    invite = Invite(
+        org_id=org_id,
+        email=email,
+        role=role,
+        department_id=department_id,
+        token=secrets.token_urlsafe(16),
+    )
+    session.add(invite)
+    session.commit()
+    return invite
+
+
+def list_invites(session: Session, org_id: str, status: str = "pending") -> list[Invite]:
+    return (
+        session.query(Invite)
+        .filter(Invite.org_id == org_id, Invite.status == status)
+        .order_by(desc(Invite.created_at))
+        .all()
+    )
+
+
+def accept_invite_for_email(session: Session, email: str, display_name: str) -> User | None:
+    """If a pending invite exists for this verified email, create the user in that
+    org with the invited role/department and mark the invite accepted. Returns the
+    new user, or None if there's no invite (caller then provisions a new org)."""
+    email_norm = email.strip().lower()
+    invite = session.scalar(
+        select(Invite).where(Invite.email == email_norm, Invite.status == "pending")
+    )
+    if invite is None:
+        return None
+    user = User(
+        org_id=invite.org_id,
+        email=email,
+        display_name=display_name,
+        role=invite.role,
+        department_id=invite.department_id,
+        permissions=permissions_for_role(invite.role),
+    )
+    session.add(user)
+    invite.status = "accepted"
+    session.commit()
+    return user

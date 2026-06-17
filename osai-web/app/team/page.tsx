@@ -1,0 +1,292 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { Copy, Check, Plus } from "lucide-react";
+import {
+  createDepartment,
+  createInvite,
+  getDepartments,
+  getInvites,
+  getTeamMembers,
+  updateMember,
+  type Department,
+  type TeamInvite,
+  type TeamMember,
+} from "@/lib/api";
+
+type Tab = "members" | "departments" | "invites";
+const ROLES = ["admin", "manager", "member"] as const;
+
+const ROLE_BADGE: Record<string, string> = {
+  admin: "badge-purple",
+  manager: "badge-amber",
+  member: "badge-grey",
+};
+
+export default function TeamPage() {
+  const [tab, setTab] = useState<Tab>("members");
+  const [members, setMembers] = useState<TeamMember[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [invites, setInvites] = useState<TeamInvite[]>([]);
+
+  const refresh = useCallback(() => {
+    getTeamMembers().then(setMembers);
+    getDepartments().then(setDepartments);
+    getInvites().then(setInvites);
+  }, []);
+  useEffect(() => refresh(), [refresh]);
+
+  // Invite form
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState("member");
+  const [inviteDept, setInviteDept] = useState("");
+  const [inviting, setInviting] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
+
+  // Department form
+  const [deptName, setDeptName] = useState("");
+
+  async function handleInvite(e: React.FormEvent) {
+    e.preventDefault();
+    if (!inviteEmail.trim()) return;
+    setInviting(true);
+    try {
+      await createInvite(inviteEmail.trim(), inviteRole, inviteDept || null);
+      setInviteEmail("");
+      setInviteDept("");
+      getInvites().then(setInvites);
+    } finally {
+      setInviting(false);
+    }
+  }
+
+  async function handleAddDept(e: React.FormEvent) {
+    e.preventDefault();
+    if (!deptName.trim()) return;
+    await createDepartment(deptName.trim());
+    setDeptName("");
+    getDepartments().then(setDepartments);
+  }
+
+  async function changeMember(
+    m: TeamMember,
+    patch: { role?: string; department_id?: string | null }
+  ) {
+    setMembers((prev) => prev.map((x) => (x.id === m.id ? { ...x, ...patch } : x)));
+    await updateMember(m.id, patch);
+    refresh();
+  }
+
+  function copyLink(link: string) {
+    navigator.clipboard?.writeText(link);
+    setCopied(link);
+    setTimeout(() => setCopied(null), 2000);
+  }
+
+  return (
+    <div>
+      <div className="page-header">
+        <div className="page-header-left">
+          <h1>Team</h1>
+          <p>Invite employees, assign roles, and organize them into departments.</p>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 22, borderBottom: "1px solid var(--border)" }}>
+        {([
+          { key: "members", label: `Members (${members.length})` },
+          { key: "departments", label: `Departments (${departments.length})` },
+          { key: "invites", label: `Invites (${invites.length})` },
+        ] as const).map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key as Tab)}
+            style={{
+              background: "none",
+              border: "none",
+              borderBottom: tab === t.key ? "2px solid var(--accent)" : "2px solid transparent",
+              color: tab === t.key ? "var(--text-primary)" : "var(--text-muted)",
+              fontSize: 13,
+              fontWeight: 600,
+              padding: "8px 4px",
+              marginBottom: -1,
+              cursor: "pointer",
+            }}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* MEMBERS */}
+      {tab === "members" && (
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Member</th>
+              <th style={{ width: 140 }}>Role</th>
+              <th style={{ width: 200 }}>Department</th>
+            </tr>
+          </thead>
+          <tbody>
+            {members.map((m) => (
+              <tr key={m.id}>
+                <td>
+                  <div style={{ fontWeight: 600, fontSize: 13, color: "var(--text-primary)" }}>
+                    {m.display_name}
+                  </div>
+                  <div className="meta" style={{ fontSize: 11 }}>{m.email}</div>
+                </td>
+                <td>
+                  <select
+                    className="select"
+                    style={{ height: 30, fontSize: 12 }}
+                    value={m.role}
+                    onChange={(e) => changeMember(m, { role: e.target.value })}
+                  >
+                    {ROLES.map((r) => (
+                      <option key={r} value={r}>{r}</option>
+                    ))}
+                  </select>
+                </td>
+                <td>
+                  <select
+                    className="select"
+                    style={{ height: 30, fontSize: 12 }}
+                    value={m.department_id ?? ""}
+                    onChange={(e) => changeMember(m, { department_id: e.target.value || null })}
+                  >
+                    <option value="">— Unassigned —</option>
+                    {departments.map((d) => (
+                      <option key={d.id} value={d.id}>{d.name}</option>
+                    ))}
+                  </select>
+                </td>
+              </tr>
+            ))}
+            {members.length === 0 && (
+              <tr>
+                <td colSpan={3} style={{ textAlign: "center", color: "var(--text-muted)", padding: "32px 0" }}>
+                  No members yet. Invite teammates from the Invites tab.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      )}
+
+      {/* DEPARTMENTS */}
+      {tab === "departments" && (
+        <div>
+          <form onSubmit={handleAddDept} style={{ display: "flex", gap: 8, marginBottom: 18, maxWidth: 420 }}>
+            <input
+              className="search-input"
+              placeholder="New department name…"
+              value={deptName}
+              onChange={(e) => setDeptName(e.target.value)}
+            />
+            <button type="submit" className="btn btn-primary" style={{ whiteSpace: "nowrap" }}>
+              <Plus className="size-3.5" /> Add
+            </button>
+          </form>
+          <div className="card-grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" }}>
+            {departments.map((d) => (
+              <div key={d.id} className="card" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <span style={{ width: 10, height: 10, borderRadius: "50%", background: d.color }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>{d.name}</div>
+                  <div className="meta" style={{ fontSize: 11 }}>
+                    {d.members} member{d.members === 1 ? "" : "s"}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* INVITES */}
+      {tab === "invites" && (
+        <div>
+          <form
+            onSubmit={handleInvite}
+            className="card"
+            style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 20 }}
+          >
+            <div style={{ flex: 1, minWidth: 220 }}>
+              <label className="meta" style={{ display: "block", marginBottom: 4, fontSize: 11 }}>Work email</label>
+              <input
+                className="search-input"
+                type="email"
+                placeholder="teammate@company.com"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                style={{ width: "100%" }}
+              />
+            </div>
+            <div>
+              <label className="meta" style={{ display: "block", marginBottom: 4, fontSize: 11 }}>Role</label>
+              <select className="select" value={inviteRole} onChange={(e) => setInviteRole(e.target.value)}>
+                {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="meta" style={{ display: "block", marginBottom: 4, fontSize: 11 }}>Department</label>
+              <select className="select" value={inviteDept} onChange={(e) => setInviteDept(e.target.value)}>
+                <option value="">— None —</option>
+                {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </select>
+            </div>
+            <button type="submit" className="btn btn-primary" disabled={inviting}>
+              {inviting ? "Inviting…" : "Send invite"}
+            </button>
+          </form>
+
+          <p className="meta" style={{ marginBottom: 12, fontSize: 12 }}>
+            Share the invite link with the teammate. When they sign in with Google using that email,
+            they join this workspace with the role and department you set.
+          </p>
+
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th style={{ width: 110 }}>Role</th>
+                <th style={{ width: 160 }}>Invite link</th>
+              </tr>
+            </thead>
+            <tbody>
+              {invites.map((i) => (
+                <tr key={i.id}>
+                  <td>{i.email}</td>
+                  <td><span className={`badge ${ROLE_BADGE[i.role] ?? "badge-grey"}`}>{i.role}</span></td>
+                  <td>
+                    <button
+                      className="btn"
+                      style={{ fontSize: 11, padding: "4px 10px" }}
+                      onClick={() => copyLink(i.invite_link)}
+                    >
+                      {copied === i.invite_link ? (
+                        <><Check className="size-3.5" /> Copied</>
+                      ) : (
+                        <><Copy className="size-3.5" /> Copy link</>
+                      )}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {invites.length === 0 && (
+                <tr>
+                  <td colSpan={3} style={{ textAlign: "center", color: "var(--text-muted)", padding: "32px 0" }}>
+                    No pending invites.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}

@@ -34,7 +34,35 @@ class User(Base):
     email: Mapped[str] = mapped_column(String, unique=True, index=True)
     display_name: Mapped[str] = mapped_column(String)
     role: Mapped[str] = mapped_column(String, default="admin")
+    department_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     permissions: Mapped[list[str]] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
+
+
+class Department(Base):
+    __tablename__ = "departments"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
+    org_id: Mapped[str] = mapped_column(String, ForeignKey("orgs.id"), index=True)
+    name: Mapped[str] = mapped_column(String)
+    color: Mapped[str] = mapped_column(String, default="#6a4cf5")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
+
+
+class Invite(Base):
+    """A pending team invitation. Auto-accepted on first sign-in by matching the
+    verified email — so an admin can add teammates with a role/department before
+    they ever log in, and they land in the same org."""
+
+    __tablename__ = "invites"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
+    org_id: Mapped[str] = mapped_column(String, ForeignKey("orgs.id"), index=True)
+    email: Mapped[str] = mapped_column(String, index=True)
+    role: Mapped[str] = mapped_column(String, default="member")
+    department_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    status: Mapped[str] = mapped_column(String, default="pending", index=True)
+    token: Mapped[str] = mapped_column(String, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
 
 
