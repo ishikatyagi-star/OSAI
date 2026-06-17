@@ -919,7 +919,7 @@ h2 {
 
 .suggestion-chip:hover:not(:disabled) {
   border-color: var(--accent);
-  color: var(--accent);
+  color: var(--text-primary);
   background: var(--accent-dim);
 }
 
@@ -927,7 +927,7 @@ h2 {
    the accent color on every chip. */
 .suggestion-chip.active {
   border-color: var(--accent);
-  color: var(--accent);
+  color: var(--text-primary);
   background: var(--accent-dim);
 }
 
