@@ -89,7 +89,7 @@ export default function InboxPage() {
             <div key={item.id} className="context-item">
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span className={`tag ${tm.cls}`}>{tm.label}</span>
-                <span className={`badge ${item.status === "reviewed" ? "badge-grey" : "badge-blue"} text-[10px]`}>
+                <span className={`badge ${item.status === "reviewed" ? "badge-grey" : "badge-blue"}`} style={{ fontSize: 10 }}>
                   {item.status}
                 </span>
                 <span className="meta" style={{ marginLeft: "auto" }}>{item.date}</span>
@@ -124,8 +124,8 @@ export default function InboxPage() {
                 ) : (
                   <>
                     <span
-                      className="meta text-[11px] font-semibold"
-                      style={{ display: "inline-flex", alignItems: "center", gap: 5, color: "var(--green)" }}
+                      className="meta font-semibold"
+                      style={{ display: "inline-flex", alignItems: "center", gap: 5, color: "var(--green)", fontSize: 11 }}
                     >
                       ✓ Reviewed
                     </span>

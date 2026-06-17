@@ -253,8 +253,8 @@ export default function TeamPage() {
                   <td><span className={`badge ${ROLE_BADGE[i.role] ?? "badge-grey"}`}>{i.role}</span></td>
                   <td>
                     <button
-                      className="btn text-[11px]"
-                      style={{ padding: "4px 10px" }}
+                      className="btn"
+                      style={{ fontSize: 11, padding: "4px 10px" }}
                       onClick={() => copyLink(i.invite_link)}
                     >
                       {copied === i.invite_link ? (

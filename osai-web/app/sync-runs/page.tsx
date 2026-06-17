@@ -81,7 +81,7 @@ export default function SyncRunsPage() {
               <div key={key} className="connector-pill">
                 <span>{meta.icon}</span>
                 <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{meta.label}</span>
-                <span className="badge badge-grey text-[10px]">
+                <span className="badge badge-grey" style={{ fontSize: 10 }}>
                   {count.toLocaleString()} docs
                 </span>
               </div>

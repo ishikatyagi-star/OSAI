@@ -256,7 +256,7 @@ export default function IntegrationsPage() {
                   {/* Capabilities */}
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
                     {(item.capabilities ?? []).map((cap) => (
-                      <span key={cap} className="badge badge-grey text-[10px]">
+                      <span key={cap} className="badge badge-grey" style={{ fontSize: 10 }}>
                         {cap}
                       </span>
                     ))}
@@ -318,7 +318,7 @@ export default function IntegrationsPage() {
                   <div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                       <h2 style={{ margin: 0 }}>{c.label}</h2>
-                      <span className="badge badge-grey text-[10px]">coming soon</span>
+                      <span className="badge badge-grey" style={{ fontSize: 10 }}>coming soon</span>
                     </div>
                     <p className="meta" style={{ margin: 0 }}>
                       {CONNECTOR_META[c.key]?.description}

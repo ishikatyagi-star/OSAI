@@ -137,7 +137,7 @@ export default function DecisionsPage() {
           <p>
             Every key decision and action across your org — owned, dated, and tagged. Items OSAI
             inferred from context but that aren&apos;t tracked in your tools are marked{" "}
-            <span className="badge badge-purple text-[10px]">OSAI found this</span>.
+            <span className="badge badge-purple" style={{ fontSize: 10 }}>OSAI found this</span>.
           </p>
         </div>
         <button className="btn btn-primary">+ Add Decision</button>
@@ -222,12 +222,12 @@ export default function DecisionsPage() {
                 </div>
                 <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
                   {d.identifiedBy === "osai" && (
-                    <span className="badge badge-purple text-[10px]">
+                    <span className="badge badge-purple" style={{ fontSize: 10 }}>
                       ✨ OSAI found this
                     </span>
                   )}
                   {d.tags.map((t) => (
-                    <span key={t} className="badge badge-grey text-[10px]">{t}</span>
+                    <span key={t} className="badge badge-grey" style={{ fontSize: 10 }}>{t}</span>
                   ))}
                 </div>
               </td>

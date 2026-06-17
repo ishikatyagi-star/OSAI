@@ -149,7 +149,7 @@ function RunCard({
               {run.status}
             </span>
             {pendingCount > 0 && (
-              <span className="badge badge-yellow text-[10px]">
+              <span className="badge badge-yellow" style={{ fontSize: 10 }}>
                 {pendingCount} pending
               </span>
             )}
@@ -158,7 +158,7 @@ function RunCard({
             <span className="meta">⚡ {items.length} action items</span>
             <span className="meta">→ {run.destination}</span>
             <span className="meta">🤖 {run.model_route}</span>
-            <span className="meta text-[10px] font-semibold uppercase" style={{ color: TIER_COLORS[tier] }}>
+            <span className="meta font-semibold uppercase" style={{ color: TIER_COLORS[tier], fontSize: 10 }}>
               {tier} tier
             </span>
             <span className="meta">{timeAgo(run.created_at)}</span>
