@@ -1,0 +1,25 @@
+{
+  "project_type": "Next.js 16 web application with React 19, Tailwind v4, and shadcn/ui",
+  "language": "TypeScript / CSS",
+  "build_system": "npm with Next.js",
+  "test_framework": "No test framework configured (no test script in package.json)",
+  "build_command": "cd osai-web && npm run build",
+  "test_command": "cd osai-web && npm run typecheck",
+  "verification_instructions": "Run typecheck and build from osai-web/ directory. Both must pass with zero errors.",
+  "snapshot_or_generated_files": null,
+  "setup_instructions": "cd osai-web && npm install",
+  "environment_constraints": "OPEN_INTERNET - full network access available. No Docker needed.",
+  "contribution_requirements": "Branch from main, implement changes, commit locally. Do NOT push.",
+  "key_patterns": "Custom CSS design system in globals.css with CSS variables. theme.css provides shadcn/ui tokens that override some globals.css variables (notably --accent). Pages use a mix of custom CSS classes and Tailwind utility classes. The .sidebar-nav-item.active .nav-icon rule uses var(--accent) which resolves to shadcn's #1c1c1c (dark) instead of the intended #0099ff blue.",
+  "relevant_files": [
+    "osai-web/app/globals.css",
+    "osai-web/app/theme.css",
+    "osai-web/app/ask/page.tsx",
+    "osai-web/app/inbox/page.tsx",
+    "osai-web/app/decisions/page.tsx",
+    "osai-web/app/team/page.tsx",
+    "osai-web/app/graph/page.tsx",
+    "osai-web/components/app-shell.tsx"
+  ],
+  "directory_structure": "osai-web/app/ contains page routes. osai-web/components/ has shared components. globals.css is the primary design system file. theme.css adds shadcn/Tailwind tokens."
+}

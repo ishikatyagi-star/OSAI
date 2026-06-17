@@ -1,0 +1,7 @@
+{
+  "task_id": "task-ui-ux-audit-9-fixes",
+  "task_description": "Implement 9 UI/UX audit fixes from the senior engineer's review: active nav icon visibility, Ask OSAI card text truncation, badge contrast, search bar discoverability, dismiss action visibility, date column wrapping, topbar alignment, tab margins, and org graph legend.",
+  "status": "in_progress",
+  "feature_order": ["FEAT-001", "FEAT-002"],
+  "blocked_reason": null
+}
