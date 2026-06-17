@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>OSAI — Your company, on autopilot.</title>
+<meta name="description" content="OSAI is the AI-native operating system for modern companies. Turn scattered context, requests, and institutional knowledge into self-improving workflows that execute automatically across your tools and teams." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet" />
+<style>
+  /* =========================================================
+     OSAI — SaaS marketing page
+     Design system: Framer dark canvas (see osai-web/DESIGN.md)
+     - canvas #090909, surface-1 #141414, surface-2 #1c1c1c
+     - white display type, aggressive negative tracking
+     - single accent blue #0099ff (links/focus only)
+     - gradient spotlight cards as scarce atmosphere tiles
+     - every CTA is a pill
+     Display face GT Walsheim is substituted with Inter 600 + tight
+     tracking per DESIGN.md "Font Substitutes" guidance.
+     ========================================================= */
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    /* colors */
+    --primary: #ffffff;
+    --on-primary: #000000;
+    --accent-blue: #0099ff;
+    --ink: #ffffff;
+    --ink-muted: #999999;
+    --canvas: #090909;
+    --surface-1: #141414;
+    --surface-2: #1c1c1c;
+    --hairline: #262626;
+    --hairline-soft: #1a1a1a;
+    --grad-magenta: #d44df0;
+    --grad-violet: #6a4cf5;
+    --grad-orange: #ff7a3d;
+    --grad-coral: #ff5577;
+    --success: #22c55e;
+    --amber: #f59e0b;
+
+    /* radius */
+    --r-xs: 4px;
+    --r-sm: 6px;
+    --r-md: 10px;
+    --r-lg: 15px;
+    --r-xl: 20px;
+    --r-xxl: 30px;
+    --r-pill: 100px;
+    --r-full: 9999px;
+
+    --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --feat: "cv01" 1, "cv05" 1, "cv09" 1, "cv11" 1, "ss03" 1;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--canvas);
+    color: var(--ink);
+    font-family: var(--font);
+    font-size: 15px;
+    line-height: 1.3;
+    letter-spacing: -0.15px;
+    font-feature-settings: var(--feat);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  a { color: var(--accent-blue); text-decoration: none; }
+
+  ::selection { background: rgba(0,153,255,0.3); color: #fff; }
+
+  .wrap { max-width: 1200px; margin: 0 auto; }
+
+  /* ---------- NAV ---------- */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 30px;
+    background: rgba(9,9,9,0.82);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--hairline-soft);
+  }
+
+  .nav-logo {
+    color: var(--ink);
+    font-size: 19px;
+    font-weight: 600;
+    letter-spacing: -0.8px;
+  }
+
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+  }
+
+  .nav-links a {
+    color: var(--ink-muted);
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: -0.14px;
+    transition: color 0.15s;
+  }
+
+  .nav-links a:hover { color: var(--ink); }
+
+  .nav-right { display: flex; align-items: center; gap: 12px; }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-family: var(--font);
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: -0.14px;
+    border-radius: var(--r-pill);
+    padding: 10px 16px;
+    cursor: pointer;
+    border: none;
+    transition: transform 0.12s ease, background 0.15s ease, opacity 0.15s;
+    white-space: nowrap;
+  }
+  .btn:active { transform: scale(0.97); }
+
+  .btn-primary { background: var(--primary); color: var(--on-primary); }
+  .btn-primary:hover { background: #ededed; }
+
+  .btn-secondary { background: var(--surface-1); color: var(--ink); }
+  .btn-secondary:hover { background: var(--surface-2); }
+
+  .btn-lg { padding: 13px 22px; font-size: 15px; }
+
+  .nav-signin {
+    color: var(--ink) !important;
+    font-size: 14px;
+    font-weight: 500;
+  }
+  .nav-signin:hover { color: var(--ink-muted) !important; }
+
+  /* ---------- SECTION SCAFFOLD ---------- */
+  section { padding: 96px 30px; }
+
+  .eyebrow {
+    display: inline-block;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    color: var(--ink-muted);
+    margin-bottom: 20px;
+  }
+
+  .eyebrow.dot::before {
+    content: '';
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent-blue);
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+
+  h1, h2, h3 { font-weight: 600; color: var(--ink); }
+
+  h1 {
+    font-size: clamp(46px, 8vw, 96px);
+    line-height: 0.92;
+    letter-spacing: -0.05em;
+  }
+
+  h2 {
+    font-size: clamp(34px, 5vw, 62px);
+    line-height: 1.0;
+    letter-spacing: -0.045em;
+  }
+
+  h3 {
+    font-size: 22px;
+    line-height: 1.2;
+    letter-spacing: -0.8px;
+  }
+
+  .lead {
+    font-size: 18px;
+    line-height: 1.4;
+    letter-spacing: -0.18px;
+    color: var(--ink-muted);
+  }
+
+  .section-head { max-width: 760px; }
+  .section-head h2 { margin-bottom: 22px; }
+
+  /* ---------- HERO ---------- */
+  .hero {
+    padding-top: 150px;
+    padding-bottom: 80px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero-glow {
+    position: absolute;
+    top: -200px; left: 50%;
+    transform: translateX(-50%);
+    width: 900px; height: 700px;
+    background: radial-gradient(closest-side, rgba(106,76,245,0.20), rgba(212,77,240,0.08) 55%, transparent 75%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .hero-inner {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: 1.05fr 0.95fr;
+    gap: 64px;
+    align-items: center;
+  }
+
+  .hero h1 { margin-bottom: 26px; }
+
+  .hero-sub {
+    font-size: 19px;
+    line-height: 1.45;
+    letter-spacing: -0.2px;
+    color: var(--ink-muted);
+    max-width: 520px;
+    margin-bottom: 32px;
+  }
+
+  .hero-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+  }
+
+  .hero-micro {
+    font-size: 13px;
+    color: var(--ink-muted);
+    max-width: 460px;
+    line-height: 1.4;
+  }
+
+  /* hero workflow widget */
+  .wf-panel {
+    background: var(--surface-1);
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-xl);
+    padding: 18px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.45);
+  }
+
+  .wf-panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 6px 14px;
+    border-bottom: 1px solid var(--hairline-soft);
+    margin-bottom: 12px;
+  }
+
+  .wf-panel-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink-muted);
+    letter-spacing: -0.13px;
+  }
+
+  .wf-live {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    color: var(--ink-muted);
+  }
+  .wf-live::before {
+    content: '';
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--success);
+    animation: pulse 1.8s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.7); }
+  }
+
+  .wf-list { display: flex; flex-direction: column; gap: 8px; }
+
+  .wf-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--surface-2);
+    border: 1px solid var(--hairline-soft);
+    border-radius: var(--r-md);
+    padding: 12px 14px;
+    transition: transform 0.18s ease, border-color 0.18s ease;
+  }
+  .wf-card:hover { transform: translateX(-3px); border-color: var(--hairline); }
+
+  .wf-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .wf-dot.done { background: var(--success); }
+  .wf-dot.run { background: var(--amber); animation: pulse 1.5s ease-in-out infinite; }
+  .wf-dot.prog { background: var(--accent-blue); }
+  .wf-dot.queue { background: transparent; border: 1.5px solid var(--ink-muted); }
+
+  .wf-info { flex: 1; min-width: 0; }
+  .wf-label {
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.14px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .wf-meta { font-size: 11.5px; color: var(--ink-muted); margin-top: 3px; }
+
+  .wf-badge {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 4px 9px;
+    border-radius: var(--r-pill);
+    white-space: nowrap;
+    letter-spacing: -0.12px;
+  }
+  .wf-badge.done { background: rgba(34,197,94,0.14); color: #4ade80; }
+  .wf-badge.run { background: rgba(245,158,11,0.14); color: #fbbf24; }
+  .wf-badge.prog { background: rgba(0,153,255,0.14); color: #38bdf8; }
+  .wf-badge.queue { background: var(--surface-1); color: var(--ink-muted); }
+
+  /* ---------- PROBLEM ---------- */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 72px;
+    align-items: start;
+    margin-top: 56px;
+  }
+  .prose p { font-size: 17px; line-height: 1.55; color: var(--ink-muted); margin-bottom: 18px; }
+  .prose p strong { color: var(--ink); font-weight: 500; }
+
+  .line-list { list-style: none; }
+  .line-list li {
+    display: flex;
+    gap: 14px;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--hairline-soft);
+    font-size: 15px;
+    color: var(--ink-muted);
+    line-height: 1.45;
+  }
+  .line-list li:first-child { border-top: 1px solid var(--hairline-soft); }
+  .line-list li::before { content: '—'; color: var(--ink); flex-shrink: 0; }
+
+  /* ---------- POSITIONING ---------- */
+  .cap-list { list-style: none; }
+  .cap-list li {
+    display: flex;
+    gap: 12px;
+    padding: 13px 0;
+    border-bottom: 1px solid var(--hairline-soft);
+    font-size: 15px;
+    color: var(--ink-muted);
+  }
+  .cap-list li:first-child { border-top: 1px solid var(--hairline-soft); }
+  .cap-list li::before { content: '↳'; color: var(--accent-blue); flex-shrink: 0; }
+
+  .not-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 40px;
+  }
+  .not-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--ink-muted);
+    background: var(--surface-1);
+    border: 1px solid var(--hairline-soft);
+    border-radius: var(--r-pill);
+    padding: 8px 14px;
+  }
+  .not-chip::before { content: '✕'; color: #6b6b6b; }
+
+  /* gradient spotlight card (signature, scarce) */
+  .spotlight {
+    border-radius: var(--r-xxl);
+    padding: 36px;
+    color: #fff;
+    position: relative;
+    overflow: hidden;
+  }
+  .spotlight.violet { background: linear-gradient(150deg, #6a4cf5 0%, #8b4cf0 50%, #d44df0 100%); }
+  .spotlight.orange { background: linear-gradient(150deg, #ff7a3d 0%, #ff5577 100%); }
+  .spotlight-kicker {
+    font-size: 13px;
+    font-weight: 500;
+    opacity: 0.85;
+    margin-bottom: 14px;
+  }
+  .spotlight-quote {
+    font-size: 24px;
+    line-height: 1.3;
+    letter-spacing: -0.4px;
+    font-weight: 500;
+  }
+
+  /* ---------- AGENTIC LOOP ---------- */
+  .loop-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-top: 56px;
+  }
+  .loop-card {
+    background: var(--surface-1);
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-xl);
+    padding: 26px;
+    position: relative;
+  }
+  .loop-step {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent-blue);
+    letter-spacing: 0.04em;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .loop-num {
+    display: inline-flex;
+    align-items: center; justify-content: center;
+    width: 24px; height: 24px;
+    border-radius: var(--r-full);
+    background: var(--surface-2);
+    color: var(--ink);
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .loop-card h3 { margin-bottom: 10px; font-size: 18px; }
+  .loop-card p { font-size: 14px; line-height: 1.5; color: var(--ink-muted); }
+
+  .loop-card.repeat {
+    grid-column: 1 / -1;
+    background: var(--surface-2);
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    flex-wrap: wrap;
+  }
+  .loop-card.repeat .loop-step { margin-bottom: 0; }
+  .loop-card.repeat p { flex: 1; min-width: 260px; font-size: 16px; color: var(--ink); }
+
+  /* ---------- USE CASES ---------- */
+  .grid-4 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-top: 56px;
+  }
+  .uc-card {
+    background: var(--surface-1);
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-xl);
+    padding: 26px;
+    transition: border-color 0.15s, transform 0.15s;
+  }
+  .uc-card:hover { border-color: #333; transform: translateY(-3px); }
+  .uc-kicker {
+    font-size: 12px;
+    color: var(--accent-blue);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    margin-bottom: 18px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .uc-kicker::before { content: ''; width: 18px; height: 1px; background: var(--accent-blue); }
+  .uc-card h3 { font-size: 19px; margin-bottom: 12px; }
+  .uc-card p { font-size: 14px; line-height: 1.5; color: var(--ink-muted); }
+
+  /* ---------- INSIDE OSAI (features) ---------- */
+  .feat-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-top: 56px;
+  }
+  .feat-card {
+    background: var(--surface-1);
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-xl);
+    padding: 28px;
+  }
+  .feat-card.span2 { grid-column: span 2; }
+  .feat-card h3 { font-size: 19px; margin-bottom: 12px; }
+  .feat-card p { font-size: 14.5px; line-height: 1.55; color: var(--ink-muted); }
+
+  /* ---------- OUTCOMES ---------- */
+  .out-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--hairline);
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-lg);
+    overflow: hidden;
+    margin-top: 56px;
+  }
+  .out-cell {
+    background: var(--canvas);
+    padding: 32px 28px;
+    min-height: 150px;
+    display: flex;
+    flex-direction: column;
+    transition: background 0.15s;
+  }
+  .out-cell:hover { background: var(--surface-1); }
+  .out-num {
+    font-size: 13px;
+    color: var(--ink-muted);
+    margin-bottom: 16px;
+  }
+  .out-cell p { font-size: 17px; line-height: 1.35; letter-spacing: -0.3px; color: var(--ink); }
+
+  /* ---------- EARLY PARTNERS ---------- */
+  .partners-inner {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 72px;
+    align-items: center;
+  }
+
+  /* ---------- TEAM ---------- */
+  .team-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-top: 56px;
+  }
+  .team-card {
+    background: var(--surface-1);
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-xl);
+    padding: 30px;
+  }
+  .team-name { font-size: 21px; font-weight: 600; letter-spacing: -0.6px; margin-bottom: 4px; }
+  .team-role {
+    font-size: 12px;
+    color: var(--accent-blue);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    margin-bottom: 22px;
+  }
+  .team-bullets { list-style: none; display: flex; flex-direction: column; gap: 11px; }
+  .team-bullets li {
+    font-size: 14px;
+    color: var(--ink-muted);
+    line-height: 1.5;
+    padding-left: 16px;
+    position: relative;
+  }
+  .team-bullets li::before { content: '·'; position: absolute; left: 4px; color: var(--ink); }
+
+  /* ---------- FINAL CTA ---------- */
+  .final {
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .final-glow {
+    position: absolute;
+    bottom: -260px; left: 50%;
+    transform: translateX(-50%);
+    width: 900px; height: 600px;
+    background: radial-gradient(closest-side, rgba(106,76,245,0.18), transparent 70%);
+    pointer-events: none;
+  }
+  .final-inner { position: relative; z-index: 1; max-width: 680px; margin: 0 auto; }
+  .final h2 { margin-bottom: 22px; }
+  .final .lead { margin: 0 auto 36px; max-width: 560px; }
+  .final-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .final-note { margin-top: 22px; font-size: 13px; color: var(--ink-muted); }
+
+  /* ---------- FOOTER ---------- */
+  footer {
+    background: var(--canvas);
+    border-top: 1px solid var(--hairline-soft);
+    padding: 64px 30px 40px;
+  }
+  .footer-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1.5fr 1fr;
+    gap: 40px;
+    align-items: start;
+  }
+  .footer-brand .nav-logo { font-size: 22px; }
+  .footer-tag { color: var(--ink-muted); font-size: 14px; margin-top: 12px; max-width: 320px; line-height: 1.45; }
+  .footer-cols { display: flex; gap: 64px; justify-content: flex-end; flex-wrap: wrap; }
+  .footer-col-title { font-size: 13px; color: var(--ink); font-weight: 600; margin-bottom: 14px; }
+  .footer-col a {
+    display: block;
+    color: var(--ink-muted);
+    font-size: 13px;
+    margin-bottom: 10px;
+    transition: color 0.15s;
+  }
+  .footer-col a:hover { color: var(--ink); }
+  .footer-bottom {
+    max-width: 1200px;
+    margin: 48px auto 0;
+    padding-top: 24px;
+    border-top: 1px solid var(--hairline-soft);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 12px;
+    color: var(--ink-muted);
+  }
+
+  /* ---------- SCROLL ANIMATION ---------- */
+  .fade-up { opacity: 0; transform: translateY(22px); transition: opacity 0.6s ease-out, transform 0.6s ease-out; }
+  .fade-up.visible { opacity: 1; transform: translateY(0); }
+
+  /* ---------- RESPONSIVE ---------- */
+  @media (max-width: 980px) {
+    nav { padding: 0 20px; }
+    .nav-links { display: none; }
+    section { padding: 72px 20px; }
+    .hero { padding-top: 120px; }
+    .hero-inner { grid-template-columns: 1fr; gap: 44px; }
+    .two-col, .partners-inner { grid-template-columns: 1fr; gap: 36px; }
+    .loop-grid, .feat-grid, .out-grid { grid-template-columns: 1fr 1fr; }
+    .grid-4 { grid-template-columns: 1fr 1fr; }
+    .feat-card.span2 { grid-column: span 2; }
+    .footer-inner { grid-template-columns: 1fr; }
+    .footer-cols { justify-content: flex-start; gap: 48px; }
+  }
+
+  @media (max-width: 560px) {
+    .loop-grid, .feat-grid, .out-grid, .grid-4, .team-grid { grid-template-columns: 1fr; }
+    .feat-card.span2 { grid-column: span 1; }
+    .loop-card.repeat { grid-column: 1 / -1; }
+    h1 { font-size: 44px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="#top" class="nav-logo">OSAI</a>
+  <div class="nav-links">
+    <a href="#loop">The Agentic Loop</a>
+    <a href="#use-cases">Use Cases</a>
+    <a href="#outcomes">Outcomes</a>
+    <a href="#why-now">Why Now</a>
+    <a href="#team">Team</a>
+  </div>
+  <div class="nav-right">
+    <a href="/login" class="nav-signin">Sign in</a>
+    <a href="#demo" class="btn btn-primary">Get a demo</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero" id="top">
+  <div class="hero-glow"></div>
+  <div class="wrap hero-inner">
+    <div class="hero-left">
+      <span class="eyebrow dot">AI-native operating system</span>
+      <h1>Your company,<br>on autopilot.</h1>
+      <p class="hero-sub">Turn scattered context, requests, and institutional knowledge into self-improving workflows that execute automatically across your tools and teams.</p>
+      <div class="hero-actions">
+        <a href="#demo" class="btn btn-primary btn-lg">Get a demo</a>
+        <a href="#loop" class="btn btn-secondary btn-lg">Explore live workflow →</a>
+      </div>
+      <p class="hero-micro">Built for fast-moving teams that want to scale execution without scaling coordination overhead.</p>
+    </div>
+
+    <div class="hero-right">
+      <div class="wf-panel">
+        <div class="wf-panel-head">
+          <span class="wf-panel-title">Live workflow status</span>
+          <span class="wf-live">Live</span>
+        </div>
+        <div class="wf-list">
+          <div class="wf-card">
+            <span class="wf-dot done"></span>
+            <div class="wf-info">
+              <div class="wf-label">Customer renewal exception</div>
+              <div class="wf-meta">RevOps &amp; Finance · 2 approvals</div>
+            </div>
+            <span class="wf-badge done">Completed</span>
+          </div>
+          <div class="wf-card">
+            <span class="wf-dot prog"></span>
+            <div class="wf-info">
+              <div class="wf-label">Enterprise security review</div>
+              <div class="wf-meta">Sales &amp; Legal · awaiting compliance input</div>
+            </div>
+            <span class="wf-badge prog">In progress</span>
+          </div>
+          <div class="wf-card">
+            <span class="wf-dot done"></span>
+            <div class="wf-info">
+              <div class="wf-label">Vendor onboarding</div>
+              <div class="wf-meta">Procurement · 3 documents verified</div>
+            </div>
+            <span class="wf-badge done">Completed</span>
+          </div>
+          <div class="wf-card">
+            <span class="wf-dot run"></span>
+            <div class="wf-info">
+              <div class="wf-label">Support escalation batch</div>
+              <div class="wf-meta">Customer Success · 18 requests routed</div>
+            </div>
+            <span class="wf-badge run">Running</span>
+          </div>
+          <div class="wf-card">
+            <span class="wf-dot queue"></span>
+            <div class="wf-info">
+              <div class="wf-label">New hire setup</div>
+              <div class="wf-meta">People Ops &amp; IT · pending device approval</div>
+            </div>
+            <span class="wf-badge queue">Queued</span>
+          </div>
+          <div class="wf-card">
+            <span class="wf-dot prog"></span>
+            <div class="wf-info">
+              <div class="wf-label">Contract redline review</div>
+              <div class="wf-meta">Sales Ops &amp; Legal · owner assigned</div>
+            </div>
+            <span class="wf-badge prog">In progress</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- THE PROBLEM -->
+<section class="problem">
+  <div class="wrap">
+    <div class="section-head fade-up">
+      <span class="eyebrow">The problem</span>
+      <h2>The bottleneck isn't your software. It's the layer between teams.</h2>
+    </div>
+    <div class="two-col">
+      <div class="prose fade-up">
+        <p>Most companies already have CRMs, helpdesks, spreadsheets, dashboards, and internal tools. But work still depends on people manually forwarding context, chasing approvals, clarifying ownership, and keeping every moving piece alive.</p>
+        <p>As companies grow, this coordination layer becomes <strong>invisible infrastructure</strong>. Entire workflows start depending on inboxes, Slack threads, memory, and whoever happens to follow up at the right time.</p>
+        <p>Work hides in DMs, email threads, and tickets that nobody truly owns. Approvals, exceptions, and escalations rely on whoever remembers to follow up. Institutional knowledge sits in people's heads instead of in a system that can act on it.</p>
+        <p>That's why execution slows down even when teams keep adding tools. The problem isn't a lack of software. It's that <strong>no system is actually responsible for carrying work across the finish line.</strong></p>
+      </div>
+      <ul class="line-list fade-up">
+        <li>Coordination becomes a full-time job at scale.</li>
+        <li>Work gets stuck between functions, not inside them.</li>
+        <li>Teams spend too much time moving work and not enough time finishing it.</li>
+        <li>Systems store information, but they do not execute the workflow.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- POSITIONING -->
+<section class="positioning">
+  <div class="wrap">
+    <div class="section-head fade-up">
+      <span class="eyebrow">What we're building</span>
+      <h2>A system of execution, not just record.</h2>
+    </div>
+    <div class="two-col">
+      <div class="prose fade-up">
+        <p>Most business software is designed to capture data, display status, or document activity. <strong>OSAI is built to act on that information.</strong></p>
+        <p>It sits across your tools and teams as an AI-native operating system — understanding incoming requests, maintaining context, deciding what happens next, pushing each workflow toward completion, and learning over time to self-improve.</p>
+        <div class="not-row">
+          <span class="not-chip">Not another dashboard</span>
+          <span class="not-chip">Not another ticketing tool</span>
+          <span class="not-chip">Not another place to update status manually</span>
+        </div>
+        <p style="margin-top:28px;">OSAI is the AI-native operating system that makes your existing stack actually run.</p>
+      </div>
+      <ul class="cap-list fade-up">
+        <li>Understands requests across teams and systems.</li>
+        <li>Maintains context across the full lifecycle of a workflow.</li>
+        <li>Routes tasks dynamically to the right owners and tools.</li>
+        <li>Automates approvals, follow-ups, and escalations.</li>
+        <li>Tracks workflow state in real time.</li>
+        <li>Improves from historical workflow data over time.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- THE AGENTIC LOOP -->
+<section class="loop" id="loop">
+  <div class="wrap">
+    <div class="section-head fade-up">
+      <span class="eyebrow">The agentic loop</span>
+      <h2>An AI-native operating system that runs itself.</h2>
+    </div>
+    <div class="loop-grid">
+      <div class="loop-card fade-up">
+        <div class="loop-step"><span class="loop-num">1</span>Ingest</div>
+        <h3>Absorb messy context</h3>
+        <p>We absorb messy context from your existing channels — forms, emails, chat, and internal tools.</p>
+      </div>
+      <div class="loop-card fade-up">
+        <div class="loop-step"><span class="loop-num">2</span>Decide</div>
+        <h3>Reason over workflows</h3>
+        <p>OSAI reasons over workflows rather than just following static rules, determining stakeholders and required context.</p>
+      </div>
+      <div class="loop-card fade-up">
+        <div class="loop-step"><span class="loop-num">3</span>Act</div>
+        <h3>Execute in your tools</h3>
+        <p>We execute directly inside the tools your team already uses, triggering next steps and requesting approvals.</p>
+      </div>
+      <div class="loop-card fade-up">
+        <div class="loop-step"><span class="loop-num">4</span>Update</div>
+        <h3>Sync your system of record</h3>
+        <p>Every action is synced back to your system of record without manual babysitting.</p>
+      </div>
+      <div class="loop-card fade-up">
+        <div class="loop-step"><span class="loop-num">5</span>Audit</div>
+        <h3>Full transparency</h3>
+        <p>Full transparency ensures that humans can verify the steps and trust the outcome.</p>
+      </div>
+      <div class="loop-card fade-up">
+        <div class="loop-step"><span class="loop-num">∞</span>Loop</div>
+        <h3>The loop improves</h3>
+        <p>Every completed workflow becomes context for the next one.</p>
+      </div>
+      <div class="loop-card repeat fade-up">
+        <div class="loop-step"><span class="loop-num">↻</span>The loop repeats</div>
+        <p>Every completed workflow becomes context for the next one. Every day, the system gets smarter and your company runs faster.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- USE CASES -->
+<section class="use-cases" id="use-cases">
+  <div class="wrap">
+    <div class="section-head fade-up">
+      <span class="eyebrow">Where we start</span>
+      <h2>High-friction workflows with clear business impact.</h2>
+      <p class="lead" style="margin-top:20px;">Start with the workflows that consume the most coordination time, involve the most cross-functional handoffs, and are easiest to measure.</p>
+    </div>
+    <div class="grid-4">
+      <div class="uc-card fade-up">
+        <div class="uc-kicker">Revenue Operations</div>
+        <h3>Deal desk &amp; approvals</h3>
+        <p>Discount approvals, quote exceptions, contract redlines, handoff coordination, and deal desk workflows that span Sales, Finance, and Legal.</p>
+      </div>
+      <div class="uc-card fade-up">
+        <div class="uc-kicker">Customer Operations</div>
+        <h3>Escalations &amp; renewals</h3>
+        <p>Escalations, implementation tasks, renewal coordination, account exceptions, and cross-functional customer requests that require multiple teams to stay aligned.</p>
+      </div>
+      <div class="uc-card fade-up">
+        <div class="uc-kicker">Finance &amp; Procurement</div>
+        <h3>Vendors &amp; approvals</h3>
+        <p>Reimbursements, vendor onboarding, purchasing approvals, invoice exceptions, and budget requests with multiple dependencies and stakeholders.</p>
+      </div>
+      <div class="uc-card fade-up">
+        <div class="uc-kicker">People Operations</div>
+        <h3>Hiring &amp; access</h3>
+        <p>Hiring workflows, onboarding, offboarding, leave approvals, access provisioning, and internal requests that touch HR, IT, and managers.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- INSIDE OSAI -->
+<section class="inside">
+  <div class="wrap">
+    <div class="section-head fade-up">
+      <span class="eyebrow">Product features</span>
+      <h2>One place to see, steer, and improve execution.</h2>
+    </div>
+    <div class="feat-grid">
+      <div class="feat-card span2 fade-up">
+        <h3>Unified operational queue</h3>
+        <p>See every live workflow across teams, with current status, blockers, owners, deadlines, and risk signals in one place.</p>
+      </div>
+      <div class="feat-card fade-up">
+        <h3>Workflow memory</h3>
+        <p>OSAI keeps context from previous requests, decisions, exceptions, and outcomes so your company does not have to start from zero every time.</p>
+      </div>
+      <div class="feat-card fade-up">
+        <h3>Human-in-the-loop control</h3>
+        <p>Step in when needed, approve exceptions, override automations, and keep humans focused on judgment-heavy decisions rather than repetitive coordination.</p>
+      </div>
+      <div class="feat-card fade-up">
+        <h3>Real-time state tracking</h3>
+        <p>Know where every workflow stands, what changed, what is blocked, and what needs attention without digging through multiple tools.</p>
+      </div>
+      <div class="feat-card fade-up">
+        <h3>Continuous improvement</h3>
+        <p>As the AI-native operating system sees more workflows, it gets better at routing, escalation logic, and decision support — turning operations into a compounding system.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- WHY NOW -->
+<section class="why-now" id="why-now">
+  <div class="wrap">
+    <div class="two-col" style="margin-top:0; align-items:center;">
+      <div class="section-head fade-up">
+        <span class="eyebrow">Why now</span>
+        <h2>AI can finally operate the layer people have been patching manually.</h2>
+      </div>
+      <div class="prose fade-up">
+        <p>For years, companies solved operational complexity by hiring coordinators, adding new tools, or creating process overhead around the gaps. That approach does not scale well, and it breaks faster as the business grows.</p>
+        <p>AI changes the equation because software can now understand requests, retain context, reason across systems, and drive work forward. That makes it possible to build an AI-native operating system that does more than record what happened — <strong>it helps make the work happen.</strong></p>
+      </div>
+    </div>
+    <div class="spotlight violet fade-up" style="margin-top:56px;">
+      <div class="spotlight-kicker">The shift</div>
+      <div class="spotlight-quote">From systems that store what happened — to a system responsible for making the work happen.</div>
+    </div>
+  </div>
+</section>
+
+<!-- OUTCOMES -->
+<section class="outcomes" id="outcomes">
+  <div class="wrap">
+    <div class="section-head fade-up">
+      <span class="eyebrow">Outcomes</span>
+      <h2>What changes when execution becomes a system.</h2>
+    </div>
+    <div class="out-grid">
+      <div class="out-cell fade-up"><div class="out-num">01</div><p>Faster cycle times across approvals, requests, and escalations.</p></div>
+      <div class="out-cell fade-up"><div class="out-num">02</div><p>Lower coordination overhead across teams.</p></div>
+      <div class="out-cell fade-up"><div class="out-num">03</div><p>More reliable execution with clearer ownership.</p></div>
+      <div class="out-cell fade-up"><div class="out-num">04</div><p>Less dependence on tribal knowledge and manual follow-ups.</p></div>
+      <div class="out-cell fade-up"><div class="out-num">05</div><p>Better visibility into where work stalls and why.</p></div>
+      <div class="out-cell fade-up"><div class="out-num">06</div><p>More operator time spent on decisions, not reminders.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- EARLY PARTNERS -->
+<section class="partners">
+  <div class="wrap partners-inner">
+    <div class="section-head fade-up" style="max-width:none;">
+      <span class="eyebrow">Early partners</span>
+      <h2>We're building this with a small group of ambitious teams.</h2>
+      <div class="prose" style="margin-top:24px;">
+        <p>We're early by design. OSAI is being shaped in close collaboration with operators who want to rethink how their company actually runs.</p>
+        <p>If you are dealing with repetitive cross-functional workflows, unclear ownership, or execution that depends too much on follow-ups, we want to work with you on the right starting point.</p>
+      </div>
+    </div>
+    <ul class="line-list fade-up">
+      <li>Hands-on workflow design and implementation.</li>
+      <li>Direct access to the founding team.</li>
+      <li>Focus on one high-friction workflow first.</li>
+      <li>Built with your stack, your constraints, and your operating reality.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- TEAM -->
+<section class="team" id="team">
+  <div class="wrap">
+    <div class="section-head fade-up">
+      <span class="eyebrow">Who we are</span>
+      <h2>Built by people who have lived inside operational chaos.</h2>
+      <p class="lead" style="margin-top:22px;">We've spent the last few years inside fast-moving companies across product, operations, automation, and go-to-market. We've seen how much execution depends on the invisible labor of context transfer, follow-ups, and internal coordination. OSAI comes from that firsthand experience — and from the belief that the next great AI-native operating systems for companies will not just store work. They will move it.</p>
+    </div>
+    <div class="team-grid">
+      <div class="team-card fade-up">
+        <div class="team-name">Ishika</div>
+        <div class="team-role">Product &amp; Automation</div>
+        <ul class="team-bullets">
+          <li>Deployed production AI systems for clients across Europe and the US, 6+ industries</li>
+          <li>Consulted a large Indian conglomerate on operations automation</li>
+          <li>Built inside the founder's office at a SoftBank/Tencent-backed company</li>
+          <li>Drove Product Hunt #1 for an SF-based AI startup</li>
+        </ul>
+      </div>
+      <div class="team-card fade-up">
+        <div class="team-name">Yash</div>
+        <div class="team-role">GTM &amp; Sales</div>
+        <ul class="team-bullets">
+          <li>Worked with founders across three early-stage startups in Ed-Tech and SaaS</li>
+          <li>Led user activations for Perplexity</li>
+          <li>Wharton WGHS Global Semifinalist; Microsoft GenAI Hackathon runner-up</li>
+          <li>Ranked #2 on Dean's List at Masters' Union</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FINAL CTA -->
+<section class="final" id="demo">
+  <div class="final-glow"></div>
+  <div class="final-inner fade-up">
+    <span class="eyebrow">Get in touch</span>
+    <h2>Bring autopilot to one workflow first.</h2>
+    <p class="lead">Pick one workflow that is slowing your team down. We'll help map it, redesign it, and show how OSAI can run it end to end.</p>
+    <div class="final-actions">
+      <a href="#demo" class="btn btn-primary btn-lg">Get a demo</a>
+      <a href="#demo" class="btn btn-secondary btn-lg">Share your workflow →</a>
+    </div>
+    <p class="final-note">We respond within 24 hours.</p>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <span class="nav-logo">OSAI</span>
+      <p class="footer-tag">The AI-native operating system for modern companies.</p>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-title">Product</div>
+        <a href="#loop">The Agentic Loop</a>
+        <a href="#use-cases">Use Cases</a>
+        <a href="#outcomes">Outcomes</a>
+        <a href="#why-now">Why Now</a>
+        <a href="#team">Team</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-title">Company</div>
+        <a href="#demo">Contact</a>
+        <a href="/login">Sign in</a>
+      </div>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>OSAI · AI-native operating system · 2026</span>
+    <span>Early stage · Building with operators</span>
+  </div>
+</footer>
+
+<script>
+  // Scroll reveal
+  const fadeEls = document.querySelectorAll('.fade-up');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.12 });
+  fadeEls.forEach((el) => observer.observe(el));
+
+  // Stagger the hero workflow cards on load
+  document.querySelectorAll('.wf-card').forEach((card, i) => {
+    card.style.opacity = '0';
+    card.style.animation = `floatIn 0.5s ease-out ${0.25 + i * 0.08}s both`;
+  });
+
+  // floatIn keyframes (injected so we can stagger cleanly)
+  const style = document.createElement('style');
+  style.textContent = '@keyframes floatIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }';
+  document.head.appendChild(style);
+</script>
+</body>
+</html>
