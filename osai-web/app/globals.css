@@ -190,7 +190,7 @@ a { color: inherit; }
   box-shadow: inset 2px 0 0 var(--accent);
 }
 
-.sidebar-nav-item.active .nav-icon { color: var(--accent); }
+.sidebar-nav-item.active .nav-icon { color: var(--text-primary); }
 
 .sidebar-nav-item .nav-icon {
   width: 18px;
@@ -313,8 +313,8 @@ a { color: inherit; }
   display: flex;
   align-items: center;
   gap: 8px;
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-hover);
   border-radius: 100px;
   padding: 7px 14px;
   width: 300px;
@@ -327,7 +327,7 @@ a { color: inherit; }
 .topbar-search-text {
   flex: 1;
   font-size: 13px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 .topbar-search-kbd {
@@ -343,7 +343,7 @@ a { color: inherit; }
   margin-left: auto;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   font-size: 12px;
   color: var(--text-secondary);
 }
@@ -638,7 +638,7 @@ h2 {
 }
 
 .badge-green   { background: var(--green-dim);  color: var(--green);  border: 1px solid rgba(34,197,94,0.25); }
-.badge-red     { background: var(--red-dim);    color: var(--red);    border: 1px solid rgba(255,85,119,0.25); }
+.badge-red     { background: rgba(255, 85, 119, 0.18);    color: var(--red);    border: 1px solid rgba(255, 85, 119, 0.35); }
 .badge-blue    { background: var(--blue-dim);   color: var(--blue);   border: 1px solid rgba(0,153,255,0.25); }
 .badge-grey    { background: var(--bg-elevated); color: var(--text-secondary); border: 1px solid var(--border); }
 /* Monochrome rollout: orange/yellow "attention/in-progress" states fold into
@@ -843,7 +843,11 @@ h2 {
 .attention-card-action:hover { opacity: 0.7; }
 
 .attention-card-action.dismiss {
-  color: var(--text-muted);
+  color: var(--text-secondary);
+}
+
+.attention-card-action.dismiss:hover {
+  color: var(--text-primary);
 }
 
 /* ─── Decision log table ──────────────────────────────────────────────────────── */
@@ -1705,7 +1709,7 @@ h2 {
 .tabs-underline {
   display: flex;
   gap: 8px;
-  margin-bottom: 22px;
+  margin-bottom: 24px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -2006,7 +2010,7 @@ h2 {
   border: none;
   background: var(--bg-surface);
   border-radius: 20px;
-  padding: 24px;
+  padding: 24px 24px 32px;
   cursor: pointer;
   transition: transform 0.15s, box-shadow 0.15s;
   color: #fff;

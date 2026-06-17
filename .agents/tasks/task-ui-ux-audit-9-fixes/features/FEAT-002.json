@@ -2,7 +2,7 @@
   "id": "FEAT-002",
   "type": "fix",
   "description": "Implement all 9 UI/UX audit fixes across CSS and TSX files. These are all CSS/layout changes that do not affect TypeScript types.",
-  "status": "pending",
+  "status": "in_progress",
   "steps": [
     "FIX 1 - Active sidebar icon invisible: In globals.css, change `.sidebar-nav-item.active .nav-icon { color: var(--accent); }` to use `color: var(--text-primary);` instead. The var(--accent) in globals.css (#0099ff) gets overridden by theme.css's --accent (#1c1c1c), making the icon invisible against the dark bg-elevated background.",
     "FIX 2 - Ask OSAI card text truncation: In globals.css, add `padding-bottom: 16px;` to the `.ask-mode-card` rule (currently padding: 24px, change to include extra bottom space). Also add `position: relative; z-index: 1;` to `.ask-mode-card-desc` to ensure text sits above any gradient overlay. The gradient backgrounds on the cards can obscure the bottom text.",

@@ -113,6 +113,10 @@ export default function GraphPage() {
               {TIER_META[t].label}
             </span>
           ))}
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--text-secondary)" }} className="text-micro">
+            <span style={{ fontWeight: 700 }}>&ndash;</span>
+            No Access
+          </span>
         </div>
       </div>
 
