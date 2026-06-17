@@ -1662,6 +1662,119 @@ h2 {
   background: var(--text-muted);
 }
 
+/* ─── Spotlight Eyebrow ────────────────────────────────────────────────────── */
+.spotlight-eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 10px;
+}
+
+/* ─── Filter Bar ───────────────────────────────────────────────────────────── */
+.filter-bar {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* ─── Card Muted (coming-soon / disabled cards) ────────────────────────────── */
+.card-muted {
+  background: var(--bg-surface);
+  color: var(--text-muted);
+}
+.card-muted h2,
+.card-muted h3,
+.card-muted p {
+  color: var(--text-muted);
+}
+.card-muted .btn {
+  color: var(--text-muted);
+  border-color: var(--border);
+}
+
+/* ─── Tabs Underline ───────────────────────────────────────────────────────── */
+.tabs-underline {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 22px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tabs-underline-trigger {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 4px;
+  margin-bottom: -1px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.tabs-underline-trigger:hover {
+  color: var(--text-secondary);
+}
+
+.tabs-underline-trigger[aria-selected="true"],
+.tabs-underline-trigger.active {
+  border-bottom-color: var(--accent);
+  color: var(--text-primary);
+}
+
+/* ─── Timeline (Sync Runs) ─────────────────────────────────────────────────── */
+.timeline-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 36px;
+  flex-shrink: 0;
+}
+
+.timeline-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  margin-top: 18px;
+  flex-shrink: 0;
+}
+
+.timeline-dot--success {
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+}
+
+.timeline-dot--failed {
+  background: var(--red);
+}
+
+.timeline-dot--default {
+  background: var(--text-secondary);
+}
+
+.timeline-line {
+  flex: 1;
+  width: 1px;
+  background: var(--border);
+  margin-top: 4px;
+}
+
+.timeline-card {
+  flex: 1;
+  margin-left: 12px;
+  padding: 14px 18px;
+}
+
+.timeline-card:not(:last-child) {
+  margin-bottom: 12px;
+}
+
 .login-error {
   background: var(--red-dim);
   border: 1px solid rgba(255,85,119,0.25);
