@@ -284,9 +284,9 @@ export default function AskPage() {
         /* ─── EMPTY STATE — one clean, centered command column ─────────────── */
         <div className="ask-scroll min-h-0 flex-1 overflow-y-auto">
           <div className="flex min-h-full items-center justify-center px-4 py-8">
-            <div className="ask-column flex w-full max-w-[760px] flex-col gap-6 text-left">
+            <div className="ask-column flex w-full max-w-[760px] flex-col gap-7 text-left">
               {/* Heading + subtext */}
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-4">
                 <span className="ask-eyebrow">Command center</span>
                 <h2 className="ask-title">What would you like to know?</h2>
                 <p className="ask-subtext">
@@ -350,13 +350,13 @@ export default function AskPage() {
               </form>
 
               {/* Response expectations — sets a quality bar before the first query */}
-              <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-1.5">
                 <span className="ask-expectation">
-                  <ShieldCheck className="size-3.5 text-[var(--accent)]" />
+                  <ShieldCheck className="size-3.5" />
                   Answers include sources and confidence
                 </span>
                 <span className="ask-expectation">
-                  <Zap className="size-3.5 text-[var(--accent)]" />
+                  <Zap className="size-3.5" />
                   Actions run only after you approve
                 </span>
               </div>

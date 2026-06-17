@@ -1657,43 +1657,57 @@ h2 {
 
 
 /* ───────────────────────────────────────────────────────────────────────────
-   Ask OSAI — command-center empty state.
+   Ask OSAI — framer "command-center" poster (monochrome).
 
-   Layered surfaces + a faint sky-blue glow lift the page off pure black so it
-   reads as a finished command surface rather than a blank chatbot. Scoped to
-   the Ask page via .ask-canvas; nothing here leaks to other routes.
+   Follows DESIGN.md: near-black canvas, poster-grade white display type with
+   aggressive negative tracking, charcoal surfaces, and a SINGLE blue accent
+   reserved only for focus / selection — never a fill. No gradient atmosphere
+   cards here: the palette is white / black / charcoal, matching the dashboard.
+   Scoped to the Ask page via .ask-canvas; nothing leaks to other routes.
    ─────────────────────────────────────────────────────────────────────────── */
 .ask-canvas {
+  /* a whisper-faint neutral spotlight lifts the top of the artboard without
+     introducing colour */
   background:
-    radial-gradient(85% 50% at 50% -6%, rgba(0, 153, 255, 0.08), transparent 58%),
-    linear-gradient(180deg, #101013 0%, #0b0b0d 42%, var(--bg) 100%);
+    radial-gradient(60% 42% at 50% -8%, rgba(255, 255, 255, 0.045), transparent 60%),
+    var(--bg);
 }
 
 .ask-scroll { scrollbar-gutter: stable; }
 
-/* ── Heading + supporting copy (stronger contrast than the global muted ink) ── */
+/* ── Heading + supporting copy ─────────────────────────────────────────────── */
 .ask-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-size: 11px;
   font-weight: 600;
-  letter-spacing: 1.4px;
+  letter-spacing: 1.6px;
   text-transform: uppercase;
-  color: var(--accent);
+  color: var(--text-secondary);
+}
+
+.ask-eyebrow::before {
+  content: "";
+  width: 18px;
+  height: 1px;
+  background: var(--border-hover);
 }
 
 .ask-title {
-  font-size: 30px;
+  /* poster-grade display: large, tight negative tracking, near-1 line-height */
+  font-size: clamp(34px, 4.4vw, 50px);
   font-weight: 600;
-  letter-spacing: -1.2px;
-  line-height: 1.04;
+  letter-spacing: -2px;
+  line-height: 0.98;
   color: var(--text-primary);
 }
 
 .ask-subtext {
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1.55;
-  max-width: 620px;
-  /* brighter than --text-secondary (#999) so it no longer reads as faint */
-  color: rgba(255, 255, 255, 0.82);
+  max-width: 600px;
+  color: rgba(255, 255, 255, 0.74);
 }
 
 .ask-section-label {
@@ -1701,7 +1715,7 @@ h2 {
   font-weight: 600;
   letter-spacing: 1px;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.62);
+  color: rgba(255, 255, 255, 0.55);
 }
 
 .ask-expectation {
@@ -1710,20 +1724,22 @@ h2 {
   gap: 7px;
   font-size: 13px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.82);
+  color: rgba(255, 255, 255, 0.78);
 }
+
+.ask-expectation svg { color: var(--text-secondary); }
 
 .ask-disclaimer {
   font-size: 12px;
   line-height: 1.5;
-  color: rgba(255, 255, 255, 0.58);
+  color: rgba(255, 255, 255, 0.5);
 }
 
 /* ── Hero composer ──────────────────────────────────────────────────────────── */
 .ask-composer {
   border: 1px solid var(--border);
-  background: var(--bg-elevated);
-  border-radius: 18px;
+  background: var(--bg-surface);
+  border-radius: 20px;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 
@@ -1733,9 +1749,11 @@ h2 {
 }
 
 .ask-composer-hero {
-  box-shadow: 0 24px 60px -28px rgba(0, 0, 0, 0.85);
+  background: var(--bg-elevated);
+  box-shadow: 0 30px 70px -34px rgba(0, 0, 0, 0.9);
 }
 
+/* Framer pricing-tab pattern: muted text by default, charcoal pill when active */
 .ask-mode-tab {
   /* Preflight is disabled in this project, so reset native <button> chrome
      explicitly — otherwise inactive tabs render as bright UA grey pills. */
@@ -1763,20 +1781,19 @@ h2 {
 
 .ask-mode-tab[data-active="true"] {
   background: var(--bg-hover);
-  border-color: var(--border-hover);
   color: var(--text-primary);
 }
 
-/* ── Recommended-workflow cards (icons + source badges + concrete example) ──── */
+/* ── Recommended-workflow cards (charcoal, white icon, source badges) ───────── */
 .ask-mode-card {
   display: flex;
   flex-direction: column;
-  gap: 9px;
+  gap: 10px;
   text-align: left;
   border: 1px solid var(--border);
   background: var(--bg-surface);
-  border-radius: 14px;
-  padding: 16px;
+  border-radius: 16px;
+  padding: 18px;
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s, transform 0.15s;
 }
@@ -1791,33 +1808,39 @@ h2 {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 9px;
-  background: var(--accent-dim);
-  color: var(--accent);
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+}
+
+.ask-mode-card:hover .ask-mode-card-icon {
+  background: var(--bg-hover);
 }
 
 .ask-mode-card-title {
-  font-size: 14px;
+  font-size: 14.5px;
   font-weight: 600;
+  letter-spacing: -0.2px;
   color: var(--text-primary);
 }
 
 .ask-mode-card-desc {
   font-size: 12.5px;
   line-height: 1.45;
-  color: rgba(255, 255, 255, 0.72);
+  color: rgba(255, 255, 255, 0.62);
 }
 
 .ask-example {
   font-size: 12.5px;
   line-height: 1.4;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.78);
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 7px 10px;
+  border-radius: 9px;
+  padding: 8px 11px;
   margin-top: auto;
 }
 
@@ -1827,11 +1850,11 @@ h2 {
   font-size: 10.5px;
   font-weight: 600;
   letter-spacing: 0.2px;
-  color: rgba(255, 255, 255, 0.78);
-  background: var(--bg-hover);
+  color: var(--text-secondary);
+  background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: 5px;
-  padding: 2px 7px;
+  border-radius: 100px;
+  padding: 2px 9px;
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
