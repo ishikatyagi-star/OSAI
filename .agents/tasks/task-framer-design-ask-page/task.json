@@ -9,6 +9,6 @@
     "tests": "pass",
     "test_quality": "skipped",
     "docker_build": "skipped",
-    "summary": "npm run typecheck passes (exit 0), npm run build passes (exit 0, all 21 pages generated). No test suite exists in this project. No Dockerfile for the frontend."
+    "summary": "npm run typecheck passes (exit 0), npm run build passes (exit 0, all 21 pages generated). No test suite exists in this project. No Dockerfile for the frontend. Review issues addressed in follow-up commit."
   }
 }
