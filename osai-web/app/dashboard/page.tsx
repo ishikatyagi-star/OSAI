@@ -257,7 +257,7 @@ export default function DashboardPage() {
           </div>
           <div className="card" style={{ background: "var(--accent-dim)", borderColor: "rgba(0,153,255,0.18)" }}>
             <p className="text-caption" style={{ color: "var(--text-primary)", fontWeight: 400 }}>
-              <span style={{ color: "var(--accent)", fontWeight: 700 }}>{pendingActions} action items</span> extracted from recent workflow runs are waiting for your review.
+              <span style={{ color: "var(--text-primary)", fontWeight: 700 }}>{pendingActions} action items</span> extracted from recent workflow runs are waiting for your review.
             </p>
             <Link href="/workflows" className="btn" style={{ marginTop: 10, display: "inline-flex" }}>
               Review & Approve →
