@@ -22,8 +22,8 @@
 
   /* Ink — hierarchy is binary: ink or ink-muted */
   --text-primary: #ffffff;   /* ink */
-  --text-secondary: #999999; /* ink-muted */
-  --text-muted:   #999999;
+  --text-secondary: #b3b3b3; /* ink-muted */
+  --text-muted:   #b3b3b3;
 
   /* Single chromatic accent — links / focus rings / selection ONLY.
      (--teal* names retained as aliases so legacy refs resolve to the accent.) */

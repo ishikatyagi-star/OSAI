@@ -83,7 +83,7 @@ export default function SettingsPage() {
                 <div style={{ flex: 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
                     <h2 style={{ margin: 0 }}>{link.title}</h2>
-                    <ChevronRight size={14} style={{ marginLeft: "auto", color: "var(--text-muted)" }} />
+                    <ChevronRight size={14} style={{ marginLeft: "auto", color: "var(--text-secondary)" }} />
                   </div>
                   <p className="meta" style={{ margin: 0, lineHeight: 1.5 }}>
                     {link.description}

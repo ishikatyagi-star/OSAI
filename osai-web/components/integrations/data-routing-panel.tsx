@@ -192,7 +192,7 @@ export function DataRoutingPanel() {
                                   background: checked ? "var(--accent-dim)" : "var(--bg-surface)",
                                   cursor: "pointer",
                                   transition: "all 0.2s",
-                                  color: checked ? "var(--accent)" : "var(--text-muted)",
+                                  color: checked ? "var(--accent)" : "var(--text-primary)",
                                 }}
                                 className="text-micro font-medium"
                               >
@@ -249,7 +249,7 @@ export function DataRoutingPanel() {
                               }}
                             />
                           </div>
-                          <span className="text-micro font-semibold" style={{ color: config.llm_allowed ? "var(--accent)" : "var(--text-muted)" }}>
+                          <span className="text-micro font-semibold" style={{ color: config.llm_allowed ? "var(--accent)" : "var(--text-secondary)" }}>
                             {config.llm_allowed ? "Allowed" : "Disabled"}
                           </span>
                         </label>
