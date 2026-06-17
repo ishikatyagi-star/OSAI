@@ -68,7 +68,7 @@ function PassRateBar({ rate }: { rate: number }) {
           style={{ width: `${pct}%`, background: color }}
         />
       </div>
-      <span className="w-9 shrink-0 text-right text-xs tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+      <span className="w-9 shrink-0 text-right text-xs tabular-nums" style={{ color: 'var(--text-primary)' }}>
         {pct}%
       </span>
     </div>
@@ -95,10 +95,10 @@ function CaseRow({ c }: { c: EvalCase }) {
         <span className="badge badge-grey hidden sm:inline-flex">
           {CATEGORY_LABEL[c.category]}
         </span>
-        <span className="hidden w-14 shrink-0 text-right text-xs tabular-nums md:inline" style={{ color: 'var(--text-secondary)' }}>
+        <span className="hidden w-14 shrink-0 text-right text-xs tabular-nums md:inline" style={{ color: 'var(--text-primary)' }}>
           {c.score.toFixed(2)}
         </span>
-        <span className="hidden w-16 shrink-0 items-center justify-end gap-1 text-xs tabular-nums md:flex" style={{ color: 'var(--text-secondary)' }}>
+        <span className="hidden w-16 shrink-0 items-center justify-end gap-1 text-xs tabular-nums md:flex" style={{ color: 'var(--text-primary)' }}>
           <Clock className="size-3" />
           {(c.latency_ms / 1000).toFixed(2)}s
         </span>
@@ -107,19 +107,19 @@ function CaseRow({ c }: { c: EvalCase }) {
             "size-4 shrink-0 transition-transform",
             open && "rotate-180"
           )}
-          style={{ color: 'var(--text-secondary)' }}
+          style={{ color: 'var(--text-primary)' }}
         />
       </button>
       {open && (
         <div className="grid gap-3 border-t border-border px-4 py-3 sm:grid-cols-2">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+            <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-primary)' }}>
               Expected
             </p>
             <p className="mt-1 text-sm text-foreground">{c.expected}</p>
           </div>
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+            <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-primary)' }}>
               Actual
             </p>
             <p
@@ -133,7 +133,7 @@ function CaseRow({ c }: { c: EvalCase }) {
           </div>
           {c.notes && (
             <div className="sm:col-span-2">
-              <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+              <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-primary)' }}>
                 Notes
               </p>
               <p className="mt-1 text-sm text-warning">{c.notes}</p>
@@ -289,7 +289,7 @@ export function EvalDashboard() {
 
           {/* Category breakdown */}
           <div className="card" style={{ marginTop: 16, padding: '20px 22px' }}>
-            <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+            <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-primary)' }}>
               By category
             </p>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -299,7 +299,7 @@ export function EvalDashboard() {
                     <span className="text-foreground">
                       {CATEGORY_LABEL[s.category]}
                     </span>
-                    <span className="text-xs tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+                    <span className="text-xs tabular-nums" style={{ color: 'var(--text-primary)' }}>
                       {s.passed}/{s.total}
                     </span>
                   </div>
