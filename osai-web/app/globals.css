@@ -1986,11 +1986,39 @@ h2 {
 
 .ask-composer-hero {
   background: var(--bg-elevated);
-  border-radius: 24px;
-  box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.06),
-    0 30px 70px -34px rgba(0, 0, 0, 0.9),
-    0 10px 30px -10px rgba(0, 0, 0, 0.4);
+  border-radius: 100px;
+  border: 1px solid var(--border-hover);
+  box-shadow: 0 4px 20px -4px rgba(0, 0, 0, 0.5);
+}
+
+/* ── Mode pills (below hero input) ───────────────────────────────────────────── */
+.ask-mode-pill {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 100px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.14px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.ask-mode-pill:hover {
+  color: var(--text-primary);
+  border-color: var(--border-hover);
+}
+
+.ask-mode-pill[data-active="true"] {
+  color: var(--text-primary);
+  border-color: var(--accent);
 }
 
 /* Framer pricing-tab pattern: muted text by default, charcoal pill when active */
