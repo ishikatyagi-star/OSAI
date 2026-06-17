@@ -86,7 +86,7 @@ function CaseRow({ c }: { c: EvalCase }) {
         type="button"
         onClick={() => setOpen((o) => !o)}
         className="flex w-full items-center gap-3 px-4 py-3 text-left"
-        style={{ color: '#ffffff' }}
+        style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#ffffff' }}
       >
         {c.passed ? (
           <CheckCircle2 className="size-4 shrink-0" style={{ color: 'var(--green)' }} />
