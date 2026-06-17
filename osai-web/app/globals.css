@@ -2194,7 +2194,7 @@ h2 {
 
 /* ─── Back Link ────────────────────────────────────────────────────────────── */
 .back-link {
-  color: var(--accent);
+  color: var(--text-primary);
   display: inline-flex;
   align-items: center;
   gap: 4px;
