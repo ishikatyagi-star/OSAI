@@ -1654,3 +1654,170 @@ h2 {
   position: relative;
   z-index: 1;
 }
+
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Ask OSAI — command-center empty state.
+
+   Layered surfaces + a faint sky-blue glow lift the page off pure black so it
+   reads as a finished command surface rather than a blank chatbot. Scoped to
+   the Ask page via .ask-canvas; nothing here leaks to other routes.
+   ─────────────────────────────────────────────────────────────────────────── */
+.ask-canvas {
+  background:
+    radial-gradient(85% 50% at 50% -6%, rgba(0, 153, 255, 0.08), transparent 58%),
+    linear-gradient(180deg, #101013 0%, #0b0b0d 42%, var(--bg) 100%);
+}
+
+.ask-scroll { scrollbar-gutter: stable; }
+
+/* ── Heading + supporting copy (stronger contrast than the global muted ink) ── */
+.ask-eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.ask-title {
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -1.2px;
+  line-height: 1.04;
+  color: var(--text-primary);
+}
+
+.ask-subtext {
+  font-size: 15px;
+  line-height: 1.55;
+  max-width: 620px;
+  /* brighter than --text-secondary (#999) so it no longer reads as faint */
+  color: rgba(255, 255, 255, 0.74);
+}
+
+.ask-section-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.ask-expectation {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.ask-disclaimer {
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* ── Hero composer ──────────────────────────────────────────────────────────── */
+.ask-composer {
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  border-radius: 18px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.ask-composer:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-dim);
+}
+
+.ask-composer-hero {
+  box-shadow: 0 24px 60px -28px rgba(0, 0, 0, 0.85);
+}
+
+.ask-mode-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 100px;
+  padding: 6px 13px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.ask-mode-tab:hover { color: var(--text-primary); }
+
+.ask-mode-tab[data-active="true"] {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* ── Recommended-workflow cards (icons + source badges + concrete example) ──── */
+.ask-mode-card {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  text-align: left;
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  border-radius: 14px;
+  padding: 16px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
+}
+
+.ask-mode-card:hover {
+  border-color: var(--border-hover);
+  background: var(--bg-elevated);
+  transform: translateY(-2px);
+}
+
+.ask-mode-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.ask-mode-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ask-mode-card-desc {
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.ask-example {
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 10px;
+  margin-top: auto;
+}
+
+.ask-source-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  color: var(--text-secondary);
+  background: var(--bg-hover);
+  border-radius: 5px;
+  padding: 2px 7px;
+}
