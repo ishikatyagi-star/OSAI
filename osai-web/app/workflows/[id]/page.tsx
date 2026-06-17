@@ -84,7 +84,7 @@ export default function WorkflowDetailPage() {
     return (
       <div>
         <p className="error-text">Workflow run not found.</p>
-        <Link href="/workflows" style={{ fontSize: 13, color: "var(--accent)" }}>← Back to workflows</Link>
+        <Link href="/workflows" className="text-caption" style={{ color: "var(--accent)" }}>← Back to workflows</Link>
       </div>
     );
   }
@@ -113,7 +113,7 @@ export default function WorkflowDetailPage() {
               <span className="badge badge-yellow">{pendingCount} pending approval</span>
             )}
           </div>
-          <p className="run-link" style={{ fontSize: 12 }}>{run.id}</p>
+          <p className="run-link">{run.id}</p>
         </div>
       </div>
 
@@ -129,10 +129,10 @@ export default function WorkflowDetailPage() {
             { label: "Action Items", value: items.length.toString() },
           ].map((f) => (
             <div key={f.label}>
-              <p style={{ fontSize: 10, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>
+              <p style={{ fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }} className="stat-card-label">
                 {f.label}
               </p>
-              <p style={{ fontSize: 13, color: f.color ?? "var(--text-primary)", fontWeight: 600, margin: 0 }}>{f.value}</p>
+              <p className="text-caption" style={{ color: f.color ?? "var(--text-primary)", fontWeight: 600, margin: 0 }}>{f.value}</p>
             </div>
           ))}
         </div>
@@ -159,7 +159,7 @@ export default function WorkflowDetailPage() {
                 )}
                 <div style={{ flex: 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                    <strong style={{ fontSize: 14, color: "var(--text-primary)" }}>{item.title}</strong>
+                    <strong className="text-body-sm" style={{ color: "var(--text-primary)" }}>{item.title}</strong>
                     <span className={statusClass(item.status)}>{item.status}</span>
                   </div>
                   <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
@@ -180,7 +180,8 @@ export default function WorkflowDetailPage() {
                   href={item.external_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  style={{ fontSize: 12, color: "var(--accent)", display: "block", marginTop: 8 }}
+                  className="text-micro"
+                  style={{ color: "var(--accent)", display: "block", marginTop: 8 }}
                 >
                   View in {destMeta?.label ?? item.destination} ↗
                 </a>
@@ -196,12 +197,12 @@ export default function WorkflowDetailPage() {
                     {approving === item.id ? "Approving…" : "Approve & Execute →"}
                   </button>
                   {msgs[item.id] && (
-                    <span className="success-text" style={{ fontSize: 12 }}>✓ {msgs[item.id]}</span>
+                    <span className="success-text">✓ {msgs[item.id]}</span>
                   )}
                 </div>
               )}
               {item.status !== "needs_review" && msgs[item.id] && (
-                <p className="success-text" style={{ fontSize: 12, marginTop: 8 }}>✓ {msgs[item.id]}</p>
+                <p className="success-text" style={{ marginTop: 8 }}>✓ {msgs[item.id]}</p>
               )}
             </div>
           );

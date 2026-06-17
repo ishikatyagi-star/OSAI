@@ -93,7 +93,7 @@ export default function TeamPage() {
       </div>
 
       {/* Tabs */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 22, borderBottom: "1px solid var(--border)" }}>
+      <div className="tabs-underline">
         {([
           { key: "members", label: `Members (${members.length})` },
           { key: "departments", label: `Departments (${departments.length})` },
@@ -102,17 +102,7 @@ export default function TeamPage() {
           <button
             key={t.key}
             onClick={() => setTab(t.key as Tab)}
-            style={{
-              background: "none",
-              border: "none",
-              borderBottom: tab === t.key ? "2px solid var(--accent)" : "2px solid transparent",
-              color: tab === t.key ? "var(--text-primary)" : "var(--text-muted)",
-              fontSize: 13,
-              fontWeight: 600,
-              padding: "8px 4px",
-              marginBottom: -1,
-              cursor: "pointer",
-            }}
+            className={`tabs-underline-trigger${tab === t.key ? ' active' : ''}`}
           >
             {t.label}
           </button>
@@ -133,15 +123,15 @@ export default function TeamPage() {
             {members.map((m) => (
               <tr key={m.id}>
                 <td>
-                  <div style={{ fontWeight: 600, fontSize: 13, color: "var(--text-primary)" }}>
+                  <div style={{ fontWeight: 600, color: "var(--text-primary)" }} className="text-caption">
                     {m.display_name}
                   </div>
-                  <div className="meta" style={{ fontSize: 11 }}>{m.email}</div>
+                  <div className="meta">{m.email}</div>
                 </td>
                 <td>
                   <select
                     className="select"
-                    style={{ height: 30, fontSize: 12 }}
+                    style={{ height: 30 }}
                     value={m.role}
                     onChange={(e) => changeMember(m, { role: e.target.value })}
                   >
@@ -153,7 +143,7 @@ export default function TeamPage() {
                 <td>
                   <select
                     className="select"
-                    style={{ height: 30, fontSize: 12 }}
+                    style={{ height: 30 }}
                     value={m.department_id ?? ""}
                     onChange={(e) => changeMember(m, { department_id: e.target.value || null })}
                   >
@@ -195,8 +185,8 @@ export default function TeamPage() {
               <div key={d.id} className="card" style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <span style={{ width: 10, height: 10, borderRadius: "50%", background: d.color }} />
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, fontSize: 14 }}>{d.name}</div>
-                  <div className="meta" style={{ fontSize: 11 }}>
+                  <div style={{ fontWeight: 600 }}>{d.name}</div>
+                  <div className="meta">
                     {d.members} member{d.members === 1 ? "" : "s"}
                   </div>
                 </div>
@@ -215,7 +205,7 @@ export default function TeamPage() {
             style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 20 }}
           >
             <div style={{ flex: 1, minWidth: 220 }}>
-              <label className="meta" style={{ display: "block", marginBottom: 4, fontSize: 11 }}>Work email</label>
+              <label className="meta" style={{ display: "block", marginBottom: 4 }}>Work email</label>
               <input
                 className="search-input"
                 type="email"
@@ -226,13 +216,13 @@ export default function TeamPage() {
               />
             </div>
             <div>
-              <label className="meta" style={{ display: "block", marginBottom: 4, fontSize: 11 }}>Role</label>
+              <label className="meta" style={{ display: "block", marginBottom: 4 }}>Role</label>
               <select className="select" value={inviteRole} onChange={(e) => setInviteRole(e.target.value)}>
                 {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
               </select>
             </div>
             <div>
-              <label className="meta" style={{ display: "block", marginBottom: 4, fontSize: 11 }}>Department</label>
+              <label className="meta" style={{ display: "block", marginBottom: 4 }}>Department</label>
               <select className="select" value={inviteDept} onChange={(e) => setInviteDept(e.target.value)}>
                 <option value="">— None —</option>
                 {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
@@ -243,7 +233,7 @@ export default function TeamPage() {
             </button>
           </form>
 
-          <p className="meta" style={{ marginBottom: 12, fontSize: 12 }}>
+          <p className="meta" style={{ marginBottom: 12 }}>
             Share the invite link with the teammate. When they sign in with Google using that email,
             they join this workspace with the role and department you set.
           </p>

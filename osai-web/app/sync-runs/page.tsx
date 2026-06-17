@@ -130,11 +130,11 @@ export default function SyncRunsPage() {
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
                   <span style={{ fontSize: 16 }}>{meta.icon}</span>
-                  <span style={{ fontWeight: 600, fontSize: 13, color: "var(--text-primary)" }}>{meta.label}</span>
+                  <span className="text-caption" style={{ fontWeight: 600, color: "var(--text-primary)" }}>{meta.label}</span>
                   <span className={`badge ${STATUS_BADGE[run.status] ?? "badge-grey"}`}>
                     {run.status}
                   </span>
-                  <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--text-muted)" }}>
+                  <span className="meta" style={{ marginLeft: "auto" }}>
                     {timeAgo(run.started_at)}
                   </span>
                 </div>
@@ -180,10 +180,11 @@ export default function SyncRunsPage() {
 
                 {run.error && (
                   <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                    <span className="error-text" style={{ fontSize: 12 }}>⚠ {run.error}</span>
+                    <span className="error-text">⚠ {run.error}</span>
                     <Link
                       href="/integrations"
-                      style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, whiteSpace: "nowrap" }}
+                      className="text-micro"
+                      style={{ color: "var(--accent)", fontWeight: 600, whiteSpace: "nowrap" }}
                     >
                       Fix in Integrations →
                     </Link>

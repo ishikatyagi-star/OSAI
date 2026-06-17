@@ -74,10 +74,10 @@ export default function SettingsPage() {
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                    <h2 style={{ margin: 0, fontSize: 15 }}>{link.title}</h2>
+                    <h2 style={{ margin: 0 }}>{link.title}</h2>
                     <ChevronRight size={14} style={{ marginLeft: "auto", color: "var(--text-muted)" }} />
                   </div>
-                  <p className="meta" style={{ margin: 0, fontSize: 12, lineHeight: 1.5 }}>
+                  <p className="meta" style={{ margin: 0, lineHeight: 1.5 }}>
                     {link.description}
                   </p>
                 </div>
@@ -100,13 +100,13 @@ export default function SettingsPage() {
             <Trash2 size={18} strokeWidth={1.75} />
           </div>
           <div style={{ flex: 1 }}>
-            <h2 style={{ margin: 0, fontSize: 15 }}>Reset workspace data</h2>
-            <p className="meta" style={{ margin: "4px 0 12px", fontSize: 12, lineHeight: 1.5 }}>
+            <h2 style={{ margin: 0 }}>Reset workspace data</h2>
+            <p className="meta" style={{ margin: "4px 0 12px", lineHeight: 1.5 }}>
               Delete all indexed documents, decisions, workflows and sample data. Your connected
               tools stay connected — just click “Sync now” afterwards to pull your real data back in.
             </p>
             {resetMsg && (
-              <p className="success-text" style={{ fontSize: 12, marginBottom: 10 }}>{resetMsg}</p>
+              <p className="success-text" style={{ marginBottom: 10 }}>{resetMsg}</p>
             )}
             {confirming ? (
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>

@@ -23,7 +23,7 @@
   /* Ink — hierarchy is binary: ink or ink-muted */
   --text-primary: #ffffff;   /* ink */
   --text-secondary: #999999; /* ink-muted */
-  --text-muted:   #6a6a6a;
+  --text-muted:   #8a8a8a;
 
   /* Single chromatic accent — links / focus rings / selection ONLY.
      (--teal* names retained as aliases so legacy refs resolve to the accent.) */
@@ -543,6 +543,11 @@ h2 {
 .text-body {
   font-size: 15px;
   letter-spacing: -0.15px;
+  line-height: 1.3;
+}
+.text-body-sm {
+  font-size: 14px;
+  letter-spacing: -0.14px;
   line-height: 1.3;
 }
 .text-caption {
@@ -1917,7 +1922,7 @@ h2 {
   font-weight: 600;
   letter-spacing: 0.8px;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .ask-expectation {
@@ -1936,7 +1941,7 @@ h2 {
   font-size: 12px;
   line-height: 1.2;
   letter-spacing: -0.12px;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.65);
 }
 
 /* ── Hero composer ──────────────────────────────────────────────────────────── */
