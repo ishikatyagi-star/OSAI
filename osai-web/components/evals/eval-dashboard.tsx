@@ -13,9 +13,6 @@ import { getEvalRun } from "@/lib/api";
 import { DEMO_EVAL_RUN } from "@/lib/demo-data";
 import { isDemo } from "@/lib/demo";
 import type { EvalCase, EvalCategory, EvalRun } from "@/lib/types";
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
 const CATEGORY_LABEL: Record<EvalCategory, string> = {
@@ -41,13 +38,13 @@ function StatCard({
   tone?: "default" | "success" | "destructive";
 }) {
   return (
-    <Card className="p-4">
-      <p className="text-xs uppercase tracking-wide text-muted-foreground">
+    <div className="stat-card">
+      <p className="stat-card-label">
         {label}
       </p>
       <p
         className={cn(
-          "mt-1 text-2xl font-semibold tabular-nums",
+          "stat-card-value mt-1 text-2xl font-semibold tabular-nums",
           tone === "success" && "text-success",
           tone === "destructive" && "text-destructive",
           (!tone || tone === "default") && "text-foreground"
@@ -55,7 +52,7 @@ function StatCard({
       >
         {value}
       </p>
-    </Card>
+    </div>
   );
 }
 
@@ -71,7 +68,7 @@ function PassRateBar({ rate }: { rate: number }) {
           style={{ width: `${pct}%`, background: color }}
         />
       </div>
-      <span className="w-9 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+      <span className="w-9 shrink-0 text-right text-xs tabular-nums" style={{ color: 'var(--text-secondary)' }}>
         {pct}%
       </span>
     </div>
@@ -81,7 +78,7 @@ function PassRateBar({ rate }: { rate: number }) {
 function CaseRow({ c }: { c: EvalCase }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="rounded-lg border border-border bg-card">
+    <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -95,39 +92,40 @@ function CaseRow({ c }: { c: EvalCase }) {
         <span className="min-w-0 flex-1 truncate text-sm text-foreground">
           {c.question}
         </span>
-        <Badge variant="muted" className="hidden sm:inline-flex">
+        <span className="badge badge-grey hidden sm:inline-flex">
           {CATEGORY_LABEL[c.category]}
-        </Badge>
-        <span className="hidden w-14 shrink-0 text-right text-xs tabular-nums text-muted-foreground md:inline">
+        </span>
+        <span className="hidden w-14 shrink-0 text-right text-xs tabular-nums md:inline" style={{ color: 'var(--text-secondary)' }}>
           {c.score.toFixed(2)}
         </span>
-        <span className="hidden w-16 shrink-0 items-center justify-end gap-1 text-xs tabular-nums text-muted-foreground md:flex">
+        <span className="hidden w-16 shrink-0 items-center justify-end gap-1 text-xs tabular-nums md:flex" style={{ color: 'var(--text-secondary)' }}>
           <Clock className="size-3" />
           {(c.latency_ms / 1000).toFixed(2)}s
         </span>
         <ChevronDown
           className={cn(
-            "size-4 shrink-0 text-muted-foreground transition-transform",
+            "size-4 shrink-0 transition-transform",
             open && "rotate-180"
           )}
+          style={{ color: 'var(--text-secondary)' }}
         />
       </button>
       {open && (
         <div className="grid gap-3 border-t border-border px-4 py-3 sm:grid-cols-2">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
               Expected
             </p>
-            <p className="mt-1 text-sm text-foreground/90">{c.expected}</p>
+            <p className="mt-1 text-sm text-foreground">{c.expected}</p>
           </div>
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
               Actual
             </p>
             <p
               className={cn(
                 "mt-1 text-sm",
-                c.passed ? "text-foreground/90" : "text-destructive"
+                c.passed ? "text-foreground" : "text-destructive"
               )}
             >
               {c.actual}
@@ -135,7 +133,7 @@ function CaseRow({ c }: { c: EvalCase }) {
           </div>
           {c.notes && (
             <div className="sm:col-span-2">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
                 Notes
               </p>
               <p className="mt-1 text-sm text-warning">{c.notes}</p>
@@ -235,7 +233,7 @@ export function EvalDashboard() {
             </span>
             <span className="sep">·</span>
             <span className="font-mono">{run.run_id}</span>
-            {usingDemo && <Badge variant="muted">demo data</Badge>}
+            {usingDemo && <span className="badge badge-grey">demo data</span>}
           </div>
         )}
       </div>
@@ -290,18 +288,18 @@ export function EvalDashboard() {
           </div>
 
           {/* Category breakdown */}
-          <Card className="mt-4 p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <div className="card" style={{ marginTop: 16, padding: '20px 22px' }}>
+            <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
               By category
             </p>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               {categoryStats.map((s) => (
                 <div key={s.category} className="space-y-1">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-foreground/90">
+                    <span className="text-foreground">
                       {CATEGORY_LABEL[s.category]}
                     </span>
-                    <span className="text-xs tabular-nums text-muted-foreground">
+                    <span className="text-xs tabular-nums" style={{ color: 'var(--text-secondary)' }}>
                       {s.passed}/{s.total}
                     </span>
                   </div>
@@ -309,23 +307,16 @@ export function EvalDashboard() {
                 </div>
               ))}
             </div>
-          </Card>
+          </div>
 
           {/* Cases */}
           <div className="mt-6">
-            <Tabs
-              value={filter}
-              onValueChange={(v) => setFilter(v as EvalCategory | "all")}
-            >
-              <TabsList>
-                <TabsTrigger value="all">All</TabsTrigger>
-                {(Object.keys(CATEGORY_LABEL) as EvalCategory[]).map((c) => (
-                  <TabsTrigger key={c} value={c}>
-                    {CATEGORY_LABEL[c]}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button className={`suggestion-chip${filter === "all" ? " active" : ""}`} onClick={() => setFilter("all")}>All</button>
+              {(Object.keys(CATEGORY_LABEL) as EvalCategory[]).map((c) => (
+                <button key={c} className={`suggestion-chip${filter === c ? " active" : ""}`} onClick={() => setFilter(c)}>{CATEGORY_LABEL[c]}</button>
+              ))}
+            </div>
 
             <div className="mt-4 space-y-2">
               {visibleCases.map((c) => (
