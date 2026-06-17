@@ -322,7 +322,9 @@ a { color: inherit; }
   transition: border-color 0.15s, background 0.15s;
 }
 
-.topbar-search:hover { border-color: var(--border-hover); background: var(--bg-elevated); }
+.topbar-search:hover { border-color: var(--border-hover); background: var(--bg-hover); }
+
+.topbar-search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-dim); }
 
 .topbar-search-text {
   flex: 1;
@@ -848,6 +850,7 @@ h2 {
 
 .attention-card-action.dismiss:hover {
   color: var(--text-primary);
+  opacity: 1;
 }
 
 /* ─── Decision log table ──────────────────────────────────────────────────────── */
@@ -1710,6 +1713,7 @@ h2 {
   display: flex;
   gap: 8px;
   margin-bottom: 24px;
+  padding-bottom: 2px;
   border-bottom: 1px solid var(--border);
 }
 
