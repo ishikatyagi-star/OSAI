@@ -9,6 +9,7 @@ import type { Integration, SyncRun } from "@/lib/types";
 import { ConnectorManager } from "@/components/integrations/connector-manager";
 import { DataRoutingPanel } from "@/components/integrations/data-routing-panel";
 import { StatusDot } from "@/components/ui/status-dot";
+import { TabsPill, TabsPillList, TabsPillTrigger, TabsPillContent } from "@/components/ui/tabs-pill";
 
 type Tab = "connectors" | "routing";
 
@@ -132,26 +133,17 @@ export default function IntegrationsPage() {
       </div>
 
       {/* Tabs: Connectors | Data Routing */}
-      <div className="tabs-underline">
-        {([
-          { key: "connectors", label: "Connectors" },
-          { key: "routing", label: "Data Routing" },
-        ] as const).map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`tabs-underline-trigger${tab === t.key ? " active" : ""}`}
-            aria-selected={tab === t.key}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <TabsPill value={tab} onValueChange={(v) => setTab(v as Tab)}>
+        <TabsPillList>
+          <TabsPillTrigger value="connectors">Connectors</TabsPillTrigger>
+          <TabsPillTrigger value="routing">Data Routing</TabsPillTrigger>
+        </TabsPillList>
 
-      {tab === "routing" ? (
-        <DataRoutingPanel />
-      ) : (
-        <>
+        <TabsPillContent value="routing">
+          <DataRoutingPanel />
+        </TabsPillContent>
+
+        <TabsPillContent value="connectors">
           {justConnected && (
             <div
               className="card"
@@ -350,8 +342,8 @@ export default function IntegrationsPage() {
             onSync={handleSync}
             onToggleConnection={handleToggleConnection}
           />
-        </>
-      )}
+        </TabsPillContent>
+      </TabsPill>
     </div>
   );
 }

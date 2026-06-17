@@ -1516,7 +1516,7 @@ h2 {
   width: 52px;
   height: 52px;
   border-radius: 16px;
-  background: radial-gradient(120% 120% at 25% 15%, #8b6bff 0%, var(--grad-violet) 45%, var(--grad-magenta) 100%);
+  background: radial-gradient(120% 120% at 25% 15%, #8b6bff 0%, var(--grad-violet, #6a4cf5) 45%, var(--grad-magenta, #d44df0) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2171,6 +2171,13 @@ h2 {
   border: 1px solid color-mix(in srgb, var(--red) 35%, transparent);
 }
 
+.tier-badge-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
 /* ─── Tier Legend Dot ──────────────────────────────────────────────────────── */
 .tier-legend-dot {
   width: 10px;
@@ -2220,7 +2227,7 @@ h2 {
   width: 52px;
   height: 52px;
   border-radius: 16px;
-  background: radial-gradient(120% 120% at 25% 15%, #8b6bff 0%, var(--grad-violet) 45%, var(--grad-magenta) 100%);
+  background: radial-gradient(120% 120% at 25% 15%, #8b6bff 0%, var(--grad-violet, #6a4cf5) 45%, var(--grad-magenta, #d44df0) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
