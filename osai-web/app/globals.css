@@ -60,6 +60,9 @@
   /* Inter OpenType character variants — the framer body "voice". */
   --feat:         "cv01" 1, "cv05" 1, "cv09" 1, "cv11" 1, "ss03" 1, "ss07" 1;
 
+  --tab-active-bg:   #ffffff;
+  --tab-active-text: #000000;
+
   --sidebar-w:    232px;
   --topbar-h:     56px;
   --radius-pill:  100px;
@@ -164,6 +167,21 @@ a { color: inherit; }
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+.sidebar-group-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+  padding: 6px 12px 4px;
+  font-weight: 600;
+}
+
+.sidebar-group-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 8px 12px;
 }
 
 .sidebar-nav-item {
@@ -2003,9 +2021,8 @@ h2 {
 }
 
 .ask-mode-tab[data-active="true"] {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-  border-color: var(--border);
+  background: var(--tab-active-bg);
+  color: var(--tab-active-text);
 }
 
 /* ── Recommended-workflow cards (gradient spotlight variants) ────────────────── */

@@ -1,0 +1,32 @@
+{
+  "id": "FEAT-001",
+  "type": "feat",
+  "description": "Implement all 5 UX improvements: (1) Ask page active tab styling + send button tooltip, (2) Sidebar section group labels with dividers, (3) Settings danger zone separator + confirmation modal, (4) LIVE badge tooltip, (5) Workflows rename Run Log to History + italic text contrast fix",
+  "status": "completed",
+  "steps": [
+    "1. In osai-web/app/globals.css: Update .ask-mode-tab[data-active='true'] to use a white/light background with dark text for clearly distinct active state. Change background to #ffffff (or var(--text-primary)), color to #000, and border-color to transparent.",
+    "2. In osai-web/app/ask/page.tsx: Add title='Send' attribute to both submit Buttons (the hero composer and the conversation-state composer). The aria-label='Send' already exists on both buttons.",
+    "3. In osai-web/components/sidebar.tsx: Replace the flat NAV array rendering with grouped sections. Define groups: WORKSPACE (Dashboard, Ask OSAI), MANAGE (Context Inbox, Decision Log, Org Graph, Team, Workflows), CONFIGURE (Integrations, Sync Runs). Render each group with a small all-caps muted label above it and a subtle divider between groups.",
+    "4. In osai-web/app/globals.css: Add CSS classes for sidebar group labels (.sidebar-group-label) with font-size ~10px, text-transform uppercase, letter-spacing 0.6px, color var(--text-muted), padding, and a divider style (.sidebar-group-divider) with a 1px solid var(--border) horizontal rule between groups.",
+    "5. In osai-web/app/settings/page.tsx: Add a 'Danger Zone' separator label (muted red horizontal rule with label) above the reset workspace card. Replace the inline confirming state with a proper confirmation modal using the Dialog component from @/components/ui/dialog. Modal text: 'Are you sure? This will permanently delete all indexed documents, decisions, workflows and sample data. This cannot be undone.' with a red 'Yes, clear data' button and a 'Cancel' button.",
+    "6. In osai-web/components/app-shell.tsx: Wrap the LIVE badge span with the Tooltip component from @/components/ui/tooltip. Tooltip content: 'Your workspace is actively syncing data from connected tools.' Import TooltipProvider, Tooltip, TooltipTrigger, TooltipContent from '@/components/ui/tooltip'.",
+    "7. In osai-web/app/workflows/page.tsx: Rename 'Run Log' to 'History' in the h2 heading. Change '({runs.length} runs)' to '({runs.length} runs)' - keep as is. Increase contrast of the italic example text in the empty state card: the <p> with fontStyle: 'italic' that says 'e.g. Sarah: I'll prepare...' -- change its color from inheriting .meta (#8a8a8a on #141414 bg) to at least #b0b0b0 to meet 4.5:1 contrast ratio against the card background."
+  ],
+  "acceptance_criteria": [
+    "Active tab in Ask page has white/light fill with dark text that is clearly distinguishable from unselected tabs",
+    "Both send buttons have title='Send' tooltip attribute",
+    "Sidebar shows 3 labeled groups (WORKSPACE, MANAGE, CONFIGURE) with dividers between them",
+    "Settings page has a 'Danger Zone' separator above the reset card and a modal dialog for confirmation",
+    "LIVE badge in the topbar shows a tooltip on hover with the specified text",
+    "Workflows page heading says 'History' instead of 'Run Log'",
+    "Italic example text in workflows empty state has at least 4.5:1 contrast ratio",
+    "npm run typecheck passes without errors",
+    "npm run build passes without errors"
+  ],
+  "verification": [
+    "cd /projects/sandbox/OSAI/osai-web && npm run typecheck",
+    "cd /projects/sandbox/OSAI/osai-web && npm run build"
+  ],
+  "blocked_reason": null,
+  "findings": "All changes verified with typecheck and build. No issues encountered."
+}

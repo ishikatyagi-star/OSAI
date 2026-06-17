@@ -4,6 +4,12 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import Sidebar from "./sidebar";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 // Pages that render without the sidebar/topbar shell
 const SHELL_EXCLUDED = ["/login", "/demo"];
@@ -58,19 +64,28 @@ export default function AppShell({ children }: { children: ReactNode }) {
           <div className="topbar-workspace">
             <span>Workspace:</span>
             <span className="topbar-workspace-name">{workspace}</span>
-            <span
-              style={{
-                fontSize: 10,
-                padding: "2px 8px",
-                background: "var(--green-dim)",
-                color: "var(--green)",
-                borderRadius: 100,
-                fontWeight: 700,
-                letterSpacing: 0.3,
-              }}
-            >
-              LIVE
-            </span>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    style={{
+                      fontSize: 10,
+                      padding: "2px 8px",
+                      background: "var(--green-dim)",
+                      color: "var(--green)",
+                      borderRadius: 100,
+                      fontWeight: 700,
+                      letterSpacing: 0.3,
+                    }}
+                  >
+                    LIVE
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Your workspace is actively syncing data from connected tools.
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </header>
         <main>{children}</main>
