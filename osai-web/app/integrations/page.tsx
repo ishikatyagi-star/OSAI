@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { getIntegrations, getSyncRuns, triggerSync } from "@/lib/api";
+import { composioConnect, getIntegrations, getSyncRuns, triggerSync } from "@/lib/api";
 import { DEMO_INTEGRATIONS, DEMO_STATS, DEMO_SYNC_RUNS } from "@/lib/demo-data";
 import { isDemo } from "@/lib/demo";
 import { CONNECTOR_META } from "@/lib/connector-meta";
@@ -75,6 +75,21 @@ export default function IntegrationsPage() {
     } finally {
       setSyncing((s) => ({ ...s, [key]: false }));
       setTimeout(() => setSyncMsg((m) => ({ ...m, [key]: "" })), 3000);
+    }
+  }
+
+  async function handleConnectStart(key: string) {
+    setSyncMsg((m) => ({ ...m, [key]: "Opening authorization…" }));
+    try {
+      const res = await composioConnect(key);
+      if (res.redirect_url) {
+        window.location.href = res.redirect_url;
+      } else {
+        setSyncMsg((m) => ({ ...m, [key]: res.error || "Couldn't start connection" }));
+      }
+    } catch {
+      // Fall back to the manager drawer (manual / preview connect).
+      setManagedKey(key);
     }
   }
 
@@ -264,9 +279,9 @@ export default function IntegrationsPage() {
                       </button>
                     ) : (
                       <button
-                        className="btn"
+                        className="btn btn-primary"
                         style={{ padding: "8px 18px", fontSize: 12 }}
-                        onClick={() => setManagedKey(item.key)}
+                        onClick={() => handleConnectStart(item.key)}
                       >
                         Connect
                       </button>

@@ -166,6 +166,30 @@ export function triggerSync(connectorKey: string) {
   );
 }
 
+// Native connector key → Composio toolkit slug (Composio uses its own slugs).
+const COMPOSIO_TOOLKIT: Record<string, string> = {
+  notion: "notion",
+  google_drive: "googledrive",
+  slack: "slack",
+  freshdesk: "freshdesk",
+};
+
+export type ComposioConnectResult = {
+  redirect_url?: string;
+  connected_account_id?: string;
+  error?: string;
+};
+
+// Begin a real OAuth connection for a connector via Composio. Returns a
+// redirect_url the browser must open so the user can authorize the app.
+export function composioConnect(connectorKey: string) {
+  const toolkit = COMPOSIO_TOOLKIT[connectorKey] ?? connectorKey;
+  return apiPost<Record<string, never>, ComposioConnectResult>(
+    `/integrations/composio/connect/${toolkit}`,
+    {}
+  );
+}
+
 export function getHealthcheck(connectorKey: string) {
   return apiGet<{ healthy: boolean; message: string }>(
     `/integrations/${connectorKey}/healthcheck`,
