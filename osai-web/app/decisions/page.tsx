@@ -137,7 +137,7 @@ export default function DecisionsPage() {
           <p>
             Every key decision and action across your org — owned, dated, and tagged. Items OSAI
             inferred from context but that aren&apos;t tracked in your tools are marked{" "}
-            <span className="badge badge-purple" style={{ fontSize: 10 }}>OSAI found this</span>.
+            <span className="badge badge-purple text-[10px]">OSAI found this</span>.
           </p>
         </div>
         <button className="btn btn-primary">+ Add Decision</button>
@@ -217,17 +217,17 @@ export default function DecisionsPage() {
           {filtered.map((d) => (
             <tr key={d.id}>
               <td>
-                <div className="text-caption" style={{ fontWeight: 600, marginBottom: 5, color: "var(--text-primary)" }}>
+                <div className="text-caption font-semibold" style={{ marginBottom: 5, color: "var(--text-primary)" }}>
                   {d.title}
                 </div>
                 <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
                   {d.identifiedBy === "osai" && (
-                    <span className="badge badge-purple" style={{ fontSize: 10 }}>
+                    <span className="badge badge-purple text-[10px]">
                       ✨ OSAI found this
                     </span>
                   )}
                   {d.tags.map((t) => (
-                    <span key={t} className="badge badge-grey" style={{ fontSize: 10 }}>{t}</span>
+                    <span key={t} className="badge badge-grey text-[10px]">{t}</span>
                   ))}
                 </div>
               </td>
@@ -277,7 +277,7 @@ export default function DecisionsPage() {
         <div className="modal-overlay" onClick={() => setPendingDelete(null)} role="dialog" aria-modal="true">
           <div className="modal-card" onClick={(e) => e.stopPropagation()}>
             <h2>Delete this decision?</h2>
-            <p className="meta" style={{ lineHeight: 1.5 }}>
+            <p className="meta leading-normal">
               “{pendingDelete.title}” will be permanently removed from the decision log. This cannot
               be undone.
             </p>

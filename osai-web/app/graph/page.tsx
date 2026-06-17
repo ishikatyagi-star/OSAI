@@ -114,7 +114,7 @@ export default function GraphPage() {
             </span>
           ))}
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--text-secondary)" }} className="text-micro">
-            <span style={{ fontWeight: 700 }}>&ndash;</span>
+            <span className="font-bold">&ndash;</span>
             No Access
           </span>
         </div>
@@ -122,7 +122,7 @@ export default function GraphPage() {
 
       {loaded && data.users.length === 0 ? (
         <div className="card" style={{ textAlign: "center", padding: "48px 24px" }}>
-          <p className="text-body" style={{ fontWeight: 600, marginBottom: 6 }}>No access map yet</p>
+          <p className="text-body font-semibold" style={{ marginBottom: 6 }}>No access map yet</p>
           <p className="meta" style={{ maxWidth: 460, margin: "0 auto 16px" }}>
             The access map is built from your team members and the tools they can reach. Connect a
             source and invite your team to populate it.
@@ -151,8 +151,8 @@ export default function GraphPage() {
                 return (
                   <tr key={u.id}>
                     <td>
-                      <div className="text-caption" style={{ fontWeight: 600, color: "var(--text-primary)" }}>{u.label}</div>
-                      <span className="badge badge-grey" style={{ fontSize: 10 }}>{u.role}</span>
+                      <div className="text-caption font-semibold" style={{ color: "var(--text-primary)" }}>{u.label}</div>
+                      <span className="badge badge-grey text-[10px]">{u.role}</span>
                     </td>
                     {data.connectors.map((c) => {
                       const a = row?.get(c.key);

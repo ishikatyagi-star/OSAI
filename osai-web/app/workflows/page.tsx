@@ -62,7 +62,7 @@ function ActionItemRow({
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
           <span className="text-caption">{DESTINATION_ICONS[item.destination] || (item.destination === "manual" ? <User size={13} /> : "⚙")}</span>
-          <span className="text-caption" style={{ fontWeight: 600, color: "var(--text-primary)" }}>{item.title}</span>
+          <span className="text-caption font-semibold" style={{ color: "var(--text-primary)" }}>{item.title}</span>
         </div>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           {item.owner && (
@@ -99,7 +99,8 @@ function ActionItemRow({
             href={item.external_url}
             target="_blank"
             rel="noopener noreferrer"
-            style={{ fontSize: 11, color: "var(--accent)" }}
+            className="text-[11px]"
+            style={{ color: "var(--accent)" }}
           >
             View →
           </a>
@@ -148,7 +149,7 @@ function RunCard({
               {run.status}
             </span>
             {pendingCount > 0 && (
-              <span className="badge badge-yellow" style={{ fontSize: 10 }}>
+              <span className="badge badge-yellow text-[10px]">
                 {pendingCount} pending
               </span>
             )}
@@ -157,7 +158,7 @@ function RunCard({
             <span className="meta">⚡ {items.length} action items</span>
             <span className="meta">→ {run.destination}</span>
             <span className="meta">🤖 {run.model_route}</span>
-            <span className="meta" style={{ color: TIER_COLORS[tier], fontWeight: 600, textTransform: "uppercase", fontSize: 10 }}>
+            <span className="meta text-[10px] font-semibold uppercase" style={{ color: TIER_COLORS[tier] }}>
               {tier} tier
             </span>
             <span className="meta">{timeAgo(run.created_at)}</span>
@@ -338,7 +339,7 @@ export default function WorkflowsPage() {
               onChange={(e) => setInputText(e.target.value)}
             />
             <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 12, flexWrap: "wrap" }}>
-              <label className="text-micro" style={{ fontWeight: 600, color: "var(--text-secondary)" }}>
+              <label className="text-micro font-semibold" style={{ color: "var(--text-secondary)" }}>
                 Push items to:
               </label>
               <select
@@ -376,8 +377,8 @@ export default function WorkflowsPage() {
 
       {runs.length === 0 && (
         <div className="card" style={{ textAlign: "center", padding: "40px 24px" }}>
-          <p className="text-body" style={{ fontWeight: 600, marginBottom: 6 }}>No workflow runs yet</p>
-          <p className="meta" style={{ maxWidth: 460, margin: "0 auto 8px", lineHeight: 1.5 }}>
+          <p className="text-body font-semibold" style={{ marginBottom: 6 }}>No workflow runs yet</p>
+          <p className="meta leading-normal" style={{ maxWidth: 460, margin: "0 auto 8px" }}>
             Paste meeting notes or a transcript and OSAI extracts the action items — owner, due date
             and a source quote — then pushes them to Notion, Slack, Freshdesk or manual review.
           </p>

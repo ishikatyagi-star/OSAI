@@ -253,7 +253,7 @@ export function EvalDashboard() {
       {/* Error + retry */}
       {loadState === "error" && (
         <div className="card" style={{ textAlign: "center", padding: "44px 24px" }}>
-          <p style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Couldn&apos;t load eval results</p>
+          <p className="text-body font-semibold" style={{ marginBottom: 6 }}>Couldn&apos;t load eval results</p>
           <p className="meta" style={{ marginBottom: 18 }}>
             The eval service didn&apos;t respond. Check that the backend is reachable, then try again.
           </p>
@@ -266,7 +266,7 @@ export function EvalDashboard() {
       {/* Empty (reached backend, no cases yet) */}
       {isEmpty && (
         <div className="card" style={{ textAlign: "center", padding: "44px 24px" }}>
-          <p style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>No eval cases yet</p>
+          <p className="text-body font-semibold" style={{ marginBottom: 6 }}>No eval cases yet</p>
           <p className="meta" style={{ maxWidth: 420, margin: "0 auto" }}>
             Once the eval suite runs against your indexed data, pass rates and per-case results
             will appear here.
