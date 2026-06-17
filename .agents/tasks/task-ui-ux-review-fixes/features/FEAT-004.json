@@ -1,0 +1,26 @@
+{
+  "id": "FEAT-004",
+  "type": "chore",
+  "description": "P3 - Polish and cleanup: refactor Demo page inline styles to classes, remove dead navbar.tsx, commit all changes",
+  "status": "completed",
+  "steps": [
+    "In osai-web/app/demo/page.tsx: Replace all inline styles with CSS classes. Add `.demo-loading-page` class (min-height:100vh, display:flex, flex-direction:column, align-items:center, justify-content:center, background:var(--bg), gap:20px) and `.demo-logo-mark` (width:52px, height:52px, border-radius:16px, background gradient, etc.) to globals.css. Import Loader2 from lucide-react and use a spinning Loader2 instead of the custom animated dots or alongside them.",
+    "Delete osai-web/components/navbar.tsx (dead code - the app uses sidebar.tsx now)",
+    "Do a final npm run typecheck and npm run build to confirm everything passes",
+    "Commit all changes with a descriptive commit message like 'fix: UI/UX review - shared components, design system compliance, inline style elimination' on the current branch"
+  ],
+  "acceptance_criteria": [
+    "Demo page uses CSS classes instead of inline styles",
+    "components/navbar.tsx file no longer exists",
+    "npm run typecheck passes",
+    "npm run build passes",
+    "All changes are committed locally on feat/framer-design-ask-page branch"
+  ],
+  "verification": [
+    "cd /projects/sandbox/OSAI/osai-web && npm run typecheck",
+    "cd /projects/sandbox/OSAI/osai-web && npm run build",
+    "cd /projects/sandbox/OSAI && git status"
+  ],
+  "blocked_reason": null,
+  "findings": "Demo page inline styles replaced with CSS classes (.demo-loading-page, .demo-logo-mark, .demo-text-group, .demo-label, .demo-description, .demo-spinner). Loader2 from lucide-react replaces the custom animated dots. Dead navbar.tsx deleted - confirmed no imports elsewhere. Typecheck and build both pass cleanly."
+}

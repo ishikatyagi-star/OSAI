@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { ChevronDown, ChevronUp, User } from "lucide-react";
 import { getWorkflowRuns, postWorkflow, approveActionItem } from "@/lib/api";
 import { DEMO_WORKFLOW_RUNS } from "@/lib/demo-data";
 import { isDemo } from "@/lib/demo";
@@ -36,7 +37,7 @@ const DESTINATION_ICONS: Record<string, string> = {
   slack: "💬",
   freshdesk: "🎫",
   google_drive: "📁",
-  manual: "👤",
+  manual: "",
 };
 
 function ActionItemRow({
@@ -60,12 +61,12 @@ function ActionItemRow({
     <div className="action-item-row">
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-          <span style={{ fontSize: 13 }}>{DESTINATION_ICONS[item.destination] ?? "⚙"}</span>
+          <span style={{ fontSize: 13 }}>{DESTINATION_ICONS[item.destination] || (item.destination === "manual" ? <User size={13} /> : "⚙")}</span>
           <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>{item.title}</span>
         </div>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           {item.owner && (
-            <span className="meta">👤 {item.owner.split("@")[0]}</span>
+            <span className="meta" style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><User size={11} /> {item.owner.split("@")[0]}</span>
           )}
           {item.due_date && (
             <span className="meta">📅 Due {item.due_date}</span>
@@ -86,8 +87,7 @@ function ActionItemRow({
         </span>
         {item.status === "needs_review" && (
           <button
-            className="btn btn-primary"
-            style={{ padding: "6px 14px", fontSize: 11 }}
+            className="btn btn-primary btn-xs"
             disabled={approving}
             onClick={handleApprove}
           >
@@ -128,17 +128,7 @@ function RunCard({
     <div className="card workflow-run-card" style={{ padding: 0, overflow: "hidden" }}>
       <button
         onClick={onToggle}
-        style={{
-          width: "100%",
-          background: "none",
-          border: "none",
-          padding: "18px 22px",
-          cursor: "pointer",
-          textAlign: "left",
-          display: "flex",
-          alignItems: "center",
-          gap: 14,
-        }}
+        className="workflow-run-header"
       >
         {/* Tier indicator */}
         <div
@@ -175,7 +165,7 @@ function RunCard({
         </div>
 
         <span style={{ color: "var(--text-muted)", fontSize: 12, flexShrink: 0 }}>
-          {expanded ? "▲" : "▼"}
+          {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         </span>
       </button>
 

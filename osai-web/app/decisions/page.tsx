@@ -151,16 +151,14 @@ export default function DecisionsPage() {
         ] as const).map((opt) => (
           <button
             key={opt.key}
-            className={`btn${ownerFilter === opt.key ? " btn-primary" : ""}`}
-            style={{ fontSize: 12, padding: "6px 14px" }}
+            className={`btn btn-sm${ownerFilter === opt.key ? " btn-primary" : ""}`}
             onClick={() => setOwnerFilter(opt.key)}
           >
             {opt.label}
           </button>
         ))}
         <button
-          className={`btn${sourceFilter === "osai" ? " btn-primary" : ""}`}
-          style={{ fontSize: 12, padding: "6px 14px" }}
+          className={`btn btn-sm${sourceFilter === "osai" ? " btn-primary" : ""}`}
           onClick={() => setSourceFilter((s) => (s === "osai" ? "all" : "osai"))}
         >
           ✨ OSAI-identified{osaiCount > 0 ? ` (${osaiCount})` : ""}
@@ -250,10 +248,9 @@ export default function DecisionsPage() {
               </td>
               <td>
                 <div style={{ display: "flex", gap: 6 }}>
-                  <button className="btn-ghost btn" style={{ fontSize: 11, padding: "3px 7px" }}>Edit</button>
+                  <button className="btn-ghost btn btn-xs">Edit</button>
                   <button
-                    className="btn-ghost btn btn-danger"
-                    style={{ fontSize: 11, padding: "3px 7px" }}
+                    className="btn-ghost btn btn-danger btn-xs"
                     onClick={() => setPendingDelete(d)}
                     aria-label={`Delete decision: ${d.title}`}
                   >

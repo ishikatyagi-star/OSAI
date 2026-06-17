@@ -105,39 +105,28 @@ export default function SyncRunsPage() {
           };
           const isLast = i === display.length - 1;
 
+          const dotClass =
+            run.status === "succeeded"
+              ? "timeline-dot timeline-dot--success"
+              : run.status === "failed"
+                ? "timeline-dot timeline-dot--failed"
+                : "timeline-dot timeline-dot--default";
+
           return (
             <div
               key={run.id}
               style={{ display: "flex", gap: 0, alignItems: "stretch" }}
             >
               {/* Timeline rail */}
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 36, flexShrink: 0 }}>
-                <div
-                  style={{
-                    width: 10,
-                    height: 10,
-                    borderRadius: "50%",
-                    background: run.status === "succeeded" ? "var(--green)" : run.status === "failed" ? "var(--red)" : "var(--text-secondary)",
-                    border: "2px solid var(--border)",
-                    marginTop: 18,
-                    flexShrink: 0,
-                    boxShadow: run.status === "succeeded" ? "0 0 6px var(--green)" : "none",
-                  }}
-                />
-                {!isLast && (
-                  <div style={{ flex: 1, width: 1, background: "var(--border)", marginTop: 4 }} />
-                )}
+              <div className="timeline-rail">
+                <div className={dotClass} />
+                {!isLast && <div className="timeline-line" />}
               </div>
 
               {/* Card */}
               <div
-                className="card"
-                style={{
-                  flex: 1,
-                  marginLeft: 12,
-                  marginBottom: isLast ? 0 : 12,
-                  padding: "14px 18px",
-                }}
+                className="card timeline-card"
+                style={{ marginBottom: isLast ? 0 : undefined }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
                   <span style={{ fontSize: 16 }}>{meta.icon}</span>

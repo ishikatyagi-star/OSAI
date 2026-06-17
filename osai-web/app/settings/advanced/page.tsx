@@ -10,8 +10,7 @@ export default function AdvancedSettingsPage() {
     <div>
       <Link
         href="/settings"
-        className="meta"
-        style={{ display: "inline-flex", alignItems: "center", gap: 4, marginBottom: 12 }}
+        className="back-link"
       >
         <ChevronLeft className="size-3.5" /> Settings
       </Link>

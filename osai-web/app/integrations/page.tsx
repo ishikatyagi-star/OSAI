@@ -8,6 +8,8 @@ import { CONNECTOR_META } from "@/lib/connector-meta";
 import type { Integration, SyncRun } from "@/lib/types";
 import { ConnectorManager } from "@/components/integrations/connector-manager";
 import { DataRoutingPanel } from "@/components/integrations/data-routing-panel";
+import { StatusDot } from "@/components/ui/status-dot";
+import { TabsPill, TabsPillList, TabsPillTrigger, TabsPillContent } from "@/components/ui/tabs-pill";
 
 type Tab = "connectors" | "routing";
 
@@ -19,24 +21,6 @@ function timeAgo(iso: string) {
   const hours = Math.floor(mins / 60);
   if (hours < 24) return `${hours}h ago`;
   return `${Math.floor(hours / 24)}d ago`;
-}
-
-function StatusDot({ state }: { state: string }) {
-  const color =
-    state === "connected" ? "var(--green)" : state === "error" ? "var(--red)" : "var(--text-muted)";
-  return (
-    <span
-      style={{
-        display: "inline-block",
-        width: 8,
-        height: 8,
-        borderRadius: "50%",
-        background: color,
-        boxShadow: state === "connected" ? "0 0 6px var(--green)" : "none",
-        flexShrink: 0,
-      }}
-    />
-  );
 }
 
 export default function IntegrationsPage() {
@@ -149,35 +133,17 @@ export default function IntegrationsPage() {
       </div>
 
       {/* Tabs: Connectors | Data Routing */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 22, borderBottom: "1px solid var(--border)" }}>
-        {([
-          { key: "connectors", label: "Connectors" },
-          { key: "routing", label: "Data Routing" },
-        ] as const).map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            style={{
-              background: "none",
-              border: "none",
-              borderBottom: tab === t.key ? "2px solid var(--accent)" : "2px solid transparent",
-              color: tab === t.key ? "var(--text-primary)" : "var(--text-muted)",
-              fontSize: 13,
-              fontWeight: 600,
-              padding: "8px 4px",
-              marginBottom: -1,
-              cursor: "pointer",
-            }}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <TabsPill value={tab} onValueChange={(v) => setTab(v as Tab)}>
+        <TabsPillList>
+          <TabsPillTrigger value="connectors">Connectors</TabsPillTrigger>
+          <TabsPillTrigger value="routing">Data Routing</TabsPillTrigger>
+        </TabsPillList>
 
-      {tab === "routing" ? (
-        <DataRoutingPanel />
-      ) : (
-        <>
+        <TabsPillContent value="routing">
+          <DataRoutingPanel />
+        </TabsPillContent>
+
+        <TabsPillContent value="connectors">
           {justConnected && (
             <div
               className="card"
@@ -307,8 +273,7 @@ export default function IntegrationsPage() {
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}>
                     {item.auth_state === "connected" ? (
                       <button
-                        className="btn btn-primary"
-                        style={{ padding: "8px 18px", fontSize: 12 }}
+                        className="btn btn-primary btn-sm"
                         disabled={syncing[item.key]}
                         onClick={() => handleSync(item.key)}
                       >
@@ -316,16 +281,14 @@ export default function IntegrationsPage() {
                       </button>
                     ) : (
                       <button
-                        className="btn btn-primary"
-                        style={{ padding: "8px 18px", fontSize: 12 }}
+                        className="btn btn-primary btn-sm"
                         onClick={() => handleConnectStart(item.key)}
                       >
                         Connect
                       </button>
                     )}
                     <button
-                      className="btn"
-                      style={{ padding: "8px 16px", fontSize: 12 }}
+                      className="btn btn-sm"
                       onClick={() => setManagedKey(item.key)}
                     >
                       Manage
@@ -345,7 +308,7 @@ export default function IntegrationsPage() {
               { key: "linear", label: "Linear", icon: "📐" },
               { key: "confluence", label: "Confluence", icon: "📚" },
             ].map((c) => (
-              <div key={c.key} className="card connector-card" style={{ opacity: 0.5 }}>
+              <div key={c.key} className="card connector-card card-muted">
                 <div style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 16 }}>
                   <div
                     className="connector-icon-badge"
@@ -363,7 +326,7 @@ export default function IntegrationsPage() {
                     </p>
                   </div>
                 </div>
-                <button className="btn" style={{ padding: "8px 18px", fontSize: 12, opacity: 0.5 }} disabled>
+                <button className="btn btn-sm" disabled>
                   Notify me
                 </button>
               </div>
@@ -379,8 +342,8 @@ export default function IntegrationsPage() {
             onSync={handleSync}
             onToggleConnection={handleToggleConnection}
           />
-        </>
-      )}
+        </TabsPillContent>
+      </TabsPill>
     </div>
   );
 }

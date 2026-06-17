@@ -1,0 +1,29 @@
+{
+  "id": "FEAT-002",
+  "type": "refactor",
+  "description": "P1 - Refactor Dashboard, Inbox, Integrations, and Sync Runs pages: eliminate inline styles, use shared components (StatusDot, btn-sm/btn-xs, tabs-pill), fix spotlight gradient to use design tokens, fix coming-soon cards",
+  "status": "completed",
+  "steps": [
+    "In osai-web/app/dashboard/page.tsx: (a) Replace the spotlight card's inline background gradient (#1f4d7a blues) with the proper gradient token from DESIGN.md - use `spotlight-violet` class instead (radial-gradient using --grad-violet). (b) Remove all inline style={{}} on the spotlight div and move display/margin/gap to a utility class or the existing .spotlight CSS. (c) Replace inline fontSize/letterSpacing/textTransform on the 'Company pulse' eyebrow with a new .spotlight-eyebrow class in globals.css. (d) Replace the inline StatusDot (green circle with glow) in connector health rows with the shared <StatusDot> component imported from @/components/ui/status-dot. (e) Replace emoji 👤 with lucide User icon where it appears in attention-card-meta. (f) Remove all inline padding/gap overrides and use design system classes instead.",
+    "In osai-web/app/inbox/page.tsx: (a) Replace all inline style={{fontSize: 11, padding: '5px 12px'}} on buttons with `btn-xs` class. (b) Replace emoji 👤 in context-item-meta with lucide User icon. (c) Remove inline style on the filter row (display:flex, gap, marginBottom) and add a .filter-bar utility class to globals.css.",
+    "In osai-web/app/integrations/page.tsx: (a) Replace the local StatusDot function with the imported shared <StatusDot> component from @/components/ui/status-dot. (b) Replace the inline tab implementation (style-based border-bottom tabs) with the shared TabsPill component, or add a .tabs-underline class set in globals.css and use class-based tabs. (c) Fix 'coming soon' connector cards: remove `style={{ opacity: 0.5 }}` and instead add a `.card-muted` class that uses `background: var(--bg-surface); color: var(--text-muted)` (surface+muted pattern). (d) Replace inline padding overrides on buttons with btn-sm class.",
+    "In osai-web/app/sync-runs/page.tsx: (a) Extract the timeline rail styles into globals.css classes: `.timeline-rail` (flex column, align center, width 36px, flex-shrink 0), `.timeline-dot` (10px circle with border), `.timeline-line` (flex:1, width:1px, background:var(--border)). (b) Replace all inline style={{}} on timeline elements with these new classes. (c) Replace inline card padding/margin overrides with CSS classes. (d) Add `.timeline-dot--success` (background:var(--green), box-shadow), `.timeline-dot--failed` (background:var(--red)), `.timeline-dot--default` (background:var(--text-secondary)) modifier classes."
+  ],
+  "acceptance_criteria": [
+    "Dashboard spotlight card uses gradient tokens (--grad-violet) instead of custom #1f4d7a blue",
+    "Dashboard uses imported StatusDot component, not inline spans for green dots",
+    "Inbox buttons use btn-xs class instead of inline style padding",
+    "Integrations page imports StatusDot from shared component",
+    "Integrations inline tab implementation replaced with CSS classes (tabs-underline or TabsPill)",
+    "Coming-soon cards use .card-muted class instead of opacity:0.5",
+    "Sync Runs timeline uses CSS classes instead of inline styles",
+    "No emoji 👤 remains in dashboard or inbox (replaced with lucide User)",
+    "npm run typecheck and npm run build pass"
+  ],
+  "verification": [
+    "cd /projects/sandbox/OSAI/osai-web && npm run typecheck",
+    "cd /projects/sandbox/OSAI/osai-web && npm run build"
+  ],
+  "blocked_reason": null,
+  "findings": "All 4 pages refactored. Dashboard spotlight uses spotlight-violet class with gradient tokens (--grad-violet). Local StatusDot in integrations replaced with shared import. Inline tab implementation replaced with tabs-underline CSS classes. Coming-soon cards use card-muted (surface+muted coloring) instead of opacity:0.5. Sync runs timeline uses timeline-rail/dot/line classes. All btn-xs applied in inbox. User icon from lucide-react replaces all 👤 emoji. Both typecheck and build pass cleanly."
+}
