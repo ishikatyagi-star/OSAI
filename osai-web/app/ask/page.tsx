@@ -294,46 +294,26 @@ export default function AskPage() {
                 <h2 className="ask-title">What would you like to know?</h2>
               </div>
 
-              {/* HERO composer — the product's core differentiator */}
+              {/* HERO composer — clean Gemini-style pill input */}
               <form onSubmit={handleSubmit} className="w-full">
                 <div className="ask-composer ask-composer-hero">
-                  {/* Mode tabs */}
-                  <div className="flex items-center gap-1 px-3 py-3">
-                    {COMPOSER_MODES.map((m) => {
-                      const Icon = m.icon;
-                      return (
-                        <button
-                          key={m.id}
-                          type="button"
-                          data-active={mode === m.id}
-                          onClick={() => {
-                            setMode(m.id);
-                            inputRef.current?.focus();
-                          }}
-                          className="ask-mode-tab"
-                        >
-                          <Icon className="size-3.5" />
-                          {m.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {/* Input row — placeholder + send vertically centered */}
-                  <div className="flex items-center gap-2 px-4 py-3.5">
+                  {/* Single input row: Plus + Textarea + Send */}
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    <Plus className="size-5 shrink-0 text-[var(--text-secondary)]" />
                     <Textarea
                       ref={inputRef}
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
                       onKeyDown={handleKeyDown}
                       rows={1}
-                      placeholder={activeMode.placeholder}
+                      placeholder="Ask anything about your org..."
                       className="max-h-44 min-h-[44px] flex-1 resize-none self-center border-0 bg-transparent px-1 py-1 text-base shadow-none outline-none focus-visible:ring-0 placeholder:text-[var(--text-muted)]"
                       autoFocus
                     />
                     <Button
                       type="submit"
                       size="icon"
-                      className="size-11 shrink-0 self-center rounded-full bg-white text-black hover:bg-gray-200"
+                      className="size-10 shrink-0 self-center rounded-full bg-white text-black hover:bg-gray-200"
                       disabled={pending || !input.trim()}
                       aria-label="Send"
                       title="Send"
@@ -345,6 +325,27 @@ export default function AskPage() {
                       )}
                     </Button>
                   </div>
+                </div>
+                {/* Mode pills — below the input bar */}
+                <div className="mt-3 flex items-center justify-center gap-2">
+                  {COMPOSER_MODES.map((m) => {
+                    const Icon = m.icon;
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        data-active={mode === m.id}
+                        onClick={() => {
+                          setMode(m.id);
+                          inputRef.current?.focus();
+                        }}
+                        className="ask-mode-pill"
+                      >
+                        <Icon className="size-3.5" />
+                        {m.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </form>
 
