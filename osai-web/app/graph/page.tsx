@@ -108,7 +108,7 @@ export default function GraphPage() {
         </select>
         <div style={{ display: "flex", gap: 12, marginLeft: "auto" }}>
           {(Object.keys(TIER_META) as Tier[]).map((t) => (
-            <span key={t} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-secondary)" }}>
+            <span key={t} style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--text-secondary)" }} className="text-micro">
               <span className={`tier-legend-dot tier-legend-dot--${t}`} />
               {TIER_META[t].label}
             </span>
@@ -118,7 +118,7 @@ export default function GraphPage() {
 
       {loaded && data.users.length === 0 ? (
         <div className="card" style={{ textAlign: "center", padding: "48px 24px" }}>
-          <p style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>No access map yet</p>
+          <p className="text-body" style={{ fontWeight: 600, marginBottom: 6 }}>No access map yet</p>
           <p className="meta" style={{ maxWidth: 460, margin: "0 auto 16px" }}>
             The access map is built from your team members and the tools they can reach. Connect a
             source and invite your team to populate it.
@@ -147,7 +147,7 @@ export default function GraphPage() {
                 return (
                   <tr key={u.id}>
                     <td>
-                      <div style={{ fontWeight: 600, fontSize: 13, color: "var(--text-primary)" }}>{u.label}</div>
+                      <div className="text-caption" style={{ fontWeight: 600, color: "var(--text-primary)" }}>{u.label}</div>
                       <span className="badge badge-grey" style={{ fontSize: 10 }}>{u.role}</span>
                     </td>
                     {data.connectors.map((c) => {
@@ -155,7 +155,7 @@ export default function GraphPage() {
                       if (!a) {
                         return (
                           <td key={c.key} style={{ textAlign: "center", color: "var(--text-muted)" }}>
-                            <span title="No access" style={{ fontSize: 14 }}>—</span>
+                            <span title="No access">—</span>
                           </td>
                         );
                       }

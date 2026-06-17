@@ -217,7 +217,7 @@ export default function DecisionsPage() {
           {filtered.map((d) => (
             <tr key={d.id}>
               <td>
-                <div style={{ fontWeight: 600, marginBottom: 5, fontSize: 13, color: "var(--text-primary)" }}>
+                <div className="text-caption" style={{ fontWeight: 600, marginBottom: 5, color: "var(--text-primary)" }}>
                   {d.title}
                 </div>
                 <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
@@ -238,10 +238,10 @@ export default function DecisionsPage() {
                 <span className={`badge ${IMPACT_META[d.impact].cls}`}>{d.impact}</span>
               </td>
               <td>
-                <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{d.owner}</span>
+                <span className="text-micro" style={{ color: "var(--text-secondary)" }}>{d.owner}</span>
               </td>
               <td>
-                <span className="meta" style={{ fontSize: 11 }}>{d.source}</span>
+                <span className="meta">{d.source}</span>
               </td>
               <td>
                 <span className="mono">{d.date}</span>

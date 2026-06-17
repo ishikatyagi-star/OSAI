@@ -146,13 +146,12 @@ export default function IntegrationsPage() {
         <TabsPillContent value="connectors">
           {justConnected && (
             <div
-              className="card"
+              className="card text-caption"
               style={{
                 marginBottom: 16,
                 borderColor: "var(--green)",
                 background: "color-mix(in srgb, var(--green) 10%, transparent)",
                 color: "var(--green)",
-                fontSize: 13,
                 fontWeight: 600,
                 padding: "12px 16px",
               }}
@@ -190,7 +189,7 @@ export default function IntegrationsPage() {
 
           {display.length === 0 && (
             <div className="card" style={{ textAlign: "center", padding: "44px 24px", marginBottom: 16 }}>
-              <p style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>No connectors yet</p>
+              <p className="text-body" style={{ fontWeight: 600, marginBottom: 6 }}>No connectors yet</p>
               <p className="meta" style={{ maxWidth: 420, margin: "0 auto" }}>
                 The backend didn&apos;t return any connectors. Once available, connect Notion, Google
                 Drive, Slack and more to start indexing your context.
@@ -220,7 +219,7 @@ export default function IntegrationsPage() {
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                        <h2 style={{ margin: 0, fontSize: 16 }}>{meta.label}</h2>
+                        <h2 style={{ margin: 0 }}>{meta.label}</h2>
                         <StatusDot state={item.auth_state} />
                         <span
                           className={`badge badge-${item.auth_state === "connected" ? "green" : item.auth_state === "error" ? "red" : "grey"}`}
@@ -228,7 +227,7 @@ export default function IntegrationsPage() {
                           {item.auth_state === "not_configured" ? "not connected" : item.auth_state}
                         </span>
                       </div>
-                      <p className="meta" style={{ margin: 0, fontSize: 12, lineHeight: 1.4 }}>
+                      <p className="meta" style={{ margin: 0, lineHeight: 1.4 }}>
                         {meta.description}
                       </p>
                     </div>
@@ -264,7 +263,7 @@ export default function IntegrationsPage() {
                   </div>
 
                   {item.sync_error && (
-                    <p className="error-text" style={{ fontSize: 12, marginBottom: 12 }}>
+                    <p className="error-text" style={{ marginBottom: 12 }}>
                       ⚠ {item.sync_error}
                     </p>
                   )}
@@ -294,7 +293,7 @@ export default function IntegrationsPage() {
                       Manage
                     </button>
                     {syncMsg[item.key] && (
-                      <span className="success-text" style={{ fontSize: 12 }}>
+                      <span className="success-text">
                         ✓ {syncMsg[item.key]}
                       </span>
                     )}
@@ -318,10 +317,10 @@ export default function IntegrationsPage() {
                   </div>
                   <div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                      <h2 style={{ margin: 0, fontSize: 16 }}>{c.label}</h2>
+                      <h2 style={{ margin: 0 }}>{c.label}</h2>
                       <span className="badge badge-grey" style={{ fontSize: 10 }}>coming soon</span>
                     </div>
-                    <p className="meta" style={{ margin: 0, fontSize: 12 }}>
+                    <p className="meta" style={{ margin: 0 }}>
                       {CONNECTOR_META[c.key]?.description}
                     </p>
                   </div>

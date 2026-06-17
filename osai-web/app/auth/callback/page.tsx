@@ -57,7 +57,7 @@ export default function AuthCallbackPage() {
         O
       </div>
       <Loader2 className="animate-spin" size={20} />
-      <p style={{ fontSize: 13 }}>{error || "Signing you in…"}</p>
+      <p className="text-caption">{error || "Signing you in…"}</p>
     </div>
   );
 }

@@ -33,8 +33,8 @@ export default function SyncButton({ connectorKey }: { connectorKey: string }) {
       </button>
       {msg && (
         <span
-          style={{ marginLeft: 12, fontSize: 13 }}
-          className={state === "error" ? "error-text" : "success-text"}
+          style={{ marginLeft: 12 }}
+          className={`text-caption ${state === "error" ? "error-text" : "success-text"}`}
         >
           {msg}
         </span>
