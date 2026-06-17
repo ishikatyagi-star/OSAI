@@ -1,0 +1,33 @@
+{
+  "project_type": "Next.js 16 web app with React 19, Tailwind CSS v4, shadcn/ui",
+  "language": "TypeScript / TSX",
+  "build_system": "npm + Next.js",
+  "test_framework": "No test files present - validation through typecheck and build",
+  "build_command": "cd /projects/sandbox/OSAI/osai-web && npm run build",
+  "test_command": "cd /projects/sandbox/OSAI/osai-web && npm run typecheck",
+  "verification_instructions": "1. Run npm run typecheck (must pass with zero errors). 2. Run npm run build (must complete successfully). 3. Verify no inline style={{}} patterns remain for things that should be CSS classes.",
+  "snapshot_or_generated_files": null,
+  "setup_instructions": "cd /projects/sandbox/OSAI/osai-web && npm install (already done - node_modules present)",
+  "environment_constraints": "OPEN_INTERNET network mode. Node.js v22. No test suite to run - just typecheck + build.",
+  "contribution_requirements": "Stay on feat/framer-design-ask-page branch. Commit all changes locally. Do not push.",
+  "key_patterns": "Design system in globals.css using CSS custom properties (--bg, --text-primary, etc). Component classes (.card, .btn, .stat-card, .badge). Inline styles are prevalent and need to be replaced with CSS classes. DESIGN.md specifies rounded.xl = 20px for cards. Pages use 'use client' directive. Lucide-react for icons.",
+  "relevant_files": [
+    "osai-web/app/globals.css",
+    "osai-web/app/dashboard/page.tsx",
+    "osai-web/app/inbox/page.tsx",
+    "osai-web/app/integrations/page.tsx",
+    "osai-web/app/sync-runs/page.tsx",
+    "osai-web/app/decisions/page.tsx",
+    "osai-web/app/workflows/page.tsx",
+    "osai-web/app/workflows/[id]/page.tsx",
+    "osai-web/app/graph/page.tsx",
+    "osai-web/app/login/page.tsx",
+    "osai-web/app/demo/page.tsx",
+    "osai-web/app/auth/callback/page.tsx",
+    "osai-web/app/settings/page.tsx",
+    "osai-web/app/settings/advanced/page.tsx",
+    "osai-web/components/navbar.tsx",
+    "osai-web/components/ui/tabs.tsx"
+  ],
+  "directory_structure": "osai-web/app/ contains route pages. osai-web/components/ has shared components (sidebar, app-shell, ui/). osai-web/lib/ has utilities, API client, demo data. osai-web/app/globals.css is the main design system (~1910 lines)."
+}

@@ -1,0 +1,7 @@
+{
+  "task_id": "task-ui-ux-review-fixes",
+  "task_description": "Fix all UI/UX issues identified in the comprehensive review across 21 pages: extract shared CSS components, eliminate inline styles, fix design token compliance, create shared StatusDot and TabsPill components, and clean up dead code",
+  "status": "in_progress",
+  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003", "FEAT-004"],
+  "blocked_reason": null
+}
