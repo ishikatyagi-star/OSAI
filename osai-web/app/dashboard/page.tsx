@@ -166,9 +166,9 @@ export default function DashboardPage() {
               </div>
               <div className="attention-card-actions">
                 <button className="attention-card-action" onClick={() => {}}>View Task</button>
-                <span style={{ color: "var(--border)" }}>|</span>
+                <span style={{ color: "var(--text-secondary)" }}>|</span>
                 <button className="attention-card-action" onClick={() => setSnoozed(p => new Set([...p, item.id]))}>Snooze</button>
-                <span style={{ color: "var(--border)" }}>|</span>
+                <span style={{ color: "var(--text-secondary)" }}>|</span>
                 <button className="attention-card-action dismiss" onClick={() => setDismissed(p => new Set([...p, item.id]))}>Dismiss</button>
               </div>
             </div>
