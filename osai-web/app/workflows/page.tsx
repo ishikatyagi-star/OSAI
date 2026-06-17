@@ -371,7 +371,7 @@ export default function WorkflowsPage() {
 
       {/* Run log */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-        <h2 style={{ margin: 0 }}>Run Log</h2>
+        <h2 style={{ margin: 0 }}>History</h2>
         <span className="meta">({runs.length} runs)</span>
       </div>
 
@@ -382,7 +382,7 @@ export default function WorkflowsPage() {
             Paste meeting notes or a transcript and OSAI extracts the action items — owner, due date
             and a source quote — then pushes them to Notion, Slack, Freshdesk or manual review.
           </p>
-          <p className="meta" style={{ maxWidth: 460, margin: "0 auto 18px", fontStyle: "italic" }}>
+          <p className="meta" style={{ maxWidth: 460, margin: "0 auto 18px", fontStyle: "italic", color: "#b3b3b3" }}>
             e.g. “Sarah: I’ll prepare the roadmap by Friday. Anish: I’ll schedule the interviews.”
           </p>
           <button className="btn btn-primary" onClick={() => setShowCreate(true)} style={{ display: "inline-flex" }}>
