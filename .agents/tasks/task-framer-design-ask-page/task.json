@@ -1,0 +1,7 @@
+{
+  "task_id": "task-framer-design-ask-page",
+  "task_description": "Run npx getdesign@latest add framer to install Framer design tokens, then apply the full Framer design system to the Ask OSAI page - poster-grade display type, dark canvas, white pill CTAs, gradient spotlight cards, and all DESIGN.md tokens.",
+  "status": "in_progress",
+  "feature_order": ["FEAT-001", "FEAT-002"],
+  "blocked_reason": null
+}
