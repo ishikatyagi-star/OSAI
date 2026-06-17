@@ -140,6 +140,26 @@ async def update_tier_rules(
 async def connector_healthcheck(connector_key: str, org_id: OrgId) -> dict[str, object]:
     if connector_key not in {connector.key for connector in connector_registry.all()}:
         raise HTTPException(status_code=404, detail="Unknown connector")
+
+    # If the app is connected via Composio OAuth, report on that connection rather
+    # than the native connector (which would ask for service-account creds).
+    client = get_default_composio_client()
+    if client.available():
+        slug = NATIVE_TO_COMPOSIO.get(connector_key, connector_key)
+        try:
+            connections = await client.list_connections(org_id)
+            if any(
+                c.get("toolkit") == slug and (c.get("status") or "").upper() == "ACTIVE"
+                for c in connections
+            ):
+                return {
+                    "connector_key": connector_key,
+                    "healthy": True,
+                    "message": "Connected via Composio (OAuth).",
+                }
+        except Exception:  # noqa: BLE001 — fall back to native healthcheck
+            pass
+
     connector = connector_registry.get(connector_key)
     result = await connector.healthcheck(org_id)
     return {
