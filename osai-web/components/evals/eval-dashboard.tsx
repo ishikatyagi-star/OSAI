@@ -43,12 +43,15 @@ function StatCard({
         {label}
       </p>
       <p
-        className={cn(
-          "stat-card-value mt-1 tabular-nums",
-          tone === "success" && "text-success",
-          tone === "destructive" && "text-destructive",
-          (!tone || tone === "default") && "text-foreground"
-        )}
+        className="stat-card-value mt-1 tabular-nums"
+        style={{
+          color:
+            tone === "success"
+              ? "var(--green)"
+              : tone === "destructive"
+                ? "var(--red)"
+                : "#ffffff",
+        }}
       >
         {value}
       </p>
@@ -62,7 +65,7 @@ function PassRateBar({ rate }: { rate: number }) {
   const color = pct >= 80 ? "var(--green)" : pct >= 60 ? "var(--blue)" : "var(--red)";
   return (
     <div className="flex items-center gap-2">
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+      <div className="h-1.5 w-full overflow-hidden rounded-full" style={{ background: "var(--bg-hover)" }}>
         <div
           className="h-full rounded-full transition-all"
           style={{ width: `${pct}%`, background: color }}
@@ -83,13 +86,14 @@ function CaseRow({ c }: { c: EvalCase }) {
         type="button"
         onClick={() => setOpen((o) => !o)}
         className="flex w-full items-center gap-3 px-4 py-3 text-left"
+        style={{ background: "transparent", border: "none", color: "#ffffff", cursor: "pointer" }}
       >
         {c.passed ? (
-          <CheckCircle2 className="size-4 shrink-0 text-success" />
+          <CheckCircle2 className="size-4 shrink-0" style={{ color: "var(--green)" }} />
         ) : (
-          <XCircle className="size-4 shrink-0 text-destructive" />
+          <XCircle className="size-4 shrink-0" style={{ color: "var(--red)" }} />
         )}
-        <span className="min-w-0 flex-1 truncate text-sm text-foreground">
+        <span className="min-w-0 flex-1 truncate text-sm" style={{ color: "#ffffff" }}>
           {c.question}
         </span>
         <span className="badge badge-grey hidden sm:inline-flex">
@@ -116,17 +120,15 @@ function CaseRow({ c }: { c: EvalCase }) {
             <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-primary)' }}>
               Expected
             </p>
-            <p className="mt-1 text-sm text-foreground">{c.expected}</p>
+            <p className="mt-1 text-sm" style={{ color: "#ffffff" }}>{c.expected}</p>
           </div>
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-primary)' }}>
               Actual
             </p>
             <p
-              className={cn(
-                "mt-1 text-sm",
-                c.passed ? "text-foreground" : "text-destructive"
-              )}
+              className="mt-1 text-sm"
+              style={{ color: c.passed ? "#ffffff" : "var(--red)" }}
             >
               {c.actual}
             </p>
@@ -136,7 +138,7 @@ function CaseRow({ c }: { c: EvalCase }) {
               <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-primary)' }}>
                 Notes
               </p>
-              <p className="mt-1 text-sm text-warning">{c.notes}</p>
+              <p className="mt-1 text-sm" style={{ color: "var(--yellow)" }}>{c.notes}</p>
             </div>
           )}
         </div>
@@ -296,7 +298,7 @@ export function EvalDashboard() {
               {categoryStats.map((s) => (
                 <div key={s.category} className="space-y-1">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-foreground">
+                    <span style={{ color: "#ffffff" }}>
                       {CATEGORY_LABEL[s.category]}
                     </span>
                     <span className="text-xs tabular-nums" style={{ color: 'var(--text-primary)' }}>
