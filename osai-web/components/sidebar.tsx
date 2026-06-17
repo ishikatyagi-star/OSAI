@@ -12,6 +12,7 @@ import {
   Settings,
   Share2,
   Sparkles,
+  Users,
   Zap,
   type LucideIcon,
 } from "lucide-react";
@@ -32,6 +33,7 @@ const NAV: NavItem[] = [
   { href: "/inbox", icon: Inbox, label: "Context Inbox" },
   { href: "/decisions", icon: ScrollText, label: "Decision Log" },
   { href: "/graph", icon: Share2, label: "Org Graph" },
+  { href: "/team", icon: Users, label: "Team" },
   { href: "/workflows", icon: Zap, label: "Workflows" },
   { href: "/integrations", icon: Plug, label: "Integrations" },
   { href: "/sync-runs", icon: RefreshCw, label: "Sync Runs" },

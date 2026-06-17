@@ -13,6 +13,7 @@ from api.routes import (
     search,
     settings,
     sync_runs,
+    team,
     webhooks,
     workflow_actions,
     workflows,
@@ -42,3 +43,4 @@ app.include_router(settings.router)
 app.include_router(webhooks.router)
 app.include_router(orgs.router)
 app.include_router(auth.router)
+app.include_router(team.router)

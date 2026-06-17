@@ -14,9 +14,15 @@ export default function LoginPage() {
   // Sign-in fields
   const [email, setEmail] = useState("");
   const [googleEnabled, setGoogleEnabled] = useState(false);
+  const [invitedEmail, setInvitedEmail] = useState("");
 
   useEffect(() => {
     getAuthConfig().then((c) => setGoogleEnabled(c.google_enabled));
+    const invite = new URLSearchParams(window.location.search).get("invite");
+    if (invite) {
+      setInvitedEmail(invite);
+      setEmail(invite);
+    }
   }, []);
 
   // Onboard fields
@@ -91,6 +97,12 @@ export default function LoginPage() {
           <h1 className="login-title">Welcome to OSAI</h1>
           <p className="login-subtitle">The operating layer for your company's knowledge</p>
         </div>
+
+        {invitedEmail && (
+          <div className="login-error" style={{ background: "var(--green-dim, rgba(34,197,94,0.12))", color: "var(--green)" }}>
+            <span>✓</span> You&apos;ve been invited. Sign in with Google using <strong>{invitedEmail}</strong> to join your team.
+          </div>
+        )}
 
         {/* Google sign-in (only when configured on the backend) */}
         {googleEnabled && (
