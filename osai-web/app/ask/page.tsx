@@ -298,7 +298,7 @@ export default function AskPage() {
               <form onSubmit={handleSubmit} className="w-full">
                 <div className="ask-composer ask-composer-hero">
                   {/* Mode tabs */}
-                  <div className="flex items-center gap-1 px-2.5 py-2">
+                  <div className="flex items-center gap-1 px-3 py-3">
                     {COMPOSER_MODES.map((m) => {
                       const Icon = m.icon;
                       return (
@@ -319,7 +319,7 @@ export default function AskPage() {
                     })}
                   </div>
                   {/* Input row — placeholder + send vertically centered */}
-                  <div className="flex items-center gap-2 px-3 py-2.5">
+                  <div className="flex items-center gap-2 px-4 py-3.5">
                     <Textarea
                       ref={inputRef}
                       value={input}
@@ -327,13 +327,13 @@ export default function AskPage() {
                       onKeyDown={handleKeyDown}
                       rows={1}
                       placeholder={activeMode.placeholder}
-                      className="max-h-44 min-h-[44px] flex-1 resize-none self-center border-0 bg-transparent px-1 py-1 text-base shadow-none focus-visible:ring-0"
+                      className="max-h-44 min-h-[44px] flex-1 resize-none self-center border-0 bg-transparent px-1 py-1 text-base shadow-none outline-none focus-visible:ring-0 placeholder:text-[var(--text-muted)]"
                       autoFocus
                     />
                     <Button
                       type="submit"
                       size="icon"
-                      className="size-10 shrink-0 self-center rounded-full"
+                      className="size-11 shrink-0 self-center rounded-full bg-white text-black hover:bg-gray-200"
                       disabled={pending || !input.trim()}
                       aria-label="Send"
                     >
@@ -433,7 +433,7 @@ export default function AskPage() {
           {/* Composer pinned to the bottom of the thread */}
           <form onSubmit={handleSubmit} className="shrink-0 pt-4">
             <div className="mx-auto w-full max-w-3xl">
-              <div className="ask-composer flex items-center gap-2 px-3 py-2">
+              <div className="ask-composer flex items-center gap-2 px-4 py-3">
                 <Textarea
                   ref={inputRef}
                   value={input}
@@ -441,13 +441,13 @@ export default function AskPage() {
                   onKeyDown={handleKeyDown}
                   rows={1}
                   placeholder="Ask a follow-up, or tell OSAI to take an action…"
-                  className="max-h-40 min-h-[40px] flex-1 resize-none self-center border-0 bg-transparent px-1 py-1.5 text-sm shadow-none focus-visible:ring-0"
+                  className="max-h-40 min-h-[40px] flex-1 resize-none self-center border-0 bg-transparent px-1 py-1.5 text-sm shadow-none outline-none focus-visible:ring-0 placeholder:text-[var(--text-muted)]"
                   autoFocus
                 />
                 <Button
                   type="submit"
                   size="icon"
-                  className="shrink-0 self-center rounded-full"
+                  className="size-10 shrink-0 self-center rounded-full bg-white text-black hover:bg-gray-200"
                   disabled={pending || !input.trim()}
                   aria-label="Send"
                 >
