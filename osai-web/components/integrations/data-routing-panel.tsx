@@ -129,7 +129,7 @@ export function DataRoutingPanel() {
 
       {loadState === "error" && (
         <div className="card" style={{ textAlign: "center", padding: "44px 24px" }}>
-          <p style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Couldn&apos;t load routing settings</p>
+          <p className="text-body" style={{ fontWeight: 600, marginBottom: 6 }}>Couldn&apos;t load routing settings</p>
           <p className="meta" style={{ marginBottom: 18 }}>
             The settings service didn&apos;t respond. Check that the backend is reachable, then try again.
           </p>
@@ -160,10 +160,10 @@ export function DataRoutingPanel() {
                     <div style={{ width: 4, height: 40, borderRadius: 9999, background: meta.color, flexShrink: 0 }} />
                     <div style={{ flex: 1 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-                        <h2 style={{ margin: 0, fontSize: 16 }}>{meta.icon} {meta.title} Tier</h2>
+                        <h2 style={{ margin: 0 }}>{meta.icon} {meta.title} Tier</h2>
                         <span className={`badge ${meta.badge}`}>{tier}</span>
                       </div>
-                      <p className="meta" style={{ margin: 0, fontSize: 12, lineHeight: 1.4 }}>
+                      <p className="meta" style={{ margin: 0, lineHeight: 1.4 }}>
                         {meta.description}
                       </p>
                     </div>
@@ -172,7 +172,7 @@ export function DataRoutingPanel() {
                   <div style={{ padding: "18px 22px" }}>
                     <div style={{ display: "flex", gap: 32, flexWrap: "wrap", alignItems: "flex-start" }}>
                       <div style={{ flex: 1 }}>
-                        <p style={{ fontWeight: 600, fontSize: 12, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 10 }}>
+                        <p className="text-micro" style={{ fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 10 }}>
                           Allowed Connectors
                         </p>
                         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -192,10 +192,10 @@ export function DataRoutingPanel() {
                                   background: checked ? "var(--accent-dim)" : "var(--bg-surface)",
                                   cursor: "pointer",
                                   transition: "all 0.2s",
-                                  fontSize: 12,
                                   fontWeight: 500,
                                   color: checked ? "var(--accent)" : "var(--text-muted)",
                                 }}
+                                className="text-micro"
                               >
                                 <input type="checkbox" checked={checked} onChange={() => toggleConnector(tier, key)} style={{ display: "none" }} />
                                 <span>{cm?.icon ?? "⚙"}</span>
@@ -208,7 +208,7 @@ export function DataRoutingPanel() {
                       </div>
 
                       <div>
-                        <p style={{ fontWeight: 600, fontSize: 12, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 10 }}>
+                        <p className="text-micro" style={{ fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 10 }}>
                           LLM Processing
                         </p>
                         <label
@@ -250,7 +250,7 @@ export function DataRoutingPanel() {
                               }}
                             />
                           </div>
-                          <span style={{ fontSize: 12, fontWeight: 600, color: config.llm_allowed ? "var(--accent)" : "var(--text-muted)" }}>
+                          <span className="text-micro" style={{ fontWeight: 600, color: config.llm_allowed ? "var(--accent)" : "var(--text-muted)" }}>
                             {config.llm_allowed ? "Allowed" : "Disabled"}
                           </span>
                         </label>
@@ -266,8 +266,8 @@ export function DataRoutingPanel() {
             <button className="btn btn-primary" onClick={handleSave} disabled={saving} style={{ padding: "11px 28px" }}>
               {saving ? "Saving…" : "Save Changes"}
             </button>
-            {savedMsg && <span className="success-text" style={{ fontSize: 13 }}>✓ {savedMsg}</span>}
-            {error && <span className="error-text" style={{ fontSize: 13 }}>{error}</span>}
+            {savedMsg && <span className="success-text text-caption">✓ {savedMsg}</span>}
+            {error && <span className="error-text text-caption">{error}</span>}
           </div>
         </>
       )}

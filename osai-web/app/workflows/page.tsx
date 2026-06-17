@@ -61,8 +61,8 @@ function ActionItemRow({
     <div className="action-item-row">
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-          <span style={{ fontSize: 13 }}>{DESTINATION_ICONS[item.destination] || (item.destination === "manual" ? <User size={13} /> : "⚙")}</span>
-          <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>{item.title}</span>
+          <span className="text-caption">{DESTINATION_ICONS[item.destination] || (item.destination === "manual" ? <User size={13} /> : "⚙")}</span>
+          <span className="text-caption" style={{ fontWeight: 600, color: "var(--text-primary)" }}>{item.title}</span>
         </div>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           {item.owner && (
@@ -76,7 +76,7 @@ function ActionItemRow({
           </span>
         </div>
         {item.source_quote && (
-          <p className="source-quote" style={{ marginTop: 8, fontSize: 12 }}>
+          <p className="source-quote" style={{ marginTop: 8 }}>
             &ldquo;{item.source_quote}&rdquo;
           </p>
         )}
@@ -143,7 +143,7 @@ function RunCard({
 
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-            <span className="run-link" style={{ fontSize: 12 }}>{run.id}</span>
+            <span className="run-link">{run.id}</span>
             <span className={`badge ${STATUS_BADGE[run.status] ?? "badge-grey"}`}>
               {run.status}
             </span>
@@ -157,14 +157,14 @@ function RunCard({
             <span className="meta">⚡ {items.length} action items</span>
             <span className="meta">→ {run.destination}</span>
             <span className="meta">🤖 {run.model_route}</span>
-            <span className="meta" style={{ color: TIER_COLORS[tier], fontSize: 10, fontWeight: 600, textTransform: "uppercase" }}>
+            <span className="meta" style={{ color: TIER_COLORS[tier], fontWeight: 600, textTransform: "uppercase", fontSize: 10 }}>
               {tier} tier
             </span>
             <span className="meta">{timeAgo(run.created_at)}</span>
           </div>
         </div>
 
-        <span style={{ color: "var(--text-muted)", fontSize: 12, flexShrink: 0 }}>
+        <span style={{ color: "var(--text-muted)", flexShrink: 0 }}>
           {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         </span>
       </button>
@@ -338,7 +338,7 @@ export default function WorkflowsPage() {
               onChange={(e) => setInputText(e.target.value)}
             />
             <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 12, flexWrap: "wrap" }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>
+              <label className="text-micro" style={{ fontWeight: 600, color: "var(--text-secondary)" }}>
                 Push items to:
               </label>
               <select
@@ -376,7 +376,7 @@ export default function WorkflowsPage() {
 
       {runs.length === 0 && (
         <div className="card" style={{ textAlign: "center", padding: "40px 24px" }}>
-          <p style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>No workflow runs yet</p>
+          <p className="text-body" style={{ fontWeight: 600, marginBottom: 6 }}>No workflow runs yet</p>
           <p className="meta" style={{ maxWidth: 460, margin: "0 auto 8px", lineHeight: 1.5 }}>
             Paste meeting notes or a transcript and OSAI extracts the action items — owner, due date
             and a source quote — then pushes them to Notion, Slack, Freshdesk or manual review.
