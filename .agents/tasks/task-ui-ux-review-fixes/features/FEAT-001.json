@@ -2,7 +2,7 @@
   "id": "FEAT-001",
   "type": "feat",
   "description": "P0 - Shared foundations: Add btn-sm/btn-xs CSS variants, typography utility classes, StatusDot component, shared Tabs pill component, fix card border-radius to 20px, and add card hover highlight",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "In osai-web/app/globals.css, add `.btn-sm` (fontSize: 12px, padding: 6px 14px) and `.btn-xs` (fontSize: 11px, padding: 5px 12px) variants after the existing .btn-ghost definition. These eliminate 50+ inline padding overrides.",
     "In osai-web/app/globals.css, add typography utility classes: `.text-body-lg` (font-size: 18px, letter-spacing: -0.18px, line-height: 1.3), `.text-body` (font-size: 15px, letter-spacing: -0.15px, line-height: 1.3), `.text-caption` (font-size: 13px, font-weight: 500, letter-spacing: -0.13px, line-height: 1.2), `.text-micro` (font-size: 12px, letter-spacing: -0.12px, line-height: 1.2)",
@@ -26,5 +26,5 @@
     "cd /projects/sandbox/OSAI/osai-web && npm run build"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "All 4 occurrences of border-radius: 18px changed to 20px (.card, .stat-card, .data-table, .modal-card). CSS classes for pill tabs added alongside the existing login-tabs pattern. StatusDot component uses CSS classes from globals.css instead of inline styles. Both typecheck and build pass cleanly."
 }
