@@ -209,7 +209,7 @@ export default function DecisionsPage() {
             <SortableTh label="Impact" k="impact" />
             <SortableTh label="Owner" k="owner" />
             <th>Source</th>
-            <SortableTh label="Date" k="date" />
+            <SortableTh label="Date" k="date" width={130} />
             <th style={{ width: 80 }}>Actions</th>
           </tr>
         </thead>
