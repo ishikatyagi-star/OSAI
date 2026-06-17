@@ -1702,7 +1702,7 @@ h2 {
 .ask-title {
   /* poster-grade display: large, tight negative tracking, near-1 line-height */
   font-size: clamp(38px, 5vw, 62px);
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: -3.1px;
   line-height: 1.0;
   color: var(--text-primary);
@@ -1818,15 +1818,15 @@ h2 {
 
 /* Gradient spotlight variants */
 .ask-mode-card--violet {
-  background: radial-gradient(120% 120% at 15% 0%, #8b6bff 0%, var(--grad-violet) 45%, #1a0c40 100%);
+  background: radial-gradient(120% 120% at 15% 0%, #8b6bff 0%, var(--grad-violet, #6a4cf5) 45%, #1a0c40 100%);
 }
 
 .ask-mode-card--magenta {
-  background: radial-gradient(120% 120% at 80% 10%, #f06bff 0%, var(--grad-magenta) 45%, #3a0c45 100%);
+  background: radial-gradient(120% 120% at 80% 10%, #f06bff 0%, var(--grad-magenta, #d44df0) 45%, #3a0c45 100%);
 }
 
 .ask-mode-card--orange {
-  background: radial-gradient(120% 120% at 15% 100%, #ffb27a 0%, var(--grad-orange) 45%, #5c2410 100%);
+  background: radial-gradient(120% 120% at 15% 100%, #ffb27a 0%, var(--grad-orange, #ff7a3d) 45%, #5c2410 100%);
 }
 
 .ask-mode-card-icon {

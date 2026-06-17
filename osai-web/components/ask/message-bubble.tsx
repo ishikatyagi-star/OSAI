@@ -33,7 +33,7 @@ export function MessageBubble({
   if (turn.role === "user") {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[80%] rounded-xl rounded-br-sm border border-[var(--border)] bg-[var(--bg-surface)] px-4 py-2.5 text-sm text-foreground">
+        <div className="max-w-[80%] rounded-[20px] rounded-br-sm border border-[var(--border)] bg-[var(--bg-surface)] px-4 py-2.5 text-sm text-foreground">
           {turn.content}
         </div>
       </div>
@@ -49,7 +49,7 @@ export function MessageBubble({
         O
       </div>
       <div className="min-w-0 flex-1 space-y-3">
-        <div className="rounded-xl rounded-tl-sm border border-[var(--border)] bg-[var(--bg-surface)] px-4 py-3">
+        <div className="rounded-[20px] rounded-tl-sm border border-[var(--border)] bg-[var(--bg-surface)] px-4 py-3">
           <MarkdownLite text={turn.content} />
 
           {turn.enoughContext === false && (
