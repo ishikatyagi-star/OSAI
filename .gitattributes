@@ -1,0 +1,4 @@
+# The landing page is a single-file bundle exported from a visual builder
+# (all CSS/JS/assets inlined). Mark it generated so GitHub Linguist excludes it
+# from the language breakdown and collapses it in diffs.
+osai-web/public/osai.html linguist-generated=true
