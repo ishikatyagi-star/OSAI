@@ -44,7 +44,7 @@ function StatCard({
       </p>
       <p
         className={cn(
-          "stat-card-value mt-1 text-2xl font-semibold tabular-nums",
+          "stat-card-value mt-1 tabular-nums",
           tone === "success" && "text-success",
           tone === "destructive" && "text-destructive",
           (!tone || tone === "default") && "text-foreground"
@@ -78,7 +78,7 @@ function PassRateBar({ rate }: { rate: number }) {
 function CaseRow({ c }: { c: EvalCase }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+    <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 20, padding: 0, overflow: 'hidden' }}>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -311,10 +311,10 @@ export function EvalDashboard() {
 
           {/* Cases */}
           <div className="mt-6">
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <button className={`suggestion-chip${filter === "all" ? " active" : ""}`} onClick={() => setFilter("all")}>All</button>
+            <div role="tablist" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button role="tab" aria-selected={filter === "all"} className={`suggestion-chip${filter === "all" ? " active" : ""}`} onClick={() => setFilter("all")}>All</button>
               {(Object.keys(CATEGORY_LABEL) as EvalCategory[]).map((c) => (
-                <button key={c} className={`suggestion-chip${filter === c ? " active" : ""}`} onClick={() => setFilter(c)}>{CATEGORY_LABEL[c]}</button>
+                <button key={c} role="tab" aria-selected={filter === c} className={`suggestion-chip${filter === c ? " active" : ""}`} onClick={() => setFilter(c)}>{CATEGORY_LABEL[c]}</button>
               ))}
             </div>
 
