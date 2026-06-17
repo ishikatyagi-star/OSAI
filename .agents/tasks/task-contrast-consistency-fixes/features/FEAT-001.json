@@ -1,0 +1,42 @@
+{
+  "id": "FEAT-001",
+  "type": "fix",
+  "description": "Fix WCAG AA contrast failures and font size inconsistencies across the entire frontend. This is a single comprehensive feature that updates the CSS design tokens for contrast, adds missing utility classes, replaces inline fontSize overrides with design system classes, fixes rgba opacity values for readability, and replaces the Team page inline tabs with the shared tabs-underline pattern.",
+  "status": "completed",
+  "steps": [
+    "1. In osai-web/app/globals.css, update --text-muted from #6a6a6a to #8a8a8a (bumps contrast from ~4.0:1 to ~5.6:1 on #090909 background, passing WCAG AA). Keep --text-secondary at #999999 (already passes).",
+    "2. In osai-web/app/globals.css, update .ask-section-label color from rgba(255,255,255,0.55) to rgba(255,255,255,0.7).",
+    "3. In osai-web/app/globals.css, update .ask-disclaimer color from rgba(255,255,255,0.5) to rgba(255,255,255,0.65).",
+    "4. In osai-web/app/globals.css, add utility classes for consistent font usage that pages can reference instead of inline styles: .text-body-sm { font-size: 14px; letter-spacing: -0.14px; line-height: 1.3; }. Also ensure .text-body (15px), .text-caption (13px), .text-micro (12px) all exist (they already do from the current file but verify no overlap with steps below).",
+    "5. In osai-web/app/dashboard/page.tsx, remove all inline fontSize overrides and replace with appropriate className references. Specifically: where fontSize: 12 is used, add className 'text-micro' or use existing 'meta' class; where fontSize: 13 is used, add className 'text-caption'; where fontSize: 15 is used, add className 'text-body'; where fontSize: 20 is used, keep as inline (it is a decorative checkmark). Remove redundant color: 'var(--text-primary)' inline styles where the element already inherits that color.",
+    "6. In osai-web/app/inbox/page.tsx, replace inline fontSize overrides with classes. Most are already using .meta and .tag classes properly. Just verify and clean up any remaining fontSize inlines.",
+    "7. In osai-web/app/integrations/page.tsx, replace inline fontSize: 16 on h2 elements with the standard h2 styling (h2 is already 15px by default in globals.css, so the 16px override should be removed or h2 left unstyled). Replace fontSize: 12 spans with .meta or .text-micro class.",
+    "8. In osai-web/app/decisions/page.tsx, replace inline fontSize overrides with design system classes. fontSize: 13 -> text-caption class, fontSize: 12 -> text-micro class. Remove inline color: 'var(--text-primary)' where already inherited.",
+    "9. In osai-web/app/workflows/page.tsx, replace inline fontSize: 13 with text-caption class, fontSize: 12 with text-micro class. Remove redundant inline color declarations.",
+    "10. In osai-web/app/workflows/[id]/page.tsx, replace inline fontSize: 10 with existing pattern (uppercase labels use stat-card-label or similar pattern), fontSize: 13 -> text-caption, fontSize: 12 -> text-micro, fontSize: 14 -> text-body-sm.",
+    "11. In osai-web/app/graph/page.tsx, replace inline fontSize: 13 -> text-caption, fontSize: 12 -> text-micro, fontSize: 14 -> text-body-sm. Remove redundant inline color declarations.",
+    "12. In osai-web/app/sync-runs/page.tsx, replace inline fontSize: 11 -> meta class (already 12px, close enough) or text-micro, fontSize: 16 -> keep for icon size, fontSize: 13 -> text-caption. Remove redundant inline color declarations.",
+    "13. In osai-web/app/team/page.tsx, replace the inline-styled underline tabs with the shared .tabs-underline / .tabs-underline-trigger CSS classes from globals.css. The current implementation uses a <div style={{...}}> with inline borderBottom, fontSize: 13, etc. Replace with: <div className='tabs-underline'> and <button className={`tabs-underline-trigger${tab === t.key ? ' active' : ''}`}>. Remove all inline styles from the tab buttons. Also replace other inline fontSize overrides (fontSize: 11, 13, 14) with design system classes.",
+    "14. In osai-web/app/settings/page.tsx, remove inline fontSize: 15 on h2 (h2 already defaults to 15px in globals.css), replace inline fontSize: 12 with .meta or .text-micro class.",
+    "15. In osai-web/app/login/page.tsx, fix the Terms/Privacy link contrast: change style={{ color: 'var(--text-muted)' }} on the footer links to style={{ color: 'var(--text-secondary)' }} since --text-muted is for non-interactive metadata, not links that must be readable and clickable.",
+    "16. In osai-web/components/app-shell.tsx, verify any muted color references are using the updated --text-muted token (the inline style: color: 'var(--text-muted)' for the search icon and kbd will now get the improved #8a8a8a automatically). No code change needed unless there are hardcoded hex values.",
+    "17. In osai-web/components/integrations/data-routing-panel.tsx, replace inline fontSize and color declarations with design system classes where applicable. The .meta class usage is already correct; just clean up inline fontSize: 12 where .meta or .text-micro could be used instead.",
+    "18. Run 'npm run typecheck' and 'npm run build' to verify no regressions."
+  ],
+  "acceptance_criteria": [
+    "--text-muted is #8a8a8a in globals.css (WCAG AA compliant on #090909)",
+    ".ask-section-label uses rgba(255,255,255,0.7) not 0.55",
+    ".ask-disclaimer uses rgba(255,255,255,0.65) not 0.5",
+    "Team page tabs use .tabs-underline / .tabs-underline-trigger CSS classes instead of inline styles",
+    "Login page footer links use --text-secondary for adequate contrast",
+    "No inline fontSize: 12 or fontSize: 13 remains in page files (replaced with design system classes)",
+    "npm run typecheck passes with zero errors",
+    "npm run build succeeds"
+  ],
+  "verification": [
+    "cd /projects/sandbox/OSAI/osai-web && npm run typecheck",
+    "cd /projects/sandbox/OSAI/osai-web && npm run build"
+  ],
+  "blocked_reason": null,
+  "findings": "All changes verified with typecheck and build passing. Added .text-body-sm class (14px). Left fontSize: 11 in team page copy-link button as it is below design system minimum (intentionally compact). Left fontSize: 12 in connector-manager select element as it is a form control with specific compact height. Left fontSize: 15 for emoji icons in dashboard (not text content). The .error-text and .success-text classes already define font-size: 12px so inline fontSize: 12 was redundant on those."
+}

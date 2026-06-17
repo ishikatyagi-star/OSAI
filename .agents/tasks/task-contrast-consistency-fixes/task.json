@@ -1,0 +1,7 @@
+{
+  "task_id": "task-contrast-consistency-fixes",
+  "task_description": "Fix WCAG AA contrast failures (--text-muted too dim, rgba opacities too low) and replace inline fontSize/color overrides with design system utility classes across all pages. Replace Team page inline tabs with shared tabs-underline component.",
+  "status": "in_progress",
+  "feature_order": ["FEAT-001"],
+  "blocked_reason": null
+}

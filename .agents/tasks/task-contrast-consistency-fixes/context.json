@@ -1,0 +1,32 @@
+{
+  "project_type": "Next.js 16 web application with React 19, dark-theme design system",
+  "language": "TypeScript / TSX",
+  "build_system": "npm with Next.js build toolchain, Tailwind v4 (no preflight)",
+  "test_framework": "No test framework configured; validation via typecheck only",
+  "build_command": "npm run build",
+  "test_command": "npm run typecheck",
+  "verification_instructions": "Run 'npm run typecheck' then 'npm run build' from osai-web directory",
+  "snapshot_or_generated_files": null,
+  "setup_instructions": "cd /projects/sandbox/OSAI/osai-web && npm install",
+  "environment_constraints": "OPEN_INTERNET - no restrictions",
+  "contribution_requirements": "Use design system tokens from globals.css. Never hardcode hex in components. Use CSS classes from globals.css for typography (text-body, text-caption, text-micro, meta). Use TabsPill or tabs-underline classes for tab patterns.",
+  "key_patterns": "Design system in globals.css with CSS custom properties. Typography tiers: body=15px, body-sm/caption=13px, micro=12px. Components use className-based styling from globals.css plus inline style objects. TabsPill component wraps Radix tabs for pill-style tabs. .tabs-underline class exists for underline-style tabs. .meta class is for 12px muted text. .text-caption is for 13px text.",
+  "relevant_files": [
+    "osai-web/app/globals.css",
+    "osai-web/app/dashboard/page.tsx",
+    "osai-web/app/inbox/page.tsx",
+    "osai-web/app/integrations/page.tsx",
+    "osai-web/app/decisions/page.tsx",
+    "osai-web/app/workflows/page.tsx",
+    "osai-web/app/workflows/[id]/page.tsx",
+    "osai-web/app/graph/page.tsx",
+    "osai-web/app/sync-runs/page.tsx",
+    "osai-web/app/team/page.tsx",
+    "osai-web/app/settings/page.tsx",
+    "osai-web/app/login/page.tsx",
+    "osai-web/components/app-shell.tsx",
+    "osai-web/components/integrations/data-routing-panel.tsx",
+    "osai-web/components/ui/tabs-pill.tsx"
+  ],
+  "directory_structure": "osai-web/app/ contains page routes; osai-web/components/ contains shared components; osai-web/components/ui/ has design system primitives (tabs-pill, status-dot); osai-web/lib/ has utilities and API client"
+}
