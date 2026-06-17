@@ -102,7 +102,7 @@ export default function DashboardPage() {
           <div className="spotlight-eyebrow">
             Company pulse
           </div>
-          <h2 style={{ fontSize: 30, lineHeight: 1.05, letterSpacing: "-1.4px", margin: 0 }}>
+          <h2 className="text-[30px] font-semibold leading-[1.05] tracking-[-1.4px]" style={{ margin: 0 }}>
             Your company context, working for you.
           </h2>
           <p className="text-body" style={{ marginTop: 10, maxWidth: 480 }}>
@@ -146,7 +146,7 @@ export default function DashboardPage() {
 
           {active.length === 0 && (
             <div className="card" style={{ textAlign: "center", padding: "32px 20px" }}>
-              <p style={{ fontSize: 20, marginBottom: 8 }}>✓</p>
+              <p className="text-xl" style={{ marginBottom: 8 }}>✓</p>
               <p className="text-caption" style={{ color: "var(--green)", fontWeight: 600 }}>All clear!</p>
               <p className="meta" style={{ marginTop: 4 }}>No blockers or follow-ups right now.</p>
             </div>
@@ -199,7 +199,7 @@ export default function DashboardPage() {
                   }}
                 >
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p className="text-micro" style={{ fontWeight: 600, color: "var(--text-primary)", marginBottom: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    <p className="text-micro font-semibold" style={{ color: "var(--text-primary)", marginBottom: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                       {d.title}
                     </p>
                     <p className="meta">{d.owner} · {d.date}</p>
@@ -235,9 +235,9 @@ export default function DashboardPage() {
                   className="activity-row"
                   style={{ padding: "10px 16px", borderBottom: i < connectorHealth.length - 1 ? "1px solid var(--border)" : "none" }}
                 >
-                  <span style={{ fontSize: 15 }}>{c.icon}</span>
+                  <span className="text-[15px]">{c.icon}</span>
                   <div style={{ flex: 1 }}>
-                    <p className="text-micro" style={{ fontWeight: 600, color: "var(--text-primary)", margin: 0 }}>{c.label}</p>
+                    <p className="text-micro font-semibold" style={{ color: "var(--text-primary)", margin: 0 }}>{c.label}</p>
                     <p className="meta">{c.docs.toLocaleString()} docs indexed</p>
                   </div>
                   <StatusDot state={c.status} />
@@ -257,7 +257,7 @@ export default function DashboardPage() {
           </div>
           <div className="card" style={{ background: "var(--accent-dim)", borderColor: "rgba(0,153,255,0.18)" }}>
             <p className="text-caption" style={{ color: "var(--text-primary)", fontWeight: 400 }}>
-              <span style={{ color: "var(--text-primary)", fontWeight: 700 }}>{pendingActions} action items</span> extracted from recent workflow runs are waiting for your review.
+              <span className="font-bold" style={{ color: "var(--text-primary)" }}>{pendingActions} action items</span> extracted from recent workflow runs are waiting for your review.
             </p>
             <Link href="/workflows" className="btn" style={{ marginTop: 10, display: "inline-flex" }}>
               Review & Approve →

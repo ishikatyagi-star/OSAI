@@ -80,7 +80,7 @@ export default function SyncRunsPage() {
             return (
               <div key={key} className="connector-pill">
                 <span>{meta.icon}</span>
-                <span style={{ color: "var(--text-primary)", fontWeight: 600 }}>{meta.label}</span>
+                <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{meta.label}</span>
                 <span className="badge badge-grey" style={{ fontSize: 10 }}>
                   {count.toLocaleString()} docs
                 </span>
@@ -129,8 +129,8 @@ export default function SyncRunsPage() {
                 style={{ marginBottom: isLast ? 0 : undefined }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                  <span style={{ fontSize: 16 }}>{meta.icon}</span>
-                  <span className="text-caption" style={{ fontWeight: 600, color: "var(--text-primary)" }}>{meta.label}</span>
+                  <span className="text-base">{meta.icon}</span>
+                  <span className="text-caption" style={{ color: "var(--text-primary)", fontWeight: 600 }}>{meta.label}</span>
                   <span className={`badge ${STATUS_BADGE[run.status] ?? "badge-grey"}`}>
                     {run.status}
                   </span>
@@ -171,7 +171,7 @@ export default function SyncRunsPage() {
                           }}
                         />
                       </div>
-                      <span style={{ fontSize: 10, color: "var(--green)", fontWeight: 600 }}>
+                      <span className="text-[10px] font-semibold" style={{ color: "var(--green)" }}>
                         {Math.round((run.documents_indexed / run.documents_seen) * 100)}%
                       </span>
                     </div>
@@ -183,8 +183,8 @@ export default function SyncRunsPage() {
                     <span className="error-text">⚠ {run.error}</span>
                     <Link
                       href="/integrations"
-                      className="text-micro"
-                      style={{ color: "var(--accent)", fontWeight: 600, whiteSpace: "nowrap" }}
+                      className="text-micro font-semibold"
+                      style={{ color: "var(--accent)", whiteSpace: "nowrap" }}
                     >
                       Fix in Integrations →
                     </Link>

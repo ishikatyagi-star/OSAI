@@ -123,7 +123,7 @@ export default function TeamPage() {
             {members.map((m) => (
               <tr key={m.id}>
                 <td>
-                  <div style={{ fontWeight: 600, color: "var(--text-primary)" }} className="text-caption">
+                  <div className="text-caption" style={{ color: "var(--text-primary)", fontWeight: 600 }}>
                     {m.display_name}
                   </div>
                   <div className="meta">{m.email}</div>
@@ -185,7 +185,7 @@ export default function TeamPage() {
               <div key={d.id} className="card" style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <span style={{ width: 10, height: 10, borderRadius: "50%", background: d.color }} />
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600 }}>{d.name}</div>
+                  <div className="font-semibold">{d.name}</div>
                   <div className="meta">
                     {d.members} member{d.members === 1 ? "" : "s"}
                   </div>

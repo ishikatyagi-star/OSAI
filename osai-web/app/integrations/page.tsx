@@ -152,8 +152,8 @@ export default function IntegrationsPage() {
                 borderColor: "var(--green)",
                 background: "color-mix(in srgb, var(--green) 10%, transparent)",
                 color: "var(--green)",
-                fontWeight: 600,
                 padding: "12px 16px",
+                fontWeight: 600,
               }}
             >
               ✓ Connected. Your data is being indexed — click “Sync now” on the connector to pull it in.
@@ -189,7 +189,7 @@ export default function IntegrationsPage() {
 
           {display.length === 0 && (
             <div className="card" style={{ textAlign: "center", padding: "44px 24px", marginBottom: 16 }}>
-              <p className="text-body" style={{ fontWeight: 600, marginBottom: 6 }}>No connectors yet</p>
+              <p className="text-body font-semibold" style={{ marginBottom: 6 }}>No connectors yet</p>
               <p className="meta" style={{ maxWidth: 420, margin: "0 auto" }}>
                 The backend didn&apos;t return any connectors. Once available, connect Notion, Google
                 Drive, Slack and more to start indexing your context.
@@ -227,7 +227,7 @@ export default function IntegrationsPage() {
                           {item.auth_state === "not_configured" ? "not connected" : item.auth_state}
                         </span>
                       </div>
-                      <p className="meta" style={{ margin: 0, lineHeight: 1.4 }}>
+                      <p className="meta" style={{ margin: 0 }}>
                         {meta.description}
                       </p>
                     </div>

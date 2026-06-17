@@ -112,7 +112,7 @@ export function DataRoutingPanel() {
 
   return (
     <div>
-      <p className="meta" style={{ marginBottom: 20, maxWidth: 720, lineHeight: 1.5 }}>
+      <p className="meta leading-normal" style={{ marginBottom: 20, maxWidth: 720 }}>
         Classify your data into sensitivity tiers to control which connectors and LLM providers
         are permitted. Set which information inside each connected tool belongs to a tier from the
         connector&apos;s <strong>Manage → Data sensitivity rules</strong>.
@@ -129,7 +129,7 @@ export function DataRoutingPanel() {
 
       {loadState === "error" && (
         <div className="card" style={{ textAlign: "center", padding: "44px 24px" }}>
-          <p className="text-body" style={{ fontWeight: 600, marginBottom: 6 }}>Couldn&apos;t load routing settings</p>
+          <p className="text-body font-semibold" style={{ marginBottom: 6 }}>Couldn&apos;t load routing settings</p>
           <p className="meta" style={{ marginBottom: 18 }}>
             The settings service didn&apos;t respond. Check that the backend is reachable, then try again.
           </p>
@@ -163,7 +163,7 @@ export function DataRoutingPanel() {
                         <h2 style={{ margin: 0 }}>{meta.icon} {meta.title} Tier</h2>
                         <span className={`badge ${meta.badge}`}>{tier}</span>
                       </div>
-                      <p className="meta" style={{ margin: 0, lineHeight: 1.4 }}>
+                      <p className="meta" style={{ margin: 0 }}>
                         {meta.description}
                       </p>
                     </div>
@@ -172,7 +172,7 @@ export function DataRoutingPanel() {
                   <div style={{ padding: "18px 22px" }}>
                     <div style={{ display: "flex", gap: 32, flexWrap: "wrap", alignItems: "flex-start" }}>
                       <div style={{ flex: 1 }}>
-                        <p className="text-micro" style={{ fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 10 }}>
+                        <p className="text-micro font-semibold uppercase" style={{ color: "var(--text-secondary)", marginBottom: 10, letterSpacing: "0.5px" }}>
                           Allowed Connectors
                         </p>
                         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -192,15 +192,14 @@ export function DataRoutingPanel() {
                                   background: checked ? "var(--accent-dim)" : "var(--bg-surface)",
                                   cursor: "pointer",
                                   transition: "all 0.2s",
-                                  fontWeight: 500,
                                   color: checked ? "var(--accent)" : "var(--text-muted)",
                                 }}
-                                className="text-micro"
+                                className="text-micro font-medium"
                               >
                                 <input type="checkbox" checked={checked} onChange={() => toggleConnector(tier, key)} style={{ display: "none" }} />
                                 <span>{cm?.icon ?? "⚙"}</span>
                                 <span>{cm?.label ?? key}</span>
-                                {checked && <span style={{ fontSize: 10 }}>✓</span>}
+                                {checked && <span className="text-[10px]">✓</span>}
                               </label>
                             );
                           })}
@@ -208,7 +207,7 @@ export function DataRoutingPanel() {
                       </div>
 
                       <div>
-                        <p className="text-micro" style={{ fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 10 }}>
+                        <p className="text-micro font-semibold uppercase" style={{ color: "var(--text-secondary)", marginBottom: 10, letterSpacing: "0.5px" }}>
                           LLM Processing
                         </p>
                         <label
@@ -250,7 +249,7 @@ export function DataRoutingPanel() {
                               }}
                             />
                           </div>
-                          <span className="text-micro" style={{ fontWeight: 600, color: config.llm_allowed ? "var(--accent)" : "var(--text-muted)" }}>
+                          <span className="text-micro font-semibold" style={{ color: config.llm_allowed ? "var(--accent)" : "var(--text-muted)" }}>
                             {config.llm_allowed ? "Allowed" : "Disabled"}
                           </span>
                         </label>

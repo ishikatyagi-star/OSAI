@@ -124,8 +124,8 @@ export default function InboxPage() {
                 ) : (
                   <>
                     <span
-                      className="meta"
-                      style={{ display: "inline-flex", alignItems: "center", gap: 5, color: "var(--green)", fontSize: 11, fontWeight: 600 }}
+                      className="meta font-semibold"
+                      style={{ display: "inline-flex", alignItems: "center", gap: 5, color: "var(--green)", fontSize: 11 }}
                     >
                       ✓ Reviewed
                     </span>

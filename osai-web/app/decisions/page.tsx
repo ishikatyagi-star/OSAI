@@ -217,7 +217,7 @@ export default function DecisionsPage() {
           {filtered.map((d) => (
             <tr key={d.id}>
               <td>
-                <div className="text-caption" style={{ fontWeight: 600, marginBottom: 5, color: "var(--text-primary)" }}>
+                <div className="text-caption" style={{ marginBottom: 5, color: "var(--text-primary)", fontWeight: 600 }}>
                   {d.title}
                 </div>
                 <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
@@ -277,7 +277,7 @@ export default function DecisionsPage() {
         <div className="modal-overlay" onClick={() => setPendingDelete(null)} role="dialog" aria-modal="true">
           <div className="modal-card" onClick={(e) => e.stopPropagation()}>
             <h2>Delete this decision?</h2>
-            <p className="meta" style={{ lineHeight: 1.5 }}>
+            <p className="meta leading-normal">
               “{pendingDelete.title}” will be permanently removed from the decision log. This cannot
               be undone.
             </p>
