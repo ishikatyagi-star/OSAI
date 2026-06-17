@@ -33,8 +33,8 @@ export function CitationChip({
   );
 
   const className = cn(
-    "inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2 py-1 text-xs transition-colors",
-    citation.url && "hover:border-input hover:bg-accent cursor-pointer"
+    "inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--bg-surface)] px-2.5 py-1 text-[13px] font-medium tracking-[-0.13px] transition-colors",
+    citation.url && "hover:border-[var(--border-hover)] cursor-pointer"
   );
 
   if (citation.url) {

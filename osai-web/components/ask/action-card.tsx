@@ -45,13 +45,13 @@ export function ActionCard({
   return (
     <div
       className={cn(
-        "rounded-lg border bg-card p-3.5",
-        isPending ? "border-warning/40" : "border-border"
+        "rounded-[15px] border bg-[var(--bg-surface)] p-4",
+        isPending ? "border-warning/40" : "border-[var(--border)]"
       )}
     >
       <div className="flex items-start gap-3">
         <div
-          className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md border border-border bg-secondary text-base"
+          className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--bg-surface)] text-base"
           style={meta ? { color: meta.color } : undefined}
           aria-hidden
         >
