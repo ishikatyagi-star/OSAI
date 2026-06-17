@@ -51,7 +51,16 @@ class NotionConnector(Connector):
             if "pytest" in sys.modules:
                 return SyncResult(connector_key=self.key, status="failed", error=auth.error)
 
-            # Dev demo fallback data
+            # Real connections come through Composio OAuth; the native connector
+            # only syncs with its own credentials and must never emit demo data
+            # into a customer workspace.
+            return SyncResult(
+                connector_key=self.key,
+                status="failed",
+                error=auth.error or "Not connected. Use Connect to authorize this source.",
+            )
+
+            # Dev demo fallback data (unreachable; kept for local reference)
             documents = [
                 SourceDocument(
                     source_id="doc-linear-integration",
