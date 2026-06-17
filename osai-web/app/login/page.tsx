@@ -112,16 +112,7 @@ export default function LoginPage() {
               onClick={() => {
                 window.location.href = googleSignInUrl();
               }}
-              className="login-input"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 10,
-                cursor: "pointer",
-                fontWeight: 600,
-                marginBottom: 14,
-              }}
+              className="login-input login-oauth-btn"
             >
               <svg width="16" height="16" viewBox="0 0 18 18" aria-hidden>
                 <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"/>
@@ -243,7 +234,7 @@ export default function LoginPage() {
 
       {/* Footer */}
       <p className="login-footer">
-        By continuing you agree to our Terms of Service and Privacy Policy.
+        By continuing you agree to our <a href="#" style={{ color: "var(--text-muted)", textDecoration: "underline" }}>Terms of Service</a> and <a href="#" style={{ color: "var(--text-muted)", textDecoration: "underline" }}>Privacy Policy</a>.
       </p>
     </div>
   );

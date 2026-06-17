@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { Loader2, User } from "lucide-react";
 import { approveActionItem, getWorkflowRun } from "@/lib/api";
 import { DEMO_WORKFLOW_RUNS } from "@/lib/demo-data";
 import { isDemo } from "@/lib/demo";
@@ -72,7 +73,8 @@ export default function WorkflowDetailPage() {
 
   if (loading) {
     return (
-      <div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: 200, gap: 10 }}>
+        <Loader2 className="animate-spin" size={20} />
         <p className="meta">Loading workflow run…</p>
       </div>
     );
@@ -95,7 +97,7 @@ export default function WorkflowDetailPage() {
   return (
     <div>
       {/* Breadcrumb */}
-      <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 20 }}>
+      <p className="breadcrumb">
         <Link href="/workflows" style={{ color: "var(--accent)" }}>Workflows</Link>
         {" / "}
         <span className="run-link">{run.id}</span>
@@ -117,7 +119,7 @@ export default function WorkflowDetailPage() {
 
       {/* Meta card */}
       <div className="card" style={{ marginBottom: 24, padding: "16px 20px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 16 }}>
+        <div className="detail-meta-grid">
           {[
             { label: "Kind", value: run.kind },
             { label: "Destination", value: run.destination },
@@ -161,7 +163,7 @@ export default function WorkflowDetailPage() {
                     <span className={statusClass(item.status)}>{item.status}</span>
                   </div>
                   <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-                    {item.owner && <span className="meta">👤 {item.owner}</span>}
+                    {item.owner && <span className="meta" style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><User size={11} /> {item.owner}</span>}
                     {item.due_date && <span className="meta">📅 {item.due_date}</span>}
                     <span className="meta">→ {destMeta?.label ?? item.destination}</span>
                     <span className="meta">confidence: {(item.confidence * 100).toFixed(0)}%</span>
@@ -187,8 +189,7 @@ export default function WorkflowDetailPage() {
               {item.status === "needs_review" && (
                 <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 10 }}>
                   <button
-                    className="btn btn-primary"
-                    style={{ padding: "8px 18px", fontSize: 12 }}
+                    className="btn btn-primary btn-sm"
                     onClick={() => handleApprove(item)}
                     disabled={approving === item.id}
                   >
