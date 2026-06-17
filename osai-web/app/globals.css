@@ -2103,3 +2103,104 @@ h2 {
 .dashboard-root .attention-card:hover {
   border-color: var(--border-hover);
 }
+
+/* ─── Workflow Run Header Button ───────────────────────────────────────────── */
+.workflow-run-header {
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 18px 22px;
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* ─── Detail Meta Grid (Workflow Detail) ───────────────────────────────────── */
+.detail-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 16px;
+}
+
+/* ─── Breadcrumb ───────────────────────────────────────────────────────────── */
+.breadcrumb {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 20px;
+}
+
+/* ─── Back Link ────────────────────────────────────────────────────────────── */
+.back-link {
+  color: var(--accent);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  text-decoration: none;
+  margin-bottom: 12px;
+}
+
+/* ─── Tier Badge ───────────────────────────────────────────────────────────── */
+.tier-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.tier-badge--normal {
+  color: var(--green);
+  background: color-mix(in srgb, var(--green) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--green) 35%, transparent);
+}
+
+.tier-badge--amber {
+  color: var(--orange);
+  background: color-mix(in srgb, var(--orange) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--orange) 35%, transparent);
+}
+
+.tier-badge--red {
+  color: var(--red);
+  background: color-mix(in srgb, var(--red) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--red) 35%, transparent);
+}
+
+/* ─── Tier Legend Dot ──────────────────────────────────────────────────────── */
+.tier-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.tier-legend-dot--normal { background: var(--green); }
+.tier-legend-dot--amber { background: var(--orange); }
+.tier-legend-dot--red { background: var(--red); }
+
+/* ─── Login OAuth Button ───────────────────────────────────────────────────── */
+.login-oauth-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  margin-bottom: 14px;
+}
+
+/* ─── Auth Callback Wrapper ────────────────────────────────────────────────── */
+.auth-callback-wrapper {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  gap: 16px;
+  color: var(--text-secondary);
+}

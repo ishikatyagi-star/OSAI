@@ -109,7 +109,7 @@ export default function GraphPage() {
         <div style={{ display: "flex", gap: 12, marginLeft: "auto" }}>
           {(Object.keys(TIER_META) as Tier[]).map((t) => (
             <span key={t} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-secondary)" }}>
-              <span style={{ width: 10, height: 10, borderRadius: "50%", background: TIER_META[t].color }} />
+              <span className={`tier-legend-dot tier-legend-dot--${t}`} />
               {TIER_META[t].label}
             </span>
           ))}
@@ -164,18 +164,7 @@ export default function GraphPage() {
                         <td key={c.key} style={{ textAlign: "center" }}>
                           <span
                             title={`${meta.label} tier · ${a.doc_count} docs`}
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: 6,
-                              padding: "3px 10px",
-                              borderRadius: 9999,
-                              fontSize: 11,
-                              fontWeight: 600,
-                              color: meta.color,
-                              background: `color-mix(in srgb, ${meta.color} 14%, transparent)`,
-                              border: `1px solid color-mix(in srgb, ${meta.color} 35%, transparent)`,
-                            }}
+                            className={`tier-badge tier-badge--${a.tier}`}
                           >
                             <span style={{ width: 7, height: 7, borderRadius: "50%", background: meta.color }} />
                             {meta.label}

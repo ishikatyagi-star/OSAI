@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Loader2 } from "lucide-react";
 
 // Landing page for the Google OAuth round-trip. The backend redirects here with
 // the session details in the URL fragment (kept out of server logs). We persist
@@ -37,18 +38,7 @@ export default function AuthCallbackPage() {
   }, [router]);
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "#090909",
-        gap: 16,
-        color: "#aaa",
-      }}
-    >
+    <div className="auth-callback-wrapper">
       <div
         style={{
           width: 44,
@@ -66,6 +56,7 @@ export default function AuthCallbackPage() {
       >
         O
       </div>
+      <Loader2 className="animate-spin" size={20} />
       <p style={{ fontSize: 13 }}>{error || "Signing you in…"}</p>
     </div>
   );
