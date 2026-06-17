@@ -114,10 +114,10 @@ export function ConnectorManager({
     setRulesSaved(false);
   }, [open, integration]);
 
-  function addRule() {
-    const pattern = newPattern.trim();
-    if (!pattern) return;
-    setRules((prev) => [...prev.filter((r) => r.pattern !== pattern), { pattern, tier: newTier }]);
+  function addRule(pattern: string, tier: TierRule["tier"]) {
+    const p = pattern.trim();
+    if (!p) return;
+    setRules((prev) => [...prev.filter((r) => r.pattern !== p), { pattern: p, tier }]);
     setNewPattern("");
     setRulesSaved(false);
   }
@@ -126,6 +126,28 @@ export function ConnectorManager({
     setRules((prev) => prev.filter((r) => r.pattern !== pattern));
     setRulesSaved(false);
   }
+
+  // Files are classified by an exact-title rule; everything unruled stays Normal.
+  const docTitles = new Set(docs.map((d) => d.title));
+  function tierForFile(title: string): TierRule["tier"] {
+    return rules.find((r) => r.pattern === title)?.tier ?? "normal";
+  }
+  function setFileTier(title: string, tier: TierRule["tier"]) {
+    setRules((prev) => {
+      const without = prev.filter((r) => r.pattern !== title);
+      return tier === "normal" ? without : [...without, { pattern: title, tier }];
+    });
+    setRulesSaved(false);
+  }
+  // Keyword/folder rules = patterns that aren't an exact synced-file title.
+  const keywordRules = rules.filter((r) => !docTitles.has(r.pattern));
+  // Autocomplete suggestions for the keyword box (match against file titles).
+  const suggestions =
+    newPattern.trim().length > 0
+      ? docs
+          .filter((d) => d.title.toLowerCase().includes(newPattern.toLowerCase()))
+          .slice(0, 6)
+      : [];
 
   async function saveRules() {
     if (!integration) return;
@@ -275,113 +297,137 @@ export function ConnectorManager({
           </section>
         )}
 
-        {/* Synced files */}
+        {/* Classify synced files — pick a tier per file (default Normal/green) */}
         {connected && (
-          <section>
-            <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              <FileText className="size-3.5" /> Synced files ({docs.length})
+          <section className="rounded-lg border border-border bg-background/40 p-3">
+            <p className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <FileText className="size-3.5" /> Files &amp; sensitivity ({docs.length})
             </p>
+            <p className="mb-2.5 text-[11px] text-muted-foreground">
+              Choose a tier for any file. Everything stays{" "}
+              <span style={{ color: "var(--green)" }}>Normal</span> unless you change it.
+            </p>
+
             {docs.length === 0 ? (
               <p className="text-xs text-muted-foreground">
                 Nothing indexed yet — click “Sync now” to pull in this source.
               </p>
             ) : (
-              <ul className="max-h-44 space-y-1 overflow-y-auto">
-                {docs.map((d) => (
-                  <li
-                    key={d.id}
-                    className="flex items-center gap-2 rounded-md border border-border bg-background/40 px-2.5 py-1.5 text-xs"
-                  >
-                    <span className="min-w-0 flex-1 truncate text-foreground/90">
-                      {d.url ? (
-                        <a href={d.url} target="_blank" rel="noreferrer" className="hover:underline">
-                          {d.title}
-                        </a>
-                      ) : (
-                        d.title
-                      )}
-                    </span>
-                    {d.data_tier !== "normal" && (
-                      <Badge variant="muted" className="capitalize">{d.data_tier}</Badge>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        )}
-
-        {/* Per-info data sensitivity rules */}
-        {connected && (
-          <section className="rounded-lg border border-border bg-background/40 p-3">
-            <p className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              <ShieldAlert className="size-3.5" /> Data sensitivity rules
-            </p>
-            <p className="mb-2.5 text-[11px] text-muted-foreground">
-              Tag specific folders, paths or keywords inside this source with a tier. Content
-              matching a rule inherits that tier on the next sync (most-specific match wins).
-            </p>
-
-            {rules.length > 0 && (
-              <ul className="mb-2.5 space-y-1">
-                {rules.map((r) => (
-                  <li
-                    key={r.pattern}
-                    className="flex items-center gap-2 rounded-md border border-border bg-card px-2.5 py-1.5 text-xs"
-                  >
-                    <span
-                      className="inline-block size-2 shrink-0 rounded-full"
-                      style={{ background: TIER_DOT[r.tier] }}
-                    />
-                    <span className="min-w-0 flex-1 truncate font-mono text-foreground/90">
-                      {r.pattern}
-                    </span>
-                    <Badge variant="muted" className="capitalize">{r.tier}</Badge>
-                    <button
-                      type="button"
-                      onClick={() => removeRule(r.pattern)}
-                      className="text-muted-foreground hover:text-destructive"
-                      aria-label={`Remove rule ${r.pattern}`}
+              <ul className="max-h-52 space-y-1 overflow-y-auto">
+                {docs.map((d) => {
+                  const tier = tierForFile(d.title);
+                  return (
+                    <li
+                      key={d.id}
+                      className="flex items-center gap-2 rounded-md border border-border bg-card px-2.5 py-1.5 text-xs"
                     >
-                      <Trash2 className="size-3.5" />
-                    </button>
-                  </li>
-                ))}
+                      <span
+                        className="inline-block size-2 shrink-0 rounded-full"
+                        style={{ background: TIER_DOT[tier] }}
+                      />
+                      <span className="min-w-0 flex-1 truncate text-foreground/90">
+                        {d.url ? (
+                          <a href={d.url} target="_blank" rel="noreferrer" className="hover:underline">
+                            {d.title}
+                          </a>
+                        ) : (
+                          d.title
+                        )}
+                      </span>
+                      <select
+                        className="select"
+                        style={{ height: 26, fontSize: 11 }}
+                        value={tier}
+                        onChange={(e) => setFileTier(d.title, e.target.value as TierRule["tier"])}
+                      >
+                        <option value="normal">Normal</option>
+                        <option value="amber">Amber</option>
+                        <option value="red">Red</option>
+                      </select>
+                    </li>
+                  );
+                })}
               </ul>
             )}
 
-            <div className="flex items-center gap-1.5">
-              <Input
-                value={newPattern}
-                onChange={(e) => setNewPattern(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    addRule();
-                  }
-                }}
-                placeholder="e.g. /Finance/Confidential"
-                className="h-8 flex-1"
-              />
-              <select
-                className="select"
-                style={{ height: 32, fontSize: 12 }}
-                value={newTier}
-                onChange={(e) => setNewTier(e.target.value as TierRule["tier"])}
-              >
-                <option value="normal">Normal</option>
-                <option value="amber">Amber</option>
-                <option value="red">Red</option>
-              </select>
-              <Button variant="ghost" size="sm" className="h-8" onClick={addRule}>
-                <Plus className="size-3.5" /> Add
-              </Button>
+            {/* Folder / keyword rule with autocomplete against file names */}
+            <div className="mt-3 border-t border-border pt-3">
+              <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <ShieldAlert className="size-3.5" /> Rule by folder or keyword
+              </p>
+              <div className="relative flex items-center gap-1.5">
+                <div className="relative flex-1">
+                  <Input
+                    value={newPattern}
+                    onChange={(e) => setNewPattern(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addRule(newPattern, newTier);
+                      }
+                    }}
+                    placeholder="Type a folder or file name…"
+                    className="h-8"
+                  />
+                  {suggestions.length > 0 && (
+                    <ul className="absolute z-10 mt-1 max-h-40 w-full overflow-y-auto rounded-md border border-border bg-card shadow-lg">
+                      {suggestions.map((s) => (
+                        <li key={s.id}>
+                          <button
+                            type="button"
+                            onClick={() => addRule(s.title, newTier)}
+                            className="block w-full truncate px-2.5 py-1.5 text-left text-xs hover:bg-accent"
+                          >
+                            {s.title}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                <select
+                  className="select"
+                  style={{ height: 32, fontSize: 12 }}
+                  value={newTier}
+                  onChange={(e) => setNewTier(e.target.value as TierRule["tier"])}
+                >
+                  <option value="normal">Normal</option>
+                  <option value="amber">Amber</option>
+                  <option value="red">Red</option>
+                </select>
+                <Button variant="ghost" size="sm" className="h-8" onClick={() => addRule(newPattern, newTier)}>
+                  <Plus className="size-3.5" /> Add
+                </Button>
+              </div>
+
+              {keywordRules.length > 0 && (
+                <ul className="mt-2 space-y-1">
+                  {keywordRules.map((r) => (
+                    <li
+                      key={r.pattern}
+                      className="flex items-center gap-2 rounded-md border border-border bg-card px-2.5 py-1.5 text-xs"
+                    >
+                      <span className="inline-block size-2 shrink-0 rounded-full" style={{ background: TIER_DOT[r.tier] }} />
+                      <span className="min-w-0 flex-1 truncate font-mono text-foreground/90">{r.pattern}</span>
+                      <Badge variant="muted" className="capitalize">{r.tier}</Badge>
+                      <button
+                        type="button"
+                        onClick={() => removeRule(r.pattern)}
+                        className="text-muted-foreground hover:text-destructive"
+                        aria-label={`Remove rule ${r.pattern}`}
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
 
-            <div className="mt-2.5 flex items-center gap-2">
+            <div className="mt-3 flex items-center gap-2">
               <Button size="sm" className="h-7" disabled={rulesSaving} onClick={saveRules}>
                 {rulesSaving ? <Loader2 className="size-3.5 animate-spin" /> : null}
-                Save rules
+                Save tiers
               </Button>
               {rulesSaved && (
                 <span className="text-xs text-success">✓ Saved — applies on next sync</span>
