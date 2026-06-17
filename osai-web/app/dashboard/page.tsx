@@ -73,7 +73,7 @@ export default function DashboardPage() {
     : [];
 
   return (
-    <div>
+    <div className="dashboard-root">
       <div className="page-header">
         <div className="page-header-left">
           <h1>Dashboard</h1>
@@ -84,9 +84,9 @@ export default function DashboardPage() {
         </Link>
       </div>
 
-      {/* Gradient spotlight banner — framer signature atmosphere tile */}
+      {/* Spotlight banner — calm dark-blue atmosphere tile (monochrome blue palette) */}
       <div
-        className="spotlight spotlight-violet"
+        className="spotlight"
         style={{
           marginBottom: 24,
           display: "flex",
@@ -94,6 +94,8 @@ export default function DashboardPage() {
           justifyContent: "space-between",
           gap: 24,
           flexWrap: "wrap",
+          background:
+            "radial-gradient(120% 120% at 15% 0%, #1f4d7a 0%, #15324d 52%, #0b1a29 100%)",
         }}
       >
         <div style={{ maxWidth: 560 }}>
@@ -131,8 +133,8 @@ export default function DashboardPage() {
       <div className="stats-grid">
         {[
           { label: "Active Blockers", value: active.filter(i => i.tag === "blocker").length, color: "var(--red)", link: "/inbox" },
-          { label: "Pending Decisions", value: pendingDecisions, color: "var(--orange)", link: "/decisions" },
-          { label: "Overdue Follow-ups", value: active.filter(i => i.tag === "follow-up").length, color: "var(--yellow)", link: "/decisions?source=osai" },
+          { label: "Pending Decisions", value: pendingDecisions, color: "var(--text-primary)", link: "/decisions" },
+          { label: "Overdue Follow-ups", value: active.filter(i => i.tag === "follow-up").length, color: "var(--text-primary)", link: "/decisions?source=osai" },
           { label: "Context This Week", value: documentsIndexed, color: "var(--teal)", link: "/inbox" },
         ].map((s) => (
           <Link key={s.label} href={s.link} className="stat-card" style={{ textDecoration: "none" }}>
@@ -271,9 +273,9 @@ export default function DashboardPage() {
             <h2>Pending Workflow Actions</h2>
             <Link href="/workflows">Review all ({pendingActions}) →</Link>
           </div>
-          <div className="card" style={{ background: "rgba(245,200,66,0.03)", borderColor: "rgba(245,200,66,0.15)" }}>
+          <div className="card" style={{ background: "var(--accent-dim)", borderColor: "rgba(0,153,255,0.18)" }}>
             <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>
-              <span style={{ color: "var(--yellow)", fontWeight: 700 }}>{pendingActions} action items</span> extracted from recent workflow runs are waiting for your review.
+              <span style={{ color: "var(--accent)", fontWeight: 700 }}>{pendingActions} action items</span> extracted from recent workflow runs are waiting for your review.
             </p>
             <Link href="/workflows" className="btn" style={{ marginTop: 10, display: "inline-flex" }}>
               Review & Approve →
