@@ -101,7 +101,15 @@ async def trigger_sync(connector_key: str, db: DbSession, org_id: OrgId) -> dict
         except Exception:  # noqa: BLE001 — fall back to native sync on lookup failure
             has_active = False
         if has_active:
-            return await ingest_composio_toolkit(org_id, slug, db)
+            try:
+                return await ingest_composio_toolkit(org_id, slug, db)
+            except Exception as exc:  # noqa: BLE001 — surface, don't 500
+                return {
+                    "connector_key": connector_key,
+                    "status": "failed",
+                    "documents_indexed": 0,
+                    "error": f"{type(exc).__name__}: {exc}",
+                }
 
     return await sync_connector(connector_key, org_id, db)
 
