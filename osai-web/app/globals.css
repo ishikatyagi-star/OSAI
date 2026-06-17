@@ -23,7 +23,7 @@
   /* Ink — hierarchy is binary: ink or ink-muted */
   --text-primary: #ffffff;   /* ink */
   --text-secondary: #999999; /* ink-muted */
-  --text-muted:   #8a8a8a;
+  --text-muted:   #999999;
 
   /* Single chromatic accent — links / focus rings / selection ONLY.
      (--teal* names retained as aliases so legacy refs resolve to the accent.) */
@@ -404,7 +404,7 @@ main {
   justify-content: flex-end;
 }
 
-.page-header-meta .sep { color: var(--border); }
+.page-header-meta .sep { color: var(--text-secondary); }
 
 /* ─── Typography ────────────────────────────────────────────────────────────── */
 h1 {
