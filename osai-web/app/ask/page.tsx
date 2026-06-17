@@ -289,22 +289,16 @@ export default function AskPage() {
         <div className="ask-scroll min-h-0 flex-1 overflow-y-auto">
           <div className="flex min-h-full items-center justify-center px-4 py-8">
             <div className="ask-column flex w-full max-w-[760px] flex-col gap-8 text-left">
-              {/* Heading + subtext */}
+              {/* Heading */}
               <div className="flex flex-col gap-4">
-                <span className="ask-eyebrow">Command center</span>
                 <h2 className="ask-title">What would you like to know?</h2>
-                <p className="ask-subtext">
-                  OSAI answers from everything it has indexed across Notion, Slack,
-                  Google Drive, Freshdesk and Zoom — and can act on your behalf:
-                  open tickets, chase follow-ups, pull status, and check ownership.
-                </p>
               </div>
 
               {/* HERO composer — the product's core differentiator */}
               <form onSubmit={handleSubmit} className="w-full">
                 <div className="ask-composer ask-composer-hero">
                   {/* Mode tabs */}
-                  <div className="flex items-center gap-1 border-b border-[var(--border)] px-2.5 py-2">
+                  <div className="flex items-center gap-1 px-2.5 py-2">
                     {COMPOSER_MODES.map((m) => {
                       const Icon = m.icon;
                       return (
