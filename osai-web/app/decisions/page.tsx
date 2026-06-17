@@ -6,8 +6,8 @@ import { isDemo } from "@/lib/demo";
 
 const IMPACT_META: Record<Decision["impact"], { cls: string }> = {
   critical: { cls: "badge-red" },
-  high:     { cls: "badge-orange" },
-  medium:   { cls: "badge-yellow" },
+  high:     { cls: "badge-blue" },
+  medium:   { cls: "badge-grey" },
   low:      { cls: "badge-grey" },
 };
 

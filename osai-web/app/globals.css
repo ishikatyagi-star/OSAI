@@ -598,11 +598,16 @@ h2 {
 
 .badge-green   { background: var(--green-dim);  color: var(--green);  border: 1px solid rgba(34,197,94,0.25); }
 .badge-red     { background: var(--red-dim);    color: var(--red);    border: 1px solid rgba(255,85,119,0.25); }
-.badge-orange  { background: var(--orange-dim); color: var(--orange); border: 1px solid rgba(255,122,61,0.25); }
-.badge-yellow  { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(245,200,66,0.25); }
 .badge-blue    { background: var(--blue-dim);   color: var(--blue);   border: 1px solid rgba(0,153,255,0.25); }
 .badge-grey    { background: var(--bg-elevated); color: var(--text-secondary); border: 1px solid var(--border); }
-.badge-purple  { background: var(--purple-dim); color: #b3a0ff;       border: 1px solid rgba(106,76,245,0.3); }
+/* Monochrome rollout: orange/yellow "attention/in-progress" states fold into
+   the single blue accent; purple folds into neutral grey. Red (bad) + green
+   (good) stay the only signal hues. */
+.badge-orange  { background: var(--blue-dim);   color: var(--blue);   border: 1px solid rgba(0,153,255,0.25); }
+.badge-yellow  { background: var(--blue-dim);   color: var(--blue);   border: 1px solid rgba(0,153,255,0.25); }
+.badge-purple  { background: var(--bg-elevated); color: var(--text-secondary); border: 1px solid var(--border); }
+/* Amber is intentionally preserved: it's the Red/Amber/Normal data-routing
+   (RAG) signal — a deliberate third governance state, not decoration. */
 .badge-amber   { background: var(--orange-dim); color: var(--orange); border: 1px solid rgba(255,122,61,0.25); }
 
 /* ─── Priority/type tags ─────────────────────────────────────────────────────── */
@@ -618,11 +623,11 @@ h2 {
 
 .tag-blocker  { background: var(--red-dim);    color: var(--red); }
 .tag-critical { background: var(--red-dim);    color: var(--red); }
-.tag-high     { background: var(--orange-dim); color: var(--orange); }
-.tag-medium   { background: var(--yellow-dim); color: var(--yellow); }
+.tag-high     { background: var(--bg-elevated); color: var(--text-secondary); }
+.tag-medium   { background: var(--bg-elevated); color: var(--text-secondary); }
 .tag-low      { background: var(--bg-elevated); color: var(--text-secondary); }
-.tag-priority { background: rgba(77,159,255,0.12); color: var(--blue); }
-.tag-follow-up { background: var(--purple-dim); color: var(--purple); }
+.tag-priority { background: rgba(0,153,255,0.12); color: var(--blue); }
+.tag-follow-up { background: var(--bg-elevated); color: var(--text-secondary); }
 .tag-update   { background: var(--green-dim); color: var(--green); }
 .tag-approved { background: var(--green-dim); color: var(--green); }
 .tag-proposed { background: var(--bg-elevated); color: var(--text-secondary); }

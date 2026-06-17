@@ -319,7 +319,7 @@ export default function WorkflowsPage() {
           {
             label: "Needs review",
             value: runs.filter((r) => r.status === "needs_review").length,
-            tone: "var(--yellow)",
+            tone: "var(--blue)",
           },
           { label: "Action items pending", value: pendingTotal },
         ] as { label: string; value: number; tone?: string }[]).map((s) => (

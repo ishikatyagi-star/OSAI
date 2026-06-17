@@ -61,7 +61,8 @@ function StatCard({
 
 function PassRateBar({ rate }: { rate: number }) {
   const pct = Math.round(rate * 100);
-  const color = pct >= 80 ? "var(--green)" : pct >= 60 ? "var(--yellow)" : "var(--red)";
+  // Limited palette: green (good) / blue (acceptable) / red (failing).
+  const color = pct >= 80 ? "var(--green)" : pct >= 60 ? "var(--blue)" : "var(--red)";
   return (
     <div className="flex items-center gap-2">
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
