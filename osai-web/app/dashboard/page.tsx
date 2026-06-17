@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { User } from "lucide-react";
 import { DEMO_WORKFLOW_RUNS, DEMO_STATS, DEMO_DECISIONS } from "@/lib/demo-data";
 import { isDemo } from "@/lib/demo";
+import { StatusDot } from "@/components/ui/status-dot";
 
 const DEMO_ATTENTION_ITEMS = [
   {
@@ -84,9 +86,9 @@ export default function DashboardPage() {
         </Link>
       </div>
 
-      {/* Spotlight banner — calm dark-blue atmosphere tile (monochrome blue palette) */}
+      {/* Spotlight banner — violet gradient atmosphere tile */}
       <div
-        className="spotlight"
+        className="spotlight spotlight-violet"
         style={{
           marginBottom: 24,
           display: "flex",
@@ -94,21 +96,10 @@ export default function DashboardPage() {
           justifyContent: "space-between",
           gap: 24,
           flexWrap: "wrap",
-          background:
-            "radial-gradient(120% 120% at 15% 0%, #1f4d7a 0%, #15324d 52%, #0b1a29 100%)",
         }}
       >
         <div style={{ maxWidth: 560 }}>
-          <div
-            style={{
-              fontSize: 11,
-              fontWeight: 600,
-              letterSpacing: 1.2,
-              textTransform: "uppercase",
-              color: "rgba(255,255,255,0.7)",
-              marginBottom: 10,
-            }}
-          >
+          <div className="spotlight-eyebrow">
             Company pulse
           </div>
           <h2 style={{ fontSize: 30, lineHeight: 1.05, letterSpacing: "-1.4px", margin: 0 }}>
@@ -171,7 +162,7 @@ export default function DashboardPage() {
               <div className="attention-card-meta">
                 <span>{item.source}</span>
                 <span>·</span>
-                <span>👤 {item.owner}</span>
+                <span><User size={12} style={{ display: "inline", verticalAlign: "middle", marginRight: 3 }} />{item.owner}</span>
               </div>
               <div className="attention-card-actions">
                 <button className="attention-card-action" onClick={() => {}}>View Task</button>
@@ -249,16 +240,7 @@ export default function DashboardPage() {
                     <p style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)", margin: 0 }}>{c.label}</p>
                     <p className="meta">{c.docs.toLocaleString()} docs indexed</p>
                   </div>
-                  <span
-                    style={{
-                      width: 7,
-                      height: 7,
-                      borderRadius: "50%",
-                      background: "var(--green)",
-                      boxShadow: "0 0 6px var(--green)",
-                      display: "inline-block",
-                    }}
-                  />
+                  <StatusDot state={c.status} />
                 </div>
               ))}
             </div>

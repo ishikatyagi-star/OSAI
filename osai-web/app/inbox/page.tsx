@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { User } from "lucide-react";
 import { DEMO_INBOX_ITEMS, type InboxItem } from "@/lib/demo-data";
 import { isDemo } from "@/lib/demo";
 
@@ -46,7 +47,7 @@ export default function InboxPage() {
       </div>
 
       {/* Filters — grouped and labelled so the active selection is unambiguous */}
-      <div style={{ display: "flex", gap: 16, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
+      <div className="filter-bar">
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <span className="filter-group-label">Type</span>
           {(["all", "blocker", "follow-up", "priority", "update"] as const).map((t) => (
@@ -101,23 +102,22 @@ export default function InboxPage() {
                 <span>·</span>
                 <span>{item.dept}</span>
                 <span>·</span>
-                <span>👤 {item.person}</span>
+                <span><User size={12} style={{ display: "inline", verticalAlign: "middle", marginRight: 3 }} />{item.person}</span>
               </div>
 
               <div className="context-item-actions">
                 {item.status === "inbox" ? (
                   <>
                     <button
-                      className="btn btn-primary"
-                      style={{ fontSize: 11, padding: "5px 12px" }}
+                      className="btn btn-primary btn-xs"
                       onClick={() => setItemStatus(item.id, "reviewed")}
                     >
                       Mark Reviewed
                     </button>
-                    <button className="btn" style={{ fontSize: 11, padding: "5px 12px" }}>
+                    <button className="btn btn-xs">
                       Add to Decision Log
                     </button>
-                    <button className="btn" style={{ fontSize: 11, padding: "5px 12px" }}>
+                    <button className="btn btn-xs">
                       Create Task
                     </button>
                   </>
@@ -130,8 +130,7 @@ export default function InboxPage() {
                       ✓ Reviewed
                     </span>
                     <button
-                      className="btn btn-ghost"
-                      style={{ fontSize: 11, padding: "5px 12px" }}
+                      className="btn btn-ghost btn-xs"
                       onClick={() => setItemStatus(item.id, "inbox")}
                     >
                       Reopen
