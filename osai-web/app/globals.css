@@ -1821,3 +1821,29 @@ h2 {
   border-radius: 5px;
   padding: 2px 7px;
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Dashboard monochrome palette — scoped to .dashboard-root only.
+
+   Reduces the dashboard to shades of white / black / blue. Red and green are
+   reserved strictly as signals (red = blocker/bad, green = approved/healthy).
+   Purple/orange/yellow accents are neutralized here without touching the rest
+   of the app.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* "follow-up" tag: violet → neutral charcoal (informational, not a signal). */
+.dashboard-root .tag-follow-up {
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+}
+
+/* Attention cards: drop the coral/red wash from every card so red survives
+   only where it means something (the "blocker" tag). */
+.dashboard-root .attention-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+}
+
+.dashboard-root .attention-card:hover {
+  border-color: var(--border-hover);
+}
