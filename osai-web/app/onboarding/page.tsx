@@ -9,7 +9,7 @@ import {
   SkipForward,
   Sparkles,
 } from "lucide-react";
-import { login, onboardOrg, triggerSync } from "@/lib/api";
+import { composioConnect, login, onboardOrg } from "@/lib/api";
 import { CONNECTOR_META } from "@/lib/connector-meta";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,8 @@ export default function OnboardingPage() {
   const [stepIndex, setStepIndex] = useState(0);
   const [connected, setConnected] = useState<Set<ConnectorKey>>(new Set());
   const [busyKey, setBusyKey] = useState<ConnectorKey | null>(null);
+  const [startedKey, setStartedKey] = useState<ConnectorKey | null>(null);
+  const [connectError, setConnectError] = useState<string | null>(null);
 
   // Org details only needed if we don't already have a workspace (e.g. the user
   // didn't arrive via Google sign-in, which provisions one automatically).
@@ -47,6 +49,8 @@ export default function OnboardingPage() {
   );
 
   const advance = useCallback(() => {
+    setStartedKey(null);
+    setConnectError(null);
     if (stepIndex + 1 < CONNECTOR_FLOW.length) {
       setStepIndex((i) => i + 1);
     } else {
@@ -56,14 +60,24 @@ export default function OnboardingPage() {
 
   async function handleConnect(key: ConnectorKey) {
     setBusyKey(key);
+    setConnectError(null);
     try {
-      // Optimistically mark connected and kick a first sync (best-effort). Full
-      // OAuth handshakes are completed later from Integrations if required.
-      await triggerSync(key).catch(() => null);
-      setConnected((prev) => new Set(prev).add(key));
+      // Start the real OAuth handshake via Composio and open the authorize page
+      // in a new tab so the user keeps their place in onboarding.
+      const res = await composioConnect(key);
+      if (res.redirect_url) {
+        window.open(res.redirect_url, "_blank", "noopener,noreferrer");
+        setConnected((prev) => new Set(prev).add(key));
+        setStartedKey(key);
+      } else {
+        setConnectError(res.error || "Couldn't start the connection. Try again.");
+      }
+    } catch {
+      setConnectError(
+        `${CONNECTOR_META[key]?.label ?? key} isn't available to connect yet. You can skip and add it later.`
+      );
     } finally {
       setBusyKey(null);
-      advance();
     }
   }
 
@@ -150,24 +164,47 @@ export default function OnboardingPage() {
                 {meta.description}
               </p>
             </div>
-            <div className="flex flex-col gap-2">
-              <Button
-                onClick={() => handleConnect(currentKey)}
-                disabled={busyKey === currentKey}
-                className="w-full"
-              >
-                {busyKey === currentKey ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <>
-                    Connect {meta.label} <ArrowRight className="size-4" />
-                  </>
-                )}
-              </Button>
-              <Button variant="ghost" onClick={advance} className="w-full">
-                <SkipForward className="size-3.5" /> Skip for now
-              </Button>
-            </div>
+            {startedKey === currentKey ? (
+              <div className="space-y-3">
+                <div className="rounded-lg border border-success/30 bg-success/10 px-3 py-2.5 text-sm text-success">
+                  Authorize {meta.label} in the new tab, then come back and continue.
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Button onClick={advance} className="w-full">
+                    Continue <ArrowRight className="size-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => handleConnect(currentKey)}
+                    className="w-full"
+                  >
+                    Re-open authorization
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <Button
+                  onClick={() => handleConnect(currentKey)}
+                  disabled={busyKey === currentKey}
+                  className="w-full"
+                >
+                  {busyKey === currentKey ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <>
+                      Connect {meta.label} <ArrowRight className="size-4" />
+                    </>
+                  )}
+                </Button>
+                <Button variant="ghost" onClick={advance} className="w-full">
+                  <SkipForward className="size-3.5" /> Skip for now
+                </Button>
+              </div>
+            )}
+            {connectError && (
+              <p className="text-xs text-destructive">{connectError}</p>
+            )}
             <p className="text-xs text-muted-foreground">
               You can connect or disconnect any source later from Integrations.
             </p>
