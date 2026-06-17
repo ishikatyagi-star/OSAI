@@ -40,7 +40,7 @@ function TabsPillContent({
   return (
     <TabsPrimitive.Content
       data-slot="tabs-pill-content"
-      className={cn("mt-4", className)}
+      className={cn("mt-6", className)}
       {...props}
     />
   );
