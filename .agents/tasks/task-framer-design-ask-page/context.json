@@ -1,0 +1,31 @@
+{
+  "project_type": "Next.js 16 web app with custom dark design system",
+  "language": "TypeScript / React 19",
+  "build_system": "npm with Next.js build toolchain",
+  "test_framework": "No test framework configured (no test script in package.json)",
+  "build_command": "cd /projects/sandbox/OSAI/osai-web && npm run build",
+  "test_command": "cd /projects/sandbox/OSAI/osai-web && npm run typecheck",
+  "verification_instructions": "1. npm install, 2. npm run typecheck passes, 3. npm run build succeeds without errors",
+  "snapshot_or_generated_files": null,
+  "setup_instructions": "cd /projects/sandbox/OSAI/osai-web && npm install",
+  "environment_constraints": "OPEN_INTERNET network mode - full access to npm registry. Node.js v22 available.",
+  "contribution_requirements": "Project uses shadcn/ui new-york style. Tailwind v4 imported without preflight (base layer disabled). All tokens in globals.css + theme.css. The design system is exclusively dark mode.",
+  "key_patterns": "The Ask page uses scoped CSS classes (.ask-canvas, .ask-title, .ask-composer, etc.) defined in globals.css. shadcn components use Tailwind utility classes with CSS variable tokens from theme.css. The design system follows DESIGN.md Framer spec: near-black canvas (#090909), white ink, single blue accent (#0099ff), poster-grade display type with aggressive negative tracking, white pill CTAs, charcoal surfaces, gradient spotlight cards. Inter Variable with OpenType features cv01/cv05/cv09/cv11/ss03/ss07.",
+  "relevant_files": [
+    "osai-web/app/ask/page.tsx",
+    "osai-web/app/globals.css",
+    "osai-web/app/theme.css",
+    "osai-web/app/layout.tsx",
+    "osai-web/DESIGN.md",
+    "osai-web/components/ask/action-card.tsx",
+    "osai-web/components/ask/citation-chip.tsx",
+    "osai-web/components/ask/markdown-lite.tsx",
+    "osai-web/components/ask/message-bubble.tsx",
+    "osai-web/components/ui/button.tsx",
+    "osai-web/components/ui/badge.tsx",
+    "osai-web/components/ui/textarea.tsx",
+    "osai-web/components.json",
+    "osai-web/package.json"
+  ],
+  "directory_structure": "osai-web/app/ - Next.js app router pages; osai-web/app/ask/page.tsx - the Ask OSAI page; osai-web/app/globals.css - full design system CSS (~1890 lines); osai-web/app/theme.css - Tailwind v4 + shadcn token mapping; osai-web/components/ask/ - Ask page sub-components (action-card, citation-chip, markdown-lite, message-bubble); osai-web/components/ui/ - shadcn/ui components; osai-web/lib/ - utilities, API, types, demo data"
+}

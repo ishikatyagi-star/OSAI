@@ -1,0 +1,38 @@
+{
+  "id": "FEAT-002",
+  "type": "feat",
+  "description": "Apply the full Framer design system to the Ask OSAI page and its sub-components, ensuring every visual element follows the DESIGN.md spec: poster-grade display type with aggressive negative tracking, dark canvas, white pill CTAs, charcoal surfaces, gradient spotlight workflow cards, and the Inter Variable OpenType features.",
+  "status": "pending",
+  "steps": [
+    "Review the current DESIGN.md and any files added by the getdesign CLI in FEAT-001. Understand what tokens are now available.",
+    "Update the Ask page empty state heading section in `app/ask/page.tsx`: Make the title use poster-grade display typography with aggressive negative tracking matching DESIGN.md display-lg (62px, -3.1px tracking, weight 600, line-height 1.0). Use the `.display-lg` or equivalent class.",
+    "Update the hero composer (`.ask-composer-hero` in globals.css) to fully embody the Framer spec: use surface-2 (#1c1c1c) background, 20px border-radius (rounded.xl from DESIGN.md), subtle level-2 elevation shadow with rgba(255,255,255,0.10) 0.5px top edge highlight.",
+    "Update the mode tabs (`.ask-mode-tab` in globals.css) to exactly match the Framer pricing-tab pattern: default = canvas background with ink-muted text; selected = surface-2 background with ink text; pill shape (100px radius); padding 8px 14px matching DESIGN.md button-translucent spec.",
+    "Transform the three recommended workflow cards (`.ask-mode-card` in globals.css) into gradient spotlight cards following the DESIGN.md gradient-spotlight-card spec. The three cards should use the three gradient variants: violet (radial-gradient with #6a4cf5), magenta (#d44df0), and orange (#ff7a3d). Use rounded.xl (20px) corners, 32px padding, white text. Update the page.tsx to apply distinct gradient classes to each card.",
+    "Update the Send button styling in the composer to match DESIGN.md button-primary: white background, black text, pill shape, font-weight 600. The disabled state should be opacity 0.4. This should already be handled by the shadcn Button component with default variant, but confirm it renders correctly.",
+    "Update the conversation-state message bubbles in `components/ask/message-bubble.tsx`: user messages should use a subtle surface-1 background with ink text and rounded.xl corners. Assistant messages should use a card with surface-1 background, hairline border, and rounded.xl corners. The OSAI avatar badge should remain white pill with black text.",
+    "Update citation chips in `components/ask/citation-chip.tsx` to use the Framer component language: surface-1 background, hairline border, pill radius (100px), caption-size type (13px, -0.13px tracking).",
+    "Update action cards in `components/ask/action-card.tsx` to use Framer card styling: surface-1 background, hairline border, rounded.lg (15px), and the approve button as a white pill primary CTA.",
+    "Update the eyebrow, subtext, disclaimer, section-label, and expectation CSS classes in the .ask-* section of globals.css to precisely match DESIGN.md typography tokens: eyebrow = micro (12px), subtext = body-lg (18px, -0.18px), disclaimer = micro (12px), section-label = caption (13px, -0.13px), expectations = body-sm (14px, -0.14px).",
+    "Ensure all spacing follows the Framer 5px-base grid from DESIGN.md: component gaps at 15px/20px/30px, card padding at 20-32px, section spacing at generous values.",
+    "Run `npm run typecheck` and `npm run build` to verify everything compiles correctly after all changes."
+  ],
+  "acceptance_criteria": [
+    "The Ask page title uses poster-grade display typography (>=40px font-size, letter-spacing <= -2px, weight 600, line-height ~1.0)",
+    "The hero composer uses surface-2 background, 20px radius, and subtle elevation styling",
+    "Mode tabs follow the pricing-tab-default/selected pattern: pill shape, surface lift for active state",
+    "The three workflow cards use distinct gradient spotlight backgrounds (violet, magenta, orange) with white text, 20px+ radius, and 32px padding",
+    "Message bubbles use dark surface backgrounds with proper border radius (not rounded-full circles)",
+    "Citation chips use pill radius and surface-1 background",
+    "Action cards use Framer card styling with surface-1 and hairline borders",
+    "All text elements follow the correct DESIGN.md typography token sizes and tracking values",
+    "`npm run typecheck` passes",
+    "`npm run build` passes"
+  ],
+  "verification": [
+    "Run `cd /projects/sandbox/OSAI/osai-web && npm run typecheck` and confirm exit code 0",
+    "Run `cd /projects/sandbox/OSAI/osai-web && npm run build` and confirm exit code 0"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}
