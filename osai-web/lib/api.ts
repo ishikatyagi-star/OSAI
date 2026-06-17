@@ -190,6 +190,22 @@ export function composioConnect(connectorKey: string) {
   );
 }
 
+export type ConnectorDocument = {
+  id: string;
+  title: string;
+  url: string | null;
+  data_tier: "normal" | "amber" | "red";
+  updated_at: string;
+};
+
+// Recently indexed documents for a connector (powers the Synced files view).
+export function getConnectorDocuments(connectorKey: string) {
+  return apiGet<ConnectorDocument[]>(
+    `/integrations/${connectorKey}/documents`,
+    []
+  );
+}
+
 export function getHealthcheck(connectorKey: string) {
   return apiGet<{ healthy: boolean; message: string }>(
     `/integrations/${connectorKey}/healthcheck`,

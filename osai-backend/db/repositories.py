@@ -559,8 +559,11 @@ def list_integrations(session: Session, org_id: str) -> list[dict[str, object]]:
         )
         .order_by(ConnectorRecord.display_name)
     ).all()
-    return [
-        {
+    # Dedupe by connector key (a stray duplicate ConnectorAccount must never
+    # render as two cards); prefer the connected account.
+    by_key: dict[str, dict[str, object]] = {}
+    for connector, account in rows:
+        entry = {
             "key": connector.key,
             "display_name": connector.display_name,
             "capabilities": connector.capabilities,
@@ -571,8 +574,12 @@ def list_integrations(session: Session, org_id: str) -> list[dict[str, object]]:
             ),
             "sync_error": account.last_error if account else None,
         }
-        for connector, account in rows
-    ]
+        existing = by_key.get(connector.key)
+        if existing is None or (
+            entry["auth_state"] == "connected" and existing["auth_state"] != "connected"
+        ):
+            by_key[connector.key] = entry
+    return list(by_key.values())
 
 
 def upsert_source_documents(session: Session, documents: list[SourceDocument]) -> int:

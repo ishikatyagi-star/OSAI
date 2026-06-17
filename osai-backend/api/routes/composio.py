@@ -67,7 +67,10 @@ async def callback(org_id: str, db: DbSession) -> RedirectResponse:
             await sync_all_connections(org_id, db)
         except Exception:  # noqa: BLE001 — never break the user's redirect
             pass
-    return RedirectResponse(url=settings.frontend_redirect)
+    # Land the user back on the Integrations page (not the marketing root) so they
+    # immediately see the connection they just authorized.
+    base = settings.frontend_redirect.rstrip("/")
+    return RedirectResponse(url=f"{base}/integrations?connected=1")
 
 
 @router.post("/sync")

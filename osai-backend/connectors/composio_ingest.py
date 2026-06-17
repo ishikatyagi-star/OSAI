@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from api.schemas.connector import SourceDocument
 from connectors.composio_tool import ComposioClient, get_default_composio_client
+from connectors.toolkit_map import to_native_key
 from db.repositories import chunks_for_documents, record_sync_result, upsert_source_documents
 from memory.qdrant_store import QdrantStore, get_default_qdrant_store
 
@@ -61,7 +62,9 @@ async def ingest_composio_toolkit(
     record_sync_result(
         session,
         org_id=org_id,
-        connector_key=f"composio:{toolkit}",
+        # Attribute to the native connector key so the single Integrations card
+        # reflects the connection/sync (Composio `googledrive` -> `google_drive`).
+        connector_key=to_native_key(toolkit),
         status="succeeded" if documents else "partial",
         documents_seen=len(documents),
         documents_indexed=indexed,

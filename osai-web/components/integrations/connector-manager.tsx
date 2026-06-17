@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import {
   Activity,
   CheckCircle2,
+  FileText,
   Loader2,
   Plug,
   PlugZap,
@@ -13,7 +14,14 @@ import {
   Trash2,
   XCircle,
 } from "lucide-react";
-import { getHealthcheck, getTierRules, putTierRules, type TierRule } from "@/lib/api";
+import {
+  getConnectorDocuments,
+  getHealthcheck,
+  getTierRules,
+  putTierRules,
+  type ConnectorDocument,
+  type TierRule,
+} from "@/lib/api";
 import { CONNECTOR_META } from "@/lib/connector-meta";
 import type { Integration, SyncRun } from "@/lib/types";
 import { Input } from "@/components/ui/input";
@@ -66,6 +74,9 @@ export function ConnectorManager({
   const [health, setHealth] = useState<Health>(null);
   const [checking, setChecking] = useState(false);
 
+  // Recently synced files for this connector.
+  const [docs, setDocs] = useState<ConnectorDocument[]>([]);
+
   // Per-info data-tier rules (e.g. a specific Drive folder = Red).
   const [rules, setRules] = useState<TierRule[]>([]);
   const [newPattern, setNewPattern] = useState("");
@@ -93,9 +104,11 @@ export function ConnectorManager({
     if (open && integration && integration.auth_state === "connected") {
       runHealthcheck(integration.key);
       getTierRules(integration.key).then((r) => setRules(r.rules));
+      getConnectorDocuments(integration.key).then(setDocs);
     } else {
       setHealth(null);
       setRules([]);
+      setDocs([]);
     }
     setNewPattern("");
     setRulesSaved(false);
@@ -255,6 +268,42 @@ export function ConnectorManager({
                       {r.documents_indexed}/{r.documents_seen} docs ·{" "}
                       {relativeTime(r.started_at)}
                     </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
+
+        {/* Synced files */}
+        {connected && (
+          <section>
+            <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <FileText className="size-3.5" /> Synced files ({docs.length})
+            </p>
+            {docs.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                Nothing indexed yet — click “Sync now” to pull in this source.
+              </p>
+            ) : (
+              <ul className="max-h-44 space-y-1 overflow-y-auto">
+                {docs.map((d) => (
+                  <li
+                    key={d.id}
+                    className="flex items-center gap-2 rounded-md border border-border bg-background/40 px-2.5 py-1.5 text-xs"
+                  >
+                    <span className="min-w-0 flex-1 truncate text-foreground/90">
+                      {d.url ? (
+                        <a href={d.url} target="_blank" rel="noreferrer" className="hover:underline">
+                          {d.title}
+                        </a>
+                      ) : (
+                        d.title
+                      )}
+                    </span>
+                    {d.data_tier !== "normal" && (
+                      <Badge variant="muted" className="capitalize">{d.data_tier}</Badge>
+                    )}
                   </li>
                 ))}
               </ul>
