@@ -4,6 +4,14 @@ import { useState } from "react";
 import Link from "next/link";
 import { FlaskConical, Route, ChevronRight, Trash2, type LucideIcon } from "lucide-react";
 import { resetWorkspaceContent } from "@/lib/api";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 type SettingsLink = {
   href: string;
@@ -30,7 +38,7 @@ const LINKS: SettingsLink[] = [
 ];
 
 export default function SettingsPage() {
-  const [confirming, setConfirming] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [resetMsg, setResetMsg] = useState("");
 
@@ -43,7 +51,7 @@ export default function SettingsPage() {
       const res = await resetWorkspaceContent(orgId);
       const total = Object.values(res.deleted).reduce((a, b) => a + b, 0);
       setResetMsg(`Cleared ${total} records. Re-sync your connectors to pull real data.`);
-      setConfirming(false);
+      setDialogOpen(false);
     } catch {
       setResetMsg("Couldn't reset — please try again.");
     } finally {
@@ -87,10 +95,19 @@ export default function SettingsPage() {
         })}
       </div>
 
+      {/* Danger Zone separator */}
+      <div style={{ position: "relative", margin: "36px 0 18px", display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ flex: 1, height: 1, background: "color-mix(in srgb, var(--red) 40%, var(--border))" }} />
+        <span style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px", color: "var(--red)", whiteSpace: "nowrap" }}>
+          Danger Zone
+        </span>
+        <div style={{ flex: 1, height: 1, background: "color-mix(in srgb, var(--red) 40%, var(--border))" }} />
+      </div>
+
       {/* Danger zone — clear seeded/ingested content */}
       <div
         className="card"
-        style={{ marginTop: 28, borderColor: "color-mix(in srgb, var(--red) 35%, var(--border))" }}
+        style={{ borderColor: "color-mix(in srgb, var(--red) 35%, var(--border))" }}
       >
         <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
           <div
@@ -103,28 +120,38 @@ export default function SettingsPage() {
             <h2 style={{ margin: 0 }}>Reset workspace data</h2>
             <p className="meta" style={{ margin: "4px 0 12px", lineHeight: 1.5 }}>
               Delete all indexed documents, decisions, workflows and sample data. Your connected
-              tools stay connected — just click “Sync now” afterwards to pull your real data back in.
+              tools stay connected — just click &quot;Sync now&quot; afterwards to pull your real data back in.
             </p>
             {resetMsg && (
               <p className="success-text" style={{ marginBottom: 10 }}>{resetMsg}</p>
             )}
-            {confirming ? (
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <button className="btn btn-danger" onClick={handleReset} disabled={resetting}>
-                  {resetting ? "Clearing…" : "Yes, clear everything"}
-                </button>
-                <button className="btn" onClick={() => setConfirming(false)} disabled={resetting}>
-                  Cancel
-                </button>
-              </div>
-            ) : (
-              <button className="btn btn-danger" onClick={() => setConfirming(true)}>
-                Clear workspace data
-              </button>
-            )}
+            <button className="btn btn-danger" onClick={() => setDialogOpen(true)}>
+              Clear workspace data
+            </button>
           </div>
         </div>
       </div>
+
+      {/* Confirmation modal */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Clear workspace data</DialogTitle>
+            <DialogDescription>
+              Are you sure? This will permanently delete all indexed documents, decisions,
+              workflows and sample data. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <button className="btn" onClick={() => setDialogOpen(false)} disabled={resetting}>
+              Cancel
+            </button>
+            <button className="btn btn-danger" onClick={handleReset} disabled={resetting}>
+              {resetting ? "Clearing\u2026" : "Yes, clear data"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

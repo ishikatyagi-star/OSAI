@@ -336,6 +336,7 @@ export default function AskPage() {
                       className="size-10 shrink-0 self-center rounded-full"
                       disabled={pending || !input.trim()}
                       aria-label="Send"
+                      title="Send"
                     >
                       {pending ? (
                         <Loader2 className="size-5 animate-spin" />
@@ -450,6 +451,7 @@ export default function AskPage() {
                   className="shrink-0 self-center rounded-full"
                   disabled={pending || !input.trim()}
                   aria-label="Send"
+                  title="Send"
                 >
                   {pending ? (
                     <Loader2 className="size-4 animate-spin" />

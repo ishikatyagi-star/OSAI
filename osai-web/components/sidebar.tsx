@@ -24,19 +24,39 @@ type NavItem = {
   badge?: number;
 };
 
+type NavGroup = {
+  label: string;
+  items: NavItem[];
+};
+
 // Decluttered IA: Search folds into Ask OSAI, Team Board folds into Decision Log,
 // and Evals + Data Routing move into Settings / Integrations. One consistent icon
 // set (lucide, outline, uniform stroke) so no item reads heavier than the others.
-const NAV: NavItem[] = [
-  { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-  { href: "/ask", icon: Sparkles, label: "Ask OSAI" },
-  { href: "/inbox", icon: Inbox, label: "Context Inbox" },
-  { href: "/decisions", icon: ScrollText, label: "Decision Log" },
-  { href: "/graph", icon: Share2, label: "Org Graph" },
-  { href: "/team", icon: Users, label: "Team" },
-  { href: "/workflows", icon: Zap, label: "Workflows" },
-  { href: "/integrations", icon: Plug, label: "Integrations" },
-  { href: "/sync-runs", icon: RefreshCw, label: "Sync Runs" },
+const NAV_GROUPS: NavGroup[] = [
+  {
+    label: "Workspace",
+    items: [
+      { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+      { href: "/ask", icon: Sparkles, label: "Ask OSAI" },
+    ],
+  },
+  {
+    label: "Manage",
+    items: [
+      { href: "/inbox", icon: Inbox, label: "Context Inbox" },
+      { href: "/decisions", icon: ScrollText, label: "Decision Log" },
+      { href: "/graph", icon: Share2, label: "Org Graph" },
+      { href: "/team", icon: Users, label: "Team" },
+      { href: "/workflows", icon: Zap, label: "Workflows" },
+    ],
+  },
+  {
+    label: "Configure",
+    items: [
+      { href: "/integrations", icon: Plug, label: "Integrations" },
+      { href: "/sync-runs", icon: RefreshCw, label: "Sync Runs" },
+    ],
+  },
 ];
 
 export default function Sidebar() {
@@ -62,26 +82,32 @@ export default function Sidebar() {
 
       {/* Nav */}
       <nav className="sidebar-nav">
-        {NAV.map((item) => {
-          const active = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`sidebar-nav-item${active ? " active" : ""}`}
-              aria-current={active ? "page" : undefined}
-            >
-              <span className="nav-icon">
-                <Icon size={16} strokeWidth={1.75} />
-              </span>
-              <span>{item.label}</span>
-              {item.badge && (
-                <span className="sidebar-nav-badge">{item.badge}</span>
-              )}
-            </Link>
-          );
-        })}
+        {NAV_GROUPS.map((group, groupIdx) => (
+          <div key={group.label}>
+            {groupIdx > 0 && <div className="sidebar-group-divider" />}
+            <div className="sidebar-group-label">{group.label}</div>
+            {group.items.map((item) => {
+              const active = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`sidebar-nav-item${active ? " active" : ""}`}
+                  aria-current={active ? "page" : undefined}
+                >
+                  <span className="nav-icon">
+                    <Icon size={16} strokeWidth={1.75} />
+                  </span>
+                  <span>{item.label}</span>
+                  {item.badge && (
+                    <span className="sidebar-nav-badge">{item.badge}</span>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        ))}
       </nav>
 
       {/* Footer */}

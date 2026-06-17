@@ -165,6 +165,21 @@ a { color: inherit; }
   gap: 2px;
 }
 
+.sidebar-group-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+  padding: 6px 12px 4px;
+  font-weight: 600;
+}
+
+.sidebar-group-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 8px 12px;
+}
+
 .sidebar-nav-item {
   display: flex;
   align-items: center;
@@ -2001,8 +2016,8 @@ h2 {
 }
 
 .ask-mode-tab[data-active="true"] {
-  background: var(--bg-elevated);
-  color: var(--text-primary);
+  background: #ffffff;
+  color: #000000;
 }
 
 /* ── Recommended-workflow cards (gradient spotlight variants) ────────────────── */
