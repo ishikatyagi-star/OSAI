@@ -46,19 +46,30 @@ export default function IntegrationsPage() {
   const [syncMsg, setSyncMsg] = useState<Record<string, string>>({});
   const [syncRuns, setSyncRuns] = useState<SyncRun[]>([]);
   const [managedKey, setManagedKey] = useState<string | null>(null);
+  const [justConnected, setJustConnected] = useState(false);
 
-  // Honour ?tab=routing (e.g. from the Settings hub / old data-routing route).
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("tab") === "routing") setTab("routing");
-  }, []);
-
-  useEffect(() => {
+  function loadIntegrations() {
     getIntegrations().then((data) => {
       const hasConnected = data.some((i) => i.auth_state === "connected");
       // Show real connectors; only substitute the demo set in demo mode.
       setIntegrations(!hasConnected && isDemo() && !data.length ? DEMO_INTEGRATIONS : data);
     });
+  }
+
+  // Honour ?tab=routing and ?connected=1 (back from the Composio OAuth round-trip).
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("tab") === "routing") setTab("routing");
+    if (params.get("connected") === "1") {
+      setJustConnected(true);
+      setTimeout(() => setJustConnected(false), 6000);
+      // Clean the query string so a refresh doesn't re-show the banner.
+      window.history.replaceState({}, "", "/integrations");
+    }
+  }, []);
+
+  useEffect(() => {
+    loadIntegrations();
     getSyncRuns().then((runs) => {
       setSyncRuns(runs.length ? runs : isDemo() ? DEMO_SYNC_RUNS : []);
     });
@@ -68,13 +79,18 @@ export default function IntegrationsPage() {
     setSyncing((s) => ({ ...s, [key]: true }));
     setSyncMsg((m) => ({ ...m, [key]: "" }));
     try {
-      await triggerSync(key);
-      setSyncMsg((m) => ({ ...m, [key]: "Sync started" }));
+      const res = await triggerSync(key);
+      const indexed = Number((res as { documents_indexed?: number }).documents_indexed ?? 0);
+      setSyncMsg((m) => ({
+        ...m,
+        [key]: indexed > 0 ? `Indexed ${indexed} file${indexed > 1 ? "s" : ""}` : "Sync complete",
+      }));
+      loadIntegrations();
     } catch {
       setSyncMsg((m) => ({ ...m, [key]: "Sync triggered (demo mode)" }));
     } finally {
       setSyncing((s) => ({ ...s, [key]: false }));
-      setTimeout(() => setSyncMsg((m) => ({ ...m, [key]: "" })), 3000);
+      setTimeout(() => setSyncMsg((m) => ({ ...m, [key]: "" })), 5000);
     }
   }
 
@@ -109,7 +125,11 @@ export default function IntegrationsPage() {
   }
 
   const demo = isDemo();
-  const display = integrations.length ? integrations : demo ? DEMO_INTEGRATIONS : [];
+  const rawDisplay = integrations.length ? integrations : demo ? DEMO_INTEGRATIONS : [];
+  // Defensive dedupe so one app never renders as two cards.
+  const display = Array.from(
+    new Map(rawDisplay.map((i) => [i.key, i])).values()
+  );
   const managed = display.find((i) => i.key === managedKey) ?? null;
   const managedRuns = useMemo(
     () => (managedKey ? syncRuns.filter((r) => r.connector_key === managedKey) : []),
@@ -158,6 +178,23 @@ export default function IntegrationsPage() {
         <DataRoutingPanel />
       ) : (
         <>
+          {justConnected && (
+            <div
+              className="card"
+              style={{
+                marginBottom: 16,
+                borderColor: "var(--green)",
+                background: "color-mix(in srgb, var(--green) 10%, transparent)",
+                color: "var(--green)",
+                fontSize: 13,
+                fontWeight: 600,
+                padding: "12px 16px",
+              }}
+            >
+              ✓ Connected. Your data is being indexed — click “Sync now” on the connector to pull it in.
+            </div>
+          )}
+
           {/* Summary — dashboard stat-card styling */}
           <div className="stats-grid stats-grid--auto">
             <div className="stat-card">
