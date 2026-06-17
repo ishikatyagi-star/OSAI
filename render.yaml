@@ -57,3 +57,16 @@ services:
         sync: false
       - key: OSAI_ALLOWED_ORIGINS      # your Vercel frontend URL
         sync: false
+      # Public URLs — non-secret, safe to commit. Update if domains change.
+      - key: OSAI_PUBLIC_BASE_URL      # this API's public URL (Composio auto-ingest callback)
+        value: https://osai-api-ema6.onrender.com
+      - key: OSAI_FRONTEND_URL         # where to send users after OAuth sign-in
+        value: https://osai-five.vercel.app
+      # Google sign-in (OAuth 2.0). Redirect URI is non-secret; the client
+      # id/secret are set in the dashboard (never committed to git).
+      - key: OSAI_GOOGLE_OAUTH_REDIRECT_URI
+        value: https://osai-api-ema6.onrender.com/auth/google/callback
+      - key: OSAI_GOOGLE_OAUTH_CLIENT_ID
+        sync: false
+      - key: OSAI_GOOGLE_OAUTH_CLIENT_SECRET
+        sync: false
