@@ -130,7 +130,7 @@ export default function SyncRunsPage() {
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
                   <span className="text-base">{meta.icon}</span>
-                  <span className="text-caption font-semibold" style={{ color: "var(--text-primary)" }}>{meta.label}</span>
+                  <span className="text-caption" style={{ color: "var(--text-primary)", fontWeight: 600 }}>{meta.label}</span>
                   <span className={`badge ${STATUS_BADGE[run.status] ?? "badge-grey"}`}>
                     {run.status}
                   </span>

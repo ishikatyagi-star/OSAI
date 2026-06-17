@@ -172,7 +172,7 @@ export function DataRoutingPanel() {
                   <div style={{ padding: "18px 22px" }}>
                     <div style={{ display: "flex", gap: 32, flexWrap: "wrap", alignItems: "flex-start" }}>
                       <div style={{ flex: 1 }}>
-                        <p className="text-micro font-semibold uppercase tracking-wide" style={{ color: "var(--text-secondary)", marginBottom: 10 }}>
+                        <p className="text-micro font-semibold uppercase tracking-[0.5px]" style={{ color: "var(--text-secondary)", marginBottom: 10 }}>
                           Allowed Connectors
                         </p>
                         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -207,7 +207,7 @@ export function DataRoutingPanel() {
                       </div>
 
                       <div>
-                        <p className="text-micro font-semibold uppercase tracking-wide" style={{ color: "var(--text-secondary)", marginBottom: 10 }}>
+                        <p className="text-micro font-semibold uppercase tracking-[0.5px]" style={{ color: "var(--text-secondary)", marginBottom: 10 }}>
                           LLM Processing
                         </p>
                         <label

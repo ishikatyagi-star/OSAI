@@ -151,7 +151,7 @@ export default function GraphPage() {
                 return (
                   <tr key={u.id}>
                     <td>
-                      <div className="text-caption font-semibold" style={{ color: "var(--text-primary)" }}>{u.label}</div>
+                      <div className="text-caption" style={{ color: "var(--text-primary)", fontWeight: 600 }}>{u.label}</div>
                       <span className="badge badge-grey text-[10px]">{u.role}</span>
                     </td>
                     {data.connectors.map((c) => {

@@ -217,7 +217,7 @@ export default function DecisionsPage() {
           {filtered.map((d) => (
             <tr key={d.id}>
               <td>
-                <div className="text-caption font-semibold" style={{ marginBottom: 5, color: "var(--text-primary)" }}>
+                <div className="text-caption" style={{ marginBottom: 5, color: "var(--text-primary)", fontWeight: 600 }}>
                   {d.title}
                 </div>
                 <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>

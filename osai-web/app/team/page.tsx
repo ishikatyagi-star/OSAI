@@ -123,7 +123,7 @@ export default function TeamPage() {
             {members.map((m) => (
               <tr key={m.id}>
                 <td>
-                  <div className="text-caption font-semibold" style={{ color: "var(--text-primary)" }}>
+                  <div className="text-caption" style={{ color: "var(--text-primary)", fontWeight: 600 }}>
                     {m.display_name}
                   </div>
                   <div className="meta">{m.email}</div>

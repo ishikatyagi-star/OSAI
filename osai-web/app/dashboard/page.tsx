@@ -102,9 +102,9 @@ export default function DashboardPage() {
           <div className="spotlight-eyebrow">
             Company pulse
           </div>
-          <h1 style={{ margin: 0 }}>
+          <h2 className="text-[30px] font-semibold leading-[1.05] tracking-[-1.4px]" style={{ margin: 0 }}>
             Your company context, working for you.
-          </h1>
+          </h2>
           <p className="text-body" style={{ marginTop: 10, maxWidth: 480 }}>
             {documentsIndexed > 0
               ? `${documentsIndexed.toLocaleString()} sources indexed across every connector — ask anything, surface blockers, and keep decisions moving.`
@@ -147,7 +147,7 @@ export default function DashboardPage() {
           {active.length === 0 && (
             <div className="card" style={{ textAlign: "center", padding: "32px 20px" }}>
               <p className="text-xl" style={{ marginBottom: 8 }}>✓</p>
-              <p className="text-caption font-semibold" style={{ color: "var(--green)" }}>All clear!</p>
+              <p className="text-caption" style={{ color: "var(--green)", fontWeight: 600 }}>All clear!</p>
               <p className="meta" style={{ marginTop: 4 }}>No blockers or follow-ups right now.</p>
             </div>
           )}
@@ -256,7 +256,7 @@ export default function DashboardPage() {
             <Link href="/workflows">Review all ({pendingActions}) →</Link>
           </div>
           <div className="card" style={{ background: "var(--accent-dim)", borderColor: "rgba(0,153,255,0.18)" }}>
-            <p className="text-caption font-normal" style={{ color: "var(--text-primary)" }}>
+            <p className="text-caption" style={{ color: "var(--text-primary)", fontWeight: 400 }}>
               <span className="font-bold" style={{ color: "var(--text-primary)" }}>{pendingActions} action items</span> extracted from recent workflow runs are waiting for your review.
             </p>
             <Link href="/workflows" className="btn" style={{ marginTop: 10, display: "inline-flex" }}>

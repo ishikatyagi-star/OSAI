@@ -146,13 +146,14 @@ export default function IntegrationsPage() {
         <TabsPillContent value="connectors">
           {justConnected && (
             <div
-              className="card text-caption font-semibold"
+              className="card text-caption"
               style={{
                 marginBottom: 16,
                 borderColor: "var(--green)",
                 background: "color-mix(in srgb, var(--green) 10%, transparent)",
                 color: "var(--green)",
                 padding: "12px 16px",
+                fontWeight: 600,
               }}
             >
               ✓ Connected. Your data is being indexed — click “Sync now” on the connector to pull it in.
