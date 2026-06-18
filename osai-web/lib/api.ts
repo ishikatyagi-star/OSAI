@@ -426,6 +426,36 @@ export function confirmAgentAction(
   );
 }
 
+// ─── Dashboard / Analytics metrics ────────────────────────────────────────────
+
+export type DashboardMetrics = {
+  total_documents: number;
+  documents_by_connector: Record<string, number>;
+  documents_by_tier: Record<string, number>;
+  connectors_connected: number;
+  sync_runs_total: number;
+  sync_runs_succeeded: number;
+  last_sync_at: string | null;
+  members: number;
+  departments: number;
+  automations: number;
+};
+
+export function getDashboardMetrics() {
+  return apiGet<DashboardMetrics>("/dashboard/metrics", {
+    total_documents: 0,
+    documents_by_connector: {},
+    documents_by_tier: {},
+    connectors_connected: 0,
+    sync_runs_total: 0,
+    sync_runs_succeeded: 0,
+    last_sync_at: null,
+    members: 0,
+    departments: 0,
+    automations: 0,
+  });
+}
+
 // ─── Automations (NL scheduled tasks) ─────────────────────────────────────────
 
 export type Automation = {
