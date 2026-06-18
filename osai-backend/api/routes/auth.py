@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import secrets
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 from urllib.parse import urlencode
 
@@ -42,9 +43,18 @@ class LoginResponse(BaseModel):
     token: str
 
 
-def _issue_token(user_id: str) -> str:
-    """Mock token format shared with the email-lookup login path."""
-    return f"mock-jwt-token-{user_id}"
+def _issue_token(user: User) -> str:
+    """Signed session JWT carrying the user's identity, org and role."""
+    now = datetime.now(UTC)
+    payload = {
+        "sub": user.id,
+        "org_id": user.org_id,
+        "role": user.role,
+        "email": user.email,
+        "iat": now,
+        "exp": now + timedelta(hours=settings.jwt_expiry_hours),
+    }
+    return jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
 
 
 @router.post("/login", response_model=LoginResponse)
@@ -61,7 +71,7 @@ async def login(body: LoginRequest, db: DbSession) -> LoginResponse:
         user_id=user.id,
         org_id=user.org_id,
         role=user.role,
-        token=_issue_token(user.id),
+        token=_issue_token(user),
     )
 
 
@@ -225,7 +235,7 @@ async def google_callback(
 
     org = db.get(Org, user.org_id)
     resp = _frontend_redirect(
-        _issue_token(user.id), user, org.name if org else "", is_new=is_new
+        _issue_token(user), user, org.name if org else "", is_new=is_new
     )
     resp.delete_cookie(_OAUTH_STATE_COOKIE)
     return resp

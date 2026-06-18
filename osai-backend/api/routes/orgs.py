@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from db.repositories import provision_org, reset_org_content, try_db
-from db.session import get_db
+from db.session import get_db, require_admin
 
 router = APIRouter(prefix="/orgs", tags=["orgs"])
 DbSession = Annotated[Session, Depends(get_db)]
@@ -59,10 +59,15 @@ async def create_org(body: OrgCreate, db: DbSession) -> OrgResponse:
 
 
 @router.post("/{org_id}/reset-content")
-async def reset_content(org_id: str, db: DbSession) -> dict[str, object]:
+async def reset_content(
+    org_id: str, db: DbSession, admin: Annotated[dict, Depends(require_admin)]
+) -> dict[str, object]:
     """Delete all ingested/derived content for an org (documents, chunks, sync
     runs, workflows, memory) while keeping the org, users, and connector
     connections. Clears seed/demo data so a fresh re-sync pulls only real data."""
+    # An admin may only reset their own org.
+    if admin.get("org_id") != org_id:
+        raise HTTPException(status_code=403, detail="Cannot reset another organization.")
     counts = reset_org_content(db, org_id)
     # Best-effort: also clear this org's vectors from Qdrant.
     try:
