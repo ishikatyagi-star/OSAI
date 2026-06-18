@@ -1,0 +1,20 @@
+# Local run for the Hermes sidecar. From services/hermes-sidecar/:
+#   OPENROUTER_API_KEY=sk-... HERMES_MODEL=anthropic/claude-sonnet-4 docker compose up --build
+# Then point OSAI at it:  OSAI_HERMES_SIDECAR_URL=http://localhost:8088
+services:
+  hermes-sidecar:
+    build: .
+    ports:
+      - "8088:8088"
+    environment:
+      # One of these, matching your chosen provider/model:
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - HERMES_MODEL=${HERMES_MODEL:-}
+      - HERMES_PROVIDER=${HERMES_PROVIDER:-}
+    volumes:
+      - hermes_data:/data/hermes
+
+volumes:
+  hermes_data:
