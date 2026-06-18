@@ -28,6 +28,12 @@ def _decode_token(authorization: str | None) -> dict | None:
         return None
 
 
+async def get_optional_claims(authorization: str | None = Header(default=None)) -> dict | None:
+    """Return JWT claims if a valid token is present, else None (no 401). For
+    endpoints that work in demo mode but want per-user context when available."""
+    return _decode_token(authorization)
+
+
 async def get_claims(authorization: str | None = Header(default=None)) -> dict:
     """Require a valid session JWT and return its claims (sub, org_id, role, …)."""
     claims = _decode_token(authorization)

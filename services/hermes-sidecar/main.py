@@ -31,6 +31,10 @@ RUN_TIMEOUT = int(os.environ.get("HERMES_RUN_TIMEOUT", "120"))
 class RunRequest(BaseModel):
     prompt: str
     org_id: str
+    user_id: str | None = None
+    # The user's data-access scope. Enforcement of these on any retrieval Hermes
+    # requests back into OSAI is OSAI's responsibility (the permission boundary).
+    permissions: list[str] = []
 
 
 @app.get("/health")
@@ -40,8 +44,10 @@ def health() -> dict:
 
 @app.post("/run")
 def run(req: RunRequest) -> dict:
-    # Per-org home → Hermes's memory/skills can never bleed across tenants.
-    home = os.path.join(HERMES_HOME_ROOT, req.org_id)
+    # Per-USER home (scoped under org) → each user's Hermes has its own isolated
+    # memory/skills; nothing bleeds across users or tenants.
+    leaf = req.user_id or "_org"
+    home = os.path.join(HERMES_HOME_ROOT, req.org_id, leaf)
     os.makedirs(home, exist_ok=True)
     env = {**os.environ, "HERMES_HOME": home}
     try:
