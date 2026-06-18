@@ -22,16 +22,31 @@ def hermes_enabled() -> bool:
     return bool(settings.hermes_sidecar_url)
 
 
-async def run_via_hermes(prompt: str, org_id: str, timeout: float = 120.0) -> str | None:
-    """Run a prompt through the Hermes sidecar for one org. Returns the answer
-    text, or None if Hermes isn't configured or the call fails (caller falls back
-    to the in-house agent)."""
+async def run_via_hermes(
+    prompt: str,
+    org_id: str,
+    *,
+    user_id: str | None = None,
+    permissions: list[str] | None = None,
+    timeout: float = 120.0,
+) -> str | None:
+    """Run a prompt through the *per-user* Hermes sidecar. Carries org_id +
+    user_id + the user's permissions so the sidecar runs in that user's isolated
+    HERMES_HOME and OSAI can enforce the user's data-access scope on any retrieval
+    Hermes requests back. Returns the answer text, or None if Hermes isn't
+    configured or the call fails (caller falls back to the in-house agent)."""
     if not settings.hermes_sidecar_url:
         return None
     url = settings.hermes_sidecar_url.rstrip("/") + "/run"
+    payload = {
+        "prompt": prompt,
+        "org_id": org_id,
+        "user_id": user_id,
+        "permissions": permissions or [],
+    }
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
-            resp = await client.post(url, json={"prompt": prompt, "org_id": org_id})
+            resp = await client.post(url, json=payload)
         if resp.status_code == 200:
             return resp.json().get("result")
         logger.warning("Hermes sidecar %s -> %s", url, resp.status_code)

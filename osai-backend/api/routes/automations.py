@@ -16,18 +16,19 @@ from sqlalchemy.orm import Session
 from agent.hermes_client import run_via_hermes
 from agent.orchestrator import run_ask
 from api.schemas.agent import AskRequest
-from db.models import Automation
+from db.models import Automation, User
 from db.repositories import (
     create_automation,
     delete_automation,
     list_automations,
     record_automation_run,
 )
-from db.session import get_db, get_org_id
+from db.session import get_db, get_optional_claims, get_org_id
 
 router = APIRouter(prefix="/automations", tags=["automations"])
 DbSession = Annotated[Session, Depends(get_db)]
 OrgId = Annotated[str, Depends(get_org_id)]
+OptionalClaims = Annotated[dict | None, Depends(get_optional_claims)]
 
 VALID_CADENCES = ("manual", "hourly", "daily", "weekly")
 
@@ -75,14 +76,28 @@ async def delete_(automation_id: str, db: DbSession, org_id: OrgId) -> dict[str,
 
 
 @router.post("/{automation_id}/run")
-async def run_(automation_id: str, db: DbSession, org_id: OrgId) -> dict[str, object]:
+async def run_(
+    automation_id: str, db: DbSession, org_id: OrgId, claims: OptionalClaims
+) -> dict[str, object]:
     """Run an automation now: execute its prompt through the agent and store the
     result. (Recurring execution on the cadence requires the Celery beat worker.)"""
     auto = db.get(Automation, automation_id)
     if auto is None or auto.org_id != org_id:
         raise HTTPException(status_code=404, detail="Automation not found.")
-    # --- executor seam: Hermes sidecar if configured, else the in-house agent ---
-    hermes = await run_via_hermes(auto.prompt, org_id)
+
+    # Resolve the acting user's identity + permissions so a per-user Hermes runs
+    # in their isolated context and OSAI can scope any retrieval to their access.
+    user_id = claims.get("sub") if claims else None
+    permissions: list[str] = []
+    if user_id:
+        user = db.get(User, user_id)
+        if user:
+            permissions = list(user.permissions or [])
+
+    # --- executor seam: per-user Hermes sidecar if configured, else in-house ---
+    hermes = await run_via_hermes(
+        auto.prompt, org_id, user_id=user_id, permissions=permissions
+    )
     if hermes is not None:
         record_automation_run(db, automation_id, hermes)
         return {"id": automation_id, "result": hermes, "via": "hermes", "citations": []}
