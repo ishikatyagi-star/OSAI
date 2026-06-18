@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
+  BarChart3,
   Clock,
   Inbox,
   LayoutDashboard,
@@ -39,6 +40,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
       { href: "/ask", icon: Sparkles, label: "Ask OSAI" },
+      { href: "/dashboards", icon: BarChart3, label: "Analytics" },
     ],
   },
   {

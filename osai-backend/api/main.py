@@ -6,6 +6,7 @@ from api.routes import (
     auth,
     automations,
     composio,
+    dashboard,
     evals,
     graph,
     health,
@@ -46,3 +47,4 @@ app.include_router(orgs.router)
 app.include_router(auth.router)
 app.include_router(team.router)
 app.include_router(automations.router)
+app.include_router(dashboard.router)
