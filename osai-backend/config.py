@@ -94,6 +94,11 @@ class Settings(BaseSettings):
     def composio_toolkit_list(self) -> list[str]:
         return [t.strip() for t in self.composio_toolkits.split(",") if t.strip()]
 
+    # Hermes agent sidecar (spike). When set, automations execute via the Hermes
+    # agent running as a separate service (HTTP), with OSAI passing org context
+    # and enforcing isolation at the boundary. Unset = use the in-house agent.
+    hermes_sidecar_url: str | None = None
+
     # gbrain knowledge-graph sidecar (P4). When gbrain_home is set, OSAI can
     # read/write the org brain (pages + self-wiring typed graph). Vector/synthesis
     # features need an embedding key; pages + graph + keyword search are key-free.

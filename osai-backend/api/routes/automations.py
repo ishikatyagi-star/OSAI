@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from agent.hermes_client import run_via_hermes
 from agent.orchestrator import run_ask
 from api.schemas.agent import AskRequest
 from db.models import Automation
@@ -80,7 +81,11 @@ async def run_(automation_id: str, db: DbSession, org_id: OrgId) -> dict[str, ob
     auto = db.get(Automation, automation_id)
     if auto is None or auto.org_id != org_id:
         raise HTTPException(status_code=404, detail="Automation not found.")
-    # --- executor seam: in-house agent today, swappable for a Hermes sidecar ---
+    # --- executor seam: Hermes sidecar if configured, else the in-house agent ---
+    hermes = await run_via_hermes(auto.prompt, org_id)
+    if hermes is not None:
+        record_automation_run(db, automation_id, hermes)
+        return {"id": automation_id, "result": hermes, "via": "hermes", "citations": []}
     resp = await run_ask(AskRequest(org_id=org_id, question=auto.prompt))
     record_automation_run(db, automation_id, resp.answer)
-    return {"id": automation_id, "result": resp.answer, "citations": resp.citations}
+    return {"id": automation_id, "result": resp.answer, "via": "osai", "citations": resp.citations}
