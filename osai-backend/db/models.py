@@ -190,6 +190,26 @@ class ConnectorAction(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
 
 
+class Automation(Base):
+    """A natural-language task that runs unattended on a cadence (or on demand):
+    OSAI runs the agent with `prompt` for the org and stores the result. The
+    executor is a seam — today it calls the in-house agent; later it can call a
+    Hermes sidecar instead."""
+
+    __tablename__ = "automations"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
+    org_id: Mapped[str] = mapped_column(String, ForeignKey("orgs.id"), index=True)
+    user_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    name: Mapped[str] = mapped_column(String)
+    prompt: Mapped[str] = mapped_column(Text)
+    cadence: Mapped[str] = mapped_column(String, default="manual")  # manual|hourly|daily|weekly
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    last_run_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_result: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
+
+
 class AuditEvent(Base):
     __tablename__ = "audit_events"
 

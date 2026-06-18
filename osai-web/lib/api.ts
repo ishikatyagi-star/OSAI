@@ -129,6 +129,19 @@ async function apiPut<TBody, TResult>(
   return (await res.json()) as TResult;
 }
 
+async function apiDelete<TResult>(path: string): Promise<TResult> {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: "DELETE",
+    headers: getHeaders(),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    handleUnauthorized(res.status);
+    throw new Error(`DELETE ${path} failed (${res.status})`);
+  }
+  return (await res.json()) as TResult;
+}
+
 // ─── Authentication & Onboarding ─────────────────────────────────────────────
 
 export type LoginCredentials = {
@@ -410,6 +423,41 @@ export function confirmAgentAction(
   return apiPost<{ conversation_id: string }, ConfirmActionResult>(
     `/ask/actions/${actionId}/confirm`,
     { conversation_id: conversationId }
+  );
+}
+
+// ─── Automations (NL scheduled tasks) ─────────────────────────────────────────
+
+export type Automation = {
+  id: string;
+  name: string;
+  prompt: string;
+  cadence: "manual" | "hourly" | "daily" | "weekly";
+  enabled: boolean;
+  last_run_at: string | null;
+  last_result: string | null;
+};
+
+export function getAutomations() {
+  return apiGet<Automation[]>("/automations", []);
+}
+
+export function createAutomation(input: {
+  name: string;
+  prompt: string;
+  cadence: string;
+}) {
+  return apiPost<typeof input, Automation>("/automations", input);
+}
+
+export function deleteAutomation(id: string) {
+  return apiDelete<{ deleted: boolean }>(`/automations/${id}`);
+}
+
+export function runAutomation(id: string) {
+  return apiPost<Record<string, never>, { id: string; result: string }>(
+    `/automations/${id}/run`,
+    {}
   );
 }
 

@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from api.routes import (
     agent,
     auth,
+    automations,
     composio,
     evals,
     graph,
@@ -44,3 +45,4 @@ app.include_router(webhooks.router)
 app.include_router(orgs.router)
 app.include_router(auth.router)
 app.include_router(team.router)
+app.include_router(automations.router)

@@ -9,6 +9,7 @@ from api.schemas.connector import SourceDocument
 from db.models import (
     ActionItemRecord,
     AuditEvent,
+    Automation,
     Chunk,
     ConnectorAccount,
     ConnectorAction,
@@ -1148,3 +1149,51 @@ def accept_invite_for_email(session: Session, email: str, display_name: str) -> 
     invite.status = "accepted"
     session.commit()
     return user
+
+
+# --- Automations (NL scheduled tasks) --------------------------------------
+
+def create_automation(
+    session: Session,
+    *,
+    org_id: str,
+    user_id: str | None,
+    name: str,
+    prompt: str,
+    cadence: str,
+) -> Automation:
+    auto = Automation(
+        org_id=org_id, user_id=user_id, name=name, prompt=prompt, cadence=cadence
+    )
+    session.add(auto)
+    session.commit()
+    return auto
+
+
+def list_automations(session: Session, org_id: str) -> list[Automation]:
+    return (
+        session.query(Automation)
+        .filter(Automation.org_id == org_id)
+        .order_by(desc(Automation.created_at))
+        .all()
+    )
+
+
+def delete_automation(session: Session, org_id: str, automation_id: str) -> bool:
+    n = (
+        session.query(Automation)
+        .filter(Automation.id == automation_id, Automation.org_id == org_id)
+        .delete()
+    )
+    session.commit()
+    return bool(n)
+
+
+def record_automation_run(
+    session: Session, automation_id: str, result: str
+) -> None:
+    auto = session.get(Automation, automation_id)
+    if auto:
+        auto.last_run_at = now_utc()
+        auto.last_result = result
+        session.commit()
