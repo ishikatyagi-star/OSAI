@@ -10,18 +10,93 @@ Notion is implemented first; add other toolkits by extending `_FETCHERS`.
 
 from __future__ import annotations
 
+import base64
 import logging
 from typing import Any
 
+import httpx
 from sqlalchemy.orm import Session
 
 from api.schemas.connector import SourceDocument
+from config import settings
 from connectors.composio_tool import ComposioClient, get_default_composio_client
 from connectors.toolkit_map import to_native_key
 from db.repositories import chunks_for_documents, record_sync_result, upsert_source_documents
 from memory.qdrant_store import QdrantStore, get_default_qdrant_store
 
 logger = logging.getLogger("osai.composio.ingest")
+
+# Audio/video files Whisper can transcribe (≤25MB per the API limit).
+_MEDIA_EXTS = (".mp3", ".mp4", ".m4a", ".wav", ".webm", ".mpeg", ".mpga", ".ogg", ".mov")
+_WHISPER_MAX_BYTES = 25 * 1024 * 1024
+
+
+def _is_media(name: str) -> bool:
+    return name.lower().endswith(_MEDIA_EXTS)
+
+
+def _find_url(data: Any) -> str | None:
+    """Best-effort: find the first http(s) URL anywhere in a Composio response."""
+    if isinstance(data, str):
+        return data if data.startswith("http") else None
+    if isinstance(data, dict):
+        for v in data.values():
+            if (u := _find_url(v)) :
+                return u
+    if isinstance(data, list):
+        for v in data:
+            if (u := _find_url(v)) :
+                return u
+    return None
+
+
+async def _transcribe_media(client: ComposioClient, fid: str, name: str, org_id: str) -> str | None:
+    """Download a Drive media file via Composio and transcribe it with OpenAI
+    Whisper. Best-effort: returns None (caller falls back to the filename) if no
+    OpenAI key, the file is too big, or the bytes can't be retrieved."""
+    if not settings.openai_api_key:
+        return None
+    try:
+        dl = await client.execute("GOOGLEDRIVE_DOWNLOAD_FILE", {"file_id": fid}, org_id)
+    except Exception:  # noqa: BLE001
+        return None
+    data = dl.get("data") or {}
+
+    audio: bytes | None = None
+    for key in ("content", "file_content", "base64"):
+        v = _dig(data, key) or _dig(data, "response_data", key)
+        if isinstance(v, str) and len(v) > 100:
+            try:
+                audio = base64.b64decode(v)
+                break
+            except Exception:  # noqa: BLE001
+                pass
+    if audio is None and (url := _find_url(data)):
+        try:
+            async with httpx.AsyncClient(timeout=60) as h:
+                r = await h.get(url)
+                if r.status_code == 200:
+                    audio = r.content
+        except Exception:  # noqa: BLE001
+            return None
+
+    if not audio or len(audio) > _WHISPER_MAX_BYTES:
+        return None
+
+    try:
+        async with httpx.AsyncClient(timeout=180) as h:
+            resp = await h.post(
+                "https://api.openai.com/v1/audio/transcriptions",
+                headers={"Authorization": f"Bearer {settings.openai_api_key}"},
+                files={"file": (name, audio)},
+                data={"model": "whisper-1", "response_format": "json"},
+            )
+        if resp.status_code == 200:
+            return resp.json().get("text") or None
+        logger.warning("Whisper transcription %s -> %s", name, resp.status_code)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Whisper transcription error for %s: %s", name, exc)
+    return None
 
 
 async def ingest_composio_toolkit(
@@ -176,11 +251,24 @@ async def _fetch_googledrive(
         name = f.get("name") or "Untitled"
         url = f.get("webViewLink") or f.get("web_view_link")
         text = ""
-        try:
-            content = await client.execute("GOOGLEDRIVE_DOWNLOAD_FILE", {"file_id": fid}, org_id)
-            text = _plain_text(content.get("data") or {})
-        except Exception:  # noqa: BLE001
-            text = ""
+        metadata: dict[str, Any] = {}
+        if _is_media(name):
+            # Audio/video: transcribe with Whisper so the *content* is searchable,
+            # not just the filename.
+            transcript = await _transcribe_media(client, fid, name, org_id)
+            if transcript:
+                text = transcript
+                metadata = {"media": True, "transcribed": True}
+            else:
+                metadata = {"media": True, "transcribed": False}
+        else:
+            try:
+                content = await client.execute(
+                    "GOOGLEDRIVE_DOWNLOAD_FILE", {"file_id": fid}, org_id
+                )
+                text = _plain_text(content.get("data") or {})
+            except Exception:  # noqa: BLE001
+                text = ""
         documents.append(
             SourceDocument(
                 source_id=f"gdrive:{fid}",
@@ -190,6 +278,7 @@ async def _fetch_googledrive(
                 title=name,
                 url=url,
                 text=text or name,
+                metadata=metadata,
                 permissions=["source:all"],
             )
         )
