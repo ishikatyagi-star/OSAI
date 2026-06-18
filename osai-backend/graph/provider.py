@@ -16,6 +16,7 @@ from db.models import (
     ActionItemRecord,
     ConnectorAccount,
     ConnectorRecord,
+    Department,
     SourceDocumentRecord,
     User,
     WorkflowRun,
@@ -144,6 +145,10 @@ def build_access_graph(session: Session, org_id: str) -> dict:
         .all()
     )
     records = {r.key: r for r in session.query(ConnectorRecord).all()}
+    departments = {
+        d.id: d.name
+        for d in session.query(Department).filter(Department.org_id == org_id).all()
+    }
     docs = (
         session.query(SourceDocumentRecord)
         .filter(SourceDocumentRecord.org_id == org_id)
@@ -169,7 +174,12 @@ def build_access_graph(session: Session, org_id: str) -> dict:
     ]
 
     user_nodes = [
-        {"id": u.id, "label": u.display_name or u.email, "role": u.role}
+        {
+            "id": u.id,
+            "label": u.display_name or u.email,
+            "role": u.role,
+            "department": departments.get(u.department_id) if u.department_id else None,
+        }
         for u in users
     ]
 

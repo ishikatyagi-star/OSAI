@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { getAccessMap, type AccessMap } from "@/lib/api";
 import { isDemo } from "@/lib/demo";
@@ -17,10 +17,10 @@ const TIER_META: Record<Tier, { label: string; color: string }> = {
 // Small populated example for the demo/pitch view when the backend has no data.
 const DEMO_ACCESS: AccessMap = {
   users: [
-    { id: "u1", label: "Ishika T.", role: "admin" },
-    { id: "u2", label: "Yash K.", role: "engineer" },
-    { id: "u3", label: "Priya S.", role: "security" },
-    { id: "u4", label: "Anish M.", role: "analyst" },
+    { id: "u1", label: "Ishika T.", role: "admin", department: "Engineering" },
+    { id: "u2", label: "Yash K.", role: "engineer", department: "Engineering" },
+    { id: "u3", label: "Priya S.", role: "security", department: "Customer Support" },
+    { id: "u4", label: "Anish M.", role: "analyst", department: "Product" },
   ],
   connectors: [
     { key: "notion", label: "Notion", connected: true },
@@ -46,6 +46,7 @@ const DEMO_ACCESS: AccessMap = {
 export default function GraphPage() {
   const [data, setData] = useState<AccessMap>({ users: [], connectors: [], access: [] });
   const [roleFilter, setRoleFilter] = useState<string>("all");
+  const [deptFilter, setDeptFilter] = useState<string>("all");
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -65,11 +66,32 @@ export default function GraphPage() {
     () => Array.from(new Set(data.users.map((u) => u.role))).sort(),
     [data.users]
   );
+  const depts = useMemo(
+    () => Array.from(new Set(data.users.map((u) => u.department).filter(Boolean) as string[])).sort(),
+    [data.users]
+  );
 
   const visibleUsers = useMemo(
-    () => data.users.filter((u) => roleFilter === "all" || u.role === roleFilter),
-    [data.users, roleFilter]
+    () =>
+      data.users.filter(
+        (u) =>
+          (roleFilter === "all" || u.role === roleFilter) &&
+          (deptFilter === "all" || (u.department ?? "Unassigned") === deptFilter)
+      ),
+    [data.users, roleFilter, deptFilter]
   );
+
+  // Group the visible users by department so the access map reads as an org chart
+  // (the cross-department collaboration lens).
+  const grouped = useMemo(() => {
+    const map = new Map<string, typeof visibleUsers>();
+    for (const u of visibleUsers) {
+      const key = u.department ?? "Unassigned";
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(u);
+    }
+    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [visibleUsers]);
 
   // Quick lookup: user_id → connector_key → access row.
   const accessByUser = useMemo(() => {
@@ -100,6 +122,12 @@ export default function GraphPage() {
 
       {/* Role filter + tier legend */}
       <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 18, flexWrap: "wrap" }}>
+        <select className="select" value={deptFilter} onChange={(e) => setDeptFilter(e.target.value)}>
+          <option value="all">All departments</option>
+          {depts.map((d) => (
+            <option key={d} value={d}>{d}</option>
+          ))}
+        </select>
         <select className="select" value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
           <option value="all">All roles</option>
           {roles.map((r) => (
@@ -146,39 +174,58 @@ export default function GraphPage() {
               </tr>
             </thead>
             <tbody>
-              {visibleUsers.map((u) => {
-                const row = accessByUser.get(u.id);
-                return (
-                  <tr key={u.id}>
-                    <td>
-                      <div className="text-caption" style={{ color: "var(--text-primary)", fontWeight: 600 }}>{u.label}</div>
-                      <span className="badge badge-grey" style={{ fontSize: 10 }}>{u.role}</span>
+              {grouped.map(([dept, deptUsers]) => (
+                <React.Fragment key={dept}>
+                  <tr>
+                    <td
+                      colSpan={data.connectors.length + 1}
+                      style={{
+                        background: "var(--bg-elevated)",
+                        fontSize: 11,
+                        fontWeight: 700,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.5px",
+                        color: "var(--text-secondary)",
+                      }}
+                    >
+                      {dept} · {deptUsers.length}
                     </td>
-                    {data.connectors.map((c) => {
-                      const a = row?.get(c.key);
-                      if (!a) {
-                        return (
-                          <td key={c.key} style={{ textAlign: "center", color: "var(--text-muted)" }}>
-                            <span title="No access">—</span>
-                          </td>
-                        );
-                      }
-                      const meta = TIER_META[a.tier];
-                      return (
-                        <td key={c.key} style={{ textAlign: "center" }}>
-                          <span
-                            title={`${meta.label} tier · ${a.doc_count} docs`}
-                            className={`tier-badge tier-badge--${a.tier}`}
-                          >
-                            <span className="tier-badge-dot" />
-                            {meta.label}
-                          </span>
-                        </td>
-                      );
-                    })}
                   </tr>
-                );
-              })}
+                  {deptUsers.map((u) => {
+                    const row = accessByUser.get(u.id);
+                    return (
+                      <tr key={u.id}>
+                        <td>
+                          <div className="text-caption" style={{ color: "var(--text-primary)", fontWeight: 600 }}>{u.label}</div>
+                          <span className="badge badge-grey" style={{ fontSize: 10 }}>{u.role}</span>
+                        </td>
+                        {data.connectors.map((c) => {
+                          const a = row?.get(c.key);
+                          if (!a) {
+                            return (
+                              <td key={c.key} style={{ textAlign: "center", color: "var(--text-muted)" }}>
+                                <span title="No access">—</span>
+                              </td>
+                            );
+                          }
+                          const meta = TIER_META[a.tier];
+                          return (
+                            <td key={c.key} style={{ textAlign: "center" }}>
+                              <span
+                                title={`${meta.label} tier · ${a.doc_count} docs`}
+                                className={`tier-badge tier-badge--${a.tier}`}
+                              >
+                                <span className="tier-badge-dot" />
+                                {meta.label}
+                              </span>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                </React.Fragment>
+              ))}
             </tbody>
           </table>
         </div>

@@ -433,7 +433,7 @@ export function getGraphEdges(params: { entityId?: string } = {}) {
 // ─── Access map (who can access which tools, and at what data tier) ───────────
 
 export type AccessMap = {
-  users: { id: string; label: string; role: string }[];
+  users: { id: string; label: string; role: string; department?: string | null }[];
   connectors: { key: string; label: string; connected: boolean }[];
   access: {
     user_id: string;
