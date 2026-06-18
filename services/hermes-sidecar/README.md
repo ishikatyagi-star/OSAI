@@ -22,36 +22,48 @@ This mirrors how OSAI already runs gbrain/UltraContext as sidecars.
 - `GET /health` → `{ ok: true }`
 - `POST /run` `{ "prompt": str, "org_id": str }` → `{ "result": str | null, "error"?: str }`
 
-## Run
+Hermes invocation is real: it runs `hermes -z "<prompt>"` (single prompt in,
+final response text out) in a per-user `HERMES_HOME`, and seeds provider keys
+into `$HERMES_HOME/.env`. Install uses the official script
+(`curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash`).
+
+## Run (Docker)
 
 ```bash
 cd services/hermes-sidecar
-pip install fastapi "uvicorn[standard]"
-# + install hermes-agent (see its README) so the `hermes` CLI is on PATH
-uvicorn main:app --port 8088
+OPENROUTER_API_KEY=sk-... HERMES_MODEL=anthropic/claude-sonnet-4 \
+  docker compose up --build
 ```
 
-Then point OSAI at it:
+Then point OSAI at it (Render env, or local):
 
 ```
-OSAI_HERMES_SIDECAR_URL=http://localhost:8088
+OSAI_HERMES_SIDECAR_URL=http://localhost:8088   # or the deployed sidecar URL
 ```
 
-When set, OSAI's **Automations** "Run now" executes via Hermes
-(`agent/hermes_client.py` → this `/run`), falling back to OSAI's in-house agent
-if the sidecar is unreachable. Unset = in-house agent only (default).
+When set, OSAI's **Automations** "Run now" runs via **per-user** Hermes
+(`agent/hermes_client.py` → this `/run`): OSAI first injects the user's
+permission-scoped org context into the prompt, then calls Hermes. If the sidecar
+is unreachable/empty it **falls back to OSAI's in-house agent**. Unset = in-house
+agent only (default).
 
-## Open items (what this spike surfaces)
+## Permission model
 
-1. **Confirm the real Hermes invocation.** `main.py` shells out to
-   `hermes run --prompt …` as a placeholder — verify the actual CLI/Python API
-   from hermes-agent and update it.
-2. **Install step** in the Dockerfile is a TODO until #1 is confirmed.
-3. **Model + tool credentials** for Hermes (OpenRouter/OpenAI/Anthropic keys,
-   the toolkits it should use) must be provided to the sidecar's environment.
-4. **Per-org cost/ops**: a per-org `HERMES_HOME` isolates state but persists per
-   tenant — decide on storage/cleanup before scaling.
+OSAI is the boundary. It retrieves only what the requesting user is permitted to
+see (`requester_permissions`) and injects that as context — Hermes never gets
+broad access to the org store. Each user also gets an isolated `HERMES_HOME`.
 
-Until these are closed, treat this as a prototype: the OSAI side is
-feature-flagged off (`OSAI_HERMES_SIDECAR_URL` unset), so nothing changes in
-production until you deliberately enable it.
+## What still needs you (can't be done from the repo)
+
+1. **Deploy this sidecar** (a Render service / any box with Docker) and set
+   `OSAI_HERMES_SIDECAR_URL` on the OSAI backend.
+2. **Provide a model provider + key** (`OPENROUTER_API_KEY` / `ANTHROPIC_API_KEY`
+   / `OPENAI_API_KEY` + `HERMES_MODEL`).
+3. **Validate end-to-end** once deployed (`GET /health`, then a test `/run`)
+   before pointing the demo at it. hermes-agent has not been run end-to-end from
+   the repo, so confirm the install + a real run on your box first.
+4. **Scale/ops** later: per-user `HERMES_HOME` persists per user — decide storage
+   and long-running-vs-per-task before scaling.
+
+Feature-flagged off until `OSAI_HERMES_SIDECAR_URL` is set, so production is
+unaffected until you deliberately enable it.

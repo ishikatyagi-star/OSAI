@@ -13,9 +13,30 @@ import logging
 
 import httpx
 
+from api.schemas.search import SearchRequest
 from config import settings
+from memory.retriever import retrieve_answer
 
 logger = logging.getLogger("osai.hermes")
+
+
+async def _permitted_context(prompt: str, org_id: str, permissions: list[str]) -> str:
+    """Retrieve org context the user is permitted to see, to inject into the
+    Hermes prompt. Enforcement stays in OSAI: Hermes only ever receives text this
+    user is cleared for (the retriever filters by `requester_permissions`)."""
+    try:
+        res = await retrieve_answer(
+            SearchRequest(org_id=org_id, query=prompt, requester_permissions=permissions)
+        )
+    except Exception:  # noqa: BLE001 — context is best-effort
+        return ""
+    parts = [res.answer or ""]
+    for c in res.citations[:5]:
+        title = getattr(c, "title", None) or getattr(c, "source_tool", "")
+        snippet = getattr(c, "snippet", None) or getattr(c, "content_preview", "")
+        if title or snippet:
+            parts.append(f"- {title}: {snippet}")
+    return "\n".join(p for p in parts if p).strip()
 
 
 def hermes_enabled() -> bool:
@@ -38,8 +59,17 @@ async def run_via_hermes(
     if not settings.hermes_sidecar_url:
         return None
     url = settings.hermes_sidecar_url.rstrip("/") + "/run"
+
+    # Ground Hermes in the user's permitted org context (enforced here in OSAI).
+    context = await _permitted_context(prompt, org_id, permissions or [])
+    augmented = (
+        f"Context from your organization (only what you are permitted to see):\n"
+        f"{context}\n\nTask: {prompt}"
+        if context
+        else prompt
+    )
     payload = {
-        "prompt": prompt,
+        "prompt": augmented,
         "org_id": org_id,
         "user_id": user_id,
         "permissions": permissions or [],
