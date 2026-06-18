@@ -23,6 +23,12 @@ class Settings(BaseSettings):
     qdrant_collection: str = "osai_chunks"
     embedding_dimension: int = 768  # Gemini text-embedding-004; set 64 to use hash fallback
     default_org_id: str = "demo-org"
+
+    # Session JWT signing. MUST be set to a strong random value in production
+    # (Render env). If unset, a fixed dev secret is used so local dev works, but
+    # tokens would be forgeable — never rely on the default in prod.
+    jwt_secret: str = "dev-only-insecure-secret-change-me"
+    jwt_expiry_hours: int = 720  # 30 days — long-lived for the pilot
     allowed_origins: str = "http://localhost:3000"
     # Public URLs (for the OAuth auto-ingest callback). On Render set these to the
     # live API URL and the Vercel frontend URL.

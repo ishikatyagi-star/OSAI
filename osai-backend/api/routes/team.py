@@ -18,11 +18,12 @@ from db.repositories import (
     list_members,
     update_member,
 )
-from db.session import get_db, get_org_id
+from db.session import get_db, get_org_id, require_admin
 
 router = APIRouter(prefix="/team", tags=["team"])
 DbSession = Annotated[Session, Depends(get_db)]
 OrgId = Annotated[str, Depends(get_org_id)]
+AdminClaims = Annotated[dict, Depends(require_admin)]
 
 
 class DepartmentCreate(BaseModel):
@@ -78,7 +79,7 @@ async def get_departments(db: DbSession, org_id: OrgId) -> list[dict[str, object
 
 @router.post("/departments")
 async def add_department(
-    body: DepartmentCreate, db: DbSession, org_id: OrgId
+    body: DepartmentCreate, db: DbSession, org_id: OrgId, _admin: AdminClaims
 ) -> dict[str, object]:
     if not body.name.strip():
         raise HTTPException(status_code=400, detail="Department name is required")
@@ -102,7 +103,9 @@ async def get_invites(db: DbSession, org_id: OrgId) -> list[dict[str, object]]:
 
 
 @router.post("/invites")
-async def add_invite(body: InviteCreate, db: DbSession, org_id: OrgId) -> dict[str, object]:
+async def add_invite(
+    body: InviteCreate, db: DbSession, org_id: OrgId, _admin: AdminClaims
+) -> dict[str, object]:
     if not body.email.strip():
         raise HTTPException(status_code=400, detail="Email is required")
     invite = create_invite(db, org_id, body.email, body.role, body.department_id)
@@ -118,7 +121,7 @@ async def add_invite(body: InviteCreate, db: DbSession, org_id: OrgId) -> dict[s
 
 @router.patch("/members/{user_id}")
 async def patch_member(
-    user_id: str, body: MemberUpdate, db: DbSession, org_id: OrgId
+    user_id: str, body: MemberUpdate, db: DbSession, org_id: OrgId, _admin: AdminClaims
 ) -> dict[str, object]:
     user = update_member(
         db, user_id, org_id, role=body.role, department_id=body.department_id

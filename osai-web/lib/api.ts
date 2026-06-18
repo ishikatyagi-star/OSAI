@@ -21,10 +21,12 @@ const API_BASE_URL =
 function getHeaders(extraHeaders: Record<string, string> = {}): Record<string, string> {
   const headers: Record<string, string> = { ...extraHeaders };
   if (typeof window !== "undefined") {
+    // The backend derives the org from the signed JWT (Bearer); X-Org-Id is only
+    // honoured for the public demo workspace.
+    const token = localStorage.getItem("osai_token");
+    if (token) headers["Authorization"] = `Bearer ${token}`;
     const orgId = localStorage.getItem("osai_org_id");
-    if (orgId) {
-      headers["X-Org-Id"] = orgId;
-    }
+    if (orgId) headers["X-Org-Id"] = orgId;
   }
   return headers;
 }
@@ -33,6 +35,20 @@ function getHeaders(extraHeaders: Record<string, string> = {}): Record<string, s
 // never leave the UI hanging on a spinner — on timeout or error we resolve to
 // the provided fallback (typically demo data or null).
 const DEFAULT_TIMEOUT_MS = 8000;
+
+// A 401 means the session token is missing/expired/invalid (e.g. an old
+// pre-JWT token). Clear it and send the user back to sign in.
+function handleUnauthorized(status: number) {
+  if (status === 401 && typeof window !== "undefined") {
+    const onPublic = ["/login", "/demo", "/auth/callback"].some((p) =>
+      window.location.pathname.startsWith(p)
+    );
+    if (!onPublic) {
+      localStorage.removeItem("osai_token");
+      window.location.href = "/login";
+    }
+  }
+}
 
 async function apiGet<T>(
   path: string,
@@ -47,7 +63,10 @@ async function apiGet<T>(
       headers: getHeaders(),
       signal: controller.signal,
     });
-    if (!res.ok) return fallback;
+    if (!res.ok) {
+      handleUnauthorized(res.status);
+      return fallback;
+    }
     return (await res.json()) as T;
   } catch {
     return fallback;
@@ -67,6 +86,7 @@ async function apiPost<TBody, TResult>(
     cache: "no-store",
   });
   if (!res.ok) {
+    handleUnauthorized(res.status);
     const detail = await res.text();
     throw new Error(`POST ${path} failed (${res.status}): ${detail}`);
   }
@@ -84,6 +104,7 @@ async function apiPatch<TBody, TResult>(
     cache: "no-store",
   });
   if (!res.ok) {
+    handleUnauthorized(res.status);
     const detail = await res.text();
     throw new Error(`PATCH ${path} failed (${res.status}): ${detail}`);
   }
@@ -101,6 +122,7 @@ async function apiPut<TBody, TResult>(
     cache: "no-store",
   });
   if (!res.ok) {
+    handleUnauthorized(res.status);
     const detail = await res.text();
     throw new Error(`PUT ${path} failed (${res.status}): ${detail}`);
   }

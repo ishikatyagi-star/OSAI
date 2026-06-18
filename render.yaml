@@ -70,3 +70,6 @@ services:
         sync: false
       - key: OSAI_GOOGLE_OAUTH_CLIENT_SECRET
         sync: false
+      # Session JWT signing secret — set to a strong random value.
+      - key: OSAI_JWT_SECRET
+        sync: false
