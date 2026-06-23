@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from typing import Annotated
+
+from fastapi import APIRouter, Depends
 
 from agent.orchestrator import confirm_action, run_ask
 from api.schemas.agent import (
@@ -11,13 +13,18 @@ from api.schemas.agent import (
     ConfirmActionRequest,
     ConfirmActionResult,
 )
+from db.session import get_org_id
 
 router = APIRouter(tags=["agent"])
+OrgId = Annotated[str, Depends(get_org_id)]
 
 
 @router.post("/ask", response_model=AskResponse)
-async def ask(request: AskRequest) -> AskResponse:
+async def ask(request: AskRequest, org_id: OrgId) -> AskResponse:
     """Answer a question over org knowledge (RAG) and propose connector actions."""
+    # Trust the authenticated org from the JWT, never the client-supplied body,
+    # so a user can't query another org by passing its id.
+    request.org_id = org_id
     return await run_ask(request)
 
 
