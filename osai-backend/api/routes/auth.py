@@ -213,7 +213,9 @@ async def google_callback(
     display_name = claims.get("name") or email.split("@")[0]
 
     user = db.scalar(select(User).where(User.email == email))
-    is_new = False
+    # First-ever sign-in (whether brand-new org owner OR an invited teammate
+    # joining) → send them to onboarding so they connect their tools.
+    is_new = user is None
     if user is None:
         # If an admin invited this email, join that existing org with the assigned
         # role/department — so a team lands in one workspace.
@@ -231,7 +233,6 @@ async def google_callback(
             if user is None:
                 raise HTTPException(status_code=500, detail="Could not provision a workspace.")
             db.commit()
-            is_new = True
 
     org = db.get(Org, user.org_id)
     resp = _frontend_redirect(

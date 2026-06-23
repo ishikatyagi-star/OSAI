@@ -8,6 +8,7 @@ import {
   Clock,
   Inbox,
   LayoutDashboard,
+  LogOut,
   Plug,
   RefreshCw,
   ScrollText,
@@ -73,6 +74,13 @@ export default function Sidebar() {
   }, []);
   const initial = (userName || "U").trim().charAt(0).toUpperCase();
 
+  function logout() {
+    ["osai_token", "osai_org_id", "osai_org_name", "osai_user_id", "osai_user_email", "osai_user_name", "osai_demo"].forEach(
+      (k) => localStorage.removeItem(k)
+    );
+    window.location.href = "/login";
+  }
+
   return (
     <aside className="sidebar">
       {/* Logo */}
@@ -131,6 +139,25 @@ export default function Sidebar() {
             <div className="sidebar-user-name">{userName}</div>
             <div className="sidebar-user-role">{orgName}</div>
           </div>
+          <button
+            type="button"
+            onClick={logout}
+            title="Log out"
+            aria-label="Log out"
+            style={{
+              marginLeft: "auto",
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: "var(--text-muted)",
+              display: "flex",
+              alignItems: "center",
+              padding: 6,
+              borderRadius: 6,
+            }}
+          >
+            <LogOut size={16} strokeWidth={1.75} />
+          </button>
         </div>
       </div>
     </aside>
