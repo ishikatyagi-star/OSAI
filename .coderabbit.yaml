@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# CodeRabbit config — https://docs.coderabbit.ai/guides/configure-coderabbit
+language: en-US
+
+reviews:
+  # Assertive = thorough; surfaces brittle/over-complex/error-prone code, not just
+  # outright bugs. Matches the goal of avoiding fragile code + future hiccups.
+  profile: assertive
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  auto_review:
+    enabled: true
+    drafts: false
+  # Don't waste review on generated/vendored artifacts.
+  path_filters:
+    - "!osai-web/public/osai.html"
+    - "!**/*.lock"
+    - "!**/package-lock.json"
+  path_instructions:
+    - path: "osai-backend/**/*.py"
+      instructions: >
+        Multi-tenant FastAPI + SQLAlchemy backend. Prioritise: (1) tenant safety —
+        every org-scoped query MUST filter by org_id and org must come from the
+        verified JWT, never a client header; permission-scoped retrieval must
+        respect requester_permissions. (2) Missing error handling around external
+        calls (Composio, Qdrant, LLM, httpx). (3) Dead/unnecessary code and overly
+        rigid logic that will break as connectors/schema evolve. (4) DB session
+        correctness (commits, flush ordering, FK integrity).
+    - path: "osai-web/**/*.{ts,tsx}"
+      instructions: >
+        Next.js + TypeScript frontend. Prioritise: unhandled API error/loading/empty
+        states, hardcoded values that should be dynamic, and non-resilient code that
+        breaks with real (non-demo) data. Flag anything that silently swallows errors.
+
+chat:
+  auto_reply: true
