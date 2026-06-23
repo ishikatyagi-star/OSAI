@@ -51,10 +51,11 @@ def _find_url(data: Any) -> str | None:
 
 
 async def _transcribe_media(client: ComposioClient, fid: str, name: str, org_id: str) -> str | None:
-    """Download a Drive media file via Composio and transcribe it with OpenAI
-    Whisper. Best-effort: returns None (caller falls back to the filename) if no
-    OpenAI key, the file is too big, or the bytes can't be retrieved."""
-    if not settings.openai_api_key:
+    """Download a Drive media file via Composio and transcribe it with Whisper
+    (Groq by default; OpenAI-compatible). Best-effort: returns None (caller falls
+    back to the filename) if no transcription key, the file is too big, or the
+    bytes can't be retrieved."""
+    if not settings.transcribe_key:
         return None
     try:
         dl = await client.execute("GOOGLEDRIVE_DOWNLOAD_FILE", {"file_id": fid}, org_id)
@@ -86,10 +87,10 @@ async def _transcribe_media(client: ComposioClient, fid: str, name: str, org_id:
     try:
         async with httpx.AsyncClient(timeout=180) as h:
             resp = await h.post(
-                "https://api.openai.com/v1/audio/transcriptions",
-                headers={"Authorization": f"Bearer {settings.openai_api_key}"},
+                f"{settings.transcribe_base_url.rstrip('/')}/audio/transcriptions",
+                headers={"Authorization": f"Bearer {settings.transcribe_key}"},
                 files={"file": (name, audio)},
-                data={"model": "whisper-1", "response_format": "json"},
+                data={"model": settings.transcribe_model, "response_format": "json"},
             )
         if resp.status_code == 200:
             return resp.json().get("text") or None
