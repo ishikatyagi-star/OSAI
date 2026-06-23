@@ -111,8 +111,18 @@ class Settings(BaseSettings):
     # Zoom webhooks
     zoom_webhook_secret: str | None = None
 
-    # OpenAI API Key (for Whisper transcription)
+    # OpenAI API Key (legacy; Whisper now defaults to Groq below)
     openai_api_key: str | None = None
+
+    # Media transcription (Whisper). Defaults to Groq's free whisper-large-v3 and
+    # reuses the existing LLM (Groq) key — no separate paid OpenAI account needed.
+    transcribe_base_url: str = "https://api.groq.com/openai/v1"
+    transcribe_model: str = "whisper-large-v3"
+    transcribe_api_key: str | None = None  # falls back to llm_api_key (Groq)
+
+    @property
+    def transcribe_key(self) -> str | None:
+        return self.transcribe_api_key or self.llm_api_key
 
     # Ollama (local LLM)
     ollama_url: str = "http://localhost:11434"

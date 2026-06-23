@@ -59,8 +59,8 @@ def download_and_transcribe(
     transcript = None
     audio_content = None
 
-    # 1. Download file if URL is provided and we have OpenAI API key
-    if download_url and settings.openai_api_key:
+    # 1. Download file if URL is provided and we have a transcription key
+    if download_url and settings.transcribe_key:
         try:
             logger.info(f"Downloading audio from Zoom URL: {download_url}")
             with httpx.Client(timeout=60) as client:
@@ -72,16 +72,16 @@ def download_and_transcribe(
         except Exception as exc:
             logger.error(f"Error during audio download: {exc}")
 
-    # 2. Call Whisper API if audio content is available
-    if audio_content and settings.openai_api_key:
+    # 2. Call the Whisper API (Groq by default) if audio content is available
+    if audio_content and settings.transcribe_key:
         try:
-            logger.info("Sending audio to OpenAI Whisper API...")
+            logger.info("Sending audio to Whisper API...")
             with httpx.Client(timeout=120) as client:
-                headers = {"Authorization": f"Bearer {settings.openai_api_key}"}
+                headers = {"Authorization": f"Bearer {settings.transcribe_key}"}
                 files = {"file": ("audio.m4a", audio_content, "audio/m4a")}
-                data = {"model": "whisper-1", "response_format": "json"}
+                data = {"model": settings.transcribe_model, "response_format": "json"}
                 resp = client.post(
-                    "https://api.openai.com/v1/audio/transcriptions",
+                    f"{settings.transcribe_base_url.rstrip('/')}/audio/transcriptions",
                     headers=headers,
                     files=files,
                     data=data,
@@ -145,7 +145,7 @@ def download_and_transcribe(
             input_text=transcript,
             destination="manual",
             data_tier="normal",
-            model_route="whisper-1",
+            model_route=settings.transcribe_model,
         )
         session.add(run)
         session.commit()
@@ -162,6 +162,6 @@ def download_and_transcribe(
         "workflow_run_id": run_id,
         "meeting_id": meeting_id,
         "transcribed_by": (
-            "whisper" if audio_content and settings.openai_api_key else "mock_fallback"
+            "whisper" if audio_content and settings.transcribe_key else "mock_fallback"
         ),
     }
