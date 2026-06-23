@@ -69,7 +69,12 @@ export default function IntegrationsPage() {
         ...m,
         [key]: indexed > 0 ? `Indexed ${indexed} file${indexed > 1 ? "s" : ""}` : "Sync complete",
       }));
+      // Refresh both the connector list (last-sync time) and the sync-run history
+      // so the UI reflects the just-completed sync rather than stale values.
       loadIntegrations();
+      getSyncRuns().then((runs) => {
+        if (runs.length) setSyncRuns(runs);
+      });
     } catch {
       setSyncMsg((m) => ({ ...m, [key]: "Sync triggered (demo mode)" }));
     } finally {

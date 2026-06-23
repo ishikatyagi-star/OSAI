@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Activity,
   CheckCircle2,
@@ -113,6 +113,17 @@ export function ConnectorManager({
     setNewPattern("");
     setRulesSaved(false);
   }, [open, integration]);
+
+  // When a sync finishes (syncing true→false), refresh this connector's synced
+  // files + health so the drawer reflects the just-completed sync, not stale data.
+  const wasSyncing = useRef(false);
+  useEffect(() => {
+    if (wasSyncing.current && !syncing && open && integration?.auth_state === "connected") {
+      runHealthcheck(integration.key);
+      getConnectorDocuments(integration.key).then(setDocs);
+    }
+    wasSyncing.current = syncing;
+  }, [syncing, open, integration]);
 
   function addRule(pattern: string, tier: TierRule["tier"]) {
     const p = pattern.trim();
