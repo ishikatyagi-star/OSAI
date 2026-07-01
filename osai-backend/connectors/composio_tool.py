@@ -148,6 +148,27 @@ class ComposioClient:
             for c in resp.json().get("items", [])
         ]
 
+    async def disconnect(self, toolkit: str, user_id: str) -> dict[str, Any]:
+        """Revoke this org's connected account(s) for a toolkit at Composio, so a
+        later Connect starts a fresh OAuth handshake. Returns {deleted: N}."""
+        connections = await self.list_connections(user_id)
+        target = toolkit.lower()
+        ids = [
+            c["id"]
+            for c in connections
+            if c.get("id") and (c.get("toolkit") or "").lower() == target
+        ]
+        deleted = 0
+        async with httpx.AsyncClient(timeout=30) as client:
+            for cid in ids:
+                resp = await client.delete(
+                    f"{self.base_url}/api/v3/connected_accounts/{cid}",
+                    headers=self._headers(),
+                )
+                if resp.status_code in (200, 204):
+                    deleted += 1
+        return {"deleted": deleted}
+
     async def execute(
         self, slug: str, arguments: dict[str, Any], user_id: str
     ) -> dict[str, Any]:

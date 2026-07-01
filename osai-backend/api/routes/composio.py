@@ -100,6 +100,13 @@ async def list_connections(org_id: OrgId) -> list[dict]:
     return await _client_or_404().list_connections(org_id)
 
 
+@router.post("/disconnect/{toolkit}")
+async def disconnect(toolkit: str, org_id: OrgId) -> dict:
+    """Revoke the org's connected account(s) for a toolkit at Composio, so a
+    subsequent Connect goes through a fresh OAuth handshake."""
+    return await _client_or_404().disconnect(toolkit, org_id)
+
+
 @router.post("/{toolkit}/ingest")
 async def ingest(toolkit: str, org_id: OrgId, db: DbSession) -> dict:
     """Pull documents from a Composio-connected app into OSAI's searchable brain.

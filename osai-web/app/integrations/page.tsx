@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { composioConnect, getIntegrations, getSyncRuns, triggerSync } from "@/lib/api";
+import { composioConnect, composioDisconnect, getIntegrations, getSyncRuns, triggerSync } from "@/lib/api";
 import { DEMO_INTEGRATIONS, DEMO_STATS, DEMO_SYNC_RUNS } from "@/lib/demo-data";
 import { isDemo } from "@/lib/demo";
 import { CONNECTOR_META } from "@/lib/connector-meta";
@@ -93,19 +93,28 @@ export default function IntegrationsPage() {
     }
   }
 
-  function handleToggleConnection(key: string, connect: boolean) {
-    setIntegrations((prev) =>
-      prev.map((i) =>
-        i.key === key
-          ? {
-              ...i,
-              auth_state: connect ? "connected" : "not_configured",
-              sync_error: null,
-              last_sync: connect ? i.last_sync : null,
-            }
-          : i
-      )
-    );
+  async function handleToggleConnection(key: string, connect: boolean) {
+    if (connect) {
+      // Real connect = OAuth handshake via Composio (redirects the browser).
+      await handleConnectStart(key);
+      return;
+    }
+    // Real disconnect = revoke the Composio connection so a later Connect
+    // starts a fresh handshake. Only reflect it in the UI once it succeeds.
+    setSyncMsg((m) => ({ ...m, [key]: "Disconnecting…" }));
+    try {
+      await composioDisconnect(key);
+      setIntegrations((prev) =>
+        prev.map((i) =>
+          i.key === key
+            ? { ...i, auth_state: "not_configured", sync_error: null, last_sync: null }
+            : i
+        )
+      );
+      setSyncMsg((m) => ({ ...m, [key]: "Disconnected" }));
+    } catch {
+      setSyncMsg((m) => ({ ...m, [key]: "Couldn't disconnect — try again" }));
+    }
   }
 
   const demo = isDemo();
