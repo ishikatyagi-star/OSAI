@@ -312,6 +312,16 @@ export function composioConnect(connectorKey: string) {
   );
 }
 
+// Revoke the org's Composio connection for a connector, so a later Connect
+// starts a fresh OAuth handshake instead of silently reusing a stale account.
+export function composioDisconnect(connectorKey: string) {
+  const toolkit = COMPOSIO_TOOLKIT[connectorKey] ?? connectorKey;
+  return apiPost<Record<string, never>, { deleted: number }>(
+    `/integrations/composio/disconnect/${toolkit}`,
+    {}
+  );
+}
+
 export type ConnectorDocument = {
   id: string;
   title: string;
