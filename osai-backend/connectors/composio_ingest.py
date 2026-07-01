@@ -67,6 +67,10 @@ async def _transcribe_media(client: ComposioClient, fid: str, name: str, org_id:
     for key in ("content", "file_content", "base64"):
         v = _dig(data, key) or _dig(data, "response_data", key)
         if isinstance(v, str) and len(v) > 100:
+            # base64 inflates ~4/3×; reject before decoding so we never
+            # materialise an oversized file in memory (free-tier RAM is tight).
+            if len(v) > _WHISPER_MAX_BYTES * 4 // 3 + 4:
+                return None
             try:
                 audio = base64.b64decode(v)
                 break
@@ -75,9 +79,17 @@ async def _transcribe_media(client: ComposioClient, fid: str, name: str, org_id:
     if audio is None and (url := _find_url(data)):
         try:
             async with httpx.AsyncClient(timeout=60) as h:
-                r = await h.get(url)
-                if r.status_code == 200:
-                    audio = r.content
+                async with h.stream("GET", url) as r:
+                    if r.status_code != 200:
+                        return None
+                    # Stream with a hard cap: abort as soon as the download
+                    # exceeds the Whisper limit rather than buffering it all.
+                    buf = bytearray()
+                    async for chunk in r.aiter_bytes():
+                        buf.extend(chunk)
+                        if len(buf) > _WHISPER_MAX_BYTES:
+                            return None
+                    audio = bytes(buf)
         except Exception:  # noqa: BLE001
             return None
 

@@ -75,22 +75,36 @@ async function apiGet<T>(
   }
 }
 
+// POST/agent calls can legitimately take longer than a GET (LLM round-trips),
+// but must still be bounded so a hung backend can never leave the UI spinning
+// forever. On timeout the abort surfaces as a thrown error, which callers
+// (e.g. Ask) turn into an honest error or demo fallback.
+const POST_TIMEOUT_MS = 30000;
+
 async function apiPost<TBody, TResult>(
   path: string,
-  body: TBody
+  body: TBody,
+  timeoutMs: number = POST_TIMEOUT_MS
 ): Promise<TResult> {
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    method: "POST",
-    headers: getHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify(body),
-    cache: "no-store",
-  });
-  if (!res.ok) {
-    handleUnauthorized(res.status);
-    const detail = await res.text();
-    throw new Error(`POST ${path} failed (${res.status}): ${detail}`);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${API_BASE_URL}${path}`, {
+      method: "POST",
+      headers: getHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify(body),
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      handleUnauthorized(res.status);
+      const detail = await res.text();
+      throw new Error(`POST ${path} failed (${res.status}): ${detail}`);
+    }
+    return (await res.json()) as TResult;
+  } finally {
+    clearTimeout(timer);
   }
-  return (await res.json()) as TResult;
 }
 
 async function apiPatch<TBody, TResult>(
