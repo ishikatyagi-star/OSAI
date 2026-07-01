@@ -1,23 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   BarChart3,
   Clock,
   Inbox,
   LayoutDashboard,
+  LogOut,
   Plug,
   RefreshCw,
   ScrollText,
   Settings,
   Share2,
   Sparkles,
+  Trash2,
   Users,
   Zap,
   type LucideIcon,
 } from "lucide-react";
+import { clearSession, deleteAccount } from "@/lib/api";
 
 type NavItem = {
   href: string;
@@ -65,13 +68,40 @@ const NAV_GROUPS: NavGroup[] = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [userName, setUserName] = useState("");
   const [orgName, setOrgName] = useState("");
+  const [deleting, setDeleting] = useState(false);
   useEffect(() => {
     setUserName(localStorage.getItem("osai_user_name") || "You");
     setOrgName(localStorage.getItem("osai_org_name") || "Your workspace");
   }, []);
   const initial = (userName || "U").trim().charAt(0).toUpperCase();
+
+  function handleSignOut() {
+    clearSession();
+    router.replace("/login");
+  }
+
+  async function handleDeleteAccount() {
+    if (
+      !window.confirm(
+        "Permanently delete your account? This cannot be undone. You'll be signed out."
+      )
+    ) {
+      return;
+    }
+    setDeleting(true);
+    try {
+      await deleteAccount();
+    } catch {
+      // Even if the server call fails (e.g. demo token), clear the local session
+      // so the user isn't stuck in a half-signed-in state.
+      clearSession();
+    } finally {
+      router.replace("/login");
+    }
+  }
 
   return (
     <aside className="sidebar">
@@ -132,6 +162,35 @@ export default function Sidebar() {
             <div className="sidebar-user-role">{orgName}</div>
           </div>
         </div>
+        <button
+          type="button"
+          onClick={handleSignOut}
+          className="sidebar-nav-item"
+          style={{ width: "100%", background: "none", border: "none", cursor: "pointer" }}
+        >
+          <span className="nav-icon">
+            <LogOut size={16} strokeWidth={1.75} />
+          </span>
+          <span>Sign out</span>
+        </button>
+        <button
+          type="button"
+          onClick={handleDeleteAccount}
+          disabled={deleting}
+          className="sidebar-nav-item"
+          style={{
+            width: "100%",
+            background: "none",
+            border: "none",
+            cursor: deleting ? "default" : "pointer",
+            color: "var(--red)",
+          }}
+        >
+          <span className="nav-icon">
+            <Trash2 size={16} strokeWidth={1.75} />
+          </span>
+          <span>{deleting ? "Deleting…" : "Delete account"}</span>
+        </button>
       </div>
     </aside>
   );
