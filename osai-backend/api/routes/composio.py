@@ -4,14 +4,14 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from config import settings
 from connectors.composio_ingest import ingest_composio_toolkit, sync_all_connections
 from connectors.composio_tool import get_default_composio_client
-from db.session import get_db, get_org_id
+from db.session import SessionLocal, get_db, get_org_id
 
 router = APIRouter(prefix="/integrations/composio", tags=["composio"])
 OrgId = Annotated[str, Depends(get_org_id)]
@@ -57,16 +57,31 @@ async def connect(toolkit: str, org_id: OrgId) -> dict:
     return result
 
 
-@router.get("/callback")
-async def callback(org_id: str, db: DbSession) -> RedirectResponse:
-    """Where Composio sends the user after authorizing. Auto-ingests every active
-    connection for the org, then redirects back to the frontend."""
-    client = get_default_composio_client()
-    if client.available():
+async def _sync_in_background(org_id: str) -> None:
+    """Run the post-connect ingest off the request path, with its own DB session.
+
+    Ingesting inside the OAuth callback request blocked the single free-tier
+    worker for the whole sync — long enough to hit Render's request timeout or
+    OOM the instance, surfacing to the user as a 502 on the redirect. Running it
+    as a background task lets the callback redirect instantly; the sync then
+    proceeds (bounded per-file in composio_ingest) without holding the request.
+    """
+    with SessionLocal() as db:
         try:
             await sync_all_connections(org_id, db)
-        except Exception:  # noqa: BLE001 — never break the user's redirect
+        except Exception:  # noqa: BLE001 — best-effort; never crash the worker
             pass
+
+
+@router.get("/callback")
+async def callback(
+    org_id: str, background_tasks: BackgroundTasks
+) -> RedirectResponse:
+    """Where Composio sends the user after authorizing. Kicks off ingestion of
+    the org's connections in the background, then redirects back immediately."""
+    client = get_default_composio_client()
+    if client.available():
+        background_tasks.add_task(_sync_in_background, org_id)
     # Land the user back on the Integrations page (not the marketing root) so they
     # immediately see the connection they just authorized.
     base = settings.frontend_redirect.rstrip("/")
