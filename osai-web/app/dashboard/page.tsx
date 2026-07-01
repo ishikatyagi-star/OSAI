@@ -165,7 +165,7 @@ export default function DashboardPage() {
                 <span><User size={12} style={{ display: "inline", verticalAlign: "middle", marginRight: 3 }} />{item.owner}</span>
               </div>
               <div className="attention-card-actions">
-                <button className="attention-card-action" onClick={() => {}}>View Task</button>
+                <Link href={`/inbox?item=${item.id}`} className="attention-card-action" style={{ textDecoration: "none" }}>View Task</Link>
                 <span style={{ color: "var(--text-secondary)" }}>|</span>
                 <button className="attention-card-action" onClick={() => setSnoozed(p => new Set([...p, item.id]))}>Snooze</button>
                 <span style={{ color: "var(--text-secondary)" }}>|</span>

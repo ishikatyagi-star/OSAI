@@ -17,12 +17,29 @@ export default function LoginPage() {
   const [invitedEmail, setInvitedEmail] = useState("");
 
   useEffect(() => {
-    getAuthConfig().then((c) => setGoogleEnabled(c.google_enabled));
+    let cancelled = false;
+    // Re-check a few times: the free-tier backend can be cold-starting on the
+    // first load, in which case Google may briefly report as unavailable and
+    // the sign-in button would otherwise stay hidden.
+    (async () => {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const c = await getAuthConfig();
+        if (cancelled) return;
+        if (c.google_enabled) {
+          setGoogleEnabled(true);
+          return;
+        }
+        await new Promise((r) => setTimeout(r, 2000));
+      }
+    })();
     const invite = new URLSearchParams(window.location.search).get("invite");
     if (invite) {
       setInvitedEmail(invite);
       setEmail(invite);
     }
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Onboard fields
