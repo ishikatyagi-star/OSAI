@@ -187,10 +187,15 @@ export function login(credentials: LoginCredentials): Promise<LoginSession> {
 }
 
 // Whether "Continue with Google" is available on this backend.
+// Uses a longer timeout than the default: the free-tier backend can cold-start
+// for 30–60s, and an 8s timeout would wrongly report Google as disabled (hiding
+// the sign-in button) on the first page load after the instance has spun down.
 export function getAuthConfig() {
-  return apiGet<{ google_enabled: boolean }>("/auth/config", {
-    google_enabled: false,
-  });
+  return apiGet<{ google_enabled: boolean }>(
+    "/auth/config",
+    { google_enabled: false },
+    60000
+  );
 }
 
 // Full URL to kick off the Google OAuth flow (browser navigates here).
