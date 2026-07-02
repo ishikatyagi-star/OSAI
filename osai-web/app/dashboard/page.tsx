@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { User } from "lucide-react";
 import { DEMO_WORKFLOW_RUNS, DEMO_STATS, DEMO_DECISIONS } from "@/lib/demo-data";
+import { getDashboardMetrics } from "@/lib/api";
 import { isDemo } from "@/lib/demo";
 import { StatusDot } from "@/components/ui/status-dot";
 
@@ -62,8 +63,26 @@ export default function DashboardPage() {
   const pendingDecisions = demo
     ? DEMO_DECISIONS.filter((d) => d.status === "proposed").length
     : 0;
-  const documentsIndexed = demo ? DEMO_STATS.documentsIndexed : 0;
+  // Real indexed-document count so the dashboard matches Analytics/Sync Runs
+  // instead of always reading 0 for signed-in (non-demo) users.
+  const [liveDocs, setLiveDocs] = useState(0);
+  const [liveByConnector, setLiveByConnector] = useState<Record<string, number>>({});
+  useEffect(() => {
+    if (demo) return;
+    getDashboardMetrics().then((m) => {
+      setLiveDocs(m.total_documents);
+      setLiveByConnector(m.documents_by_connector ?? {});
+    });
+  }, [demo]);
+  const documentsIndexed = demo ? DEMO_STATS.documentsIndexed : liveDocs;
   const recentDecisions = demo ? DEMO_DECISIONS.slice(0, 4) : [];
+  const CONNECTOR_META: Record<string, { icon: string; label: string }> = {
+    notion: { icon: "📝", label: "Notion" },
+    slack: { icon: "💬", label: "Slack" },
+    google_drive: { icon: "📁", label: "Google Drive" },
+    freshdesk: { icon: "🎫", label: "Freshdesk" },
+    zoom: { icon: "📹", label: "Zoom" },
+  };
   const connectorHealth = demo
     ? [
         { key: "notion", icon: "📝", label: "Notion", docs: 847, status: "connected" },
@@ -72,7 +91,15 @@ export default function DashboardPage() {
         { key: "freshdesk", icon: "🎫", label: "Freshdesk", docs: 47, status: "connected" },
         { key: "zoom", icon: "📹", label: "Zoom", docs: 12, status: "connected" },
       ]
-    : [];
+    : Object.entries(liveByConnector)
+        .filter(([, docs]) => docs > 0)
+        .map(([key, docs]) => ({
+          key,
+          icon: CONNECTOR_META[key]?.icon ?? "🔌",
+          label: CONNECTOR_META[key]?.label ?? key,
+          docs,
+          status: "connected",
+        }));
 
   return (
     <div className="dashboard-root">

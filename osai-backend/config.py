@@ -71,6 +71,11 @@ class Settings(BaseSettings):
             and self.google_oauth_redirect_uri
         )
 
+    # Minimum cosine similarity for a retrieved chunk to count as relevant. Below
+    # this floor, an off-topic query returns "no relevant context" instead of
+    # surfacing the nearest (but unrelated) documents at misleading confidence.
+    retrieval_min_score: float = 0.7
+
     # Gemini (embeddings always; text-gen if no OpenRouter key set)
     gemini_api_key: str | None = None
     gemini_model: str = "gemini-2.0-flash"

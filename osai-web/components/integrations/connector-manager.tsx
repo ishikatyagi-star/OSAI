@@ -501,8 +501,9 @@ export function ConnectorManager({
         </div>
         {!connected && (
           <p className="-mt-2 text-[11px] text-muted-foreground">
-            Connecting starts an OAuth handshake handled by the backend; this
-            preview marks the connector active locally.
+            Connect redirects you to {meta?.label ?? "the provider"} to authorize
+            access. OSAI only requests read-only access to index and search your
+            content — it never modifies it.
           </p>
         )}
       </DialogContent>

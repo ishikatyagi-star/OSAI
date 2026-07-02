@@ -353,9 +353,16 @@ export default function WorkflowsPage() {
                 <option value="slack">Slack</option>
                 <option value="google_drive">Google Drive</option>
               </select>
-              <button type="submit" className="btn btn-primary" disabled={loading}>
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={loading || !inputText.trim()}
+              >
                 {loading ? "Running…" : "Run Workflow"}
               </button>
+              {!inputText.trim() && (
+                <span className="meta">Paste some text to extract action items from.</span>
+              )}
               <button
                 type="button"
                 className="btn btn-ghost"

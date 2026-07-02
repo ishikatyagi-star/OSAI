@@ -21,6 +21,13 @@ from config import settings
 
 logger = logging.getLogger("osai.composio")
 
+# Minimal OAuth scopes to request per toolkit. OSAI only reads/indexes content,
+# so we ask for read-only access rather than the broad default (e.g. full Drive)
+# to keep the consent screen honest and reduce the trust ask.
+TOOLKIT_SCOPES: dict[str, list[str]] = {
+    "googledrive": ["https://www.googleapis.com/auth/drive.readonly"],
+}
+
 
 class ComposioClient:
     def __init__(self, api_key: str | None = None, base_url: str | None = None) -> None:
@@ -80,7 +87,12 @@ class ComposioClient:
         return out
 
     async def _ensure_auth_config(self, client: httpx.AsyncClient, toolkit: str) -> str | None:
-        """Return an auth_config id for a toolkit, creating a managed one if needed."""
+        """Return an auth_config id for a toolkit, creating a managed one if needed.
+
+        For toolkits in TOOLKIT_SCOPES we request only the minimal OAuth scopes
+        (e.g. Google Drive read-only) so the consent screen matches what OSAI
+        actually does — index and search, not modify.
+        """
         resp = await client.get(
             f"{self.base_url}/api/v3/auth_configs",
             headers=self._headers(),
@@ -90,14 +102,23 @@ class ComposioClient:
             items = resp.json().get("items", [])
             if items:
                 return items[0].get("id")
+
+        managed: dict[str, Any] = {"type": "use_composio_managed_auth"}
+        scopes = TOOLKIT_SCOPES.get(toolkit)
+        if scopes:
+            managed["scopes"] = scopes
+        payload = {"toolkit": {"slug": toolkit}, "auth_config": managed}
+
         created = await client.post(
-            f"{self.base_url}/api/v3/auth_configs",
-            headers=self._headers(),
-            json={
-                "toolkit": {"slug": toolkit},
-                "auth_config": {"type": "use_composio_managed_auth"},
-            },
+            f"{self.base_url}/api/v3/auth_configs", headers=self._headers(), json=payload
         )
+        # If the provider rejects the scoped payload, retry without scopes so a
+        # connection can still be established (broad scope) rather than failing.
+        if created.status_code not in (200, 201) and scopes:
+            payload["auth_config"] = {"type": "use_composio_managed_auth"}
+            created = await client.post(
+                f"{self.base_url}/api/v3/auth_configs", headers=self._headers(), json=payload
+            )
         if created.status_code in (200, 201):
             body = created.json()
             return body.get("auth_config", body).get("id")

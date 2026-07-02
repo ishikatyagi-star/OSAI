@@ -43,15 +43,31 @@ async def _gemini_generate(prompt: str, model: str | None = None) -> str:
 
 async def _openai_compatible_generate(prompt: str, model: str | None = None) -> str:
     _model = model or settings.llm_model
+    payload = {"model": _model, "messages": [{"role": "user", "content": prompt}]}
+    # Free-tier providers (e.g. Groq) rate-limit under load; a single 429 or 5xx
+    # otherwise fails the whole answer ("couldn't generate a summary"). Retry a
+    # few times with backoff, honouring Retry-After when present.
+    last_exc: Exception | None = None
     async with httpx.AsyncClient(timeout=60) as client:
-        resp = await client.post(
-            f"{settings.llm_base_url}/chat/completions",
-            headers={"Authorization": f"Bearer {settings.llm_api_key}"},
-            json={"model": _model, "messages": [{"role": "user", "content": prompt}]},
-        )
-        resp.raise_for_status()
-        data = resp.json()
-    return data["choices"][0]["message"]["content"].strip()
+        for attempt in range(3):
+            resp = await client.post(
+                f"{settings.llm_base_url}/chat/completions",
+                headers={"Authorization": f"Bearer {settings.llm_api_key}"},
+                json=payload,
+            )
+            if resp.status_code in (429, 500, 502, 503, 529):
+                retry_after = resp.headers.get("retry-after")
+                delay = float(retry_after) if retry_after else 1.5 * (attempt + 1)
+                last_exc = httpx.HTTPStatusError(
+                    f"LLM {resp.status_code}", request=resp.request, response=resp
+                )
+                if attempt < 2:
+                    await asyncio.sleep(min(delay, 8))
+                    continue
+            resp.raise_for_status()
+            data = resp.json()
+            return data["choices"][0]["message"]["content"].strip()
+    raise last_exc or RuntimeError("LLM generation failed")
 
 
 async def generate_json(prompt: str, model: str | None = None) -> Any:
