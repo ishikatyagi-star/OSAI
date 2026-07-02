@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
@@ -13,7 +13,7 @@ from connectors.toolkit_map import NATIVE_TO_COMPOSIO, to_native_key
 from db.models import SourceDocumentRecord
 from db.repositories import get_tier_rules, set_tier_rules, try_db
 from db.repositories import list_integrations as list_db_integrations
-from db.session import get_db, get_org_id
+from db.session import SessionLocal, get_db, get_org_id
 
 router = APIRouter(prefix="/integrations", tags=["integrations"])
 DbSession = Annotated[Session, Depends(get_db)]
@@ -81,8 +81,29 @@ async def list_connector_documents(
     ]
 
 
+async def _ingest_composio_in_background(org_id: str, slug: str) -> None:
+    """Run a Composio re-ingest off the request path, with its own DB session.
+
+    A full re-sync (25 files + media transcription + embeddings) easily exceeds
+    the client's request timeout; run inline it left the UI stuck on "Syncing…"
+    and the request was cancelled before ingest_composio_toolkit could record a
+    sync run — so /sync-runs showed nothing. As a background task it always runs
+    to completion and records its result.
+    """
+    with SessionLocal() as db:
+        try:
+            await ingest_composio_toolkit(org_id, slug, db)
+        except Exception:  # noqa: BLE001 — recorded as a failed run inside; never crash
+            pass
+
+
 @router.post("/{connector_key}/sync")
-async def trigger_sync(connector_key: str, db: DbSession, org_id: OrgId) -> dict[str, object]:
+async def trigger_sync(
+    connector_key: str,
+    db: DbSession,
+    org_id: OrgId,
+    background_tasks: BackgroundTasks,
+) -> dict[str, object]:
     if connector_key not in {connector.key for connector in connector_registry.all()}:
         raise HTTPException(status_code=404, detail="Unknown connector")
 
@@ -101,15 +122,14 @@ async def trigger_sync(connector_key: str, db: DbSession, org_id: OrgId) -> dict
         except Exception:  # noqa: BLE001 — fall back to native sync on lookup failure
             has_active = False
         if has_active:
-            try:
-                return await ingest_composio_toolkit(org_id, slug, db)
-            except Exception as exc:  # noqa: BLE001 — surface, don't 500
-                return {
-                    "connector_key": connector_key,
-                    "status": "failed",
-                    "documents_indexed": 0,
-                    "error": f"{type(exc).__name__}: {exc}",
-                }
+            # Kick the ingest off in the background and return immediately so the
+            # UI can show "sync started" and poll /sync-runs for the result.
+            background_tasks.add_task(_ingest_composio_in_background, org_id, slug)
+            return {
+                "connector_key": connector_key,
+                "status": "started",
+                "documents_indexed": 0,
+            }
 
     return await sync_connector(connector_key, org_id, db)
 

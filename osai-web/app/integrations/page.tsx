@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { composioConnect, composioDisconnect, getIntegrations, getSyncRuns, triggerSync } from "@/lib/api";
+import { composioConnect, composioDisconnect, getDashboardMetrics, getIntegrations, getSyncRuns, triggerSync } from "@/lib/api";
 import { DEMO_INTEGRATIONS, DEMO_STATS, DEMO_SYNC_RUNS } from "@/lib/demo-data";
 import { isDemo } from "@/lib/demo";
 import { CONNECTOR_META } from "@/lib/connector-meta";
@@ -31,6 +31,9 @@ export default function IntegrationsPage() {
   const [syncRuns, setSyncRuns] = useState<SyncRun[]>([]);
   const [managedKey, setManagedKey] = useState<string | null>(null);
   const [justConnected, setJustConnected] = useState(false);
+  // Real per-connector indexed-doc counts so the cards match Analytics/Sync Runs
+  // instead of always showing "—" for signed-in users.
+  const [docsByConnector, setDocsByConnector] = useState<Record<string, number>>({});
 
   function loadIntegrations() {
     getIntegrations().then((data) => {
@@ -38,6 +41,9 @@ export default function IntegrationsPage() {
       // Show real connectors; only substitute the demo set in demo mode.
       setIntegrations(!hasConnected && isDemo() && !data.length ? DEMO_INTEGRATIONS : data);
     });
+    if (!isDemo()) {
+      getDashboardMetrics().then((m) => setDocsByConnector(m.documents_by_connector ?? {}));
+    }
   }
 
   // Honour ?tab=routing and ?connected=1 (back from the Composio OAuth round-trip).
@@ -63,18 +69,28 @@ export default function IntegrationsPage() {
     setSyncing((s) => ({ ...s, [key]: true }));
     setSyncMsg((m) => ({ ...m, [key]: "" }));
     try {
-      const res = await triggerSync(key);
-      const indexed = Number((res as { documents_indexed?: number }).documents_indexed ?? 0);
+      const res = (await triggerSync(key)) as {
+        documents_indexed?: number;
+        status?: string;
+      };
+      const indexed = Number(res.documents_indexed ?? 0);
+      // Composio syncs now run in the background and return "started"; the docs
+      // land shortly and show up in Sync Runs, so don't claim a count yet.
       setSyncMsg((m) => ({
         ...m,
-        [key]: indexed > 0 ? `Indexed ${indexed} file${indexed > 1 ? "s" : ""}` : "Sync complete",
+        [key]:
+          res.status === "started"
+            ? "Sync started — files will appear in Sync Runs shortly."
+            : indexed > 0
+              ? `Indexed ${indexed} file${indexed > 1 ? "s" : ""}`
+              : "Sync complete",
       }));
       loadIntegrations();
     } catch {
       setSyncMsg((m) => ({ ...m, [key]: "Sync triggered (demo mode)" }));
     } finally {
       setSyncing((s) => ({ ...s, [key]: false }));
-      setTimeout(() => setSyncMsg((m) => ({ ...m, [key]: "" })), 5000);
+      setTimeout(() => setSyncMsg((m) => ({ ...m, [key]: "" })), 6000);
     }
   }
 
@@ -188,9 +204,10 @@ export default function IntegrationsPage() {
             <div className="stat-card">
               <div className="stat-card-label">Documents Indexed</div>
               <div className="stat-card-value">
-                {demo
-                  ? Object.values(DEMO_STATS.docsPerConnector).reduce((a, b) => a + b, 0).toLocaleString()
-                  : "—"}
+                {(demo
+                  ? Object.values(DEMO_STATS.docsPerConnector).reduce((a, b) => a + b, 0)
+                  : Object.values(docsByConnector).reduce((a, b) => a + b, 0)
+                ).toLocaleString()}
               </div>
             </div>
             <div className="stat-card">
@@ -222,7 +239,9 @@ export default function IntegrationsPage() {
                 color: "var(--text-secondary)",
                 description: "",
               };
-              const docCount = demo ? DEMO_STATS.docsPerConnector[item.key] ?? 0 : 0;
+              const docCount = demo
+                ? DEMO_STATS.docsPerConnector[item.key] ?? 0
+                : docsByConnector[item.key] ?? 0;
 
               return (
                 <div className="card connector-card" key={item.key}>

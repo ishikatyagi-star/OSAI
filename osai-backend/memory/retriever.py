@@ -35,6 +35,11 @@ async def retrieve_answer(request: SearchRequest) -> SearchResponse:
     except Exception:
         hits = []
 
+    # Relevance gate: a nearest-neighbour search always returns *something*, so an
+    # off-topic query would otherwise surface unrelated docs at ~0.65 confidence
+    # and look like a hallucination. Keep only hits above a similarity floor.
+    hits = [h for h in hits if float(getattr(h, "score", 0.0)) >= settings.retrieval_min_score]
+
     # Data governance: drop chunks the requester isn't permitted to see.
     hits = [
         h

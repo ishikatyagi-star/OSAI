@@ -104,10 +104,19 @@ export default function AutomationsPage() {
           rows={3}
           style={{ width: "100%", resize: "vertical", marginBottom: 10 }}
         />
-        <button type="submit" className="btn btn-primary" disabled={creating}>
+        <button
+          type="submit"
+          className="btn btn-primary"
+          disabled={creating || !name.trim() || !prompt.trim()}
+        >
           {creating ? <Loader2 className="size-3.5 animate-spin" /> : <Plus className="size-3.5" />}
           Create automation
         </button>
+        {(!name.trim() || !prompt.trim()) && (
+          <span className="meta" style={{ marginLeft: 10 }}>
+            Add a name and describe what OSAI should do.
+          </span>
+        )}
       </form>
 
       {/* List */}
