@@ -141,13 +141,16 @@ export function ConnectorManager({
   }
   // Keyword/folder rules = patterns that aren't an exact synced-file title.
   const keywordRules = rules.filter((r) => !docTitles.has(r.pattern));
-  // Autocomplete suggestions for the keyword box (match against file titles).
-  const suggestions =
-    newPattern.trim().length > 0
-      ? docs
-          .filter((d) => d.title.toLowerCase().includes(newPattern.toLowerCase()))
-          .slice(0, 6)
-      : [];
+  // Preview/autocomplete for the keyword box. On focus (empty box) we preview
+  // the available synced files so the user can pick one; as they type we filter.
+  const [patternFocused, setPatternFocused] = useState(false);
+  const query = newPattern.trim().toLowerCase();
+  const suggestions = !patternFocused
+    ? []
+    : (query
+        ? docs.filter((d) => d.title.toLowerCase().includes(query))
+        : docs
+      ).slice(0, 8);
 
   async function saveRules() {
     if (!integration) return;
@@ -360,21 +363,30 @@ export function ConnectorManager({
                   <Input
                     value={newPattern}
                     onChange={(e) => setNewPattern(e.target.value)}
+                    onFocus={() => setPatternFocused(true)}
+                    // Delay blur so a click on a suggestion registers first.
+                    onBlur={() => setTimeout(() => setPatternFocused(false), 150)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();
                         addRule(newPattern, newTier);
                       }
                     }}
-                    placeholder="Type a folder or file name…"
+                    placeholder="Type or pick a folder or file name…"
                     className="h-8"
                   />
                   {suggestions.length > 0 && (
                     <ul className="absolute z-10 mt-1 max-h-40 w-full overflow-y-auto rounded-md border border-border bg-card shadow-lg">
+                      {!query && (
+                        <li className="px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Synced files
+                        </li>
+                      )}
                       {suggestions.map((s) => (
                         <li key={s.id}>
                           <button
                             type="button"
+                            onMouseDown={(e) => e.preventDefault()}
                             onClick={() => addRule(s.title, newTier)}
                             className="block w-full truncate px-2.5 py-1.5 text-left text-xs hover:bg-accent"
                           >
@@ -383,6 +395,13 @@ export function ConnectorManager({
                         </li>
                       ))}
                     </ul>
+                  )}
+                  {patternFocused && docs.length === 0 && (
+                    <div className="absolute z-10 mt-1 w-full rounded-md border border-border bg-card px-2.5 py-2 text-[11px] text-muted-foreground shadow-lg">
+                      No synced files yet — run “Sync now” to pull files in, then
+                      they’ll appear here to pick from. You can still type a
+                      folder or keyword rule.
+                    </div>
                   )}
                 </div>
                 <select

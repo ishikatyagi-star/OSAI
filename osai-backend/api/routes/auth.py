@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 from config import settings
 from db.models import Org, User
 from db.repositories import accept_invite_for_email, provision_org, try_db
-from db.session import get_db
+from db.session import get_claims, get_db
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 DbSession = Annotated[Session, Depends(get_db)]
@@ -239,3 +239,21 @@ async def google_callback(
     )
     resp.delete_cookie(_OAUTH_STATE_COOKIE)
     return resp
+
+
+Claims = Annotated[dict, Depends(get_claims)]
+
+
+@router.delete("/account")
+async def delete_account(claims: Claims, db: DbSession) -> dict:
+    """Permanently delete the signed-in user's account. Requires a valid session.
+
+    Deletes the user record only; the org and its data are left intact (an admin
+    may still own other members). The client should clear its session after this.
+    """
+    user = db.get(User, claims.get("sub"))
+    if user is None:
+        raise HTTPException(status_code=404, detail="Account not found.")
+    db.delete(user)
+    db.commit()
+    return {"deleted": True}

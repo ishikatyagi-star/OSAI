@@ -83,13 +83,21 @@ export default function IntegrationsPage() {
     try {
       const res = await composioConnect(key);
       if (res.redirect_url) {
+        // Full-page navigation to Composio's OAuth consent screen.
         window.location.href = res.redirect_url;
       } else {
-        setSyncMsg((m) => ({ ...m, [key]: res.error || "Couldn't start connection" }));
+        // No redirect URL means the backend couldn't start the handshake —
+        // surface it plainly instead of silently doing nothing.
+        setSyncMsg((m) => ({
+          ...m,
+          [key]: res.error || "Couldn't start authorization — please try again.",
+        }));
       }
     } catch {
-      // Fall back to the manager drawer (manual / preview connect).
-      setManagedKey(key);
+      setSyncMsg((m) => ({
+        ...m,
+        [key]: "Couldn't reach the server to start authorization. Try again in a moment.",
+      }));
     }
   }
 

@@ -198,6 +198,27 @@ export function getAuthConfig() {
   );
 }
 
+// Clear the local session (token + cached org/user). Used by sign-out and after
+// account deletion. Does not call the backend — JWTs are stateless.
+export function clearSession() {
+  if (typeof window === "undefined") return;
+  for (const k of [
+    "osai_token",
+    "osai_org_id",
+    "osai_org_name",
+    "osai_user_email",
+    "osai_user_name",
+  ]) {
+    localStorage.removeItem(k);
+  }
+}
+
+// Permanently delete the signed-in user's account, then clear the local session.
+export async function deleteAccount(): Promise<void> {
+  await apiDelete<{ deleted: boolean }>("/auth/account");
+  clearSession();
+}
+
 // Full URL to kick off the Google OAuth flow (browser navigates here).
 export function googleSignInUrl(): string {
   return `${API_BASE_URL}/auth/google/start`;
