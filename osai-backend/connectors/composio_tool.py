@@ -165,9 +165,23 @@ class ComposioClient:
                 "id": c.get("id"),
                 "toolkit": (c.get("toolkit") or {}).get("slug"),
                 "status": c.get("status"),
+                "email": _extract_account_email(c),
             }
             for c in resp.json().get("items", [])
         ]
+
+    async def connection_identity(self, toolkit: str, user_id: str) -> dict[str, Any] | None:
+        """Return {id, email} for the org's active connected account for a toolkit,
+        or None if there's no active connection. Identifies which external account
+        (e.g. which Google user) is currently connected, for reconnect handling."""
+        target = toolkit.lower()
+        for c in await self.list_connections(user_id):
+            if (c.get("toolkit") or "").lower() != target:
+                continue
+            if (c.get("status") or "").upper() not in ("ACTIVE", "INITIATED", ""):
+                continue
+            return {"id": c.get("id"), "email": c.get("email")}
+        return None
 
     async def disconnect(self, toolkit: str, user_id: str) -> dict[str, Any]:
         """Revoke this org's connected account(s) for a toolkit at Composio, so a
@@ -212,6 +226,23 @@ class ComposioClient:
             "data": body.get("data"),
             "error": body.get("error"),
         }
+
+
+def _extract_account_email(account: dict[str, Any]) -> str | None:
+    """Best-effort pull of the connected account's email from a Composio
+    connected_account record. Composio nests provider identity differently across
+    toolkits, so probe the common locations rather than assume one shape."""
+    candidates: list[Any] = [
+        account.get("email"),
+        (account.get("data") or {}).get("email"),
+        ((account.get("connection_params") or {}).get("val") or {}).get("email"),
+        ((account.get("params") or {}).get("val") or {}).get("email"),
+        (account.get("meta") or {}).get("email"),
+    ]
+    for c in candidates:
+        if isinstance(c, str) and "@" in c:
+            return c
+    return None
 
 
 def _to_spec(tool: dict[str, Any]) -> dict[str, Any]:

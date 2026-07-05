@@ -8,6 +8,11 @@ export type Integration = {
   scopes: string[];
   last_sync: string | null;
   sync_error: string | null;
+  // Which external account is currently connected (e.g. the Google user), and
+  // the previous one + when it changed, so the UI can show reconnect state.
+  account_email?: string | null;
+  previous_account_email?: string | null;
+  last_reconnected_at?: string | null;
 };
 
 export type SyncRun = {

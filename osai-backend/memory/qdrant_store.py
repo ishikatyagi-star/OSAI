@@ -95,6 +95,26 @@ class QdrantStore:
             ),
         )
 
+    async def delete_source_type(self, org_id: str, source_type: str) -> None:
+        """Delete all vectors for one connector within an org (e.g. every Google
+        Drive chunk), used when a connector is reconnected with a different
+        account so stale documents can't be retrieved."""
+        await self.client.delete(
+            collection_name=self.collection_name,
+            points_selector=models.FilterSelector(
+                filter=models.Filter(
+                    must=[
+                        models.FieldCondition(
+                            key="org_id", match=models.MatchValue(value=org_id)
+                        ),
+                        models.FieldCondition(
+                            key="source_type", match=models.MatchValue(value=source_type)
+                        ),
+                    ]
+                )
+            ),
+        )
+
 
 def _stable_point_id(namespaced_chunk_id: str) -> str:
     # Qdrant accepts UUID strings; uuid5 keeps point ids stable across re-syncs.
