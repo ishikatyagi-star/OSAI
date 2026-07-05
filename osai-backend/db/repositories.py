@@ -568,6 +568,7 @@ def list_integrations(session: Session, org_id: str) -> list[dict[str, object]]:
     # render as two cards); prefer the connected account.
     by_key: dict[str, dict[str, object]] = {}
     for connector, account in rows:
+        cfg = (account.config or {}) if account else {}
         entry = {
             "key": connector.key,
             "display_name": connector.display_name,
@@ -578,6 +579,9 @@ def list_integrations(session: Session, org_id: str) -> list[dict[str, object]]:
                 account.last_sync_at.isoformat() if account and account.last_sync_at else None
             ),
             "sync_error": account.last_error if account else None,
+            "account_email": cfg.get("account_email"),
+            "previous_account_email": cfg.get("previous_account_email"),
+            "last_reconnected_at": cfg.get("last_reconnected_at"),
         }
         existing = by_key.get(connector.key)
         if existing is None or (
@@ -690,6 +694,49 @@ def record_sync_result(
     )
     session.commit()
     return run
+
+
+def ensure_connector_account(
+    session: Session, org_id: str, connector_key: str
+) -> ConnectorAccount:
+    """Get (or create) the ConnectorAccount row for an org+connector. A Composio
+    OAuth connection may not have created one, but we need it to persist the
+    connected-account identity used for reconnect handling."""
+    account = session.scalar(
+        select(ConnectorAccount).where(
+            ConnectorAccount.org_id == org_id,
+            ConnectorAccount.connector_key == connector_key,
+        )
+    )
+    if account is None:
+        account = ConnectorAccount(org_id=org_id, connector_key=connector_key)
+        session.add(account)
+        session.flush()
+    return account
+
+
+def purge_source_type(session: Session, org_id: str, source_type: str) -> int:
+    """Delete every source document (and its chunks) for one connector in an org.
+    Used when a connector is reconnected with a different account so the previous
+    account's files no longer appear in counts or retrieval. Returns rows removed.
+
+    Note: the caller is responsible for deleting the matching Qdrant vectors."""
+    doc_ids = session.scalars(
+        select(SourceDocumentRecord.id).where(
+            SourceDocumentRecord.org_id == org_id,
+            SourceDocumentRecord.source_type == source_type,
+        )
+    ).all()
+    if not doc_ids:
+        return 0
+    session.query(Chunk).filter(
+        Chunk.org_id == org_id, Chunk.source_type == source_type
+    ).delete(synchronize_session=False)
+    session.query(SourceDocumentRecord).filter(
+        SourceDocumentRecord.id.in_(doc_ids)
+    ).delete(synchronize_session=False)
+    session.flush()
+    return len(doc_ids)
 
 
 def list_sync_runs(session: Session, org_id: str, limit: int = 50) -> Sequence[SyncRun]:

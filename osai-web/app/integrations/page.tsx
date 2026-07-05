@@ -264,7 +264,9 @@ export default function IntegrationsPage() {
                         </span>
                       </div>
                       <p className="meta" style={{ margin: 0 }}>
-                        {meta.description}
+                        {item.auth_state === "connected" && item.account_email
+                          ? `Connected as ${item.account_email}`
+                          : meta.description}
                       </p>
                     </div>
                   </div>

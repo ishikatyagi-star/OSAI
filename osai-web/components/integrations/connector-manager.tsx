@@ -189,13 +189,30 @@ export function ConnectorManager({
             <div>
               <DialogTitle>{meta?.label ?? integration.display_name}</DialogTitle>
               <DialogDescription>
-                {connected ? "Connected" : "Not connected"}
+                {connected
+                  ? integration.account_email
+                    ? `Connected as ${integration.account_email}`
+                    : "Connected"
+                  : "Not connected"}
                 {integration.last_sync &&
                   ` · last synced ${relativeTime(integration.last_sync)}`}
               </DialogDescription>
             </div>
           </div>
         </DialogHeader>
+
+        {connected && integration.previous_account_email && (
+          <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-2 text-[11px] text-foreground/80">
+            Reconnected with a different account
+            {integration.last_reconnected_at
+              ? ` ${relativeTime(integration.last_reconnected_at)}`
+              : ""}
+            . Files from <span className="font-medium">{integration.previous_account_email}</span>{" "}
+            were removed from the knowledge base; only{" "}
+            <span className="font-medium">{integration.account_email ?? "the current account"}</span>{" "}
+            is searchable now.
+          </div>
+        )}
 
         {/* Scopes / capabilities */}
         <section>

@@ -351,10 +351,12 @@ export type ConnectorDocument = {
   updated_at: string;
 };
 
-// Recently indexed documents for a connector (powers the Synced files view).
+// Indexed documents for a connector (powers the Synced files view). Uses a high
+// limit so the file list and its count reflect the full active index rather than
+// a truncated slice that would disagree with the card's total.
 export function getConnectorDocuments(connectorKey: string) {
   return apiGet<ConnectorDocument[]>(
-    `/integrations/${connectorKey}/documents`,
+    `/integrations/${connectorKey}/documents?limit=500`,
     []
   );
 }

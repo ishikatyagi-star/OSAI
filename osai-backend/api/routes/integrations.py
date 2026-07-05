@@ -36,15 +36,18 @@ async def list_integrations(db: DbSession, org_id: OrgId) -> list[dict[str, obje
     if client.available():
         try:
             connections = await client.list_connections(org_id)
-            active = {
-                to_native_key(c["toolkit"])
-                for c in connections
-                if c.get("toolkit") and (c.get("status") or "").upper() == "ACTIVE"
-            }
+            active: dict[str, dict] = {}
+            for c in connections:
+                if c.get("toolkit") and (c.get("status") or "").upper() == "ACTIVE":
+                    active[to_native_key(c["toolkit"])] = c
             by_key = {it["key"]: it for it in items}
-            for key in active:
-                if key in by_key and by_key[key]["auth_state"] != "connected":
+            for key, conn in active.items():
+                if key in by_key:
                     by_key[key]["auth_state"] = "connected"
+                    # Prefer the live account email if we have it (may be fresher
+                    # than what the last sync persisted).
+                    if conn.get("email") and not by_key[key].get("account_email"):
+                        by_key[key]["account_email"] = conn.get("email")
         except Exception:  # noqa: BLE001 — connection overlay is best-effort
             pass
 

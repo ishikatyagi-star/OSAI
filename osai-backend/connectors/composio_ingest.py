@@ -21,7 +21,14 @@ from api.schemas.connector import SourceDocument
 from config import settings
 from connectors.composio_tool import ComposioClient, get_default_composio_client
 from connectors.toolkit_map import to_native_key
-from db.repositories import chunks_for_documents, record_sync_result, upsert_source_documents
+from db.models import now_utc
+from db.repositories import (
+    chunks_for_documents,
+    ensure_connector_account,
+    purge_source_type,
+    record_sync_result,
+    upsert_source_documents,
+)
 from memory.qdrant_store import QdrantStore, get_default_qdrant_store
 
 logger = logging.getLogger("osai.composio.ingest")
@@ -112,6 +119,47 @@ async def _transcribe_media(client: ComposioClient, fid: str, name: str, org_id:
     return None
 
 
+async def _handle_account_change(
+    session: Session,
+    client: ComposioClient,
+    org_id: str,
+    toolkit: str,
+    native_key: str,
+    qdrant_store: QdrantStore,
+) -> None:
+    """Detect a reconnect with a different external account and purge the old
+    account's indexed data. Records the account identity (id + email) on the
+    ConnectorAccount so the UI can show who's connected and what changed."""
+    try:
+        identity = await client.connection_identity(toolkit, org_id)
+    except Exception:  # noqa: BLE001 — identity is best-effort; never block sync
+        identity = None
+    if not identity or not identity.get("id"):
+        return
+
+    account = ensure_connector_account(session, org_id, native_key)
+    config = dict(account.config or {})
+    prev_id = config.get("account_external_id")
+    new_id = identity["id"]
+
+    if prev_id and prev_id != new_id:
+        # Different account than last sync — remove the previous account's docs
+        # from Postgres and Qdrant so they can't be counted or retrieved.
+        purge_source_type(session, org_id, native_key)
+        try:
+            await qdrant_store.delete_source_type(org_id, native_key)
+        except Exception:  # noqa: BLE001 — vector cleanup is best-effort
+            logger.warning("Qdrant purge failed for %s/%s", org_id, native_key)
+        config["previous_account_email"] = config.get("account_email")
+        config["last_reconnected_at"] = now_utc().isoformat()
+
+    config["account_external_id"] = new_id
+    config["account_email"] = identity.get("email")
+    account.config = config
+    account.auth_state = "connected"
+    session.flush()
+
+
 async def ingest_composio_toolkit(
     org_id: str,
     toolkit: str,
@@ -133,6 +181,12 @@ async def ingest_composio_toolkit(
             "error": f"Ingestion not implemented for toolkit {toolkit!r}",
             "documents_indexed": 0,
         }
+
+    # Reconnect handling: if the org reconnected this toolkit with a *different*
+    # external account, purge the previous account's documents so counts and Ask
+    # reflect only the currently-connected account (never a mix of both).
+    native_key = to_native_key(toolkit)
+    await _handle_account_change(session, client, org_id, toolkit, native_key, qdrant_store)
 
     try:
         documents = await fetcher(client, org_id, limit)

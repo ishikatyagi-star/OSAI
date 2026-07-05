@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { getSyncRuns } from "@/lib/api";
+import { getSyncRuns, getDashboardMetrics } from "@/lib/api";
 import { DEMO_SYNC_RUNS, DEMO_STATS } from "@/lib/demo-data";
 import { isDemo } from "@/lib/demo";
 import { CONNECTOR_META } from "@/lib/connector-meta";
@@ -27,18 +27,24 @@ const STATUS_BADGE: Record<string, string> = {
 
 export default function SyncRunsPage() {
   const [runs, setRuns] = useState<SyncRun[]>([]);
+  // Active searchable index size — the single source of truth shared with the
+  // dashboard/analytics/integration cards. NOT the sum of historical runs (which
+  // double-counts re-syncs and old, since-removed accounts).
+  const [activeDocs, setActiveDocs] = useState(0);
 
   useEffect(() => {
     getSyncRuns().then((data) => {
       if (data.length) setRuns(data);
       else if (isDemo()) setRuns(DEMO_SYNC_RUNS);
     });
+    if (!isDemo()) getDashboardMetrics().then((m) => setActiveDocs(m.total_documents));
   }, []);
 
   const demo = isDemo();
   const display = runs.length ? runs : demo ? DEMO_SYNC_RUNS : [];
 
   const totalDocs = display.reduce((sum, r) => sum + (r.documents_indexed ?? 0), 0);
+  const knowledgeBaseDocs = demo ? DEMO_STATS.documentsIndexed : activeDocs;
   const succeeded = display.filter((r) => r.status === "succeeded").length;
   const failed = display.filter((r) => r.status === "failed").length;
 
@@ -60,8 +66,8 @@ export default function SyncRunsPage() {
           { label: "Total runs", value: display.length, color: "var(--text-primary)" },
           { label: "Succeeded", value: succeeded, color: "var(--green)" },
           { label: "Failed", value: failed, color: failed > 0 ? "var(--red)" : "var(--text-primary)" },
-          { label: "Docs indexed (session)", value: totalDocs.toLocaleString(), color: "var(--text-primary)" },
-          { label: "Total in knowledge base", value: (demo ? DEMO_STATS.documentsIndexed : totalDocs).toLocaleString(), color: "var(--text-primary)" },
+          { label: "Docs indexed (all runs)", value: totalDocs.toLocaleString(), color: "var(--text-primary)" },
+          { label: "Active in knowledge base", value: knowledgeBaseDocs.toLocaleString(), color: "var(--text-primary)" },
         ].map((s) => (
           <div key={s.label} className="stat-card">
             <div className="stat-card-label">{s.label}</div>
