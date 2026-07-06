@@ -1,5 +1,7 @@
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_DEV_JWT_SECRET = "dev-only-insecure-secret-change-me"
 
 
 class Settings(BaseSettings):
@@ -18,6 +20,22 @@ class Settings(BaseSettings):
         if v.startswith("postgresql://"):
             v = "postgresql+psycopg://" + v[len("postgresql://") :]
         return v
+
+    @model_validator(mode="after")
+    def _require_strong_jwt_secret_in_prod(self) -> "Settings":
+        # In any non-local deployment, refuse to boot with the committed dev
+        # secret or a weak one — otherwise sessions (incl. role:admin) would be
+        # forgeable by anyone who knows the public default.
+        if self.env != "local" and (
+            self.jwt_secret == _DEV_JWT_SECRET or len(self.jwt_secret) < 32
+        ):
+            raise ValueError(
+                "OSAI_JWT_SECRET must be set to a strong random value (>=32 chars) "
+                f"when OSAI_ENV is {self.env!r}. Generate one with: "
+                "python -c \"import secrets; print(secrets.token_urlsafe(48))\""
+            )
+        return self
+
     qdrant_url: str = "http://localhost:6333"
     qdrant_api_key: str | None = None  # required for Qdrant Cloud (free tier)
     qdrant_collection: str = "osai_chunks"
@@ -27,7 +45,7 @@ class Settings(BaseSettings):
     # Session JWT signing. MUST be set to a strong random value in production
     # (Render env). If unset, a fixed dev secret is used so local dev works, but
     # tokens would be forgeable — never rely on the default in prod.
-    jwt_secret: str = "dev-only-insecure-secret-change-me"
+    jwt_secret: str = _DEV_JWT_SECRET
     jwt_expiry_hours: int = 720  # 30 days — long-lived for the pilot
     allowed_origins: str = "http://localhost:3000"
     # Public URLs (for the OAuth auto-ingest callback). On Render set these to the

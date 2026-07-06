@@ -2,7 +2,9 @@ from pydantic import BaseModel, Field
 
 
 class SearchRequest(BaseModel):
-    org_id: str
+    # org_id / requester_permissions are resolved server-side from the caller's
+    # session (see the /search route); any client-supplied values are ignored.
+    org_id: str = ""
     query: str
     requester_permissions: list[str] = Field(default_factory=list)
 

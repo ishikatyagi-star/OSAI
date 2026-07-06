@@ -229,16 +229,27 @@ export default function AskPage() {
           requires_confirmation: false,
         });
       } catch {
-        // Demo fallback — simulate a successful execution.
-        patchAction(turnId, action.id, {
-          status: "executed",
-          requires_confirmation: false,
-          external_url:
-            action.tool === "freshdesk"
-              ? "https://freshdesk.com/tickets/205"
-              : `https://example.com/${action.tool}/created`,
-          error: null,
-        });
+        if (isDemo()) {
+          // Demo mode only: simulate a successful execution against fake tools.
+          patchAction(turnId, action.id, {
+            status: "executed",
+            requires_confirmation: false,
+            external_url:
+              action.tool === "freshdesk"
+                ? "https://freshdesk.com/tickets/205"
+                : `https://example.com/${action.tool}/created`,
+            error: null,
+          });
+        } else {
+          // Real workspace: never claim success or fabricate a URL. Surface the
+          // failure honestly and let the user retry.
+          patchAction(turnId, action.id, {
+            status: "failed",
+            requires_confirmation: false,
+            external_url: null,
+            error: "Couldn't complete this action — please try again.",
+          });
+        }
       } finally {
         setBusyActionId(null);
       }

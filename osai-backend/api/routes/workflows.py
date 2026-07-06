@@ -58,8 +58,12 @@ async def get_workflow(workflow_id: str, db: DbSession) -> dict:
 
 
 @router.post("", response_model=WorkflowRunResponse)
-async def create_workflow(request: WorkflowRunCreate, db: DbSession) -> WorkflowRunResponse:
+async def create_workflow(
+    request: WorkflowRunCreate, db: DbSession, org_id: OrgId
+) -> WorkflowRunResponse:
     """Run Gemini action-item extraction and persist the result."""
+    # Bind the run to the caller's session org, ignoring any body-supplied org_id.
+    request.org_id = org_id
     run_id = f"workflow-{uuid4()}"
     response = await run_action_item_workflow(run_id=run_id, request=request, db=db)
 
