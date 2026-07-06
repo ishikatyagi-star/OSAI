@@ -18,7 +18,9 @@ class ChatMessage(BaseModel):
 
 
 class AskRequest(BaseModel):
-    org_id: str
+    # org_id is resolved server-side from the caller's session (see the /ask
+    # route); any client-supplied value is ignored to prevent cross-tenant access.
+    org_id: str = ""
     question: str
     conversation_id: str | None = None
     history: list[ChatMessage] | None = None

@@ -15,7 +15,8 @@ class ActionItem(BaseModel):
 
 
 class WorkflowRunCreate(BaseModel):
-    org_id: str
+    # Resolved server-side from the caller's session; any body value is ignored.
+    org_id: str = ""
     input_text: str
     destination: Literal["notion", "freshdesk", "slack", "manual"] = "manual"
     data_tier: DataTier = "normal"

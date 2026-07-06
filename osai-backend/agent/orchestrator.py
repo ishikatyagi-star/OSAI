@@ -30,13 +30,20 @@ logger = logging.getLogger("osai.agent")
 _PROPOSED: dict[str, dict] = {}
 
 
-async def run_ask(request: AskRequest) -> AskResponse:
+async def run_ask(
+    request: AskRequest, requester_permissions: list[str] | None = None
+) -> AskResponse:
     started = time.monotonic()
     conversation_id = request.conversation_id or str(uuid4())
 
-    # 1. RAG: retrieve + synthesize an answer with citations.
+    # 1. RAG: retrieve + synthesize an answer with citations. Pass the caller's
+    #    permissions so the governance filter scopes results to their access.
     rag = await retrieve_answer(
-        SearchRequest(org_id=request.org_id, query=request.question)
+        SearchRequest(
+            org_id=request.org_id,
+            query=request.question,
+            requester_permissions=requester_permissions or [],
+        )
     )
 
     # 2. Plan actions (proposed, never auto-executed). Planners record the
@@ -60,7 +67,9 @@ async def run_ask(request: AskRequest) -> AskResponse:
     )
 
 
-async def confirm_action(action_id: str, conversation_id: str) -> ConfirmActionResult:
+async def confirm_action(
+    action_id: str, conversation_id: str, caller_org_id: str | None = None
+) -> ConfirmActionResult:
     proposed = _PROPOSED.get(action_id)
     if proposed is None:
         return ConfirmActionResult(
@@ -68,6 +77,16 @@ async def confirm_action(action_id: str, conversation_id: str) -> ConfirmActionR
             status="failed",
             message="Action not found or already handled.",
             error="unknown_action",
+        )
+    # Cross-tenant guard: only the org that proposed the action may execute it.
+    # This endpoint drives real connector side-effects (Freshdesk/Slack/Notion),
+    # so a mismatch must never fall through to execution.
+    if caller_org_id is not None and proposed.get("org_id") != caller_org_id:
+        return ConfirmActionResult(
+            id=action_id,
+            status="failed",
+            message="This action does not belong to your workspace.",
+            error="org_mismatch",
         )
     if proposed.get("provider") == "composio":
         return await _execute_composio(action_id, proposed)

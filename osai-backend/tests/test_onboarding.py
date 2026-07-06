@@ -129,4 +129,14 @@ def test_api_auth_login() -> None:
     assert "user_id" in data
     assert data["org_id"] == response_org.json()["org_id"]
     assert data["role"] == "admin"
-    assert data["token"] == f"mock-jwt-token-{data['user_id']}"
+    # The token is a real signed JWT (not the old mock format): decode it and
+    # verify the claims match the authenticated user.
+    import jwt
+
+    from config import settings
+
+    claims = jwt.decode(data["token"], settings.jwt_secret, algorithms=["HS256"])
+    assert claims["sub"] == data["user_id"]
+    assert claims["org_id"] == data["org_id"]
+    assert claims["role"] == "admin"
+    assert claims["exp"] > claims["iat"]

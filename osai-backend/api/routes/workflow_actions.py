@@ -16,14 +16,17 @@ from db.repositories import (
     try_db,
     update_action_item_execution,
 )
-from db.session import get_db
+from db.session import get_db, get_org_id
 
 router = APIRouter(prefix="/workflows", tags=["workflow-actions"])
 DbSession = Annotated[Session, Depends(get_db)]
+OrgId = Annotated[str, Depends(get_org_id)]
 
 
 @router.post("/{run_id}/action-items/{item_id}/approve")
-async def approve_item(run_id: str, item_id: str, db: DbSession) -> dict:
+async def approve_item(
+    run_id: str, item_id: str, db: DbSession, caller_org_id: OrgId
+) -> dict:
     """Approve a needs_review action item and push it to its destination connector."""
     # 1. Fetch the workflow run to get org_id
     run = try_db("get_workflow_run", None, lambda: get_workflow_run(db, run_id))
@@ -31,6 +34,10 @@ async def approve_item(run_id: str, item_id: str, db: DbSession) -> dict:
         raise HTTPException(status_code=404, detail=f"Workflow run {run_id!r} not found")
 
     org_id = run.get("org_id", settings.default_org_id)
+    # Cross-tenant guard: this endpoint executes real connector actions
+    # (Freshdesk/Slack/Notion), so refuse a run that belongs to another org.
+    if org_id != caller_org_id:
+        raise HTTPException(status_code=404, detail=f"Workflow run {run_id!r} not found")
 
     # 2. Find the action item in the run
     item_data = next((i for i in run.get("action_items", []) if i["id"] == item_id), None)

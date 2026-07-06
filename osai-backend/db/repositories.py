@@ -696,6 +696,18 @@ def record_sync_result(
     return run
 
 
+def user_permissions(session: Session, claims: dict | None) -> list[str]:
+    """Resolve the caller's permission grants from their verified JWT claims, so
+    org-scoped reads can be filtered to what that user is actually allowed to see.
+    Returns [] when there's no authenticated user (e.g. the public demo path),
+    which the governance filter treats as system/admin context over demo data."""
+    user_id = claims.get("sub") if claims else None
+    if not user_id:
+        return []
+    user = session.get(User, user_id)
+    return list(user.permissions or []) if user else []
+
+
 def ensure_connector_account(
     session: Session, org_id: str, connector_key: str
 ) -> ConnectorAccount:
