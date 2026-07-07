@@ -7,6 +7,14 @@ from config import settings
 from memory.embeddings import default_embedding_provider
 from memory.qdrant_store import get_default_qdrant_store
 
+# Data-clearance ordering (least→most sensitive). A member sees a chunk only if
+# its tier is at or below their clearance; "red" clearance sees everything.
+_TIER_ORDER = {"normal": 0, "amber": 1, "red": 2}
+
+
+def _tier_visible(chunk_tier: str | None, requester_tier: str) -> bool:
+    return _TIER_ORDER.get(chunk_tier or "normal", 0) <= _TIER_ORDER.get(requester_tier, 2)
+
 
 def _visible(chunk_permissions: list[str] | None, requester_permissions: list[str]) -> bool:
     """Data-governance check. Empty/admin requester = system context (sees all);
@@ -40,11 +48,14 @@ async def retrieve_answer(request: SearchRequest) -> SearchResponse:
     # and look like a hallucination. Keep only hits above a similarity floor.
     hits = [h for h in hits if float(getattr(h, "score", 0.0)) >= settings.retrieval_min_score]
 
-    # Data governance: drop chunks the requester isn't permitted to see.
+    # Data governance: drop chunks the requester isn't permitted to see — both by
+    # permission grant and by data-clearance tier (a member never sees documents
+    # above their tier; admins/system context have "red" clearance = see-all).
     hits = [
         h
         for h in hits
         if _visible((h.payload or {}).get("permissions"), request.requester_permissions)
+        and _tier_visible((h.payload or {}).get("data_tier"), request.requester_tier)
     ]
 
     if not hits and not memories:

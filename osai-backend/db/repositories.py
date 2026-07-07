@@ -708,6 +708,25 @@ def user_permissions(session: Session, claims: dict | None) -> list[str]:
     return list(user.permissions or []) if user else []
 
 
+# Data-clearance tiers, ordered least→most sensitive. A member may see a document
+# whose tier is at or below their clearance; admins always see everything.
+TIER_ORDER: dict[str, int] = {"normal": 0, "amber": 1, "red": 2}
+
+
+def user_clearance(session: Session, claims: dict | None) -> str:
+    """The caller's data-clearance tier. Admins (and system/demo context with no
+    authenticated user) get 'red' = see-all; otherwise the member's own tier."""
+    user_id = claims.get("sub") if claims else None
+    if not user_id:
+        return "red"
+    user = session.get(User, user_id)
+    if user is None:
+        return "red"
+    if user.role == "admin":
+        return "red"
+    return user.data_tier or "normal"
+
+
 def ensure_connector_account(
     session: Session, org_id: str, connector_key: str
 ) -> ConnectorAccount:
@@ -1131,6 +1150,7 @@ def update_member(
     *,
     role: str | None = None,
     department_id: str | None = None,
+    data_tier: str | None = None,
 ) -> User | None:
     user = session.scalar(
         select(User).where(User.id == user_id, User.org_id == org_id)
@@ -1142,6 +1162,8 @@ def update_member(
         user.permissions = permissions_for_role(role)
     if department_id is not None:
         user.department_id = department_id or None
+    if data_tier is not None and data_tier in TIER_ORDER:
+        user.data_tier = data_tier
     session.commit()
     return user
 
@@ -1152,9 +1174,11 @@ def create_invite(
     email: str,
     role: str = "member",
     department_id: str | None = None,
+    data_tier: str = "normal",
 ) -> Invite:
     """Create (or refresh) a pending invite for an email in an org."""
     email = email.strip().lower()
+    tier = data_tier if data_tier in TIER_ORDER else "normal"
     existing = session.scalar(
         select(Invite).where(
             Invite.org_id == org_id, Invite.email == email, Invite.status == "pending"
@@ -1163,6 +1187,7 @@ def create_invite(
     if existing:
         existing.role = role
         existing.department_id = department_id
+        existing.data_tier = tier
         session.commit()
         return existing
     invite = Invite(
@@ -1170,6 +1195,7 @@ def create_invite(
         email=email,
         role=role,
         department_id=department_id,
+        data_tier=tier,
         token=secrets.token_urlsafe(16),
     )
     session.add(invite)
@@ -1203,6 +1229,7 @@ def accept_invite_for_email(session: Session, email: str, display_name: str) -> 
         role=invite.role,
         department_id=invite.department_id,
         permissions=permissions_for_role(invite.role),
+        data_tier=invite.data_tier or "normal",
     )
     session.add(user)
     invite.status = "accepted"

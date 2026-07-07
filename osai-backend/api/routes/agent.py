@@ -14,7 +14,7 @@ from api.schemas.agent import (
     ConfirmActionRequest,
     ConfirmActionResult,
 )
-from db.repositories import user_permissions
+from db.repositories import user_clearance, user_permissions
 from db.session import get_db, get_optional_claims, get_org_id
 
 router = APIRouter(tags=["agent"])
@@ -28,9 +28,13 @@ async def ask(
     request: AskRequest, db: DbSession, org_id: OrgId, claims: OptionalClaims
 ) -> AskResponse:
     """Answer a question over org knowledge (RAG) and propose connector actions."""
-    # Org + permissions come from the verified session, not the request body.
+    # Org + permissions + clearance come from the verified session, not the body.
     request.org_id = org_id
-    return await run_ask(request, requester_permissions=user_permissions(db, claims))
+    return await run_ask(
+        request,
+        requester_permissions=user_permissions(db, claims),
+        requester_tier=user_clearance(db, claims),
+    )
 
 
 @router.post("/ask/actions/{action_id}/confirm", response_model=ConfirmActionResult)

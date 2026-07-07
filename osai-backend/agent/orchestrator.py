@@ -31,18 +31,21 @@ _PROPOSED: dict[str, dict] = {}
 
 
 async def run_ask(
-    request: AskRequest, requester_permissions: list[str] | None = None
+    request: AskRequest,
+    requester_permissions: list[str] | None = None,
+    requester_tier: str = "red",
 ) -> AskResponse:
     started = time.monotonic()
     conversation_id = request.conversation_id or str(uuid4())
 
     # 1. RAG: retrieve + synthesize an answer with citations. Pass the caller's
-    #    permissions so the governance filter scopes results to their access.
+    #    permissions + clearance tier so retrieval is scoped to their access.
     rag = await retrieve_answer(
         SearchRequest(
             org_id=request.org_id,
             query=request.question,
             requester_permissions=requester_permissions or [],
+            requester_tier=requester_tier,
         )
     )
 
