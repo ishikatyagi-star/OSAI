@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { AlertTriangle, ArrowRight, Check, Sparkles } from "lucide-react";
 import { getAuthConfig, googleSignInUrl, login, onboardOrg } from "@/lib/api";
 
 export default function LoginPage() {
@@ -121,7 +122,7 @@ export default function LoginPage() {
 
         {invitedEmail && (
           <div className="login-error" style={{ background: "var(--green-dim, rgba(34,197,94,0.12))", color: "var(--green)" }}>
-            <span>✓</span> You&apos;ve been invited. Sign in with Google using <strong>{invitedEmail}</strong> to join your team.
+            <Check className="size-3.5" /> You&apos;ve been invited. Sign in with Google using <strong>{invitedEmail}</strong> to join your team.
           </div>
         )}
 
@@ -151,9 +152,9 @@ export default function LoginPage() {
 
         {/* Demo CTA */}
         <button onClick={enterDemo} className="login-demo-btn">
-          <span>✨</span>
+          <Sparkles className="size-4" />
           <span>Try Demo — no account needed</span>
-          <span className="login-demo-arrow">→</span>
+          <ArrowRight className="login-demo-arrow size-4" />
         </button>
 
         {emailLoginEnabled && (
@@ -180,7 +181,7 @@ export default function LoginPage() {
 
         {error && (
           <div className="login-error">
-            <span>⚠</span> {error}
+            <AlertTriangle className="size-3.5" /> {error}
           </div>
         )}
 

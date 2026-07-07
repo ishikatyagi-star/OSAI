@@ -15,14 +15,15 @@ export function CitationChip({
   index: number;
 }) {
   const meta = CONNECTOR_META[citation.source_tool];
+  const Icon = meta?.icon;
   const pct = Math.round(citation.confidence * 100);
 
   const inner = (
     <>
       <span className="text-muted-foreground tabular-nums">[{index + 1}]</span>
       {meta && (
-        <span aria-hidden style={{ color: meta.color }}>
-          {meta.icon}
+        <span aria-hidden className="inline-flex items-center" style={{ color: meta.color }}>
+          {Icon && <Icon className="size-3.5" strokeWidth={1.8} />}
         </span>
       )}
       <span className="max-w-[220px] truncate font-medium text-foreground">

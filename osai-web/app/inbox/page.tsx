@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { User } from "lucide-react";
+import { Check, User } from "lucide-react";
 import { DEMO_INBOX_ITEMS, type InboxItem } from "@/lib/demo-data";
 import { isDemo } from "@/lib/demo";
 
@@ -145,7 +145,7 @@ export default function InboxPage() {
                       className="meta font-semibold"
                       style={{ display: "inline-flex", alignItems: "center", gap: 5, color: "var(--green)", fontSize: 11 }}
                     >
-                      ✓ Reviewed
+                      <Check size={12} strokeWidth={2} /> Reviewed
                     </span>
                     <button
                       className="btn btn-ghost btn-xs"

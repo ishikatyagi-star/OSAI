@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Sparkles, X } from "lucide-react";
 import { DEMO_DECISIONS, type Decision } from "@/lib/demo-data";
 import { isDemo } from "@/lib/demo";
 
@@ -161,7 +162,7 @@ export default function DecisionsPage() {
           className={`btn btn-sm${sourceFilter === "osai" ? " btn-primary" : ""}`}
           onClick={() => setSourceFilter((s) => (s === "osai" ? "all" : "osai"))}
         >
-          ✨ OSAI-identified{osaiCount > 0 ? ` (${osaiCount})` : ""}
+          <Sparkles className="size-3.5" /> OSAI-identified{osaiCount > 0 ? ` (${osaiCount})` : ""}
         </button>
       </div>
 
@@ -223,7 +224,7 @@ export default function DecisionsPage() {
                 <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
                   {d.identifiedBy === "osai" && (
                     <span className="badge badge-purple" style={{ fontSize: 10 }}>
-                      ✨ OSAI found this
+                      <Sparkles className="size-3" /> OSAI found this
                     </span>
                   )}
                   {d.tags.map((t) => (
@@ -254,7 +255,7 @@ export default function DecisionsPage() {
                     onClick={() => setPendingDelete(d)}
                     aria-label={`Delete decision: ${d.title}`}
                   >
-                    ✕
+                    <X className="size-3.5" />
                   </button>
                 </div>
               </td>

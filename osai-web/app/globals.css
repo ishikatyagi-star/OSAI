@@ -1271,7 +1271,15 @@ h2 {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.connector-inline-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
   flex-shrink: 0;
 }
 
@@ -2235,32 +2243,33 @@ h2 {
   flex-direction: column;
   gap: 10px;
   text-align: left;
-  border: none;
   background: var(--bg-surface);
-  border-radius: 20px;
-  padding: 24px 24px 32px;
+  border-radius: 16px;
+  padding: 22px 22px 26px;
   cursor: pointer;
-  transition: transform 0.15s, box-shadow 0.15s;
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
   color: var(--text-primary);
   border: 1px solid var(--border);
+  box-shadow: 0 18px 42px -40px rgba(41, 37, 36, 0.65);
 }
 
 .ask-mode-card:hover {
   transform: translateY(-2px);
+  border-color: var(--border-hover);
   box-shadow: 0 22px 42px -36px rgba(41,37,36,0.8);
 }
 
 /* Gradient spotlight variants */
 .ask-mode-card--violet {
-  background: radial-gradient(120% 120% at 15% 0%, var(--grad-sky) 0%, var(--grad-violet) 50%, var(--bg-surface) 100%);
+  background: var(--bg-surface);
 }
 
 .ask-mode-card--magenta {
-  background: radial-gradient(120% 120% at 80% 10%, var(--grad-magenta) 0%, var(--grad-orange) 54%, var(--bg-surface) 100%);
+  background: var(--bg-surface);
 }
 
 .ask-mode-card--orange {
-  background: radial-gradient(120% 120% at 15% 100%, var(--grad-orange) 0%, var(--grad-mint) 56%, var(--bg-surface) 100%);
+  background: var(--bg-surface);
 }
 
 .ask-mode-card-icon {
@@ -2269,14 +2278,15 @@ h2 {
   justify-content: center;
   width: 36px;
   height: 36px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.42);
-  border: 1px solid rgba(41, 37, 36, 0.08);
-  color: var(--text-primary);
+  border-radius: 9999px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
 }
 
 .ask-mode-card:hover .ask-mode-card-icon {
-  background: rgba(255, 255, 255, 0.62);
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 .ask-mode-card-title {

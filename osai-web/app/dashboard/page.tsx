@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { User } from "lucide-react";
+import { CheckCircle2, User } from "lucide-react";
 import { DEMO_WORKFLOW_RUNS, DEMO_STATS, DEMO_DECISIONS } from "@/lib/demo-data";
 import { getDashboardMetrics } from "@/lib/api";
 import { isDemo } from "@/lib/demo";
+import { CONNECTOR_META, getConnectorIcon } from "@/lib/connector-meta";
 import { StatusDot } from "@/components/ui/status-dot";
 
 const DEMO_ATTENTION_ITEMS = [
@@ -76,26 +77,19 @@ export default function DashboardPage() {
   }, [demo]);
   const documentsIndexed = demo ? DEMO_STATS.documentsIndexed : liveDocs;
   const recentDecisions = demo ? DEMO_DECISIONS.slice(0, 4) : [];
-  const CONNECTOR_META: Record<string, { icon: string; label: string }> = {
-    notion: { icon: "📝", label: "Notion" },
-    slack: { icon: "💬", label: "Slack" },
-    google_drive: { icon: "📁", label: "Google Drive" },
-    freshdesk: { icon: "🎫", label: "Freshdesk" },
-    zoom: { icon: "📹", label: "Zoom" },
-  };
   const connectorHealth = demo
     ? [
-        { key: "notion", icon: "📝", label: "Notion", docs: 847, status: "connected" },
-        { key: "slack", icon: "💬", label: "Slack", docs: 302, status: "connected" },
-        { key: "google_drive", icon: "📁", label: "Google Drive", docs: 98, status: "connected" },
-        { key: "freshdesk", icon: "🎫", label: "Freshdesk", docs: 47, status: "connected" },
-        { key: "zoom", icon: "📹", label: "Zoom", docs: 12, status: "connected" },
+        { key: "notion", icon: getConnectorIcon("notion"), label: "Notion", docs: 847, status: "connected" },
+        { key: "slack", icon: getConnectorIcon("slack"), label: "Slack", docs: 302, status: "connected" },
+        { key: "google_drive", icon: getConnectorIcon("google_drive"), label: "Google Drive", docs: 98, status: "connected" },
+        { key: "freshdesk", icon: getConnectorIcon("freshdesk"), label: "Freshdesk", docs: 47, status: "connected" },
+        { key: "zoom", icon: getConnectorIcon("zoom"), label: "Zoom", docs: 12, status: "connected" },
       ]
     : Object.entries(liveByConnector)
         .filter(([, docs]) => docs > 0)
         .map(([key, docs]) => ({
           key,
-          icon: CONNECTOR_META[key]?.icon ?? "🔌",
+          icon: getConnectorIcon(key),
           label: CONNECTOR_META[key]?.label ?? key,
           docs,
           status: "connected",
@@ -173,7 +167,7 @@ export default function DashboardPage() {
 
           {active.length === 0 && (
             <div className="card" style={{ textAlign: "center", padding: "32px 20px" }}>
-              <p className="text-xl" style={{ marginBottom: 8 }}>✓</p>
+              <CheckCircle2 className="mx-auto mb-2 size-6 text-success" strokeWidth={1.8} />
               <p className="text-caption" style={{ color: "var(--green)", fontWeight: 600 }}>All clear!</p>
               <p className="meta" style={{ marginTop: 4 }}>No blockers or follow-ups right now.</p>
             </div>
@@ -256,20 +250,24 @@ export default function DashboardPage() {
                   </Link>
                 </div>
               )}
-              {connectorHealth.map((c, i) => (
+              {connectorHealth.map((c, i) => {
+                const Icon = c.icon;
+                return (
                 <div
                   key={c.key}
                   className="activity-row"
                   style={{ padding: "10px 16px", borderBottom: i < connectorHealth.length - 1 ? "1px solid var(--border)" : "none" }}
                 >
-                  <span className="text-[15px]">{c.icon}</span>
+                  <span className="connector-inline-icon" aria-hidden>
+                    <Icon size={15} strokeWidth={1.8} />
+                  </span>
                   <div style={{ flex: 1 }}>
                     <p className="text-micro font-semibold" style={{ color: "var(--text-primary)", margin: 0 }}>{c.label}</p>
                     <p className="meta">{c.docs.toLocaleString()} docs indexed</p>
                   </div>
                   <StatusDot state={c.status} />
                 </div>
-              ))}
+              )})}
             </div>
           </div>
         </div>

@@ -25,6 +25,7 @@ export function ActionCard({
   onDismiss: (action: AgentAction) => void;
 }) {
   const meta = CONNECTOR_META[action.tool];
+  const ConnectorIcon = meta?.icon;
   const isPending = action.status === "proposed" && action.requires_confirmation;
 
   const statusBadge = {
@@ -55,7 +56,11 @@ export function ActionCard({
           style={meta ? { color: meta.color } : undefined}
           aria-hidden
         >
-          {meta?.icon ?? <Zap className="size-4 text-primary" />}
+          {ConnectorIcon ? (
+            <ConnectorIcon className="size-4" strokeWidth={1.8} />
+          ) : (
+            <Zap className="size-4 text-primary" />
+          )}
         </div>
 
         <div className="min-w-0 flex-1">
