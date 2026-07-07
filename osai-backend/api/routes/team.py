@@ -35,11 +35,13 @@ class InviteCreate(BaseModel):
     email: str
     role: str = "member"
     department_id: str | None = None
+    data_tier: str = "normal"
 
 
 class MemberUpdate(BaseModel):
     role: str | None = None
     department_id: str | None = None
+    data_tier: str | None = None
 
 
 def _invite_link(email: str) -> str:
@@ -58,6 +60,7 @@ async def get_members(db: DbSession, org_id: OrgId) -> list[dict[str, object]]:
             "role": u.role,
             "department_id": u.department_id,
             "department": depts.get(u.department_id) if u.department_id else None,
+            "data_tier": u.data_tier,
             "status": "active",
         }
         for u in list_members(db, org_id)
@@ -95,6 +98,7 @@ async def get_invites(db: DbSession, org_id: OrgId) -> list[dict[str, object]]:
             "email": i.email,
             "role": i.role,
             "department_id": i.department_id,
+            "data_tier": i.data_tier,
             "status": i.status,
             "invite_link": _invite_link(i.email),
         }
@@ -108,12 +112,15 @@ async def add_invite(
 ) -> dict[str, object]:
     if not body.email.strip():
         raise HTTPException(status_code=400, detail="Email is required")
-    invite = create_invite(db, org_id, body.email, body.role, body.department_id)
+    invite = create_invite(
+        db, org_id, body.email, body.role, body.department_id, body.data_tier
+    )
     return {
         "id": invite.id,
         "email": invite.email,
         "role": invite.role,
         "department_id": invite.department_id,
+        "data_tier": invite.data_tier,
         "status": invite.status,
         "invite_link": _invite_link(invite.email),
     }
@@ -124,7 +131,12 @@ async def patch_member(
     user_id: str, body: MemberUpdate, db: DbSession, org_id: OrgId, _admin: AdminClaims
 ) -> dict[str, object]:
     user = update_member(
-        db, user_id, org_id, role=body.role, department_id=body.department_id
+        db,
+        user_id,
+        org_id,
+        role=body.role,
+        department_id=body.department_id,
+        data_tier=body.data_tier,
     )
     if user is None:
         raise HTTPException(status_code=404, detail="Member not found")
@@ -132,4 +144,5 @@ async def patch_member(
         "id": user.id,
         "role": user.role,
         "department_id": user.department_id,
+        "data_tier": user.data_tier,
     }

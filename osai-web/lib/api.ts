@@ -246,6 +246,7 @@ export type TeamMember = {
   role: string;
   department_id: string | null;
   department: string | null;
+  data_tier: string;
   status: string;
 };
 
@@ -256,6 +257,7 @@ export type TeamInvite = {
   email: string;
   role: string;
   department_id: string | null;
+  data_tier: string;
   status: string;
   invite_link: string;
 };
@@ -279,16 +281,26 @@ export function getInvites() {
   return apiGet<TeamInvite[]>("/team/invites", []);
 }
 
-export function createInvite(email: string, role: string, departmentId?: string | null) {
+export function createInvite(
+  email: string,
+  role: string,
+  departmentId?: string | null,
+  dataTier: string = "normal"
+) {
   return apiPost<
-    { email: string; role: string; department_id?: string | null },
+    { email: string; role: string; department_id?: string | null; data_tier: string },
     TeamInvite
-  >("/team/invites", { email, role, department_id: departmentId ?? null });
+  >("/team/invites", {
+    email,
+    role,
+    department_id: departmentId ?? null,
+    data_tier: dataTier,
+  });
 }
 
 export function updateMember(
   userId: string,
-  patch: { role?: string; department_id?: string | null }
+  patch: { role?: string; department_id?: string | null; data_tier?: string }
 ) {
   return apiPatch<typeof patch, { id: string; role: string; department_id: string | null }>(
     `/team/members/${userId}`,

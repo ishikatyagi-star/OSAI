@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from api.schemas.search import SearchRequest, SearchResponse
-from db.repositories import user_permissions
+from db.repositories import user_clearance, user_permissions
 from db.session import get_db, get_optional_claims, get_org_id
 from memory.retriever import retrieve_answer
 
@@ -22,4 +22,5 @@ async def search(
     # so a caller cannot read another org's data by passing a different org_id.
     request.org_id = org_id
     request.requester_permissions = user_permissions(db, claims)
+    request.requester_tier = user_clearance(db, claims)
     return await retrieve_answer(request)

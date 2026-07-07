@@ -16,11 +16,24 @@ import {
 
 type Tab = "members" | "departments" | "invites";
 const ROLES = ["admin", "manager", "member"] as const;
+const TIERS = ["normal", "amber", "red"] as const;
 
 const ROLE_BADGE: Record<string, string> = {
   admin: "badge-purple",
   manager: "badge-amber",
   member: "badge-grey",
+};
+
+const TIER_BADGE: Record<string, string> = {
+  normal: "badge-grey",
+  amber: "badge-amber",
+  red: "badge-red",
+};
+
+const TIER_LABEL: Record<string, string> = {
+  normal: "Normal",
+  amber: "Amber",
+  red: "Red (full)",
 };
 
 export default function TeamPage() {
@@ -40,6 +53,7 @@ export default function TeamPage() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("member");
   const [inviteDept, setInviteDept] = useState("");
+  const [inviteTier, setInviteTier] = useState("normal");
   const [inviting, setInviting] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
 
@@ -51,9 +65,10 @@ export default function TeamPage() {
     if (!inviteEmail.trim()) return;
     setInviting(true);
     try {
-      await createInvite(inviteEmail.trim(), inviteRole, inviteDept || null);
+      await createInvite(inviteEmail.trim(), inviteRole, inviteDept || null, inviteTier);
       setInviteEmail("");
       setInviteDept("");
+      setInviteTier("normal");
       getInvites().then(setInvites);
     } finally {
       setInviting(false);
@@ -70,7 +85,7 @@ export default function TeamPage() {
 
   async function changeMember(
     m: TeamMember,
-    patch: { role?: string; department_id?: string | null }
+    patch: { role?: string; department_id?: string | null; data_tier?: string }
   ) {
     setMembers((prev) => prev.map((x) => (x.id === m.id ? { ...x, ...patch } : x)));
     await updateMember(m.id, patch);
@@ -88,7 +103,10 @@ export default function TeamPage() {
       <div className="page-header">
         <div className="page-header-left">
           <h1>Team</h1>
-          <p>Invite employees, assign roles, and organize them into departments.</p>
+          <p>
+            Invite employees, assign roles and data-access tiers, and organize them into
+            departments. A member only sees documents at or below their tier; admins see all.
+          </p>
         </div>
       </div>
 
@@ -117,6 +135,7 @@ export default function TeamPage() {
               <th>Member</th>
               <th style={{ width: 140 }}>Role</th>
               <th style={{ width: 200 }}>Department</th>
+              <th style={{ width: 150 }}>Data access</th>
             </tr>
           </thead>
           <tbody>
@@ -153,11 +172,29 @@ export default function TeamPage() {
                     ))}
                   </select>
                 </td>
+                <td>
+                  {m.role === "admin" ? (
+                    <span className="badge badge-purple" title="Admins see all data tiers">
+                      All (admin)
+                    </span>
+                  ) : (
+                    <select
+                      className="select"
+                      style={{ height: 30 }}
+                      value={m.data_tier}
+                      onChange={(e) => changeMember(m, { data_tier: e.target.value })}
+                    >
+                      {TIERS.map((t) => (
+                        <option key={t} value={t}>{TIER_LABEL[t]}</option>
+                      ))}
+                    </select>
+                  )}
+                </td>
               </tr>
             ))}
             {members.length === 0 && (
               <tr>
-                <td colSpan={3} style={{ textAlign: "center", color: "var(--text-muted)", padding: "32px 0" }}>
+                <td colSpan={4} style={{ textAlign: "center", color: "var(--text-muted)", padding: "32px 0" }}>
                   No members yet. Invite teammates from the Invites tab.
                 </td>
               </tr>
@@ -222,6 +259,18 @@ export default function TeamPage() {
               </select>
             </div>
             <div>
+              <label className="meta" style={{ display: "block", marginBottom: 4 }}>Data access</label>
+              <select
+                className="select"
+                value={inviteRole === "admin" ? "red" : inviteTier}
+                disabled={inviteRole === "admin"}
+                onChange={(e) => setInviteTier(e.target.value)}
+                title={inviteRole === "admin" ? "Admins see all data tiers" : "Highest data tier this member can see"}
+              >
+                {TIERS.map((t) => <option key={t} value={t}>{TIER_LABEL[t]}</option>)}
+              </select>
+            </div>
+            <div>
               <label className="meta" style={{ display: "block", marginBottom: 4 }}>Department</label>
               <select className="select" value={inviteDept} onChange={(e) => setInviteDept(e.target.value)}>
                 <option value="">— None —</option>
@@ -243,6 +292,7 @@ export default function TeamPage() {
               <tr>
                 <th>Email</th>
                 <th style={{ width: 110 }}>Role</th>
+                <th style={{ width: 120 }}>Data access</th>
                 <th style={{ width: 160 }}>Invite link</th>
               </tr>
             </thead>
@@ -251,6 +301,11 @@ export default function TeamPage() {
                 <tr key={i.id}>
                   <td>{i.email}</td>
                   <td><span className={`badge ${ROLE_BADGE[i.role] ?? "badge-grey"}`}>{i.role}</span></td>
+                  <td>
+                    <span className={`badge ${TIER_BADGE[i.role === "admin" ? "red" : i.data_tier] ?? "badge-grey"}`}>
+                      {i.role === "admin" ? "All" : TIER_LABEL[i.data_tier] ?? i.data_tier}
+                    </span>
+                  </td>
                   <td>
                     <button
                       className="btn"

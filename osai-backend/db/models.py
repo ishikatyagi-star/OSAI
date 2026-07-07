@@ -36,6 +36,9 @@ class User(Base):
     role: Mapped[str] = mapped_column(String, default="admin")
     department_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     permissions: Mapped[list[str]] = mapped_column(JSON, default=list)
+    # Data-clearance tier (normal|amber|red): the highest data sensitivity this
+    # member may see. Admins see everything regardless of this.
+    data_tier: Mapped[str] = mapped_column(String, default="normal")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
 
 
@@ -61,6 +64,8 @@ class Invite(Base):
     email: Mapped[str] = mapped_column(String, index=True)
     role: Mapped[str] = mapped_column(String, default="member")
     department_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Clearance tier the invited member will get on accept.
+    data_tier: Mapped[str] = mapped_column(String, default="normal")
     status: Mapped[str] = mapped_column(String, default="pending", index=True)
     token: Mapped[str] = mapped_column(String, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)

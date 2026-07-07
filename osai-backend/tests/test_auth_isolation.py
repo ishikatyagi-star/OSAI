@@ -58,13 +58,14 @@ def test_ask_ignores_body_org_id(client_without_org_override, monkeypatch):
     be scoped to org A — the body value is ignored."""
     captured: dict[str, str] = {}
 
-    async def _fake_run_ask(request, requester_permissions=None):
+    async def _fake_run_ask(request, requester_permissions=None, requester_tier="red"):
         captured["org_id"] = request.org_id
         return AskResponse(conversation_id="c1", answer="ok", enough_context=False)
 
-    # Stub permissions lookup so the test doesn't depend on DB state/schema.
+    # Stub permission/clearance lookups so the test doesn't depend on DB state.
     monkeypatch.setattr("api.routes.agent.run_ask", _fake_run_ask)
     monkeypatch.setattr("api.routes.agent.user_permissions", lambda db, claims: [])
+    monkeypatch.setattr("api.routes.agent.user_clearance", lambda db, claims: "red")
 
     resp = client_without_org_override.post(
         "/ask",
