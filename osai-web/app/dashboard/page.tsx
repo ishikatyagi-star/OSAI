@@ -282,7 +282,7 @@ export default function DashboardPage() {
             <h2>Pending Workflow Actions</h2>
             <Link href="/automations">Review all ({pendingActions}) →</Link>
           </div>
-          <div className="card" style={{ background: "var(--accent-dim)", borderColor: "rgba(0,153,255,0.18)" }}>
+          <div className="card" style={{ background: "var(--accent-dim)", borderColor: "rgba(41,37,36,0.18)" }}>
             <p className="text-caption" style={{ color: "var(--text-primary)", fontWeight: 400 }}>
               <span className="font-bold" style={{ color: "var(--text-primary)" }}>{pendingActions} action items</span> extracted from recent workflow runs are waiting for your review.
             </p>

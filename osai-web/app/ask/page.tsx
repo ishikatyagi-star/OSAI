@@ -272,7 +272,7 @@ export default function AskPage() {
     COMPOSER_MODES.find((m) => m.id === mode) ?? COMPOSER_MODES[0];
 
   return (
-    <div className="ask-canvas flex h-[calc(100vh-128px)] flex-col">
+    <div className="ask-canvas flex min-h-[calc(100vh-128px)] flex-col">
       {/* Header */}
       <div className="page-header shrink-0">
         <div className="page-header-left">
@@ -297,7 +297,7 @@ export default function AskPage() {
 
       {empty ? (
         /* ─── EMPTY STATE — one clean, centered command column ─────────────── */
-        <div className="ask-scroll min-h-0 flex-1 overflow-y-auto">
+        <div className="ask-scroll flex-1">
           <div className="flex min-h-full items-center justify-center px-4 py-8">
             <div className="ask-column flex w-full max-w-[760px] flex-col gap-8 text-left">
               {/* Heading */}
@@ -324,7 +324,7 @@ export default function AskPage() {
                     <Button
                       type="submit"
                       size="icon"
-                      className="size-10 shrink-0 self-center rounded-full bg-white text-black hover:bg-gray-200"
+                      className="size-10 shrink-0 self-center rounded-full bg-[var(--text-primary)] text-white hover:bg-[var(--primary-active,#292524)]"
                       disabled={pending || !input.trim()}
                       aria-label="Send"
                       title="Send"
@@ -417,7 +417,7 @@ export default function AskPage() {
         <>
           <div
             ref={threadRef}
-            className="ask-scroll min-h-0 flex-1 overflow-y-auto"
+            className="ask-scroll max-h-[calc(100vh-260px)] min-h-[320px] overflow-y-auto"
           >
             <div className="mx-auto w-full max-w-3xl space-y-6 py-1">
               {turns.map((t) => (
@@ -460,7 +460,7 @@ export default function AskPage() {
                 <Button
                   type="submit"
                   size="icon"
-                  className="size-10 shrink-0 self-center rounded-full bg-white text-black hover:bg-gray-200"
+                  className="size-10 shrink-0 self-center rounded-full bg-[var(--text-primary)] text-white hover:bg-[var(--primary-active,#292524)]"
                   disabled={pending || !input.trim()}
                   aria-label="Send"
                   title="Send"

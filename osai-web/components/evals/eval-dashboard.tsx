@@ -50,7 +50,7 @@ function StatCard({
               ? "var(--green)"
               : tone === "destructive"
                 ? "var(--red)"
-                : "#ffffff",
+                : "var(--text-primary)",
         }}
       >
         {value}
@@ -86,14 +86,14 @@ function CaseRow({ c }: { c: EvalCase }) {
         type="button"
         onClick={() => setOpen((o) => !o)}
         className="flex w-full items-center gap-3 px-4 py-3 text-left"
-        style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#ffffff' }}
+        style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-primary)' }}
       >
         {c.passed ? (
           <CheckCircle2 className="size-4 shrink-0" style={{ color: 'var(--green)' }} />
         ) : (
           <XCircle className="size-4 shrink-0" style={{ color: 'var(--red)' }} />
         )}
-        <span className="min-w-0 flex-1 truncate text-sm" style={{ color: '#ffffff' }}>
+        <span className="min-w-0 flex-1 truncate text-sm" style={{ color: 'var(--text-primary)' }}>
           {c.question}
         </span>
         <span className="badge badge-grey hidden sm:inline-flex">
@@ -120,7 +120,7 @@ function CaseRow({ c }: { c: EvalCase }) {
             <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-primary)' }}>
               Expected
             </p>
-            <p className="mt-1 text-sm" style={{ color: '#ffffff' }}>{c.expected}</p>
+            <p className="mt-1 text-sm" style={{ color: 'var(--text-secondary)' }}>{c.expected}</p>
           </div>
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-primary)' }}>
@@ -128,7 +128,7 @@ function CaseRow({ c }: { c: EvalCase }) {
             </p>
             <p
               className="mt-1 text-sm"
-              style={{ color: c.passed ? '#ffffff' : 'var(--red)' }}
+              style={{ color: c.passed ? 'var(--text-secondary)' : 'var(--red)' }}
             >
               {c.actual}
             </p>
@@ -298,7 +298,7 @@ export function EvalDashboard() {
               {categoryStats.map((s) => (
                 <div key={s.category} className="space-y-1">
                   <div className="flex items-center justify-between text-sm">
-                    <span style={{ color: '#ffffff' }}>
+                    <span style={{ color: 'var(--text-primary)' }}>
                       {CATEGORY_LABEL[s.category]}
                     </span>
                     <span className="text-xs tabular-nums" style={{ color: 'var(--text-primary)' }}>
