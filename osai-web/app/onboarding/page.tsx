@@ -10,7 +10,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { composioConnect, login, onboardOrg } from "@/lib/api";
-import { CONNECTOR_META } from "@/lib/connector-meta";
+import { CONNECTOR_META, getConnectorIcon } from "@/lib/connector-meta";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -43,6 +43,7 @@ export default function OnboardingPage() {
 
   const currentKey = CONNECTOR_FLOW[stepIndex];
   const meta = currentKey ? CONNECTOR_META[currentKey] : null;
+  const CurrentIcon = currentKey ? getConnectorIcon(currentKey) : null;
   const progress = useMemo(
     () => CONNECTOR_FLOW.map((k) => ({ key: k, done: stepIndex > CONNECTOR_FLOW.indexOf(k) })),
     [stepIndex]
@@ -122,7 +123,9 @@ export default function OnboardingPage() {
       {/* Connector progress rail (only during the connect phase) */}
       {phase === "connect" && (
         <div className="mb-8 flex items-center gap-1">
-          {progress.map((p, i) => (
+          {progress.map((p, i) => {
+            const StepIcon = getConnectorIcon(p.key);
+            return (
             <div key={p.key} className="flex items-center">
               <div
                 className={cn(
@@ -135,13 +138,13 @@ export default function OnboardingPage() {
                 )}
                 title={CONNECTOR_META[p.key]?.label}
               >
-                {p.done ? <Check className="size-3.5" /> : CONNECTOR_META[p.key]?.icon}
+                {p.done ? <Check className="size-3.5" /> : <StepIcon className="size-3.5" strokeWidth={1.8} />}
               </div>
               {i < progress.length - 1 && (
                 <div className={cn("mx-1 h-px w-8", p.done ? "bg-primary" : "bg-border")} />
               )}
             </div>
-          ))}
+          )})}
         </div>
       )}
 
@@ -153,10 +156,10 @@ export default function OnboardingPage() {
               Step {stepIndex + 1} of {CONNECTOR_FLOW.length} · Connect your tools
             </p>
             <div
-              className="mx-auto flex size-16 items-center justify-center rounded-2xl text-4xl"
+              className="mx-auto flex size-16 items-center justify-center rounded-2xl text-muted-foreground"
               style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)" }}
             >
-              {meta.icon}
+              {CurrentIcon && <CurrentIcon className="size-7" strokeWidth={1.8} />}
             </div>
             <div>
               <h1 className="text-xl font-semibold">Connect {meta.label}</h1>

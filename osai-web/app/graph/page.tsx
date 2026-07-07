@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { getAccessMap, type AccessMap } from "@/lib/api";
 import { isDemo } from "@/lib/demo";
-import { CONNECTOR_META } from "@/lib/connector-meta";
+import { CONNECTOR_META, getConnectorIcon } from "@/lib/connector-meta";
 
 type Tier = "normal" | "amber" | "red";
 
@@ -166,7 +166,7 @@ export default function GraphPage() {
                 {data.connectors.map((c) => (
                   <th key={c.key} style={{ textAlign: "center" }}>
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                      <span>{CONNECTOR_META[c.key]?.icon ?? "⚙"}</span>
+                      {React.createElement(getConnectorIcon(c.key), { size: 14, strokeWidth: 1.8 })}
                       {CONNECTOR_META[c.key]?.label ?? c.label}
                     </span>
                   </th>

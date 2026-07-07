@@ -1,11 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { RotateCw } from "lucide-react";
+import {
+  AlertTriangle,
+  Check,
+  CheckCircle2,
+  LockKeyhole,
+  RotateCw,
+  type LucideIcon,
+} from "lucide-react";
 import { getDataRouting, patchDataRouting } from "@/lib/api";
 import { DEMO_DATA_ROUTING } from "@/lib/demo-data";
 import { isDemo } from "@/lib/demo";
-import { CONNECTOR_META } from "@/lib/connector-meta";
+import { CONNECTOR_META, getConnectorIcon } from "@/lib/connector-meta";
 import type { DataRouting } from "@/lib/types";
 
 const TIERS = ["normal", "amber", "red"] as const;
@@ -14,10 +21,10 @@ type Tier = (typeof TIERS)[number];
 const LOAD_TIMEOUT_MS = 10000;
 type LoadState = "loading" | "ready" | "error";
 
-const TIER_META: Record<Tier, { color: string; icon: string; title: string; description: string; badge: string }> = {
+const TIER_META: Record<Tier, { color: string; icon: LucideIcon; title: string; description: string; badge: string }> = {
   normal: {
     color: "var(--green)",
-    icon: "🟢",
+    icon: CheckCircle2,
     title: "Normal",
     description:
       "Standard company data. All connectors and cloud LLM processing allowed. Documents indexed to Qdrant with standard access controls.",
@@ -25,7 +32,7 @@ const TIER_META: Record<Tier, { color: string; icon: string; title: string; desc
   },
   amber: {
     color: "var(--yellow)",
-    icon: "🟡",
+    icon: AlertTriangle,
     title: "Amber",
     description:
       "Sensitive business data. Restricted connector set — only Notion and Google Drive permitted. Cloud LLM processing disabled; search-only mode.",
@@ -33,7 +40,7 @@ const TIER_META: Record<Tier, { color: string; icon: string; title: string; desc
   },
   red: {
     color: "var(--red)",
-    icon: "🔴",
+    icon: LockKeyhole,
     title: "Red",
     description:
       "Restricted / confidential data. No external connectors or cloud APIs. All processing runs locally via Ollama (Llama3/Mistral) on a private VPC endpoint.",
@@ -144,6 +151,7 @@ export function DataRoutingPanel() {
           <div style={{ display: "flex", flexDirection: "column", gap: 20, marginBottom: 28 }}>
             {TIERS.map((tier) => {
               const meta = TIER_META[tier];
+              const TierIcon = meta.icon;
               const config = routing[tier];
 
               return (
@@ -160,7 +168,10 @@ export function DataRoutingPanel() {
                     <div style={{ width: 4, height: 40, borderRadius: 9999, background: meta.color, flexShrink: 0 }} />
                     <div style={{ flex: 1 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-                        <h2 style={{ margin: 0 }}>{meta.icon} {meta.title} Tier</h2>
+                        <h2 style={{ margin: 0, display: "inline-flex", alignItems: "center", gap: 8 }}>
+                          <TierIcon size={18} strokeWidth={1.8} style={{ color: meta.color }} />
+                          {meta.title} Tier
+                        </h2>
                         <span className={`badge ${meta.badge}`}>{tier}</span>
                       </div>
                       <p className="meta" style={{ margin: 0 }}>
@@ -178,6 +189,7 @@ export function DataRoutingPanel() {
                         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                           {ALL_CONNECTORS.map((key) => {
                             const cm = CONNECTOR_META[key];
+                            const ConnectorIcon = getConnectorIcon(key);
                             const checked = config.allowed_connectors.includes(key);
                             return (
                               <label
@@ -197,9 +209,9 @@ export function DataRoutingPanel() {
                                 className="text-micro font-medium"
                               >
                                 <input type="checkbox" checked={checked} onChange={() => toggleConnector(tier, key)} style={{ display: "none" }} />
-                                <span>{cm?.icon ?? "⚙"}</span>
+                                <ConnectorIcon size={14} strokeWidth={1.8} />
                                 <span>{cm?.label ?? key}</span>
-                                {checked && <span className="text-[10px]">✓</span>}
+                                {checked && <Check className="size-3" strokeWidth={2} />}
                               </label>
                             );
                           })}
@@ -265,7 +277,12 @@ export function DataRoutingPanel() {
             <button className="btn btn-primary" onClick={handleSave} disabled={saving} style={{ padding: "11px 28px" }}>
               {saving ? "Saving…" : "Save Changes"}
             </button>
-            {savedMsg && <span className="success-text text-caption">✓ {savedMsg}</span>}
+            {savedMsg && (
+              <span className="success-text inline-flex items-center gap-1.5 text-caption">
+                <Check className="size-3.5" strokeWidth={2} />
+                {savedMsg}
+              </span>
+            )}
             {error && <span className="error-text text-caption">{error}</span>}
           </div>
         </>

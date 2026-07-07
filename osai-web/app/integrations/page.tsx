@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { AlertTriangle, Check } from "lucide-react";
 import { composioConnect, composioDisconnect, getDashboardMetrics, getIntegrations, getSyncRuns, triggerSync } from "@/lib/api";
 import { DEMO_INTEGRATIONS, DEMO_STATS, DEMO_SYNC_RUNS } from "@/lib/demo-data";
 import { isDemo } from "@/lib/demo";
-import { CONNECTOR_META } from "@/lib/connector-meta";
+import { CONNECTOR_META, getConnectorIcon } from "@/lib/connector-meta";
 import type { Integration, SyncRun } from "@/lib/types";
 import { ConnectorManager } from "@/components/integrations/connector-manager";
 import { DataRoutingPanel } from "@/components/integrations/data-routing-panel";
@@ -194,7 +195,10 @@ export default function IntegrationsPage() {
                 fontWeight: 600,
               }}
             >
-              ✓ Connected. Your data is being indexed — click “Sync now” on the connector to pull it in.
+              <span className="inline-flex items-start gap-1.5">
+                <Check className="mt-0.5 size-3.5 shrink-0" strokeWidth={2} />
+                <span>Connected. Your data is being indexed — click “Sync now” on the connector to pull it in.</span>
+              </span>
             </div>
           )}
 
@@ -240,10 +244,10 @@ export default function IntegrationsPage() {
             {display.map((item) => {
               const meta = CONNECTOR_META[item.key] ?? {
                 label: item.display_name,
-                icon: "⚙",
                 color: "var(--text-secondary)",
                 description: "",
               };
+              const Icon = getConnectorIcon(item.key);
               const docCount = demo
                 ? DEMO_STATS.docsPerConnector[item.key] ?? 0
                 : docsByConnector[item.key] ?? 0;
@@ -256,7 +260,7 @@ export default function IntegrationsPage() {
                       className="connector-icon-badge"
                       style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)" }}
                     >
-                      {meta.icon}
+                      <Icon size={18} strokeWidth={1.8} />
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
@@ -306,8 +310,9 @@ export default function IntegrationsPage() {
                   </div>
 
                   {item.sync_error && (
-                    <p className="error-text" style={{ marginBottom: 12 }}>
-                      ⚠ {item.sync_error}
+                    <p className="error-text" style={{ marginBottom: 12, display: "inline-flex", alignItems: "flex-start", gap: 6 }}>
+                      <AlertTriangle className="mt-0.5 size-3.5 shrink-0" strokeWidth={1.8} />
+                      <span>{item.sync_error}</span>
                     </p>
                   )}
 
@@ -336,8 +341,9 @@ export default function IntegrationsPage() {
                       Manage
                     </button>
                     {syncMsg[item.key] && (
-                      <span className="success-text">
-                        ✓ {syncMsg[item.key]}
+                      <span className="success-text inline-flex items-center gap-1.5">
+                        <Check className="size-3.5" strokeWidth={2} />
+                        {syncMsg[item.key]}
                       </span>
                     )}
                   </div>
@@ -347,16 +353,18 @@ export default function IntegrationsPage() {
 
             {/* Coming-soon connectors */}
             {[
-              { key: "linear", label: "Linear", icon: "📐" },
-              { key: "confluence", label: "Confluence", icon: "📚" },
-            ].map((c) => (
+              { key: "linear", label: "Linear" },
+              { key: "confluence", label: "Confluence" },
+            ].map((c) => {
+              const Icon = getConnectorIcon(c.key);
+              return (
               <div key={c.key} className="card connector-card card-muted">
                 <div style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 16 }}>
                   <div
                     className="connector-icon-badge"
                     style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)" }}
                   >
-                    {c.icon}
+                    <Icon size={18} strokeWidth={1.8} />
                   </div>
                   <div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
@@ -372,7 +380,7 @@ export default function IntegrationsPage() {
                   Notify me
                 </button>
               </div>
-            ))}
+            )})}
           </div>
 
           <ConnectorManager
