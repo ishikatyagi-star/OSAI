@@ -33,6 +33,24 @@ export default function InboxPage() {
 
   const inboxCount = items.filter((i) => i.status === "inbox").length;
 
+  function exportCsv() {
+    const cols: (keyof InboxItem)[] = [
+      "type", "text", "source", "dept", "person", "date", "status",
+    ];
+    const esc = (v: string) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const rows = [
+      cols.join(","),
+      ...filtered.map((i) => cols.map((c) => esc(i[c] as string)).join(",")),
+    ];
+    const blob = new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `context-inbox-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div>
       <div className="page-header">
@@ -42,7 +60,7 @@ export default function InboxPage() {
         </div>
         <div style={{ display: "flex", gap: 10 }}>
           <span className="badge badge-red" style={{ alignSelf: "center" }}>{inboxCount} unreviewed</span>
-          <button className="btn btn-primary">Export</button>
+          <button className="btn btn-primary" onClick={exportCsv} disabled={filtered.length === 0}>Export</button>
         </div>
       </div>
 

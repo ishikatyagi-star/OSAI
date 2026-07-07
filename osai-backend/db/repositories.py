@@ -1,5 +1,6 @@
 import secrets
 from collections.abc import Sequence
+from datetime import timedelta
 
 from sqlalchemy import desc, select
 from sqlalchemy.exc import SQLAlchemyError
@@ -24,6 +25,7 @@ from db.models import (
     WorkflowRun,
     now_utc,
 )
+from db.session import SessionLocal
 from memory.chunker import chunk_document
 
 
@@ -725,6 +727,53 @@ def user_clearance(session: Session, claims: dict | None) -> str:
     if user.role == "admin":
         return "red"
     return user.data_tier or "normal"
+
+
+# Proposed agent actions are persisted so a "confirm" can succeed even if a
+# different web worker (or the same process after a restart/cold-start) handles
+# it — an in-process dict alone loses them. Stored in connector_actions with
+# status="proposed"; the full execution descriptor lives in the payload.
+_PROPOSED_TTL_HOURS = 24
+
+
+def save_proposed_action(action_id: str, descriptor: dict) -> None:
+    with SessionLocal() as session:
+        if session.get(ConnectorAction, action_id) is not None:
+            return
+        session.add(
+            ConnectorAction(
+                id=action_id,
+                org_id=descriptor.get("org_id", ""),
+                connector_key=descriptor.get("tool", "unknown"),
+                action_type=descriptor.get("action", ""),
+                status="proposed",
+                payload=descriptor,
+            )
+        )
+        session.commit()
+
+
+def load_proposed_action(action_id: str) -> dict | None:
+    try:
+        with SessionLocal() as session:
+            row = session.get(ConnectorAction, action_id)
+            if row is None or row.status != "proposed":
+                return None
+            if row.created_at and now_utc() - row.created_at > timedelta(
+                hours=_PROPOSED_TTL_HOURS
+            ):
+                return None
+            return dict(row.payload or {})
+    except SQLAlchemyError:
+        return None
+
+
+def discard_proposed_action(action_id: str) -> None:
+    with SessionLocal() as session:
+        row = session.get(ConnectorAction, action_id)
+        if row is not None:
+            row.status = "consumed"
+            session.commit()
 
 
 def ensure_connector_account(

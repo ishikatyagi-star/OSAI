@@ -21,13 +21,27 @@ from api.schemas.connector import ConnectorAction
 from api.schemas.search import SearchRequest
 from config import settings
 from connectors.registry import connector_registry
+from db.repositories import (
+    discard_proposed_action,
+    load_proposed_action,
+    save_proposed_action,
+)
 from memory.retriever import retrieve_answer
 
 logger = logging.getLogger("osai.agent")
 
-# Per-process store of proposed actions awaiting confirmation. MVP: fine for a
-# single worker; swap for a DB table (connector_actions) when multi-worker.
+# Per-process fast-path cache of proposed actions awaiting confirmation; also
+# persisted to connector_actions (see save/load/discard_proposed_action) so a
+# confirm survives a different worker or a restart between propose and confirm.
 _PROPOSED: dict[str, dict] = {}
+
+
+def _forget_proposed(action_id: str) -> None:
+    _PROPOSED.pop(action_id, None)
+    try:
+        discard_proposed_action(action_id)
+    except Exception:  # noqa: BLE001 — best-effort
+        pass
 
 
 async def run_ask(
@@ -73,7 +87,9 @@ async def run_ask(
 async def confirm_action(
     action_id: str, conversation_id: str, caller_org_id: str | None = None
 ) -> ConfirmActionResult:
-    proposed = _PROPOSED.get(action_id)
+    # Fast path (same process), then durable store (another worker / after a
+    # restart between propose and confirm).
+    proposed = _PROPOSED.get(action_id) or load_proposed_action(action_id)
     if proposed is None:
         return ConfirmActionResult(
             id=action_id,
@@ -99,7 +115,7 @@ async def confirm_action(
             proposed["org_id"],
             ConnectorAction(action_type=proposed["action"], payload=proposed["payload"]),
         )
-        _PROPOSED.pop(action_id, None)
+        _forget_proposed(action_id)
         if result.status == "succeeded":
             _remember_resolution(proposed)
             return ConfirmActionResult(
@@ -166,7 +182,7 @@ def _record(
         requires_confirmation=True,
         params=payload,
     )
-    _PROPOSED[action.id] = {
+    descriptor = {
         "org_id": org_id,
         "provider": provider,
         "tool": tool,
@@ -174,6 +190,11 @@ def _record(
         "payload": payload,
         "summary": summary,
     }
+    _PROPOSED[action.id] = descriptor  # fast path within this process
+    try:
+        save_proposed_action(action.id, descriptor)  # durable across workers/restart
+    except Exception:  # noqa: BLE001 — durability is best-effort; in-process still works
+        logger.warning("Could not persist proposed action %s", action.id)
     return action
 
 
@@ -312,7 +333,7 @@ async def _execute_composio(action_id: str, proposed: dict) -> ConfirmActionResu
         return ConfirmActionResult(
             id=action_id, status="failed", message="Composio execution error.", error=str(exc)
         )
-    _PROPOSED.pop(action_id, None)
+    _forget_proposed(action_id)
     if result.get("successful"):
         _remember_resolution(proposed)
         return ConfirmActionResult(
