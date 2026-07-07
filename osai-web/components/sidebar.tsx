@@ -17,7 +17,6 @@ import {
   Sparkles,
   Trash2,
   Users,
-  Zap,
   type LucideIcon,
 } from "lucide-react";
 import { clearSession, deleteAccount } from "@/lib/api";
@@ -53,7 +52,6 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/decisions", icon: ScrollText, label: "Decision Log" },
       { href: "/graph", icon: Share2, label: "Org Graph" },
       { href: "/team", icon: Users, label: "Team" },
-      { href: "/workflows", icon: Zap, label: "Workflows" },
       { href: "/automations", icon: Clock, label: "Automations" },
     ],
   },

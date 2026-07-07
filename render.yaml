@@ -32,6 +32,12 @@ services:
     healthCheckPath: /health
     plan: free
     envVars:
+      # Marks this as a non-local deployment. Activates the production guards:
+      # the service refuses to boot without a strong OSAI_JWT_SECRET, and the
+      # password-less email login is disabled (Google OAuth is the sign-in path).
+      # To re-enable email login for a pilot, set OSAI_EMAIL_LOGIN_ENABLED=true.
+      - key: OSAI_ENV
+        value: production
       - key: OSAI_DATABASE_URL
         fromDatabase:
           name: osai-postgres

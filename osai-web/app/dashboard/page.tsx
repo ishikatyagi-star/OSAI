@@ -280,13 +280,13 @@ export default function DashboardPage() {
         <div style={{ marginTop: 24 }}>
           <div className="section-header">
             <h2>Pending Workflow Actions</h2>
-            <Link href="/workflows">Review all ({pendingActions}) →</Link>
+            <Link href="/automations">Review all ({pendingActions}) →</Link>
           </div>
           <div className="card" style={{ background: "var(--accent-dim)", borderColor: "rgba(0,153,255,0.18)" }}>
             <p className="text-caption" style={{ color: "var(--text-primary)", fontWeight: 400 }}>
               <span className="font-bold" style={{ color: "var(--text-primary)" }}>{pendingActions} action items</span> extracted from recent workflow runs are waiting for your review.
             </p>
-            <Link href="/workflows" className="btn" style={{ marginTop: 10, display: "inline-flex" }}>
+            <Link href="/automations" className="btn" style={{ marginTop: 10, display: "inline-flex" }}>
               Review & Approve →
             </Link>
           </div>
