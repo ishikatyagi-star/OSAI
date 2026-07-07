@@ -55,6 +55,36 @@ export type SourceCitation = {
   confidence: number;
 };
 
+export type AskUiArtifactKind =
+  | "answer_summary"
+  | "source_table"
+  | "action_plan"
+  | "context_gap";
+
+export type AskUiArtifactMetric = {
+  label: string;
+  value: string;
+  tone?: "neutral" | "success" | "warning" | "danger" | "info";
+};
+
+export type AskUiArtifactRow = {
+  label: string;
+  value: string;
+  meta?: string;
+  href?: string | null;
+  confidence?: number | null;
+  tone?: "neutral" | "success" | "warning" | "danger" | "info";
+};
+
+export type AskUiArtifact = {
+  id: string;
+  kind: AskUiArtifactKind;
+  title: string;
+  subtitle?: string;
+  metrics?: AskUiArtifactMetric[];
+  rows?: AskUiArtifactRow[];
+};
+
 export type SearchResponse = {
   answer: string;
   citations: SourceCitation[];
@@ -114,6 +144,7 @@ export type AskResponse = {
   enough_context: boolean;
   model_route?: string;
   latency_ms?: number;
+  ui_artifacts?: AskUiArtifact[];
 };
 
 export type ConfirmActionResult = {

@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 
 from agent.tools import available_action_tools, tool_specs
 from api.main import app
+from api.schemas.agent import AskResponse, AskUiArtifact
 
 client = TestClient(app)
 
@@ -28,6 +29,35 @@ def test_ask_returns_contract_shape():
         assert key in body
     assert isinstance(body["citations"], list)
     assert isinstance(body["actions_taken"], list)
+
+
+def test_ask_response_serializes_openui_artifacts():
+    resp = AskResponse(
+        conversation_id="conv-openui",
+        answer="OpenUI artifact contract",
+        enough_context=True,
+        ui_artifacts=[
+            AskUiArtifact(
+                id="openui-source-table",
+                kind="source_table",
+                title="Source evidence",
+                subtitle="Citations returned by OSAI.",
+                rows=[
+                    {
+                        "label": "VPC setup",
+                        "value": "notion",
+                        "confidence": 0.95,
+                        "tone": "success",
+                    }
+                ],
+            )
+        ],
+    )
+
+    body = resp.model_dump(mode="json")
+    assert body["ui_artifacts"][0]["kind"] == "source_table"
+    assert body["ui_artifacts"][0]["rows"][0]["confidence"] == 0.95
+    assert body["ui_artifacts"][0]["rows"][0]["tone"] == "success"
 
 
 def test_action_intent_is_proposed_not_executed():
