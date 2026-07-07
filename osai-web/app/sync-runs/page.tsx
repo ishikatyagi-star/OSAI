@@ -167,7 +167,7 @@ export default function SyncRunsPage() {
                   )}
                   {run.documents_indexed > 0 && run.documents_seen > 0 && (
                     <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, minWidth: 120 }}>
-                      <div style={{ flex: 1, height: 3, background: "rgba(255,255,255,0.08)", borderRadius: 9999 }}>
+                      <div style={{ flex: 1, height: 3, background: "var(--bg-hover)", borderRadius: 9999 }}>
                         <div
                           style={{
                             width: `${(run.documents_indexed / run.documents_seen) * 100}%`,
@@ -190,7 +190,7 @@ export default function SyncRunsPage() {
                     <Link
                       href="/integrations"
                       className="text-micro font-semibold"
-                      style={{ color: "#ffffff", whiteSpace: "nowrap" }}
+                      style={{ color: "var(--text-primary)", whiteSpace: "nowrap" }}
                     >
                       Fix in Integrations →
                     </Link>

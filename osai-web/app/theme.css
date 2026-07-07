@@ -17,40 +17,39 @@
 
 /* ─── shadcn variables, mapped to the FRAMER dark palette ───────────────────── */
 :root {
-  --radius: 0.625rem;
+  --radius: 0.5rem;
 
-  --background: #090909;
-  --foreground: #ffffff;
+  --background: #f5f5f5;
+  --foreground: #0c0a09;
 
-  --card: #141414;
-  --card-foreground: #ffffff;
+  --card: #ffffff;
+  --card-foreground: #0c0a09;
 
-  --popover: #1c1c1c;
-  --popover-foreground: #ffffff;
+  --popover: #ffffff;
+  --popover-foreground: #0c0a09;
 
-  /* Framer primary CTA is a WHITE pill on dark (blue is never a fill) */
-  --primary: #ffffff;
-  --primary-foreground: #000000;
+  --primary: #292524;
+  --primary-foreground: #ffffff;
 
-  --secondary: #1c1c1c;
-  --secondary-foreground: #ffffff;
+  --secondary: #f0efed;
+  --secondary-foreground: #292524;
 
-  --muted: #1c1c1c;
-  --muted-foreground: #b3b3b3;
+  --muted: #f0efed;
+  --muted-foreground: #777169;
 
-  --accent: #1c1c1c;
+  --accent: #292524;
   --accent-foreground: #ffffff;
 
-  --destructive: #ff5577;
+  --destructive: #dc2626;
   --destructive-foreground: #ffffff;
 
-  --success: #22c55e;
-  --warning: #f5c842;
-  --info: #0099ff;
+  --success: #16a34a;
+  --warning: #c9784d;
+  --info: #292524;
 
-  --border: #262626;
-  --input: #262626;
-  --ring: #0099ff;
+  --border: #e7e5e4;
+  --input: #d6d3d1;
+  --ring: #292524;
 }
 
 /* ─── Expose tokens as Tailwind utilities (bg-card, text-muted-foreground, …) ── */
@@ -92,6 +91,7 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 
-  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-sans: "Inter", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-display: "Instrument Serif", "Times New Roman", serif;
 }
