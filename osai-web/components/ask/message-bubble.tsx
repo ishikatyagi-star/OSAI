@@ -2,10 +2,11 @@
 
 import * as React from "react";
 import { AlertTriangle, Clock, Cpu } from "lucide-react";
-import type { AgentAction, SourceCitation } from "@/lib/types";
+import type { AgentAction, AskUiArtifact, SourceCitation } from "@/lib/types";
 import { MarkdownLite } from "./markdown-lite";
 import { CitationChip } from "./citation-chip";
 import { ActionCard } from "./action-card";
+import { OpenUiArtifacts } from "./openui-artifacts";
 import { cn } from "@/lib/utils";
 
 export type AskTurn = {
@@ -17,6 +18,7 @@ export type AskTurn = {
   enoughContext?: boolean;
   modelRoute?: string;
   latencyMs?: number;
+  artifacts?: AskUiArtifact[];
 };
 
 export function MessageBubble({
@@ -86,6 +88,8 @@ export function MessageBubble({
             ))}
           </div>
         )}
+
+        <OpenUiArtifacts artifacts={turn.artifacts} />
 
         {(turn.modelRoute || turn.latencyMs != null) && (
           <div

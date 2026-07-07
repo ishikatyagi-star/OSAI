@@ -14,6 +14,7 @@ import {
 import { askOsai, confirmAgentAction } from "@/lib/api";
 import { DEMO_ASK_ANSWERS } from "@/lib/demo-data";
 import { isDemo } from "@/lib/demo";
+import { buildOpenUiArtifacts } from "@/lib/openui-artifacts";
 import { cn } from "@/lib/utils";
 import type { AgentAction, AskResponse } from "@/lib/types";
 import { MessageBubble, type AskTurn } from "@/components/ask/message-bubble";
@@ -152,6 +153,7 @@ export default function AskPage() {
         enoughContext: res.enough_context,
         modelRoute: res.model_route,
         latencyMs: res.latency_ms,
+        artifacts: buildOpenUiArtifacts(res),
       });
 
       try {

@@ -189,7 +189,29 @@ retrieve → tool-calling loop → answer + citations + actions taken.
   "enough_context": true,
   // optional debug/telemetry the eval + debug dashboards (P6) can surface.
   "model_route": "gemini-2.0-flash",
-  "latency_ms": 1840
+  "latency_ms": 1840,
+  // optional OpenUI workspace artifacts. The frontend can also derive these
+  // from answer + citations + actions_taken when the backend omits them.
+  "ui_artifacts": [
+    {
+      "id": "openui-source-table",
+      "kind": "source_table",              // answer_summary | source_table | action_plan | context_gap
+      "title": "Source evidence",
+      "subtitle": "Citations returned by the OSAI retrieval layer.",
+      "metrics": [
+        { "label": "Sources", "value": "2", "tone": "success" }
+      ],
+      "rows": [
+        {
+          "label": "VPC and Ollama Security Setup",
+          "value": "notion",
+          "href": null,
+          "confidence": 0.95,
+          "tone": "success"
+        }
+      ]
+    }
+  ]
 }
 ```
 
