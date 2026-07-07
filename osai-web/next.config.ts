@@ -10,6 +10,8 @@ const nextConfig: NextConfig = {
       { source: "/team-board", destination: "/board", permanent: true },
       { source: "/org-graph", destination: "/graph", permanent: true },
       { source: "/data-routing", destination: "/settings/data-routing", permanent: true },
+      // Workflows folded into Automations (transcript-extraction is now a mode there).
+      { source: "/workflows", destination: "/automations", permanent: true },
     ];
   },
 };

@@ -84,7 +84,7 @@ export default function WorkflowDetailPage() {
     return (
       <div>
         <p className="error-text">Workflow run not found.</p>
-        <Link href="/workflows" className="text-caption" style={{ color: "var(--accent)" }}>← Back to workflows</Link>
+        <Link href="/automations" className="text-caption" style={{ color: "var(--accent)" }}>← Back to Automations</Link>
       </div>
     );
   }
@@ -98,7 +98,7 @@ export default function WorkflowDetailPage() {
     <div>
       {/* Breadcrumb */}
       <p className="breadcrumb">
-        <Link href="/workflows" style={{ color: "var(--accent)" }}>Workflows</Link>
+        <Link href="/automations" style={{ color: "var(--accent)" }}>Automations</Link>
         {" / "}
         <span className="run-link">{run.id}</span>
       </p>
