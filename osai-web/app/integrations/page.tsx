@@ -87,7 +87,12 @@ export default function IntegrationsPage() {
       }));
       loadIntegrations();
     } catch {
-      setSyncMsg((m) => ({ ...m, [key]: "Sync triggered (demo mode)" }));
+      setSyncMsg((m) => ({
+        ...m,
+        [key]: isDemo()
+          ? "Sync triggered (demo mode)"
+          : "Sync failed — please try again.",
+      }));
     } finally {
       setSyncing((s) => ({ ...s, [key]: false }));
       setTimeout(() => setSyncMsg((m) => ({ ...m, [key]: "" })), 6000);

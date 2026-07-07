@@ -24,14 +24,26 @@ class QdrantStore:
     async def ensure_collection(self) -> None:
         collections = await self.client.get_collections()
         names = {collection.name for collection in collections.collections}
+        want = self.embedding_provider.dimension
         if self.collection_name not in names:
             await self.client.create_collection(
                 collection_name=self.collection_name,
                 vectors_config=models.VectorParams(
-                    size=self.embedding_provider.dimension,
+                    size=want,
                     distance=models.Distance.COSINE,
                 ),
             )
+        else:
+            # Fail fast on a dimension mismatch rather than silently degrading
+            # retrieval: a collection built for N dims can't be queried with an
+            # M-dim vector (e.g. switching Gemini 768 ↔ hash-fallback 64).
+            have = _collection_vector_size(await self.client.get_collection(self.collection_name))
+            if have is not None and have != want:
+                raise RuntimeError(
+                    f"Qdrant collection {self.collection_name!r} has vector size {have}, "
+                    f"but the active embedding provider produces {want}-dim vectors. "
+                    "Set OSAI_EMBEDDING_DIMENSION to match, or recreate the collection."
+                )
         # Qdrant Cloud rejects filtering on an unindexed field; every search is
         # org-scoped, so ensure a keyword index on org_id. Idempotent.
         try:
@@ -114,6 +126,22 @@ class QdrantStore:
                 )
             ),
         )
+
+
+def _collection_vector_size(info: Any) -> int | None:
+    """Extract the configured vector size from a Qdrant get_collection response,
+    tolerating the single-vector and named-vector config shapes. Returns None if
+    it can't be determined (then the caller skips the mismatch check)."""
+    try:
+        params = info.config.params.vectors
+    except AttributeError:
+        return None
+    if hasattr(params, "size"):
+        return int(params.size)
+    if isinstance(params, dict) and params:
+        first = next(iter(params.values()))
+        return int(getattr(first, "size", 0)) or None
+    return None
 
 
 def _stable_point_id(namespaced_chunk_id: str) -> str:
