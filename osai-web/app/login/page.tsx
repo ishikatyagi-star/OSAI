@@ -14,6 +14,9 @@ export default function LoginPage() {
   // Sign-in fields
   const [email, setEmail] = useState("");
   const [googleEnabled, setGoogleEnabled] = useState(false);
+  // Password-less email/onboard sign-in may be disabled server-side (prod);
+  // default true so local/demo isn't hidden while config is still loading.
+  const [emailLoginEnabled, setEmailLoginEnabled] = useState(true);
   const [invitedEmail, setInvitedEmail] = useState("");
 
   useEffect(() => {
@@ -25,6 +28,7 @@ export default function LoginPage() {
       for (let attempt = 0; attempt < 3; attempt++) {
         const c = await getAuthConfig();
         if (cancelled) return;
+        setEmailLoginEnabled(c.email_login_enabled);
         if (c.google_enabled) {
           setGoogleEnabled(true);
           return;
@@ -152,6 +156,8 @@ export default function LoginPage() {
           <span className="login-demo-arrow">→</span>
         </button>
 
+        {emailLoginEnabled && (
+        <>
         <div className="login-divider">
           <span>or continue with your workspace</span>
         </div>
@@ -246,6 +252,8 @@ export default function LoginPage() {
               </button>
             </p>
           </form>
+        )}
+        </>
         )}
       </div>
 

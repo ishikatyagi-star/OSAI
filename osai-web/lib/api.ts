@@ -191,9 +191,9 @@ export function login(credentials: LoginCredentials): Promise<LoginSession> {
 // for 30–60s, and an 8s timeout would wrongly report Google as disabled (hiding
 // the sign-in button) on the first page load after the instance has spun down.
 export function getAuthConfig() {
-  return apiGet<{ google_enabled: boolean }>(
+  return apiGet<{ google_enabled: boolean; email_login_enabled: boolean }>(
     "/auth/config",
-    { google_enabled: false },
+    { google_enabled: false, email_login_enabled: true },
     60000
   );
 }

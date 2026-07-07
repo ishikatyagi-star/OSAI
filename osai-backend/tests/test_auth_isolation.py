@@ -73,3 +73,33 @@ def test_ask_ignores_body_org_id(client_without_org_override, monkeypatch):
     )
     assert resp.status_code == 200
     assert captured["org_id"] == "org-A"  # token org, not the body's "org-B"
+
+
+def test_email_login_disabled_returns_403(monkeypatch):
+    """SEV-102: password-less email login is refused when disabled (prod)."""
+    monkeypatch.setattr(settings, "email_login_enabled", False)
+    resp = TestClient(app).post("/auth/login", json={"email": "someone@known.com"})
+    assert resp.status_code == 403
+
+
+def test_login_is_rate_limited(monkeypatch):
+    """SEV-101: repeated login attempts from one IP are throttled with 429."""
+    # Disable email login so each call short-circuits before any DB access; the
+    # rate-limit dependency still runs first and is what we're asserting.
+    monkeypatch.setattr(settings, "email_login_enabled", False)
+    client = TestClient(app)
+    statuses = [
+        client.post("/auth/login", json={"email": "x@y.com"}).status_code
+        for _ in range(12)
+    ]
+    assert statuses[0] == 403  # allowed through to the handler (which 403s)
+    assert 429 in statuses  # later calls are throttled
+
+
+def test_org_create_rejects_invalid_email():
+    """SEV-101: org provisioning validates the admin email."""
+    resp = TestClient(app).post(
+        "/orgs",
+        json={"name": "Acme", "admin_email": "not-an-email", "admin_display_name": "Admin"},
+    )
+    assert resp.status_code == 422

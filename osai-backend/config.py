@@ -34,6 +34,9 @@ class Settings(BaseSettings):
                 f"when OSAI_ENV is {self.env!r}. Generate one with: "
                 "python -c \"import secrets; print(secrets.token_urlsafe(48))\""
             )
+        # Default email-login availability from the env if not explicitly set.
+        if self.email_login_enabled is None:
+            self.email_login_enabled = self.env == "local"
         return self
 
     qdrant_url: str = "http://localhost:6333"
@@ -47,6 +50,11 @@ class Settings(BaseSettings):
     # tokens would be forgeable — never rely on the default in prod.
     jwt_secret: str = _DEV_JWT_SECRET
     jwt_expiry_hours: int = 720  # 30 days — long-lived for the pilot
+    # Password-less email-lookup login (/auth/login) is a dev/demo convenience and
+    # a real auth bypass in production (anyone who knows an email gets that
+    # session). Off outside local by default; Google OAuth is the real sign-in.
+    # Override with OSAI_EMAIL_LOGIN_ENABLED=true if a deploy still needs it.
+    email_login_enabled: bool | None = None
     allowed_origins: str = "http://localhost:3000"
     # Public URLs (for the OAuth auto-ingest callback). On Render set these to the
     # live API URL and the Vercel frontend URL.

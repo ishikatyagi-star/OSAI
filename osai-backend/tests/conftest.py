@@ -25,3 +25,14 @@ def _override_auth():
     yield
     app.dependency_overrides.pop(get_org_id, None)
     app.dependency_overrides.pop(require_admin, None)
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter():
+    """The rate limiter is a shared in-memory store; clear it between tests so
+    one test's requests can't exhaust another's budget (cross-test flakiness)."""
+    from api.ratelimit import _HITS
+
+    _HITS.clear()
+    yield
+    _HITS.clear()

@@ -16,6 +16,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from api.ratelimit import rate_limit
 from config import settings
 from db.models import Org, User
 from db.repositories import accept_invite_for_email, provision_org, try_db
@@ -57,9 +58,19 @@ def _issue_token(user: User) -> str:
     return jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
 
 
-@router.post("/login", response_model=LoginResponse)
+@router.post(
+    "/login",
+    response_model=LoginResponse,
+    dependencies=[Depends(rate_limit(max_calls=10, window_seconds=300))],
+)
 async def login(body: LoginRequest, db: DbSession) -> LoginResponse:
-    """Simulate a password-free lookup authentication returning a mock JWT token."""
+    """Password-less email-lookup sign-in (dev/demo only). Disabled outside local
+    unless explicitly enabled; production sign-in goes through Google OAuth."""
+    if not settings.email_login_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Email/password sign-in is disabled. Please sign in with Google.",
+        )
     user = db.scalar(select(User).where(User.email == body.email))
     if user is None:
         raise HTTPException(
@@ -78,7 +89,10 @@ async def login(body: LoginRequest, db: DbSession) -> LoginResponse:
 @router.get("/config")
 async def auth_config() -> dict[str, bool]:
     """Tell the frontend which auth methods are available on this deployment."""
-    return {"google_enabled": settings.google_oauth_enabled}
+    return {
+        "google_enabled": settings.google_oauth_enabled,
+        "email_login_enabled": bool(settings.email_login_enabled),
+    }
 
 
 @router.get("/google/start")

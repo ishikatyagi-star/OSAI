@@ -2,23 +2,43 @@
 
 from __future__ import annotations
 
+import re
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session
 
+from api.ratelimit import rate_limit
 from db.repositories import provision_org, reset_org_content, try_db
 from db.session import get_db, require_admin
 
 router = APIRouter(prefix="/orgs", tags=["orgs"])
 DbSession = Annotated[Session, Depends(get_db)]
 
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
 
 class OrgCreate(BaseModel):
     name: str
     admin_email: str
     admin_display_name: str
+
+    @field_validator("admin_email")
+    @classmethod
+    def _valid_email(cls, v: str) -> str:
+        v = v.strip()
+        if not _EMAIL_RE.match(v):
+            raise ValueError("must be a valid email address")
+        return v
+
+    @field_validator("name", "admin_display_name")
+    @classmethod
+    def _non_trivial(cls, v: str) -> str:
+        v = v.strip()
+        if not (2 <= len(v) <= 120):
+            raise ValueError("must be between 2 and 120 characters")
+        return v
 
 
 class OrgResponse(BaseModel):
@@ -28,7 +48,11 @@ class OrgResponse(BaseModel):
     admin_display_name: str
 
 
-@router.post("", response_model=OrgResponse)
+@router.post(
+    "",
+    response_model=OrgResponse,
+    dependencies=[Depends(rate_limit(max_calls=5, window_seconds=3600))],
+)
 async def create_org(body: OrgCreate, db: DbSession) -> OrgResponse:
     """Provision a new organization (tenant) and its initial admin user."""
     try:
