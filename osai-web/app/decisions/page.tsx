@@ -344,12 +344,22 @@ export default function DecisionsPage() {
 
       {/* Add / edit decision */}
       {decisionForm && (
-        <div className="modal-overlay" onClick={() => setDecisionForm(null)} role="dialog" aria-modal="true">
-          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+        <dialog
+          open
+          className="modal-overlay"
+          onCancel={(e) => {
+            e.preventDefault();
+            setDecisionForm(null);
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setDecisionForm(null);
+          }}
+        >
+          <div className="modal-card">
             <h2>{decisionForm.id ? "Edit decision" : "Add decision"}</h2>
             <div style={{ display: "grid", gap: 12 }}>
               <label className="text-caption" style={{ display: "grid", gap: 6 }}>
-                Title
+                <span>Title</span>
                 <input
                   className="search-input"
                   value={decisionForm.title}
@@ -359,7 +369,7 @@ export default function DecisionsPage() {
               </label>
               <div style={{ display: "grid", gap: 10, gridTemplateColumns: "1fr 1fr" }}>
                 <label className="text-caption" style={{ display: "grid", gap: 6 }}>
-                  Status
+                  <span>Status</span>
                   <select
                     className="select"
                     value={decisionForm.status}
@@ -371,7 +381,7 @@ export default function DecisionsPage() {
                   </select>
                 </label>
                 <label className="text-caption" style={{ display: "grid", gap: 6 }}>
-                  Impact
+                  <span>Impact</span>
                   <select
                     className="select"
                     value={decisionForm.impact}
@@ -386,7 +396,7 @@ export default function DecisionsPage() {
               </div>
               <div style={{ display: "grid", gap: 10, gridTemplateColumns: "1fr 1fr" }}>
                 <label className="text-caption" style={{ display: "grid", gap: 6 }}>
-                  Owner
+                  <span>Owner</span>
                   <input
                     className="search-input"
                     value={decisionForm.owner}
@@ -395,7 +405,7 @@ export default function DecisionsPage() {
                   />
                 </label>
                 <label className="text-caption" style={{ display: "grid", gap: 6 }}>
-                  Source
+                  <span>Source</span>
                   <input
                     className="search-input"
                     value={decisionForm.source}
@@ -405,7 +415,7 @@ export default function DecisionsPage() {
                 </label>
               </div>
               <label className="text-caption" style={{ display: "grid", gap: 6 }}>
-                Tags
+                <span>Tags</span>
                 <input
                   className="search-input"
                   value={decisionForm.tags}
@@ -425,7 +435,7 @@ export default function DecisionsPage() {
               </button>
             </div>
           </div>
-        </div>
+        </dialog>
       )}
 
       {/* Delete confirmation */}

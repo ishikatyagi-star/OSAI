@@ -920,12 +920,12 @@ select {
 /* Monochrome rollout: orange/yellow "attention/in-progress" states fold into
    the single blue accent; purple folds into neutral grey. Red (bad) + green
    (good) stay the only signal hues. */
-.badge-orange  { background: rgba(201,120,77,0.18); color: #743f22; border: 1px solid rgba(116,63,34,0.35); }
-.badge-yellow  { background: rgba(185,130,34,0.18); color: #6f4d12; border: 1px solid rgba(111,77,18,0.35); }
+.badge-orange  { background: #f4e5db; color: #4f2613; border: 1px solid rgba(79,38,19,0.35); }
+.badge-yellow  { background: #f2e7d2; color: #513406; border: 1px solid rgba(81,52,6,0.35); }
 .badge-purple  { background: var(--bg-elevated); color: var(--text-secondary); border: 1px solid var(--border); }
 /* Amber is intentionally preserved: it's the Red/Amber/Normal data-routing
    (RAG) signal — a deliberate third governance state, not decoration. */
-.badge-amber   { background: rgba(201,120,77,0.18); color: #743f22; border: 1px solid rgba(116,63,34,0.35); }
+.badge-amber   { background: #f4e5db; color: #4f2613; border: 1px solid rgba(79,38,19,0.35); }
 
 /* ─── Priority/type tags ─────────────────────────────────────────────────────── */
 .tag {
@@ -1225,8 +1225,13 @@ select {
 
 /* ─── Modal / confirmation dialog ────────────────────────────────────────────── */
 .modal-overlay {
+  border: 0;
   position: fixed;
   inset: 0;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
   z-index: 200;
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(2px);
@@ -1234,6 +1239,10 @@ select {
   align-items: center;
   justify-content: center;
   padding: 24px;
+}
+
+.modal-overlay::backdrop {
+  background: transparent;
 }
 
 .modal-card {
