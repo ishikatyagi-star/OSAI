@@ -85,6 +85,10 @@ services:
       # then /ask and Automations route through Hermes with in-house fallback.
       - key: OSAI_HERMES_SIDECAR_URL
         sync: false
+      # Shared secret with the sidecar — set to the SAME random value as
+      # SIDECAR_AUTH_TOKEN on osai-hermes (the sidecar is publicly reachable).
+      - key: OSAI_HERMES_SIDECAR_TOKEN
+        sync: false
 
   # Hermes reasoning sidecar (per-user hermes-agent behind a tiny HTTP API).
   # ⚠ PAID: Docker build of the hermes CLI needs Starter or above (~$7/mo).
@@ -101,6 +105,10 @@ services:
     plan: starter
     envVars:
       - key: GROQ_API_KEY              # same Groq key as OSAI_LLM_API_KEY
+        sync: false
+      # Require X-Sidecar-Token on /run — same value as osai-api's
+      # OSAI_HERMES_SIDECAR_TOKEN (this service is on the public internet).
+      - key: SIDECAR_AUTH_TOKEN
         sync: false
       - key: HERMES_PROVIDER
         value: groq

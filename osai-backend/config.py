@@ -129,6 +129,9 @@ class Settings(BaseSettings):
     # agent running as a separate service (HTTP), with OSAI passing org context
     # and enforcing isolation at the boundary. Unset = use the in-house agent.
     hermes_sidecar_url: str | None = None
+    # Shared secret sent as X-Sidecar-Token — the sidecar is a separate public
+    # service, so both sides must set the same value (SIDECAR_AUTH_TOKEN there).
+    hermes_sidecar_token: str | None = None
 
     # gbrain knowledge-graph sidecar (P4). When gbrain_home is set, OSAI can
     # read/write the org brain (pages + self-wiring typed graph). Vector/synthesis

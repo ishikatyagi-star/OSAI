@@ -18,6 +18,7 @@ services:
       - HERMES_BASE_URL=${HERMES_BASE_URL:-}
       - HERMES_MAX_TOKENS=${HERMES_MAX_TOKENS:-}
       - HERMES_TOOLSETS=${HERMES_TOOLSETS:-search}
+      - SIDECAR_AUTH_TOKEN=${SIDECAR_AUTH_TOKEN:-}
     volumes:
       - hermes_data:/data/hermes
 

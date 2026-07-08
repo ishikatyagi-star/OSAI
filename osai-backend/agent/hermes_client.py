@@ -74,9 +74,14 @@ async def run_via_hermes(
         "user_id": user_id,
         "permissions": permissions or [],
     }
+    headers = (
+        {"X-Sidecar-Token": settings.hermes_sidecar_token}
+        if settings.hermes_sidecar_token
+        else {}
+    )
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
-            resp = await client.post(url, json=payload)
+            resp = await client.post(url, json=payload, headers=headers)
         if resp.status_code == 200:
             return resp.json().get("result")
         logger.warning("Hermes sidecar %s -> %s", url, resp.status_code)

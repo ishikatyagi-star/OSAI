@@ -14,13 +14,24 @@ Run:  uvicorn main:app --host 0.0.0.0 --port 8088
 
 from __future__ import annotations
 
+import hmac
 import os
+import re
 import subprocess
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel
 
 app = FastAPI(title="OSAI Hermes Sidecar")
+
+# Shared secret with the OSAI API (this service is publicly reachable). When
+# set, every /run must carry it as X-Sidecar-Token; OSAI sends it when
+# OSAI_HERMES_SIDECAR_TOKEN is configured.
+AUTH_TOKEN = os.environ.get("SIDECAR_AUTH_TOKEN")
+
+# org_id/user_id become filesystem path segments — restrict them so a crafted
+# id can't escape HERMES_HOME_ROOT (path traversal).
+_SAFE_SEGMENT = re.compile(r"^[A-Za-z0-9_.-]{1,128}$")
 
 HERMES_CMD = os.environ.get("HERMES_CMD", "hermes")
 HERMES_HOME_ROOT = os.environ.get("HERMES_HOME_ROOT", "/data/hermes")
@@ -54,9 +65,17 @@ class RunRequest(BaseModel):
     permissions: list[str] = []
 
 
+def _safe_segment(value: str) -> str:
+    if value in {".", ".."} or not _SAFE_SEGMENT.match(value):
+        raise HTTPException(status_code=400, detail="invalid org_id/user_id")
+    return value
+
+
 def _ensure_home(org_id: str, user_id: str | None) -> str:
     """Per-user home dir with provider keys (.env) + model config (config.yaml)."""
-    home = os.path.join(HERMES_HOME_ROOT, org_id, user_id or "_org")
+    home = os.path.join(
+        HERMES_HOME_ROOT, _safe_segment(org_id), _safe_segment(user_id or "_org")
+    )
     os.makedirs(home, exist_ok=True)
     env_path = os.path.join(home, ".env")
     if not os.path.exists(env_path):
@@ -93,7 +112,9 @@ def health() -> dict:
 
 
 @app.post("/run")
-def run(req: RunRequest) -> dict:
+def run(req: RunRequest, x_sidecar_token: str | None = Header(default=None)) -> dict:
+    if AUTH_TOKEN and not hmac.compare_digest(x_sidecar_token or "", AUTH_TOKEN):
+        raise HTTPException(status_code=401, detail="missing/invalid X-Sidecar-Token")
     home = _ensure_home(req.org_id, req.user_id)
     env = {**os.environ, "HERMES_HOME": home}
     # -z = single prompt in, final text out. Provider/model/max_tokens come from

@@ -57,11 +57,14 @@ The service is defined in the repo's `render.yaml` as **`osai-hermes`**
 `/data/hermes` so per-user memory survives deploys). Merging to `main` makes
 the Blueprint provision it automatically.
 
-One manual step: on the **osai-hermes** service → Environment, set
+Manual step: on the **osai-hermes** service → Environment, set
 ```
-GROQ_API_KEY = gsk_...   (same value as osai-api's OSAI_LLM_API_KEY)
+GROQ_API_KEY       = gsk_...       (same value as osai-api's OSAI_LLM_API_KEY)
+SIDECAR_AUTH_TOKEN = <random hex>  (e.g. `openssl rand -hex 32`)
 ```
-All other env vars are committed in `render.yaml`.
+The token gates `/run` (this service is on the public internet — without it,
+anyone with the URL burns your Groq quota). All other env vars are committed
+in `render.yaml`.
 
 ## 3. Validate health
 
@@ -74,7 +77,7 @@ curl -s https://osai-hermes.onrender.com/health
 
 ```bash
 curl -s -X POST https://osai-hermes.onrender.com/run \
-  -H 'Content-Type: application/json' \
+  -H 'Content-Type: application/json' -H "X-Sidecar-Token: $SIDECAR_AUTH_TOKEN" \
   -d '{"prompt":"Summarise what you can do in one sentence.","org_id":"test","user_id":"u1"}'
 ```
 - ✅ `{"result":"<real answer>"}` → Hermes works. Proceed.
@@ -91,7 +94,8 @@ curl -s -X POST https://osai-hermes.onrender.com/run \
 
 On the **osai-api** Render service → Environment, add:
 ```
-OSAI_HERMES_SIDECAR_URL = https://osai-hermes.onrender.com
+OSAI_HERMES_SIDECAR_URL   = https://osai-hermes.onrender.com
+OSAI_HERMES_SIDECAR_TOKEN = <the same SIDECAR_AUTH_TOKEN value>
 ```
 Save (redeploys). Now `/ask` **and** Automations route through per-user Hermes
 (with the user's permission-scoped context injected by OSAI, citations and the
