@@ -332,7 +332,7 @@ export default function DecisionsPage() {
           ))}
           {filtered.length === 0 && (
             <tr>
-              <td colSpan={7} style={{ textAlign: "center", color: "var(--text-muted)", padding: "32px 0" }}>
+              <td colSpan={7} style={{ textAlign: "center", color: "var(--text-muted)", padding: "32px 16px" }}>
                 {decisions.length === 0
                   ? "No decisions yet. OSAI logs decisions and surfaces uncaptured action items as it indexes your connected tools."
                   : "No decisions match this filter."}
