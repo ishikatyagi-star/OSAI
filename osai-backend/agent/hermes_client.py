@@ -9,6 +9,7 @@ inert unless `OSAI_HERMES_SIDECAR_URL` is set.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 
 import httpx
@@ -18,6 +19,11 @@ from config import settings
 from memory.retriever import retrieve_answer
 
 logger = logging.getLogger("osai.hermes")
+
+
+def _correlation_id(org_id: str, user_id: str | None) -> str:
+    """Non-reversible tag for log correlation — avoids logging raw tenant/user ids."""
+    return hashlib.sha256(f"{org_id}:{user_id or ''}".encode()).hexdigest()[:12]
 
 
 async def _permitted_context(prompt: str, org_id: str, permissions: list[str]) -> str:
@@ -40,7 +46,14 @@ async def _permitted_context(prompt: str, org_id: str, permissions: list[str]) -
 
 
 def hermes_enabled() -> bool:
-    return bool(settings.hermes_sidecar_url)
+    # Outside local, config.py's model_validator already refuses to boot with a
+    # sidecar URL but no token — this repeats the check as defense in depth so a
+    # future config change can't silently start sending unauthenticated /run calls.
+    if not settings.hermes_sidecar_url:
+        return False
+    if settings.env != "local" and not settings.hermes_sidecar_token:
+        return False
+    return True
 
 
 async def run_via_hermes(
@@ -79,12 +92,15 @@ async def run_via_hermes(
         if settings.hermes_sidecar_token
         else {}
     )
+    correlation = _correlation_id(org_id, user_id)
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
             resp = await client.post(url, json=payload, headers=headers)
         if resp.status_code == 200:
             return resp.json().get("result")
-        logger.warning("Hermes sidecar %s -> %s", url, resp.status_code)
+        logger.warning(
+            "Hermes sidecar %s -> %s (correlation=%s)", url, resp.status_code, correlation
+        )
     except Exception as exc:  # noqa: BLE001 — never let the sidecar break a run
-        logger.warning("Hermes sidecar call failed: %s", exc)
+        logger.warning("Hermes sidecar call failed (correlation=%s): %s", correlation, exc)
     return None

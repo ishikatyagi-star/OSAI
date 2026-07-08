@@ -18,7 +18,11 @@ services:
       - HERMES_BASE_URL=${HERMES_BASE_URL:-}
       - HERMES_MAX_TOKENS=${HERMES_MAX_TOKENS:-}
       - HERMES_TOOLSETS=${HERMES_TOOLSETS:-search}
-      - SIDECAR_AUTH_TOKEN=${SIDECAR_AUTH_TOKEN:-}
+      # Required (main.py fails closed without it) — this listens on a public
+      # port. (main.py also accepts SIDECAR_ALLOW_UNAUTHENTICATED_RUN=1 as an
+      # explicit escape hatch, but that's for direct `docker run`/`uvicorn`
+      # use, not this compose file — it stays required here on purpose.)
+      - SIDECAR_AUTH_TOKEN=${SIDECAR_AUTH_TOKEN:?Set SIDECAR_AUTH_TOKEN for /run auth}
     volumes:
       - hermes_data:/data/hermes
 

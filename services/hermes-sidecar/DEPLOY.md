@@ -14,7 +14,7 @@ you do this.
 
 **Groq (validated, uses the same key as `OSAI_LLM_API_KEY`):**
 
-```
+```text
 GROQ_API_KEY      = gsk_...                              (secret)
 HERMES_PROVIDER   = groq
 HERMES_MODEL      = llama-3.3-70b-versatile
@@ -40,10 +40,12 @@ OpenRouter / Anthropic / OpenAI also work: set `OPENROUTER_API_KEY` /
 cd services/hermes-sidecar
 GROQ_API_KEY=gsk_... HERMES_PROVIDER=groq HERMES_MODEL=llama-3.3-70b-versatile \
 HERMES_BASE_URL=https://api.groq.com/openai/v1 HERMES_MAX_TOKENS=8192 \
+HERMES_TOOLSETS=search SIDECAR_AUTH_TOKEN=local-test-token \
   docker-compose up --build -d
 # in another shell:
 curl -s localhost:8088/health
 curl -s -X POST localhost:8088/run -H 'Content-Type: application/json' \
+  -H 'X-Sidecar-Token: local-test-token' \
   -d '{"prompt":"Say hello in one sentence.","org_id":"test","user_id":"u1"}'
 ```
 Expect `{"result":"<some text>"}`. If you get `{"result":null,"error":...}`, read
@@ -58,7 +60,7 @@ The service is defined in the repo's `render.yaml` as **`osai-hermes`**
 the Blueprint provision it automatically.
 
 Manual step: on the **osai-hermes** service → Environment, set
-```
+```text
 GROQ_API_KEY       = gsk_...       (same value as osai-api's OSAI_LLM_API_KEY)
 SIDECAR_AUTH_TOKEN = <random hex>  (e.g. `openssl rand -hex 32`)
 ```
@@ -93,7 +95,7 @@ curl -s -X POST https://osai-hermes.onrender.com/run \
 ## 5. Point OSAI at the sidecar
 
 On the **osai-api** Render service → Environment, add:
-```
+```text
 OSAI_HERMES_SIDECAR_URL   = https://osai-hermes.onrender.com
 OSAI_HERMES_SIDECAR_TOKEN = <the same SIDECAR_AUTH_TOKEN value>
 ```

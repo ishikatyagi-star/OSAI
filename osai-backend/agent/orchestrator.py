@@ -10,13 +10,12 @@ held in a per-process store keyed by action id; the confirm endpoint executes th
 
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 import time
 from uuid import uuid4
 
-from agent.hermes_client import hermes_enabled, run_via_hermes
+from agent.hermes_client import _correlation_id, hermes_enabled, run_via_hermes
 from agent.tools import available_action_tools, build_payload, tool_specs
 from api.schemas.agent import AgentAction, AskRequest, AskResponse, ConfirmActionResult
 from api.schemas.connector import ConnectorAction
@@ -36,12 +35,6 @@ logger = logging.getLogger("osai.agent")
 # persisted to connector_actions (see save/load/discard_proposed_action) so a
 # confirm survives a different worker or a restart between propose and confirm.
 _PROPOSED: dict[str, dict] = {}
-
-
-def _correlation_id(org_id: str, user_id: str | None) -> str:
-    """Non-reversible tag for log correlation — avoids logging raw tenant/user ids."""
-    digest = hashlib.sha256(f"{org_id}:{user_id or ''}".encode()).hexdigest()[:12]
-    return digest
 
 
 def _forget_proposed(action_id: str) -> None:

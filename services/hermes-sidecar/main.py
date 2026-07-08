@@ -24,10 +24,18 @@ from pydantic import BaseModel
 
 app = FastAPI(title="OSAI Hermes Sidecar")
 
-# Shared secret with the OSAI API (this service is publicly reachable). When
-# set, every /run must carry it as X-Sidecar-Token; OSAI sends it when
-# OSAI_HERMES_SIDECAR_TOKEN is configured.
+# Shared secret with the OSAI API (this service is publicly reachable). Every
+# /run must carry it as X-Sidecar-Token; OSAI sends it via
+# OSAI_HERMES_SIDECAR_TOKEN. Fail closed: a missing secret must not silently
+# turn into an unauthenticated public /run (that runs on our Groq quota).
+# Explicit local-dev-only opt-out: SIDECAR_ALLOW_UNAUTHENTICATED_RUN=1.
 AUTH_TOKEN = os.environ.get("SIDECAR_AUTH_TOKEN")
+_ALLOW_UNAUTH = os.environ.get("SIDECAR_ALLOW_UNAUTHENTICATED_RUN") == "1"
+if not AUTH_TOKEN and not _ALLOW_UNAUTH:
+    raise RuntimeError(
+        "SIDECAR_AUTH_TOKEN is required. Set SIDECAR_ALLOW_UNAUTHENTICATED_RUN=1 "
+        "to explicitly run without auth (local dev only)."
+    )
 
 # org_id/user_id become filesystem path segments — restrict them so a crafted
 # id can't escape HERMES_HOME_ROOT (path traversal).
@@ -95,7 +103,7 @@ def _ensure_home(org_id: str, user_id: str | None) -> str:
             with open(env_path, "w") as fh:
                 fh.write("\n".join(lines) + "\n")
     cfg_path = os.path.join(home, "config.yaml")
-    if not os.path.exists(cfg_path) and HERMES_MODEL:
+    if HERMES_MODEL:
         lines = []
         if HERMES_BASE_URL and HERMES_PROVIDER:
             key_env = PROVIDER_KEY_ENV.get(HERMES_PROVIDER, "")
@@ -112,8 +120,18 @@ def _ensure_home(org_id: str, user_id: str | None) -> str:
         lines.append(f"  model: {HERMES_MODEL}")
         if HERMES_MAX_TOKENS:
             lines.append(f"  max_tokens: {HERMES_MAX_TOKENS}")
-        with open(cfg_path, "w") as fh:
-            fh.write("\n".join(lines) + "\n")
+        desired_cfg = "\n".join(lines) + "\n"
+        # Rewrite only on change — this is the whole file (not user-editable),
+        # so a diff means the env-driven settings changed since it was last
+        # written; a redeploy/key rotation shouldn't leave stale per-user config
+        # (e.g. a since-lowered HERMES_MAX_TOKENS) on the persistent disk.
+        current_cfg = ""
+        if os.path.exists(cfg_path):
+            with open(cfg_path) as fh:
+                current_cfg = fh.read()
+        if current_cfg != desired_cfg:
+            with open(cfg_path, "w") as fh:
+                fh.write(desired_cfg)
     return home
 
 
