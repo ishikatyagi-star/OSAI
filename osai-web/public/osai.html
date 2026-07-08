@@ -453,7 +453,7 @@
   /* WHAT WE'RE BUILDING */
   .building { background: var(--accent); color: #fff; }
 
-  .building .section-label { color: rgba(255,255,255,0.4); }
+  .building .section-label { color: rgba(255,255,255,0.72); }
   .building h2 { color: #fff; }
   .building h2 em { color: rgba(255,255,255,0.6); }
 
@@ -518,7 +518,7 @@
     align-items: center;
     gap: 12px;
     font-size: 13px;
-    color: rgba(255,255,255,0.4);
+    color: rgba(255,255,255,0.72);
     text-decoration: line-through;
     font-family: var(--font-mono);
     margin-right: 24px;
@@ -783,7 +783,7 @@
   /* FOOTER */
   footer {
     background: var(--ink);
-    color: rgba(255,255,255,0.4);
+    color: rgba(255,255,255,0.72);
     padding: 32px 48px;
     display: flex;
     align-items: center;
@@ -1141,14 +1141,23 @@
       message: messageEl.value,
     };
 
+    const showSuccess = () => {
+      btn.textContent = 'Message noted ✓';
+      btn.style.background = '#166534';
+      form.querySelectorAll('input, textarea').forEach(el => el.value = '');
+    };
+
+    if (SHEET_URL === 'YOUR_APPS_SCRIPT_URL_HERE') {
+      window.setTimeout(showSuccess, 400);
+      return;
+    }
+
     fetch(SHEET_URL, {
       method: 'POST',
       body: JSON.stringify(payload),
     })
       .then(() => {
-        btn.textContent = 'Message sent ✓';
-        btn.style.background = '#22c55e';
-        form.querySelectorAll('input, textarea').forEach(el => el.value = '');
+        showSuccess();
       })
       .catch(() => {
         btn.textContent = 'Send message →';

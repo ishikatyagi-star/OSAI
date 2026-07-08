@@ -26,6 +26,25 @@ type SortKey = "title" | "status" | "impact" | "owner" | "date";
 type SortDir = "asc" | "desc";
 type OwnerFilter = "all" | "mine";
 type SourceFilter = "all" | "osai";
+type DecisionForm = {
+  id: string | null;
+  title: string;
+  status: Decision["status"];
+  impact: Decision["impact"];
+  owner: string;
+  source: string;
+  tags: string;
+};
+
+const EMPTY_DECISION_FORM: DecisionForm = {
+  id: null,
+  title: "",
+  status: "proposed",
+  impact: "medium",
+  owner: "",
+  source: "Manual",
+  tags: "",
+};
 
 // First token of the signed-in user's name, used to match decisions to "me".
 function myNameToken(): string {
@@ -46,6 +65,7 @@ export default function DecisionsPage() {
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [pendingDelete, setPendingDelete] = useState<Decision | null>(null);
+  const [decisionForm, setDecisionForm] = useState<DecisionForm | null>(null);
 
   // /board redirects here with ?source=osai — honour it as the initial filter.
   useEffect(() => {
@@ -66,6 +86,52 @@ export default function DecisionsPage() {
     if (!pendingDelete) return;
     setDecisions((prev) => prev.filter((d) => d.id !== pendingDelete.id));
     setPendingDelete(null);
+  }
+
+  function openAddDecision() {
+    setDecisionForm(EMPTY_DECISION_FORM);
+  }
+
+  function openEditDecision(decision: Decision) {
+    setDecisionForm({
+      id: decision.id,
+      title: decision.title,
+      status: decision.status,
+      impact: decision.impact,
+      owner: decision.owner,
+      source: decision.source,
+      tags: decision.tags.join(", "),
+    });
+  }
+
+  function saveDecision() {
+    if (!decisionForm || decisionForm.title.trim() === "") return;
+    const tags = decisionForm.tags
+      .split(",")
+      .map((tag) => tag.trim().toLowerCase())
+      .filter(Boolean);
+    const nextDecision: Decision = {
+      id: decisionForm.id ?? `dec-${Date.now()}`,
+      title: decisionForm.title.trim(),
+      tags,
+      status: decisionForm.status,
+      impact: decisionForm.impact,
+      owner: decisionForm.owner.trim() || "Unassigned",
+      date: new Date().toLocaleDateString("en-US", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      }),
+      source: decisionForm.source.trim() || "Manual",
+      identifiedBy: "source",
+    };
+
+    setDecisions((prev) =>
+      decisionForm.id
+        ? prev.map((decision) => (decision.id === decisionForm.id ? nextDecision : decision))
+        : [nextDecision, ...prev]
+    );
+    setDecisionForm(null);
   }
 
   const filtered = useMemo(() => {
@@ -141,7 +207,7 @@ export default function DecisionsPage() {
             <span className="badge badge-purple" style={{ fontSize: 10 }}>OSAI found this</span>.
           </p>
         </div>
-        <button className="btn btn-primary">+ Add Decision</button>
+        <button className="btn btn-primary" onClick={openAddDecision}>+ Add Decision</button>
       </div>
 
       {/* Segmented owner / source filters (the merged Team Board lens) */}
@@ -252,7 +318,7 @@ export default function DecisionsPage() {
               </td>
               <td>
                 <div style={{ display: "flex", gap: 6 }}>
-                  <button className="btn-ghost btn btn-xs">Edit</button>
+                  <button className="btn-ghost btn btn-xs" onClick={() => openEditDecision(d)}>Edit</button>
                   <button
                     className="btn-ghost btn btn-danger btn-xs"
                     onClick={() => setPendingDelete(d)}
@@ -275,6 +341,92 @@ export default function DecisionsPage() {
           )}
         </tbody>
       </table>
+
+      {/* Add / edit decision */}
+      {decisionForm && (
+        <div className="modal-overlay" onClick={() => setDecisionForm(null)} role="dialog" aria-modal="true">
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <h2>{decisionForm.id ? "Edit decision" : "Add decision"}</h2>
+            <div style={{ display: "grid", gap: 12 }}>
+              <label className="text-caption" style={{ display: "grid", gap: 6 }}>
+                Title
+                <input
+                  className="search-input"
+                  value={decisionForm.title}
+                  onChange={(e) => setDecisionForm((form) => form && { ...form, title: e.target.value })}
+                  placeholder="Decision title"
+                />
+              </label>
+              <div style={{ display: "grid", gap: 10, gridTemplateColumns: "1fr 1fr" }}>
+                <label className="text-caption" style={{ display: "grid", gap: 6 }}>
+                  Status
+                  <select
+                    className="select"
+                    value={decisionForm.status}
+                    onChange={(e) => setDecisionForm((form) => form && { ...form, status: e.target.value as Decision["status"] })}
+                  >
+                    <option value="proposed">Proposed</option>
+                    <option value="approved">Approved</option>
+                    <option value="rejected">Rejected</option>
+                  </select>
+                </label>
+                <label className="text-caption" style={{ display: "grid", gap: 6 }}>
+                  Impact
+                  <select
+                    className="select"
+                    value={decisionForm.impact}
+                    onChange={(e) => setDecisionForm((form) => form && { ...form, impact: e.target.value as Decision["impact"] })}
+                  >
+                    <option value="critical">Critical</option>
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                  </select>
+                </label>
+              </div>
+              <div style={{ display: "grid", gap: 10, gridTemplateColumns: "1fr 1fr" }}>
+                <label className="text-caption" style={{ display: "grid", gap: 6 }}>
+                  Owner
+                  <input
+                    className="search-input"
+                    value={decisionForm.owner}
+                    onChange={(e) => setDecisionForm((form) => form && { ...form, owner: e.target.value })}
+                    placeholder="Owner"
+                  />
+                </label>
+                <label className="text-caption" style={{ display: "grid", gap: 6 }}>
+                  Source
+                  <input
+                    className="search-input"
+                    value={decisionForm.source}
+                    onChange={(e) => setDecisionForm((form) => form && { ...form, source: e.target.value })}
+                    placeholder="Source"
+                  />
+                </label>
+              </div>
+              <label className="text-caption" style={{ display: "grid", gap: 6 }}>
+                Tags
+                <input
+                  className="search-input"
+                  value={decisionForm.tags}
+                  onChange={(e) => setDecisionForm((form) => form && { ...form, tags: e.target.value })}
+                  placeholder="architecture, security"
+                />
+              </label>
+            </div>
+            <div className="modal-actions">
+              <button className="btn" onClick={() => setDecisionForm(null)}>Cancel</button>
+              <button
+                className="btn btn-primary"
+                onClick={saveDecision}
+                disabled={decisionForm.title.trim() === ""}
+              >
+                Save decision
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete confirmation */}
       {pendingDelete && (
