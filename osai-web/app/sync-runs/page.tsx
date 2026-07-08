@@ -198,7 +198,7 @@ export default function SyncRunsPage() {
                     </span>
                     <Link
                       href="/integrations"
-                      className="text-micro font-semibold"
+                      className="text-micro font-semibold sync-run-fix-link"
                       style={{ color: "var(--text-primary)", whiteSpace: "nowrap" }}
                     >
                       Fix in Integrations →

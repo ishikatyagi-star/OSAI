@@ -457,7 +457,7 @@ main {
   }
 
   main {
-    padding: 24px 18px 40px;
+    padding: 24px 16px 40px;
   }
 
   .page-header {
@@ -466,7 +466,19 @@ main {
   }
 
   .page-header-left h1 {
-    font-size: 34px;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    font-size: 30px;
+    line-height: 1.03;
+  }
+
+  h1,
+  .display-lg,
+  .display-xl {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    font-size: clamp(30px, 12vw, 38px);
+    line-height: 1.04;
   }
 
   .stats-grid,
@@ -525,7 +537,10 @@ main {
   }
 
   .ask-title {
-    font-size: 40px;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    font-size: 34px;
+    line-height: 1.04;
   }
 
   .ask-composer .flex {
@@ -546,6 +561,25 @@ main {
 
   .ask-column form > .mt-3 {
     flex-wrap: wrap;
+  }
+
+  .btn,
+  .btn-sm,
+  .btn-xs,
+  .tabs-pill-trigger,
+  .tabs-underline-trigger,
+  .ask-mode-tab,
+  .ask-mode-pill,
+  .login-tab,
+  .login-submit,
+  .login-demo-btn,
+  .login-input,
+  select {
+    min-height: 44px;
+  }
+
+  .btn-xs {
+    padding-inline: 14px;
   }
 }
 
@@ -664,6 +698,7 @@ h2 {
   align-items: center;
   justify-content: center;
   gap: 6px;
+  min-height: 38px;
   padding: 9px 16px;
   border-radius: 9999px;
   font-size: 15px;
@@ -719,11 +754,13 @@ h2 {
 
 .btn-sm {
   font-size: 12px;
+  min-height: 32px;
   padding: 6px 14px;
 }
 
 .btn-xs {
   font-size: 11px;
+  min-height: 30px;
   padding: 5px 12px;
 }
 
@@ -1680,6 +1717,7 @@ h2 {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-height: 44px;
   text-decoration: none;
   font-weight: 600;
   font-size: 16px;
@@ -1702,9 +1740,15 @@ h2 {
 }
 
 .login-nav-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 44px;
   font-size: 12px;
+  line-height: 1;
   color: var(--text-muted);
   text-decoration: none;
+  white-space: nowrap;
   transition: color 0.15s;
 }
 .login-nav-back:hover { color: var(--text-secondary); }
@@ -2603,4 +2647,70 @@ h2 {
 .demo-spinner {
   animation: spin 1s linear infinite;
   color: var(--text-secondary);
+}
+
+@media (max-width: 700px) {
+  .page-header-left h1,
+  h1,
+  .display-lg,
+  .display-xl {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    font-size: clamp(30px, 10.5vw, 38px);
+    line-height: 1.04;
+  }
+
+  .ask-title {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    font-size: 34px;
+    line-height: 1.04;
+  }
+
+  .btn,
+  .btn-sm,
+  .btn-xs,
+  .tabs-pill-trigger,
+  .tabs-underline-trigger,
+  .ask-mode-tab,
+  .ask-mode-pill,
+  .login-tab,
+  .login-submit,
+  .login-demo-btn,
+  .login-input,
+  select {
+    min-height: 44px;
+  }
+
+  .btn-xs {
+    padding-inline: 14px;
+  }
+
+  .login-nav {
+    padding-inline: 20px;
+  }
+
+  .login-nav-logo,
+  .login-nav-back {
+    min-height: 44px;
+    white-space: nowrap;
+  }
+
+  .suggestion-chip,
+  .search-input,
+  .select {
+    min-height: 44px;
+  }
+
+  .login-link,
+  .login-footer a,
+  .section-header a,
+  .back-link,
+  .attention-card-action,
+  .sync-run-fix-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    min-width: 44px;
+  }
 }
