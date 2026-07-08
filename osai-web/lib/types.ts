@@ -114,6 +114,8 @@ export type AskResponse = {
   enough_context: boolean;
   model_route?: string;
   latency_ms?: number;
+  // Which engine answered: in-house RAG ("osai") or the Hermes sidecar ("hermes").
+  via?: "osai" | "hermes";
 };
 
 export type ConfirmActionResult = {

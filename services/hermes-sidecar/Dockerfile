@@ -1,7 +1,8 @@
 # Hermes sidecar. Wraps NousResearch/hermes-agent behind a tiny HTTP API.
 FROM python:3.12-slim
 
-RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates bash \
+# git + xz-utils are needed by the hermes install script (clones the repo, unpacks Node).
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates bash git xz-utils \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

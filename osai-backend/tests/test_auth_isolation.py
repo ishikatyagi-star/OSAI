@@ -58,7 +58,9 @@ def test_ask_ignores_body_org_id(client_without_org_override, monkeypatch):
     be scoped to org A — the body value is ignored."""
     captured: dict[str, str] = {}
 
-    async def _fake_run_ask(request, requester_permissions=None, requester_tier="red"):
+    async def _fake_run_ask(
+        request, requester_permissions=None, requester_tier="red", user_id=None
+    ):
         captured["org_id"] = request.org_id
         return AskResponse(conversation_id="c1", answer="ok", enough_context=False)
 

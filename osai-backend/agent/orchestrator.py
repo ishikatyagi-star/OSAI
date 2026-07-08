@@ -15,6 +15,7 @@ import logging
 import time
 from uuid import uuid4
 
+from agent.hermes_client import hermes_enabled, run_via_hermes
 from agent.tools import available_action_tools, build_payload, tool_specs
 from api.schemas.agent import AgentAction, AskRequest, AskResponse, ConfirmActionResult
 from api.schemas.connector import ConnectorAction
@@ -48,12 +49,14 @@ async def run_ask(
     request: AskRequest,
     requester_permissions: list[str] | None = None,
     requester_tier: str = "red",
+    user_id: str | None = None,
 ) -> AskResponse:
     started = time.monotonic()
     conversation_id = request.conversation_id or str(uuid4())
 
-    # 1. RAG: retrieve + synthesize an answer with citations. Pass the caller's
-    #    permissions + clearance tier so retrieval is scoped to their access.
+    # 1. RAG: retrieve context + an in-house answer, scoped to the caller's
+    #    permissions + clearance tier. Citations always come from OSAI's
+    #    retrieval so the answer stays grounded/attributable.
     rag = await retrieve_answer(
         SearchRequest(
             org_id=request.org_id,
@@ -63,11 +66,37 @@ async def run_ask(
         )
     )
 
-    # 2. Plan actions (proposed, never auto-executed). Planners record the
-    #    execution descriptor (provider + payload) into _PROPOSED themselves.
-    actions = await _plan_actions(request, rag.answer)
+    # 2. Reasoning engine. If the per-user Hermes sidecar is configured, run the
+    #    answer through it (OSAI injects only permission-scoped context and keeps
+    #    the propose/confirm action layer here). Fall back to the in-house answer
+    #    on any failure — and log it, since a silent fallback while "on Hermes"
+    #    would otherwise be invisible.
+    answer = rag.answer
+    via: str = "osai"
+    if hermes_enabled():
+        hermes_answer = await run_via_hermes(
+            request.question,
+            request.org_id,
+            user_id=user_id,
+            permissions=requester_permissions or [],
+        )
+        if hermes_answer:
+            answer = hermes_answer
+            via = "hermes"
+        else:
+            logger.warning(
+                "Hermes is configured but fell back to the in-house agent "
+                "(org=%s, user=%s) — check the sidecar.",
+                request.org_id,
+                user_id,
+            )
 
-    if settings.llm_api_key:
+    # 3. Plan actions (proposed, never auto-executed) over the final answer.
+    actions = await _plan_actions(request, answer)
+
+    if via == "hermes":
+        model_route = "hermes"
+    elif settings.llm_api_key:
         model_route = f"llm:{settings.llm_model}"
     elif settings.gemini_api_key:
         model_route = f"gemini:{settings.gemini_model}"
@@ -75,12 +104,13 @@ async def run_ask(
         model_route = "mock-fallback"
     return AskResponse(
         conversation_id=conversation_id,
-        answer=rag.answer,
+        answer=answer,
         citations=rag.citations,
         actions_taken=actions,
         enough_context=rag.enough_context,
         model_route=model_route,
         latency_ms=int((time.monotonic() - started) * 1000),
+        via=via,  # type: ignore[arg-type]
     )
 
 

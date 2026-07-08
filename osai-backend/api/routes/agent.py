@@ -28,12 +28,13 @@ async def ask(
     request: AskRequest, db: DbSession, org_id: OrgId, claims: OptionalClaims
 ) -> AskResponse:
     """Answer a question over org knowledge (RAG) and propose connector actions."""
-    # Org + permissions + clearance come from the verified session, not the body.
+    # Org + permissions + clearance + user come from the verified session.
     request.org_id = org_id
     return await run_ask(
         request,
         requester_permissions=user_permissions(db, claims),
         requester_tier=user_clearance(db, claims),
+        user_id=claims.get("sub") if claims else None,
     )
 
 
