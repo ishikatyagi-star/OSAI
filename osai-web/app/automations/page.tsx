@@ -1,7 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronDown, ChevronUp, Loader2, Play, Plus, Trash2, User } from "lucide-react";
+import {
+  ArrowRight,
+  Bot,
+  Calendar,
+  ChevronDown,
+  ChevronUp,
+  ListChecks,
+  Loader2,
+  Play,
+  Plus,
+  Trash2,
+  User,
+} from "lucide-react";
 import {
   approveActionItem,
   createAutomation,
@@ -14,6 +26,7 @@ import {
 } from "@/lib/api";
 import { DEMO_WORKFLOW_RUNS } from "@/lib/demo-data";
 import { isDemo } from "@/lib/demo";
+import { getConnectorIcon } from "@/lib/connector-meta";
 import type { ActionItem, WorkflowRun } from "@/lib/types";
 
 const CADENCES = ["manual", "hourly", "daily", "weekly"] as const;
@@ -42,14 +55,6 @@ const STATUS_BADGE: Record<string, string> = {
   executing: "badge-grey",
 };
 
-const DESTINATION_ICONS: Record<string, string> = {
-  notion: "📝",
-  slack: "💬",
-  freshdesk: "🎫",
-  google_drive: "📁",
-  manual: "",
-};
-
 // ─── Transcript-extraction (formerly the Workflows page) ─────────────────────
 
 function ActionItemRow({
@@ -62,6 +67,8 @@ function ActionItemRow({
   onApprove: (runId: string, itemId: string) => void;
 }) {
   const [approving, setApproving] = useState(false);
+  const DestinationIcon =
+    item.destination === "manual" ? User : getConnectorIcon(item.destination);
 
   async function handleApprove() {
     setApproving(true);
@@ -73,14 +80,16 @@ function ActionItemRow({
     <div className="action-item-row">
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-          <span className="text-caption">{DESTINATION_ICONS[item.destination] || (item.destination === "manual" ? <User size={13} /> : "⚙")}</span>
+          <span className="connector-inline-icon" aria-hidden>
+            <DestinationIcon size={13} strokeWidth={1.8} />
+          </span>
           <span className="text-caption" style={{ color: "var(--text-primary)", fontWeight: 600 }}>{item.title}</span>
         </div>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           {item.owner && (
             <span className="meta" style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><User size={11} /> {item.owner.split("@")[0]}</span>
           )}
-          {item.due_date && <span className="meta">📅 Due {item.due_date}</span>}
+          {item.due_date && <span className="meta" style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><Calendar size={11} /> Due {item.due_date}</span>}
           <span className="meta">confidence: {Math.round(item.confidence * 100)}%</span>
         </div>
         {item.source_quote && (
@@ -134,9 +143,9 @@ function RunCard({
             )}
           </div>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <span className="meta">⚡ {items.length} action items</span>
-            <span className="meta">→ {run.destination}</span>
-            <span className="meta">🤖 {run.model_route}</span>
+            <span className="meta" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><ListChecks size={11} /> {items.length} action items</span>
+            <span className="meta" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><ArrowRight size={11} /> {run.destination}</span>
+            <span className="meta" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><Bot size={11} /> {run.model_route}</span>
             <span className="meta">{timeAgo(run.created_at)}</span>
           </div>
         </div>
@@ -340,11 +349,17 @@ export default function AutomationsPage() {
               <input
                 className="search-input"
                 placeholder="Automation name (e.g. Weekly support digest)"
+                aria-label="Automation name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 style={{ flex: 1, minWidth: 240 }}
               />
-              <select className="select" value={cadence} onChange={(e) => setCadence(e.target.value)}>
+              <select
+                className="select"
+                aria-label="Automation cadence"
+                value={cadence}
+                onChange={(e) => setCadence(e.target.value)}
+              >
                 {CADENCES.map((c) => (
                   <option key={c} value={c}>{c === "manual" ? "On demand" : c}</option>
                 ))}
@@ -353,6 +368,7 @@ export default function AutomationsPage() {
             <textarea
               className="search-input"
               placeholder="What should OSAI do? e.g. Summarise open blockers across Notion and Slack and list owners."
+              aria-label="Automation task prompt"
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               rows={3}

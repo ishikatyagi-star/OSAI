@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import {
   Activity,
+  AlertTriangle,
+  Check,
   CheckCircle2,
   FileText,
   Loader2,
@@ -88,6 +90,7 @@ export function ConnectorManager({
     integration && CONNECTOR_META[integration.key]
       ? CONNECTOR_META[integration.key]
       : null;
+  const ConnectorIcon = meta?.icon ?? Plug;
   const connected = integration?.auth_state === "connected";
 
   async function runHealthcheck(key: string) {
@@ -181,10 +184,10 @@ export function ConnectorManager({
         <DialogHeader>
           <div className="flex items-center gap-3">
             <div
-              className="flex size-10 items-center justify-center rounded-lg border border-border bg-secondary text-xl"
+              className="flex size-10 items-center justify-center rounded-lg border border-border bg-secondary text-muted-foreground"
               aria-hidden
             >
-              {meta?.icon ?? "⚙"}
+              <ConnectorIcon className="size-5" strokeWidth={1.8} />
             </div>
             <div>
               <DialogTitle>{meta?.label ?? integration.display_name}</DialogTitle>
@@ -248,7 +251,7 @@ export function ConnectorManager({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-7"
+                className="h-10"
                 disabled={checking}
                 onClick={() => runHealthcheck(integration.key)}
               >
@@ -281,8 +284,9 @@ export function ConnectorManager({
               )}
             </div>
             {integration.sync_error && (
-              <p className="mt-2 text-xs text-destructive">
-                ⚠ {integration.sync_error}
+              <p className="mt-2 inline-flex items-start gap-1.5 text-xs text-destructive">
+                <AlertTriangle className="mt-0.5 size-3.5 shrink-0" strokeWidth={1.8} />
+                <span>{integration.sync_error}</span>
               </p>
             )}
           </section>
@@ -356,7 +360,7 @@ export function ConnectorManager({
                       </span>
                       <select
                         className="select"
-                        style={{ height: 26, fontSize: 11 }}
+                        style={{ height: 40, fontSize: 11 }}
                         value={tier}
                         onChange={(e) => setFileTier(d.title, e.target.value as TierRule["tier"])}
                       >
@@ -390,7 +394,7 @@ export function ConnectorManager({
                       }
                     }}
                     placeholder="Type or pick a folder or file name…"
-                    className="h-8"
+                    className="min-h-10"
                   />
                   {suggestions.length > 0 && (
                     <ul className="absolute z-10 mt-1 max-h-40 w-full overflow-y-auto rounded-md border border-border bg-card shadow-lg">
@@ -423,7 +427,7 @@ export function ConnectorManager({
                 </div>
                 <select
                   className="select"
-                  style={{ height: 32, fontSize: 12 }}
+                  style={{ height: 40, fontSize: 12 }}
                   value={newTier}
                   onChange={(e) => setNewTier(e.target.value as TierRule["tier"])}
                 >
@@ -431,7 +435,7 @@ export function ConnectorManager({
                   <option value="amber">Amber</option>
                   <option value="red">Red</option>
                 </select>
-                <Button variant="ghost" size="sm" className="h-8" onClick={() => addRule(newPattern, newTier)}>
+                <Button variant="ghost" size="sm" className="h-10" onClick={() => addRule(newPattern, newTier)}>
                   <Plus className="size-3.5" /> Add
                 </Button>
               </div>
@@ -449,7 +453,7 @@ export function ConnectorManager({
                       <button
                         type="button"
                         onClick={() => removeRule(r.pattern)}
-                        className="text-muted-foreground hover:text-destructive"
+                        className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-md text-foreground hover:text-destructive"
                         aria-label={`Remove rule ${r.pattern}`}
                       >
                         <Trash2 className="size-3.5" />
@@ -461,12 +465,15 @@ export function ConnectorManager({
             </div>
 
             <div className="mt-3 flex items-center gap-2">
-              <Button size="sm" className="h-7" disabled={rulesSaving} onClick={saveRules}>
+              <Button size="sm" className="h-10" disabled={rulesSaving} onClick={saveRules}>
                 {rulesSaving ? <Loader2 className="size-3.5 animate-spin" /> : null}
                 Save tiers
               </Button>
               {rulesSaved && (
-                <span className="text-xs text-success">✓ Saved — applies on next sync</span>
+                <span className="inline-flex items-center gap-1.5 text-xs text-success">
+                  <Check className="size-3.5" strokeWidth={2} />
+                  Saved — applies on next sync
+                </span>
               )}
             </div>
           </section>

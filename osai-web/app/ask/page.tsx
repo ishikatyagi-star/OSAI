@@ -14,6 +14,7 @@ import {
 import { askOsai, confirmAgentAction } from "@/lib/api";
 import { DEMO_ASK_ANSWERS } from "@/lib/demo-data";
 import { isDemo } from "@/lib/demo";
+import { buildOpenUiArtifacts } from "@/lib/openui-artifacts";
 import { cn } from "@/lib/utils";
 import type { AgentAction, AskResponse } from "@/lib/types";
 import { MessageBubble, type AskTurn } from "@/components/ask/message-bubble";
@@ -38,7 +39,7 @@ function uid(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-/** Composer modes — the command-center's core differentiator. Each mode reframes
+/** Composer modes. Each mode reframes
  *  the placeholder so the box clearly does more than chat. */
 type ComposerMode = "ask" | "search" | "action";
 
@@ -52,19 +53,19 @@ const COMPOSER_MODES: {
     id: "ask",
     label: "Ask",
     icon: Sparkles,
-    placeholder: "Ask anything about your org — projects, owners, decisions, status…",
+    placeholder: "Ask anything about your org: projects, owners, decisions, status...",
   },
   {
     id: "search",
     label: "Search",
     icon: Search,
-    placeholder: "Search across Notion, Slack, Google Drive, Freshdesk and Zoom…",
+    placeholder: "Search across Notion, Slack, Google Drive, Freshdesk and Zoom...",
   },
   {
     id: "action",
     label: "Take action",
     icon: Zap,
-    placeholder: "Tell OSAI to open a ticket, assign an owner, or post a status update…",
+    placeholder: "Tell OSAI to open a ticket, assign an owner, or post a status update...",
   },
 ];
 
@@ -100,7 +101,7 @@ const ASK_MODES: {
     id: "action",
     icon: Zap,
     label: "Take an action",
-    desc: "Open tickets, assign owners or post updates — with approval.",
+    desc: "Open tickets, assign owners or post updates, with approval.",
     example: "Open a Freshdesk ticket for the Redis connection pool issue",
     sources: ["Freshdesk"],
     gradient: "ask-mode-card--orange",
@@ -152,6 +153,7 @@ export default function AskPage() {
         enoughContext: res.enough_context,
         modelRoute: res.model_route,
         latencyMs: res.latency_ms,
+        artifacts: buildOpenUiArtifacts(res),
       });
 
       try {
@@ -247,7 +249,7 @@ export default function AskPage() {
             status: "failed",
             requires_confirmation: false,
             external_url: null,
-            error: "Couldn't complete this action — please try again.",
+            error: "Couldn't complete this action. Please try again.",
           });
         }
       } finally {
@@ -272,13 +274,13 @@ export default function AskPage() {
     COMPOSER_MODES.find((m) => m.id === mode) ?? COMPOSER_MODES[0];
 
   return (
-    <div className="ask-canvas flex h-[calc(100vh-128px)] flex-col">
+    <div className="ask-canvas flex min-h-[calc(100vh-128px)] flex-col">
       {/* Header */}
       <div className="page-header shrink-0">
         <div className="page-header-left">
           <h1>Ask OSAI</h1>
           <p>
-            Ask anything about your org and get a cited answer — or have OSAI open
+            Ask anything about your org and get a cited answer, or have OSAI open
             tickets, chase follow-ups, pull status, and check ownership.
           </p>
         </div>
@@ -296,8 +298,8 @@ export default function AskPage() {
       </div>
 
       {empty ? (
-        /* ─── EMPTY STATE — one clean, centered command column ─────────────── */
-        <div className="ask-scroll min-h-0 flex-1 overflow-y-auto">
+        /* EMPTY STATE */
+        <div className="ask-scroll flex-1">
           <div className="flex min-h-full items-center justify-center px-4 py-8">
             <div className="ask-column flex w-full max-w-[760px] flex-col gap-8 text-left">
               {/* Heading */}
@@ -305,10 +307,9 @@ export default function AskPage() {
                 <h2 className="ask-title">What would you like to know?</h2>
               </div>
 
-              {/* HERO composer — clean Gemini-style pill input */}
+              {/* HERO composer */}
               <form onSubmit={handleSubmit} className="w-full">
                 <div className="ask-composer ask-composer-hero">
-                  {/* Single input row: Plus + Textarea + Send */}
                   <div className="flex items-center gap-3 px-4 py-3">
                     <Plus className="size-5 shrink-0 text-[var(--text-secondary)]" />
                     <Textarea
@@ -318,13 +319,14 @@ export default function AskPage() {
                       onKeyDown={handleKeyDown}
                       rows={1}
                       placeholder="Ask anything about your org..."
+                      aria-label="Ask OSAI prompt"
                       className="max-h-44 min-h-[44px] flex-1 resize-none self-center border-0 bg-transparent px-1 py-1 text-base shadow-none outline-none focus-visible:ring-0 placeholder:text-[var(--text-muted)]"
                       autoFocus
                     />
                     <Button
                       type="submit"
                       size="icon"
-                      className="size-10 shrink-0 self-center rounded-full bg-white text-black hover:bg-gray-200"
+                      className="ask-send-button size-11 shrink-0 self-center rounded-full bg-[var(--text-primary)] text-white hover:bg-[var(--primary-active,#292524)]"
                       disabled={pending || !input.trim()}
                       aria-label="Send"
                       title="Send"
@@ -337,8 +339,8 @@ export default function AskPage() {
                     </Button>
                   </div>
                 </div>
-                {/* Mode pills — below the input bar */}
-                <div className="mt-3 flex items-center justify-center gap-2">
+                {/* Mode pills below the input bar */}
+                <div className="ask-composer-modes flex items-center justify-center gap-2.5">
                   {COMPOSER_MODES.map((m) => {
                     const Icon = m.icon;
                     return (
@@ -360,7 +362,7 @@ export default function AskPage() {
                 </div>
               </form>
 
-              {/* Response expectations — sets a quality bar before the first query */}
+              {/* Response expectations */}
               <div className="flex flex-wrap items-center gap-x-6 gap-y-1.5">
                 <span className="ask-expectation">
                   <ShieldCheck className="size-3.5" />
@@ -372,7 +374,7 @@ export default function AskPage() {
                 </span>
               </div>
 
-              {/* Recommended workflows — three modes, each with a concrete example */}
+              {/* Recommended workflows */}
               <div className="flex flex-col gap-3">
                 <span className="ask-section-label">Recommended workflows</span>
                 <div className="grid gap-4 sm:grid-cols-3">
@@ -417,7 +419,7 @@ export default function AskPage() {
         <>
           <div
             ref={threadRef}
-            className="ask-scroll min-h-0 flex-1 overflow-y-auto"
+            className="ask-scroll max-h-[calc(100vh-260px)] min-h-[320px] overflow-y-auto"
           >
             <div className="mx-auto w-full max-w-3xl space-y-6 py-1">
               {turns.map((t) => (
@@ -436,7 +438,7 @@ export default function AskPage() {
                   </div>
                   <div className="flex items-center gap-2 rounded-xl rounded-tl-sm border border-[var(--border)] bg-[var(--bg-surface)] px-4 py-3 text-sm text-muted-foreground">
                     <Loader2 className="size-4 animate-spin text-primary" />
-                    Searching across your connected knowledge base…
+                    Searching across your connected knowledge base...
                   </div>
                 </div>
               )}
@@ -453,14 +455,15 @@ export default function AskPage() {
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
                   rows={1}
-                  placeholder="Ask a follow-up, or tell OSAI to take an action…"
+                  placeholder="Ask a follow-up, or tell OSAI to take an action..."
+                  aria-label="Ask OSAI follow-up prompt"
                   className="max-h-40 min-h-[40px] flex-1 resize-none self-center border-0 bg-transparent px-1 py-1.5 text-sm shadow-none outline-none focus-visible:ring-0 placeholder:text-[var(--text-muted)]"
                   autoFocus
                 />
                 <Button
                   type="submit"
                   size="icon"
-                  className="size-10 shrink-0 self-center rounded-full bg-white text-black hover:bg-gray-200"
+                  className="ask-send-button size-11 shrink-0 self-center rounded-full bg-[var(--text-primary)] text-white hover:bg-[var(--primary-active,#292524)]"
                   disabled={pending || !input.trim()}
                   aria-label="Send"
                   title="Send"

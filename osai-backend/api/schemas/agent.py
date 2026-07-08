@@ -10,6 +10,10 @@ from api.schemas.search import SourceCitation
 
 ChatRole = Literal["user", "assistant"]
 AgentActionStatus = Literal["proposed", "executed", "failed", "skipped"]
+ArtifactTone = Literal["neutral", "success", "warning", "danger", "info"]
+AskUiArtifactKind = Literal[
+    "answer_summary", "source_table", "action_plan", "context_gap"
+]
 
 
 class ChatMessage(BaseModel):
@@ -38,6 +42,30 @@ class AgentAction(BaseModel):
     error: str | None = None
 
 
+class AskUiArtifactMetric(BaseModel):
+    label: str
+    value: str
+    tone: ArtifactTone | None = None
+
+
+class AskUiArtifactRow(BaseModel):
+    label: str
+    value: str
+    meta: str | None = None
+    href: str | None = None
+    confidence: float | None = None
+    tone: ArtifactTone | None = None
+
+
+class AskUiArtifact(BaseModel):
+    id: str
+    kind: AskUiArtifactKind
+    title: str
+    subtitle: str | None = None
+    metrics: list[AskUiArtifactMetric] | None = None
+    rows: list[AskUiArtifactRow] | None = None
+
+
 class AskResponse(BaseModel):
     conversation_id: str
     answer: str
@@ -50,6 +78,7 @@ class AskResponse(BaseModel):
     # or the per-user Hermes sidecar ("hermes"). Lets the UI/evals assert Hermes
     # actually ran and surfaces silent fallbacks.
     via: Literal["osai", "hermes"] = "osai"
+    ui_artifacts: list[AskUiArtifact] | None = None
 
 
 class ConfirmActionRequest(BaseModel):

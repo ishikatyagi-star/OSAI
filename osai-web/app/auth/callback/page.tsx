@@ -45,13 +45,13 @@ export default function AuthCallbackPage() {
           height: 44,
           borderRadius: 14,
           background:
-            "radial-gradient(120% 120% at 25% 15%, #8b6bff 0%, #6a4cf5 45%, #d44df0 100%)",
+            "radial-gradient(120% 120% at 25% 15%, var(--grad-mint) 0%, var(--grad-orange) 48%, var(--grad-violet) 100%)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           fontSize: 20,
           fontWeight: 800,
-          color: "#fff",
+          color: "var(--text-primary)",
         }}
       >
         O

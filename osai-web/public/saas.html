@@ -92,10 +92,13 @@
   }
 
   .nav-logo {
+    display: inline-flex;
+    align-items: center;
     color: var(--ink);
     font-size: 19px;
     font-weight: 600;
     letter-spacing: -0.8px;
+    min-height: 44px;
   }
 
   .nav-links {
@@ -105,10 +108,14 @@
   }
 
   .nav-links a {
+    display: inline-flex;
+    align-items: center;
     color: var(--ink-muted);
     font-size: 14px;
     font-weight: 500;
     letter-spacing: -0.14px;
+    min-height: 44px;
+    padding: 0 4px;
     transition: color 0.15s;
   }
 
@@ -127,6 +134,7 @@
     letter-spacing: -0.14px;
     border-radius: var(--r-pill);
     padding: 10px 16px;
+    min-height: 44px;
     cursor: pointer;
     border: none;
     transition: transform 0.12s ease, background 0.15s ease, opacity 0.15s;
@@ -143,9 +151,12 @@
   .btn-lg { padding: 13px 22px; font-size: 15px; }
 
   .nav-signin {
+    display: inline-flex;
+    align-items: center;
     color: var(--ink) !important;
     font-size: 14px;
     font-weight: 500;
+    min-height: 44px;
   }
   .nav-signin:hover { color: var(--ink-muted) !important; }
 
@@ -616,9 +627,11 @@
   .footer-cols { display: flex; gap: 64px; justify-content: flex-end; flex-wrap: wrap; }
   .footer-col-title { font-size: 13px; color: var(--ink); font-weight: 600; margin-bottom: 14px; }
   .footer-col a {
-    display: block;
+    display: flex;
+    align-items: center;
     color: var(--ink-muted);
     font-size: 13px;
+    min-height: 44px;
     margin-bottom: 10px;
     transition: color 0.15s;
   }
@@ -662,8 +675,9 @@
     h1 { font-size: 44px; }
   }
 </style>
+<link rel="stylesheet" href="/landing-eleven.css?v=20260708" />
 </head>
-<body>
+<body class="landing-saas">
 
 <!-- NAV -->
 <nav>
@@ -687,7 +701,7 @@
   <div class="wrap hero-inner">
     <div class="hero-left">
       <span class="eyebrow dot">AI-native operating system</span>
-      <h1>Your company,<br>on autopilot.</h1>
+      <h1>Your company, <br>on autopilot.</h1>
       <p class="hero-sub">Turn scattered context, requests, and institutional knowledge into self-improving workflows that execute automatically across your tools and teams.</p>
       <div class="hero-actions">
         <a href="#demo" class="btn btn-primary btn-lg">Get a demo</a>

@@ -55,6 +55,17 @@ PROVIDER_ENV_KEYS = (
     "GROQ_API_KEY",
     "GOOGLE_API_KEY",
 )
+# Which env key each HERMES_PROVIDER value's credentials live in — used to seed
+# the per-user config.yaml's custom_providers.key_env. Must match HERMES_PROVIDER,
+# not just "whichever key happens to be set" (a dev with both GROQ_API_KEY and
+# OPENAI_API_KEY in their env would otherwise get the wrong one wired up).
+PROVIDER_KEY_ENV = {
+    "openrouter": "OPENROUTER_API_KEY",
+    "anthropic": "ANTHROPIC_API_KEY",
+    "openai": "OPENAI_API_KEY",
+    "groq": "GROQ_API_KEY",
+    "gemini": "GOOGLE_API_KEY",
+}
 RUN_TIMEOUT = int(os.environ.get("HERMES_RUN_TIMEOUT", "180"))
 
 
@@ -87,7 +98,7 @@ def _ensure_home(org_id: str, user_id: str | None) -> str:
     if not os.path.exists(cfg_path) and HERMES_MODEL:
         lines = []
         if HERMES_BASE_URL and HERMES_PROVIDER:
-            key_env = next((k for k in PROVIDER_ENV_KEYS if os.environ.get(k)), "")
+            key_env = PROVIDER_KEY_ENV.get(HERMES_PROVIDER, "")
             lines += [
                 "custom_providers:",
                 f"  - name: {HERMES_PROVIDER}",

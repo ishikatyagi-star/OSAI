@@ -1,11 +1,12 @@
 "use client";
 
 import * as React from "react";
-import { Clock, Cpu } from "lucide-react";
-import type { AgentAction, SourceCitation } from "@/lib/types";
+import { AlertTriangle, Clock, Cpu } from "lucide-react";
+import type { AgentAction, AskUiArtifact, SourceCitation } from "@/lib/types";
 import { MarkdownLite } from "./markdown-lite";
 import { CitationChip } from "./citation-chip";
 import { ActionCard } from "./action-card";
+import { OpenUiArtifacts } from "./openui-artifacts";
 import { cn } from "@/lib/utils";
 
 export type AskTurn = {
@@ -17,6 +18,7 @@ export type AskTurn = {
   enoughContext?: boolean;
   modelRoute?: string;
   latencyMs?: number;
+  artifacts?: AskUiArtifact[];
 };
 
 export function MessageBubble({
@@ -53,8 +55,9 @@ export function MessageBubble({
           <MarkdownLite text={turn.content} />
 
           {turn.enoughContext === false && (
-            <p className="mt-3 border-t border-border pt-2.5 text-xs text-warning">
-              ⚠ Limited indexed context — trigger a sync from Integrations to improve coverage.
+            <p className="mt-3 inline-flex items-start gap-1.5 border-t border-border pt-2.5 text-xs text-warning">
+              <AlertTriangle className="mt-0.5 size-3.5 shrink-0" strokeWidth={1.8} />
+              <span>Limited indexed context — trigger a sync from Integrations to improve coverage.</span>
             </p>
           )}
         </div>
@@ -85,6 +88,8 @@ export function MessageBubble({
             ))}
           </div>
         )}
+
+        <OpenUiArtifacts artifacts={turn.artifacts} />
 
         {(turn.modelRoute || turn.latencyMs != null) && (
           <div

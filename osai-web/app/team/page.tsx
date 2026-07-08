@@ -194,7 +194,7 @@ export default function TeamPage() {
             ))}
             {members.length === 0 && (
               <tr>
-                <td colSpan={4} style={{ textAlign: "center", color: "var(--text-muted)", padding: "32px 0" }}>
+                <td colSpan={4} style={{ textAlign: "center", color: "var(--text-muted)", padding: "32px 16px" }}>
                   No members yet. Invite teammates from the Invites tab.
                 </td>
               </tr>
@@ -323,7 +323,7 @@ export default function TeamPage() {
               ))}
               {invites.length === 0 && (
                 <tr>
-                  <td colSpan={3} style={{ textAlign: "center", color: "var(--text-muted)", padding: "32px 0" }}>
+                  <td colSpan={3} style={{ textAlign: "center", color: "var(--text-muted)", padding: "32px 16px" }}>
                     No pending invites.
                   </td>
                 </tr>

@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@openuidev/react-ui": "^0.12.1",
     "@radix-ui/react-dialog": "^1.1.16",
     "@radix-ui/react-scroll-area": "^1.2.11",
     "@radix-ui/react-separator": "^1.1.9",

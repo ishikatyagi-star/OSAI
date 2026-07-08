@@ -55,6 +55,36 @@ export type SourceCitation = {
   confidence: number;
 };
 
+export type AskUiArtifactKind =
+  | "answer_summary"
+  | "source_table"
+  | "action_plan"
+  | "context_gap";
+
+export type AskUiArtifactMetric = {
+  label: string;
+  value: string;
+  tone?: "neutral" | "success" | "warning" | "danger" | "info";
+};
+
+export type AskUiArtifactRow = {
+  label: string;
+  value: string;
+  meta?: string;
+  href?: string | null;
+  confidence?: number | null;
+  tone?: "neutral" | "success" | "warning" | "danger" | "info";
+};
+
+export type AskUiArtifact = {
+  id: string;
+  kind: AskUiArtifactKind;
+  title: string;
+  subtitle?: string;
+  metrics?: AskUiArtifactMetric[];
+  rows?: AskUiArtifactRow[];
+};
+
 export type SearchResponse = {
   answer: string;
   citations: SourceCitation[];
@@ -115,7 +145,8 @@ export type AskResponse = {
   model_route?: string;
   latency_ms?: number;
   // Which engine answered: in-house RAG ("osai") or the Hermes sidecar ("hermes").
-  via?: "osai" | "hermes";
+  via: "osai" | "hermes";
+  ui_artifacts?: AskUiArtifact[];
 };
 
 export type ConfirmActionResult = {

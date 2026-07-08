@@ -14,7 +14,7 @@
     --ink: #0f0e0c;
     --ink-2: #3a3830;
     --ink-3: #6b6760;
-    --ink-4: #9a9690;
+    --ink-4: #625d55;
     --paper: #faf9f6;
     --paper-2: #f2f0eb;
     --paper-3: #e8e5de;
@@ -60,6 +60,10 @@
     color: var(--ink);
     letter-spacing: -0.02em;
     text-decoration: none;
+    min-height: 44px;
+    min-width: 44px;
+    display: inline-flex;
+    align-items: center;
   }
 
   .nav-logo span {
@@ -73,9 +77,12 @@
     color: var(--ink);
     text-decoration: none;
     border: 1px solid var(--ink);
-    padding: 7px 18px;
+    min-height: 44px;
+    padding: 10px 18px;
     border-radius: 2px;
     transition: background 0.15s, color 0.15s;
+    display: inline-flex;
+    align-items: center;
   }
 
   .nav-cta:hover {
@@ -90,10 +97,13 @@
     text-decoration: none;
     background: var(--accent);
     border: 1px solid var(--accent);
-    padding: 7px 20px;
+    min-height: 44px;
+    padding: 10px 20px;
     border-radius: 2px;
     transition: background 0.15s, opacity 0.15s;
     margin-left: 10px;
+    display: inline-flex;
+    align-items: center;
   }
 
   .nav-demo-btn:hover { opacity: 0.85; }
@@ -105,9 +115,12 @@
     color: var(--ink);
     text-decoration: none;
     border: 1px solid var(--ink);
-    padding: 7px 18px;
+    min-height: 44px;
+    padding: 10px 18px;
     border-radius: 2px;
     transition: background 0.15s, color 0.15s;
+    display: inline-flex;
+    align-items: center;
   }
   .nav-signin-btn:hover {
     background: var(--ink);
@@ -250,6 +263,7 @@
     border: none;
     cursor: pointer;
     transition: background 0.15s;
+    min-height: 44px;
   }
 
   .btn-primary:hover { background: var(--accent-mid); }
@@ -439,7 +453,7 @@
   /* WHAT WE'RE BUILDING */
   .building { background: var(--accent); color: #fff; }
 
-  .building .section-label { color: rgba(255,255,255,0.4); }
+  .building .section-label { color: rgba(255,255,255,0.72); }
   .building h2 { color: #fff; }
   .building h2 em { color: rgba(255,255,255,0.6); }
 
@@ -504,7 +518,7 @@
     align-items: center;
     gap: 12px;
     font-size: 13px;
-    color: rgba(255,255,255,0.4);
+    color: rgba(255,255,255,0.72);
     text-decoration: line-through;
     font-family: var(--font-mono);
     margin-right: 24px;
@@ -718,8 +732,13 @@
     resize: vertical;
   }
 
+  .form-group input {
+    min-height: 44px;
+  }
+
   .form-group input:focus, .form-group textarea:focus {
     border-color: var(--accent-mid);
+    box-shadow: 0 0 0 3px rgba(45,90,66,0.14);
   }
 
   .form-group input::placeholder, .form-group textarea::placeholder {
@@ -764,7 +783,7 @@
   /* FOOTER */
   footer {
     background: var(--ink);
-    color: rgba(255,255,255,0.4);
+    color: rgba(255,255,255,0.72);
     padding: 32px 48px;
     display: flex;
     align-items: center;
@@ -810,8 +829,9 @@
     .focus-grid { grid-template-columns: 1fr; }
   }
 </style>
+<link rel="stylesheet" href="/landing-eleven.css?v=20260708" />
 </head>
-<body>
+<body class="landing-university">
 
 <!-- NAV -->
 <nav>
@@ -833,7 +853,7 @@
   <div class="hero-inner">
     <div class="hero-left">
       <div class="hero-tag">Early stage · Talking to universities</div>
-      <h1>Universities<br>that run<br><em>themselves.</em></h1>
+      <h1>Universities <br>that run <br><em>themselves.</em></h1>
       <p class="hero-sub">OSAI is an AI-native operations layer that executes workflows end-to-end, across departments, without the coordination overhead.</p>
       <div class="hero-actions">
         <a href="#contact" class="btn-primary">Book a call →</a>
@@ -1052,20 +1072,20 @@
 
     <div class="contact-form">
       <div class="form-group">
-        <label>Your name</label>
-        <input type="text" placeholder="Dr. Priya Sharma" />
+        <label for="contact-name">Your name</label>
+        <input id="contact-name" type="text" placeholder="Dr. Priya Sharma" />
       </div>
       <div class="form-group">
-        <label>Institution</label>
-        <input type="text" placeholder="Ashoka University" />
+        <label for="contact-institution">Institution</label>
+        <input id="contact-institution" type="text" placeholder="Ashoka University" />
       </div>
       <div class="form-group">
-        <label>Email</label>
-        <input type="email" placeholder="priya@ashoka.edu.in" />
+        <label for="contact-email">Email</label>
+        <input id="contact-email" type="email" placeholder="priya@ashoka.edu.in" />
       </div>
       <div class="form-group">
-        <label>What are you working on? (optional)</label>
-        <textarea rows="3" placeholder="Briefly describe your operational challenge..."></textarea>
+        <label for="contact-message">What are you working on? (optional)</label>
+        <textarea id="contact-message" rows="3" placeholder="Briefly describe your operational challenge..."></textarea>
       </div>
       <div class="form-submit">
         <button class="btn-primary" onclick="handleSubmit(this)" style="width:100%; justify-content:center; border:none; font-size:14px;">Send message →</button>
@@ -1122,14 +1142,23 @@
       message: messageEl.value,
     };
 
+    const showSuccess = () => {
+      btn.textContent = 'Message noted ✓';
+      btn.style.background = '#166534';
+      form.querySelectorAll('input, textarea').forEach(el => el.value = '');
+    };
+
+    if (SHEET_URL === 'YOUR_APPS_SCRIPT_URL_HERE') {
+      window.setTimeout(showSuccess, 400);
+      return;
+    }
+
     fetch(SHEET_URL, {
       method: 'POST',
       body: JSON.stringify(payload),
     })
       .then(() => {
-        btn.textContent = 'Message sent ✓';
-        btn.style.background = '#22c55e';
-        form.querySelectorAll('input, textarea').forEach(el => el.value = '');
+        showSuccess();
       })
       .catch(() => {
         btn.textContent = 'Send message →';

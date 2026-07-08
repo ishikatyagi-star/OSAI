@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { Loader2, User } from "lucide-react";
+import { ArrowRight, Calendar, Check, Loader2, User } from "lucide-react";
 import { approveActionItem, getWorkflowRun } from "@/lib/api";
 import { DEMO_WORKFLOW_RUNS } from "@/lib/demo-data";
 import { isDemo } from "@/lib/demo";
@@ -151,11 +151,14 @@ export default function WorkflowDetailPage() {
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {items.map((item) => {
           const destMeta = CONNECTOR_META[item.destination];
+          const DestinationIcon = destMeta?.icon;
           return (
             <div className="card" key={item.id} style={{ padding: "18px 22px" }}>
               <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 12 }}>
                 {destMeta && (
-                  <span style={{ fontSize: 20, marginTop: 1 }}>{destMeta.icon}</span>
+                  <span className="connector-inline-icon" style={{ marginTop: 1 }} aria-hidden>
+                    {DestinationIcon && <DestinationIcon size={16} strokeWidth={1.8} />}
+                  </span>
                 )}
                 <div style={{ flex: 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
@@ -164,8 +167,8 @@ export default function WorkflowDetailPage() {
                   </div>
                   <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
                     {item.owner && <span className="meta" style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><User size={11} /> {item.owner}</span>}
-                    {item.due_date && <span className="meta">📅 {item.due_date}</span>}
-                    <span className="meta">→ {destMeta?.label ?? item.destination}</span>
+                    {item.due_date && <span className="meta" style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><Calendar size={11} /> {item.due_date}</span>}
+                    <span className="meta" style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><ArrowRight size={11} /> {destMeta?.label ?? item.destination}</span>
                     <span className="meta">confidence: {(item.confidence * 100).toFixed(0)}%</span>
                   </div>
                 </div>
@@ -197,12 +200,18 @@ export default function WorkflowDetailPage() {
                     {approving === item.id ? "Approving…" : "Approve & Execute →"}
                   </button>
                   {msgs[item.id] && (
-                    <span className="success-text">✓ {msgs[item.id]}</span>
+                    <span className="success-text inline-flex items-center gap-1.5">
+                      <Check className="size-3.5" strokeWidth={2} />
+                      {msgs[item.id]}
+                    </span>
                   )}
                 </div>
               )}
               {item.status !== "needs_review" && msgs[item.id] && (
-                <p className="success-text" style={{ marginTop: 8 }}>✓ {msgs[item.id]}</p>
+                <p className="success-text inline-flex items-center gap-1.5" style={{ marginTop: 8 }}>
+                  <Check className="size-3.5" strokeWidth={2} />
+                  {msgs[item.id]}
+                </p>
               )}
             </div>
           );

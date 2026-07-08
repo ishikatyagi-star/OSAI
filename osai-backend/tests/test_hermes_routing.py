@@ -61,6 +61,11 @@ async def test_ask_stays_inhouse_when_hermes_disabled(monkeypatch):
     _stub_retrieval(monkeypatch)
     monkeypatch.setattr(orch, "hermes_enabled", lambda: False)
 
+    async def _should_not_be_called(*args, **kwargs):
+        raise AssertionError("run_via_hermes should not be called when Hermes is disabled")
+
+    monkeypatch.setattr(orch, "run_via_hermes", _should_not_be_called)
+
     resp = await orch.run_ask(AskRequest(org_id="o1", question="hi"))
     assert resp.via == "osai"
     assert resp.answer == "in-house answer"

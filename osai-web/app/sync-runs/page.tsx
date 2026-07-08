@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { AlertTriangle, Check, Download, Info } from "lucide-react";
 import { getSyncRuns, getDashboardMetrics } from "@/lib/api";
 import { DEMO_SYNC_RUNS, DEMO_STATS } from "@/lib/demo-data";
 import { isDemo } from "@/lib/demo";
-import { CONNECTOR_META } from "@/lib/connector-meta";
+import { CONNECTOR_META, getConnectorIcon } from "@/lib/connector-meta";
 import type { SyncRun } from "@/lib/types";
 
 function timeAgo(iso: string) {
@@ -83,9 +84,10 @@ export default function SyncRunsPage() {
           {Object.entries(DEMO_STATS.docsPerConnector).map(([key, count]) => {
             const meta = CONNECTOR_META[key];
             if (!meta) return null;
+            const Icon = meta.icon;
             return (
               <div key={key} className="connector-pill">
-                <span>{meta.icon}</span>
+                <Icon size={14} strokeWidth={1.8} />
                 <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{meta.label}</span>
                 <span className="badge badge-grey" style={{ fontSize: 10 }}>
                   {count.toLocaleString()} docs
@@ -106,9 +108,9 @@ export default function SyncRunsPage() {
         {display.map((run, i) => {
           const meta = CONNECTOR_META[run.connector_key] ?? {
             label: run.connector_key,
-            icon: "⚙",
             color: "var(--text-secondary)",
           };
+          const Icon = getConnectorIcon(run.connector_key);
           const isLast = i === display.length - 1;
 
           const dotClass =
@@ -135,7 +137,9 @@ export default function SyncRunsPage() {
                 style={{ marginBottom: isLast ? 0 : undefined }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                  <span className="text-base">{meta.icon}</span>
+                  <span className="connector-inline-icon" aria-hidden>
+                    <Icon size={15} strokeWidth={1.8} />
+                  </span>
                   <span className="text-caption" style={{ color: "var(--text-primary)", fontWeight: 600 }}>{meta.label}</span>
                   <span className={`badge ${STATUS_BADGE[run.status] ?? "badge-grey"}`}>
                     {run.status}
@@ -147,11 +151,13 @@ export default function SyncRunsPage() {
 
                 <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
                   <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                    <span className="meta">📥 {run.documents_seen} seen</span>
+                    <span className="meta" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      <Download size={12} strokeWidth={1.8} /> {run.documents_seen} seen
+                    </span>
                   </div>
                   <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                    <span className="meta" style={{ color: run.documents_indexed > 0 ? "var(--green)" : undefined }}>
-                      ✓ {run.documents_indexed} indexed
+                    <span className="meta" style={{ color: run.documents_indexed > 0 ? "var(--green)" : undefined, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      <Check size={12} strokeWidth={2} /> {run.documents_indexed} indexed
                     </span>
                   </div>
                   {run.status === "succeeded" && run.documents_seen - run.documents_indexed > 0 && (
@@ -159,15 +165,15 @@ export default function SyncRunsPage() {
                       <span
                         className="meta"
                         title="Skipped during indexing — usually empty, too short, or an unsupported format."
-                        style={{ cursor: "help" }}
+                        style={{ cursor: "help", display: "inline-flex", alignItems: "center", gap: 4 }}
                       >
-                        ⓘ {run.documents_seen - run.documents_indexed} skipped
+                        <Info size={12} strokeWidth={1.8} /> {run.documents_seen - run.documents_indexed} skipped
                       </span>
                     </div>
                   )}
                   {run.documents_indexed > 0 && run.documents_seen > 0 && (
                     <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, minWidth: 120 }}>
-                      <div style={{ flex: 1, height: 3, background: "rgba(255,255,255,0.08)", borderRadius: 9999 }}>
+                      <div style={{ flex: 1, height: 3, background: "var(--bg-hover)", borderRadius: 9999 }}>
                         <div
                           style={{
                             width: `${(run.documents_indexed / run.documents_seen) * 100}%`,
@@ -186,11 +192,14 @@ export default function SyncRunsPage() {
 
                 {run.error && (
                   <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                    <span className="error-text">⚠ {run.error}</span>
+                    <span className="error-text inline-flex items-center gap-1.5">
+                      <AlertTriangle size={13} strokeWidth={1.8} />
+                      {run.error}
+                    </span>
                     <Link
                       href="/integrations"
-                      className="text-micro font-semibold"
-                      style={{ color: "#ffffff", whiteSpace: "nowrap" }}
+                      className="text-micro font-semibold sync-run-fix-link"
+                      style={{ color: "var(--text-primary)", whiteSpace: "nowrap" }}
                     >
                       Fix in Integrations →
                     </Link>
