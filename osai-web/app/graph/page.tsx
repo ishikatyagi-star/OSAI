@@ -122,13 +122,23 @@ export default function GraphPage() {
 
       {/* Role filter + tier legend */}
       <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 18, flexWrap: "wrap" }}>
-        <select className="select" value={deptFilter} onChange={(e) => setDeptFilter(e.target.value)}>
+        <select
+          className="select"
+          aria-label="Filter org graph by department"
+          value={deptFilter}
+          onChange={(e) => setDeptFilter(e.target.value)}
+        >
           <option value="all">All departments</option>
           {depts.map((d) => (
             <option key={d} value={d}>{d}</option>
           ))}
         </select>
-        <select className="select" value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
+        <select
+          className="select"
+          aria-label="Filter org graph by role"
+          value={roleFilter}
+          onChange={(e) => setRoleFilter(e.target.value)}
+        >
           <option value="all">All roles</option>
           {roles.map((r) => (
             <option key={r} value={r}>{r}</option>

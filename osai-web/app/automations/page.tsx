@@ -349,11 +349,17 @@ export default function AutomationsPage() {
               <input
                 className="search-input"
                 placeholder="Automation name (e.g. Weekly support digest)"
+                aria-label="Automation name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 style={{ flex: 1, minWidth: 240 }}
               />
-              <select className="select" value={cadence} onChange={(e) => setCadence(e.target.value)}>
+              <select
+                className="select"
+                aria-label="Automation cadence"
+                value={cadence}
+                onChange={(e) => setCadence(e.target.value)}
+              >
                 {CADENCES.map((c) => (
                   <option key={c} value={c}>{c === "manual" ? "On demand" : c}</option>
                 ))}
@@ -362,6 +368,7 @@ export default function AutomationsPage() {
             <textarea
               className="search-input"
               placeholder="What should OSAI do? e.g. Summarise open blockers across Notion and Slack and list owners."
+              aria-label="Automation task prompt"
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               rows={3}

@@ -320,13 +320,14 @@ export default function AskPage() {
                       onKeyDown={handleKeyDown}
                       rows={1}
                       placeholder="Ask anything about your org..."
+                      aria-label="Ask OSAI prompt"
                       className="max-h-44 min-h-[44px] flex-1 resize-none self-center border-0 bg-transparent px-1 py-1 text-base shadow-none outline-none focus-visible:ring-0 placeholder:text-[var(--text-muted)]"
                       autoFocus
                     />
                     <Button
                       type="submit"
                       size="icon"
-                      className="size-10 shrink-0 self-center rounded-full bg-[var(--text-primary)] text-white hover:bg-[var(--primary-active,#292524)]"
+                      className="size-11 shrink-0 self-center rounded-full bg-[var(--text-primary)] text-white hover:bg-[var(--primary-active,#292524)]"
                       disabled={pending || !input.trim()}
                       aria-label="Send"
                       title="Send"
@@ -456,13 +457,14 @@ export default function AskPage() {
                   onKeyDown={handleKeyDown}
                   rows={1}
                   placeholder="Ask a follow-up, or tell OSAI to take an action…"
+                  aria-label="Ask OSAI follow-up prompt"
                   className="max-h-40 min-h-[40px] flex-1 resize-none self-center border-0 bg-transparent px-1 py-1.5 text-sm shadow-none outline-none focus-visible:ring-0 placeholder:text-[var(--text-muted)]"
                   autoFocus
                 />
                 <Button
                   type="submit"
                   size="icon"
-                  className="size-10 shrink-0 self-center rounded-full bg-[var(--text-primary)] text-white hover:bg-[var(--primary-active,#292524)]"
+                  className="size-11 shrink-0 self-center rounded-full bg-[var(--text-primary)] text-white hover:bg-[var(--primary-active,#292524)]"
                   disabled={pending || !input.trim()}
                   aria-label="Send"
                   title="Send"
