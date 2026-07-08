@@ -23,7 +23,7 @@
   /* Ink — hierarchy is binary: ink or ink-muted */
   --text-primary: #0c0a09;
   --text-secondary: #4e4e4e;
-  --text-muted:   #777169;
+  --text-muted:   #6b655e;
 
   /* Single chromatic accent — links / focus rings / selection ONLY.
      (--teal* names retained as aliases so legacy refs resolve to the accent.) */
@@ -36,16 +36,16 @@
   --teal-hover:   #0c0a09;
 
   /* Semantic + gradient-family colors */
-  --green:        #16a34a;
-  --green-dim:    rgba(22, 163, 74, 0.10);
-  --red:          #dc2626;
-  --red-dim:      rgba(220, 38, 38, 0.10);
+  --green:        #166534;
+  --green-dim:    rgba(22, 101, 52, 0.10);
+  --red:          #b91c1c;
+  --red-dim:      rgba(185, 28, 28, 0.12);
   --orange:       #c9784d;
   --orange-dim:   rgba(201, 120, 77, 0.13);
   --yellow:       #b98222;
   --yellow-dim:   rgba(185, 130, 34, 0.12);
-  --blue:         #4d789f;
-  --blue-dim:     rgba(77, 120, 159, 0.12);
+  --blue:         #315f84;
+  --blue-dim:     rgba(49, 95, 132, 0.10);
   --purple:       #8b7aa6;
   --purple-dim:   rgba(139, 122, 166, 0.12);
 
@@ -192,6 +192,7 @@ a { color: inherit; }
   display: flex;
   align-items: center;
   gap: 10px;
+  min-height: 44px;
   padding: 8px 12px;
   border-radius: 9999px;
   text-decoration: none;
@@ -559,6 +560,11 @@ main {
     line-height: 1.25;
   }
 
+  .ask-composer button[aria-label="Send"] {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
   .ask-column form > .mt-3 {
     flex-wrap: wrap;
   }
@@ -762,6 +768,43 @@ h2 {
   font-size: 11px;
   min-height: 30px;
   padding: 5px 12px;
+}
+
+/* Shared controls keep a 44px interaction floor on every viewport. The visual
+   language stays compact through type and pill shape, but users never have to
+   aim at 28-32px targets. */
+.btn,
+.btn-sm,
+.btn-xs,
+.tabs-pill-trigger,
+.tabs-underline-trigger,
+.ask-mode-tab,
+.ask-mode-pill,
+.login-tab,
+.login-submit,
+.login-demo-btn,
+.login-input,
+.search-input,
+.select,
+.suggestion-chip,
+select {
+  min-height: 44px;
+}
+
+.btn-xs {
+  padding-inline: 14px;
+}
+
+.login-link,
+.login-footer a,
+.section-header a,
+.back-link,
+.attention-card-action,
+.sync-run-fix-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  min-width: 44px;
 }
 
 /* ─── Typography Utilities ──────────────────────────────────────────────────── */

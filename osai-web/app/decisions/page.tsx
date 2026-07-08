@@ -172,11 +172,13 @@ export default function DecisionsPage() {
           className="search-input"
           style={{ maxWidth: 280 }}
           placeholder="Search decisions…"
+          aria-label="Search decisions"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
         <select
           className="select"
+          aria-label="Filter decisions by status"
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
         >
@@ -187,6 +189,7 @@ export default function DecisionsPage() {
         </select>
         <select
           className="select"
+          aria-label="Filter decisions by impact level"
           value={impactFilter}
           onChange={(e) => setImpactFilter(e.target.value as typeof impactFilter)}
         >

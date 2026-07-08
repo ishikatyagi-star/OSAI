@@ -188,8 +188,9 @@ export default function LoginPage() {
         {tab === "signin" ? (
           <form onSubmit={handleSignIn} className="login-form">
             <div className="login-field">
-              <label>Work email</label>
+              <label htmlFor="signin-email">Work email</label>
               <input
+                id="signin-email"
                 type="email"
                 required
                 placeholder="name@company.com"
@@ -211,8 +212,9 @@ export default function LoginPage() {
         ) : (
           <form onSubmit={handleOnboard} className="login-form">
             <div className="login-field">
-              <label>Organisation name</label>
+              <label htmlFor="onboard-org-name">Organisation name</label>
               <input
+                id="onboard-org-name"
                 type="text"
                 required
                 placeholder="Acme Corp"
@@ -222,8 +224,9 @@ export default function LoginPage() {
               />
             </div>
             <div className="login-field">
-              <label>Your name</label>
+              <label htmlFor="onboard-admin-name">Your name</label>
               <input
+                id="onboard-admin-name"
                 type="text"
                 required
                 placeholder="Jane Doe"
@@ -233,8 +236,9 @@ export default function LoginPage() {
               />
             </div>
             <div className="login-field">
-              <label>Work email</label>
+              <label htmlFor="onboard-admin-email">Work email</label>
               <input
+                id="onboard-admin-email"
                 type="email"
                 required
                 placeholder="admin@acme.com"
