@@ -652,6 +652,10 @@ h2 {
   letter-spacing: -0.3px;
 }
 
+.bg-card :is(h1, h2, h3) {
+  color: inherit;
+}
+
 /* Poster-grade display utilities (framer GT-Walsheim substitute: Inter, tight) */
 .display-xl {
   font-size: clamp(40px, 7vw, 85px);
