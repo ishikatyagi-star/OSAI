@@ -86,7 +86,18 @@ function CaseRow({ c }: { c: EvalCase }) {
         type="button"
         onClick={() => setOpen((o) => !o)}
         className="flex w-full items-center gap-3 px-4 py-3 text-left"
-        style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-primary)' }}
+        style={{
+          alignItems: "center",
+          background: "transparent",
+          border: "none",
+          color: "var(--text-primary)",
+          cursor: "pointer",
+          display: "flex",
+          gap: 12,
+          minHeight: 44,
+          padding: "12px 16px",
+          width: "100%",
+        }}
       >
         {c.passed ? (
           <CheckCircle2 className="size-4 shrink-0" style={{ color: 'var(--green)' }} />
@@ -138,7 +149,7 @@ function CaseRow({ c }: { c: EvalCase }) {
               <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-primary)' }}>
                 Notes
               </p>
-              <p className="mt-1 text-sm" style={{ color: 'var(--yellow)' }}>{c.notes}</p>
+              <p className="mt-1 text-sm" style={{ color: "#6f4d12" }}>{c.notes}</p>
             </div>
           )}
         </div>

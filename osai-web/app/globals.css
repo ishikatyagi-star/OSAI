@@ -133,6 +133,7 @@ a { color: inherit; }
   gap: 10px;
   padding: 0 18px;
   height: var(--topbar-h);
+  min-height: 44px;
   border-bottom: 1px solid var(--border);
   text-decoration: none;
 }
@@ -919,12 +920,12 @@ select {
 /* Monochrome rollout: orange/yellow "attention/in-progress" states fold into
    the single blue accent; purple folds into neutral grey. Red (bad) + green
    (good) stay the only signal hues. */
-.badge-orange  { background: var(--orange-dim);   color: var(--orange);   border: 1px solid rgba(201,120,77,0.25); }
-.badge-yellow  { background: var(--yellow-dim);   color: var(--yellow);   border: 1px solid rgba(185,130,34,0.25); }
+.badge-orange  { background: #f4e5db; color: #4f2613; border: 1px solid rgba(79,38,19,0.35); }
+.badge-yellow  { background: #f2e7d2; color: #513406; border: 1px solid rgba(81,52,6,0.35); }
 .badge-purple  { background: var(--bg-elevated); color: var(--text-secondary); border: 1px solid var(--border); }
 /* Amber is intentionally preserved: it's the Red/Amber/Normal data-routing
    (RAG) signal — a deliberate third governance state, not decoration. */
-.badge-amber   { background: var(--orange-dim); color: var(--orange); border: 1px solid rgba(201,120,77,0.25); }
+.badge-amber   { background: #f4e5db; color: #4f2613; border: 1px solid rgba(79,38,19,0.35); }
 
 /* ─── Priority/type tags ─────────────────────────────────────────────────────── */
 .tag {
@@ -1224,8 +1225,13 @@ select {
 
 /* ─── Modal / confirmation dialog ────────────────────────────────────────────── */
 .modal-overlay {
+  border: 0;
   position: fixed;
   inset: 0;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
   z-index: 200;
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(2px);
@@ -1233,6 +1239,10 @@ select {
   align-items: center;
   justify-content: center;
   padding: 24px;
+}
+
+.modal-overlay::backdrop {
+  background: transparent;
 }
 
 .modal-card {
@@ -2557,6 +2567,13 @@ select {
   font-size: 12px;
   color: var(--text-muted);
   margin-bottom: 20px;
+}
+
+.breadcrumb a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding-inline: 2px;
 }
 
 /* ─── Back Link ────────────────────────────────────────────────────────────── */
