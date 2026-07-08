@@ -42,8 +42,8 @@
   --red-dim:      rgba(185, 28, 28, 0.12);
   --orange:       #c9784d;
   --orange-dim:   rgba(201, 120, 77, 0.13);
-  --yellow:       #b98222;
-  --yellow-dim:   rgba(185, 130, 34, 0.12);
+  --yellow:       #6f4d12;
+  --yellow-dim:   rgba(111, 77, 18, 0.12);
   --blue:         #315f84;
   --blue-dim:     rgba(49, 95, 132, 0.10);
   --purple:       #8b7aa6;
@@ -2261,6 +2261,28 @@ select {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  color: var(--text-primary);
+  --openui-background: var(--bg);
+  --openui-foreground: var(--bg-surface);
+  --openui-popover-background: var(--bg-surface);
+  --openui-sunk: var(--bg-elevated);
+  --openui-highlight: var(--bg-hover);
+  --openui-info-background: var(--blue-dim);
+  --openui-success-background: var(--green-dim);
+  --openui-alert-background: var(--yellow-dim);
+  --openui-danger-background: var(--red-dim);
+  --openui-border-default: var(--border);
+  --openui-border-interactive: var(--border-hover);
+  --openui-border-interactive-emphasis: var(--text-primary);
+  --openui-border-alert-emphasis: rgba(111, 77, 18, 0.45);
+  --openui-text-neutral-primary: var(--text-primary);
+  --openui-text-neutral-secondary: var(--text-secondary);
+  --openui-text-neutral-tertiary: var(--text-muted);
+  --openui-text-neutral-link: var(--text-primary);
+  --openui-text-info-primary: var(--blue);
+  --openui-text-success-primary: var(--green);
+  --openui-text-alert-primary: var(--yellow);
+  --openui-text-danger-primary: var(--red);
 }
 
 .ask-openui-heading {
@@ -2284,6 +2306,7 @@ select {
   border-color: var(--border) !important;
   border-radius: 14px !important;
   background: var(--bg-surface) !important;
+  color: var(--text-primary) !important;
   box-shadow: none !important;
 }
 
@@ -2307,6 +2330,28 @@ select {
 
 .ask-openui-table-wrap table {
   min-width: 520px;
+  border-collapse: collapse;
+  color: var(--text-primary);
+}
+
+.ask-openui-table-wrap :is(th, td) {
+  border-bottom: 1px solid var(--border) !important;
+  color: var(--text-primary) !important;
+  padding: 10px 12px !important;
+}
+
+.ask-openui-table-wrap th {
+  background: var(--bg-elevated) !important;
+  color: var(--text-secondary) !important;
+}
+
+.ask-openui-table-wrap tr:last-child td {
+  border-bottom: 0 !important;
+}
+
+.ask-openui-shell .openui-tag-warning {
+  background: var(--yellow-dim) !important;
+  color: var(--yellow) !important;
 }
 
 .ask-openui-row-title {
