@@ -79,3 +79,50 @@ services:
       # Session JWT signing secret — set to a strong random value.
       - key: OSAI_JWT_SECRET
         sync: false
+      # Per-user Hermes reasoning sidecar. Leave UNSET to keep OSAI on its
+      # in-house agent (default). Set to the deployed sidecar URL (see
+      # services/hermes-sidecar/DEPLOY.md) ONLY after its /run gate passes —
+      # then /ask and Automations route through Hermes with in-house fallback.
+      - key: OSAI_HERMES_SIDECAR_URL
+        sync: false
+      # Shared secret with the sidecar — set to the SAME random value as
+      # SIDECAR_AUTH_TOKEN on osai-hermes (the sidecar is publicly reachable).
+      - key: OSAI_HERMES_SIDECAR_TOKEN
+        sync: false
+
+  # Hermes reasoning sidecar (per-user hermes-agent behind a tiny HTTP API).
+  # ⚠ PAID: Docker build of the hermes CLI needs Starter or above (~$7/mo).
+  # Validated locally on Groq (services/hermes-sidecar/DEPLOY.md has the gate).
+  # After it deploys: (1) set GROQ_API_KEY in its Environment tab, (2) pass the
+  # /run gate in DEPLOY.md step 4, (3) set OSAI_HERMES_SIDECAR_URL on osai-api
+  # to this service's URL.
+  - type: web
+    name: osai-hermes
+    runtime: docker
+    dockerfilePath: ./services/hermes-sidecar/Dockerfile
+    dockerContext: ./services/hermes-sidecar
+    healthCheckPath: /health
+    plan: starter
+    envVars:
+      - key: GROQ_API_KEY              # same Groq key as OSAI_LLM_API_KEY
+        sync: false
+      # Require X-Sidecar-Token on /run — same value as osai-api's
+      # OSAI_HERMES_SIDECAR_TOKEN (this service is on the public internet).
+      - key: SIDECAR_AUTH_TOKEN
+        sync: false
+      - key: HERMES_PROVIDER
+        value: groq
+      - key: HERMES_MODEL
+        value: llama-3.3-70b-versatile
+      - key: HERMES_BASE_URL           # Groq is OpenAI-compatible; registered as a hermes custom provider
+        value: https://api.groq.com/openai/v1
+      - key: HERMES_MAX_TOKENS         # Groq rejects hermes' default completion cap
+        value: "8192"
+      - key: HERMES_TOOLSETS           # keep the tool schema small (Groq 413s on full toolsets)
+        value: search
+      - key: HERMES_HOME_ROOT
+        value: /data/hermes
+    disk:
+      name: hermes-data                # per-user Hermes memory survives deploys
+      mountPath: /data/hermes
+      sizeGB: 1

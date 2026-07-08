@@ -37,6 +37,19 @@ class Settings(BaseSettings):
         # Default email-login availability from the env if not explicitly set.
         if self.email_login_enabled is None:
             self.email_login_enabled = self.env == "local"
+        # A configured-but-unauthenticated sidecar is a public unauthenticated
+        # endpoint burning our Groq quota. Require the shared secret alongside
+        # the URL in any non-local deployment (mirrors the jwt_secret guard).
+        if (
+            self.env != "local"
+            and self.hermes_sidecar_url
+            and not self.hermes_sidecar_token
+        ):
+            raise ValueError(
+                "OSAI_HERMES_SIDECAR_TOKEN must be set when OSAI_HERMES_SIDECAR_URL "
+                f"is configured and OSAI_ENV is {self.env!r} — the sidecar is a "
+                "public endpoint and must not accept unauthenticated /run calls."
+            )
         return self
 
     qdrant_url: str = "http://localhost:6333"
@@ -129,6 +142,9 @@ class Settings(BaseSettings):
     # agent running as a separate service (HTTP), with OSAI passing org context
     # and enforcing isolation at the boundary. Unset = use the in-house agent.
     hermes_sidecar_url: str | None = None
+    # Shared secret sent as X-Sidecar-Token — the sidecar is a separate public
+    # service, so both sides must set the same value (SIDECAR_AUTH_TOKEN there).
+    hermes_sidecar_token: str | None = None
 
     # gbrain knowledge-graph sidecar (P4). When gbrain_home is set, OSAI can
     # read/write the org brain (pages + self-wiring typed graph). Vector/synthesis

@@ -74,6 +74,10 @@ class AskResponse(BaseModel):
     enough_context: bool = False
     model_route: str | None = None
     latency_ms: int | None = None
+    # Which reasoning engine produced the answer: the in-house RAG agent ("osai")
+    # or the per-user Hermes sidecar ("hermes"). Lets the UI/evals assert Hermes
+    # actually ran and surfaces silent fallbacks.
+    via: Literal["osai", "hermes"] = "osai"
     ui_artifacts: list[AskUiArtifact] | None = None
 
 
