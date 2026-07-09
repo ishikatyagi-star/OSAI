@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import logging
+
 from api.schemas.search import SearchRequest, SearchResponse, SourceCitation
 from config import settings
 from memory.embeddings import default_embedding_provider
 from memory.qdrant_store import get_default_qdrant_store
+
+logger = logging.getLogger("osai.retriever")
 
 # Data-clearance ordering (least→most sensitive). A member sees a chunk only if
 # its tier is at or below their clearance; "red" clearance sees everything.
@@ -114,6 +118,11 @@ async def retrieve_answer(request: SearchRequest) -> SearchResponse:
         try:
             answer = await _gemini_answer(request.query, context_text)
         except Exception:
+            # Swallowed on purpose (retrieval must degrade gracefully, never
+            # 500), but silent failure here is undiagnosable in prod — a bad
+            # key, a rate limit, and a network error all render as the same
+            # "language model is busy" text. Log the real cause.
+            logger.exception("LLM synthesis failed; falling back to raw retrieval")
             answer = _fallback_answer(memory_block, doc_titles)
     else:
         answer = _fallback_answer(memory_block, doc_titles)
