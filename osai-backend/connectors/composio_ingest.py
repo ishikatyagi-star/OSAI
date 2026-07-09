@@ -23,6 +23,7 @@ from connectors.composio_tool import ComposioClient, get_default_composio_client
 from connectors.toolkit_map import to_native_key
 from db.models import now_utc
 from db.repositories import (
+    apply_tier_rules,
     chunks_for_documents,
     ensure_connector_account,
     purge_source_type,
@@ -194,6 +195,13 @@ async def ingest_composio_toolkit(
         logger.error("Composio ingest %s failed: %s", toolkit, exc)
         return {"status": "failed", "error": str(exc), "documents_indexed": 0}
 
+    if documents:
+        # Same per-info sensitivity overrides the native connector sync path
+        # applies (see connectors/sync_service.py) — tier rules are keyed by
+        # the native connector key, so a Composio-ingested doc is classified
+        # the same way a natively-synced one would be, instead of always
+        # landing at the connector's default tier.
+        apply_tier_rules(session, org_id, native_key, documents)
     indexed = upsert_source_documents(session, documents)
     vector_error = None
     try:

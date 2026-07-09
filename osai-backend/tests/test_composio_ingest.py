@@ -6,7 +6,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from connectors.composio_ingest import ingest_composio_toolkit
-from db.models import Base, SourceDocumentRecord
+from db.models import Base, ConnectorAccount, SourceDocumentRecord
 
 
 class _FakeComposio:
@@ -76,6 +76,28 @@ async def test_notion_ingestion_indexes_documents():
     assert doc.source_type == "notion"
     assert doc.title == "Onboarding Guide"
     assert "Welcome to the team" in doc.text
+
+
+async def test_notion_ingestion_applies_configured_tier_rules():
+    """A tier rule set on the connector account must classify Composio-ingested
+    docs the same way the native connector sync path does (regression for the
+    gap where Composio ingest silently left everything at the default tier)."""
+    session = _session()
+    session.add(
+        ConnectorAccount(
+            org_id="demo-org",
+            connector_key="notion",
+            tier_rules=[{"pattern": "onboarding", "tier": "amber"}],
+        )
+    )
+    session.commit()
+
+    await ingest_composio_toolkit(
+        "demo-org", "notion", session, client=_FakeComposio(), qdrant_store=_FakeQdrant()
+    )
+
+    doc = session.query(SourceDocumentRecord).one()
+    assert doc.data_tier == "amber"
 
 
 async def test_unsupported_toolkit_is_rejected():
