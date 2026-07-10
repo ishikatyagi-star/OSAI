@@ -7,14 +7,13 @@ export const dynamic = "force-static";
 export function GET() {
   try {
     const html = readFileSync(
-      join(process.cwd(), "public", "saas.html"),
+      join(process.cwd(), "public", "osai.html"),
       "utf-8"
     );
     return new NextResponse(html, {
       headers: { "Content-Type": "text/html; charset=utf-8" },
     });
   } catch {
-    // Fallback if file not found
     return NextResponse.redirect("/dashboard");
   }
 }
