@@ -93,6 +93,57 @@ nav {
   gap: 26px !important;
 }
 
+.nav-mobile-menu {
+  display: none;
+  position: relative;
+}
+
+.nav-mobile-menu summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  color: var(--el-body);
+  font-size: 15px;
+  font-weight: 500;
+  list-style: none;
+}
+
+.nav-mobile-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.nav-mobile-links {
+  position: fixed;
+  top: 72px;
+  left: 20px;
+  right: 20px;
+  width: auto;
+  padding: 8px;
+  display: grid;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid var(--el-hairline);
+  border-radius: 12px;
+  box-shadow: var(--el-shadow);
+}
+
+.nav-mobile-links a {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  border-radius: 8px;
+  color: var(--el-body);
+  font-size: 15px;
+  text-decoration: none;
+}
+
+.nav-mobile-links a:hover,
+.nav-mobile-links a:focus-visible {
+  background: var(--el-surface-strong);
+  color: var(--el-ink);
+}
+
 .nav-links a,
 .nav-signin,
 .nav-signin-btn,
@@ -554,6 +605,30 @@ footer {
   gap: 16px !important;
 }
 
+.landing-saas .loop-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 0 !important;
+  border-top: 1px solid var(--el-hairline-strong);
+}
+
+.landing-saas .loop-card {
+  padding: 28px 24px !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--el-hairline-strong) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.landing-saas .loop-card:nth-child(odd):not(.repeat) {
+  border-right: 1px solid var(--el-hairline-strong) !important;
+}
+
+.landing-saas .loop-card:hover {
+  background: rgba(255, 255, 255, 0.48) !important;
+  transform: none !important;
+}
+
 .loop-card.repeat {
   background: var(--el-surface-strong) !important;
 }
@@ -667,6 +742,10 @@ footer .footer-logo,
     display: none !important;
   }
 
+  .nav-mobile-menu {
+    display: block;
+  }
+
   .nav-right,
   nav > div {
     gap: 8px !important;
@@ -731,14 +810,43 @@ footer .footer-logo,
   .landing-saas h1 {
     font-size: 32px !important;
     line-height: 1.12 !important;
-    max-width: 300px !important;
+    max-width: 100% !important;
   }
 
+  .landing-saas .hero-left,
   .landing-saas .hero-sub {
-    max-width: 300px !important;
+    width: 100% !important;
+    max-width: 100% !important;
   }
 
   .landing-saas .eyebrow.dot {
-    max-width: 300px !important;
+    max-width: 100% !important;
+  }
+
+  .landing-saas .loop-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .landing-saas .loop-card:nth-child(odd):not(.repeat) {
+    border-right: 0 !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .fade-up {
+    opacity: 1 !important;
+    transform: none !important;
   }
 }
