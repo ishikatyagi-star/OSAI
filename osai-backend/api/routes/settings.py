@@ -21,7 +21,10 @@ DEFAULT_DATA_ROUTING = {
         "allowed_connectors": ["notion", "slack", "freshdesk", "google_drive"],
         "llm_allowed": True,
     },
-    "amber": {"allowed_connectors": ["notion", "freshdesk"], "llm_allowed": False},
+    # Must match the Amber policy copy in the UI ("only Notion and Google Drive"):
+    # a governance default that contradicts its own description reads as a
+    # security bug (QA ISSUE-005).
+    "amber": {"allowed_connectors": ["notion", "google_drive"], "llm_allowed": False},
     "red": {"allowed_connectors": [], "llm_allowed": False},
 }
 

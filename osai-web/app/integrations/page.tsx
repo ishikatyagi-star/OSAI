@@ -65,18 +65,23 @@ export default function IntegrationsPage() {
       const res = (await triggerSync(key)) as {
         documents_indexed?: number;
         status?: string;
+        error?: string | null;
       };
       const indexed = Number(res.documents_indexed ?? 0);
       // Composio syncs now run in the background and return "started"; the docs
       // land shortly and show up in Sync Runs, so don't claim a count yet.
+      // A 200 response can still carry a failed persisted run (e.g. missing
+      // credentials) — report that honestly, never as "Sync complete".
       setSyncMsg((m) => ({
         ...m,
         [key]:
-          res.status === "started"
-            ? "Sync started — files will appear in Sync Runs shortly."
-            : indexed > 0
-              ? `Indexed ${indexed} file${indexed > 1 ? "s" : ""}`
-              : "Sync complete",
+          res.status === "failed"
+            ? `Sync failed — ${(res.error || "see Sync Runs for details.").split("\n")[0].slice(0, 140)}`
+            : res.status === "started"
+              ? "Sync started — files will appear in Sync Runs shortly."
+              : indexed > 0
+                ? `Indexed ${indexed} file${indexed > 1 ? "s" : ""}`
+                : "Sync complete — no new documents.",
       }));
       loadIntegrations();
     } catch {
@@ -332,12 +337,18 @@ export default function IntegrationsPage() {
                     >
                       Manage
                     </button>
-                    {syncMsg[item.key] && (
-                      <span className="success-text inline-flex items-center gap-1.5">
-                        <Check className="size-3.5" strokeWidth={2} />
-                        {syncMsg[item.key]}
-                      </span>
-                    )}
+                    {syncMsg[item.key] &&
+                      (/failed/i.test(syncMsg[item.key]) ? (
+                        <span className="inline-flex items-center gap-1.5" style={{ color: "var(--red)", fontSize: 12 }}>
+                          <AlertTriangle className="size-3.5" strokeWidth={2} />
+                          {syncMsg[item.key]}
+                        </span>
+                      ) : (
+                        <span className="success-text inline-flex items-center gap-1.5">
+                          <Check className="size-3.5" strokeWidth={2} />
+                          {syncMsg[item.key]}
+                        </span>
+                      ))}
                   </div>
                 </div>
               );
@@ -381,6 +392,7 @@ export default function IntegrationsPage() {
             onOpenChange={(o) => setManagedKey(o ? managedKey : null)}
             recentRuns={managedRuns}
             syncing={managedKey ? !!syncing[managedKey] : false}
+            syncMessage={managedKey ? syncMsg[managedKey] ?? "" : ""}
             onSync={handleSync}
             onToggleConnection={handleToggleConnection}
           />
