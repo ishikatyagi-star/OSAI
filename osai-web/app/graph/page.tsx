@@ -5,6 +5,7 @@ import Link from "next/link";
 import { getAccessMap, type AccessMap } from "@/lib/api";
 import { isDemo } from "@/lib/demo";
 import { CONNECTOR_META, getConnectorIcon } from "@/lib/connector-meta";
+import { Select } from "@/components/ui/select";
 
 type Tier = "normal" | "amber" | "red";
 
@@ -122,28 +123,24 @@ export default function GraphPage() {
 
       {/* Role filter + tier legend */}
       <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 18, flexWrap: "wrap" }}>
-        <select
-          className="select"
+        <Select
           aria-label="Filter org graph by department"
           value={deptFilter}
-          onChange={(e) => setDeptFilter(e.target.value)}
-        >
-          <option value="all">All departments</option>
-          {depts.map((d) => (
-            <option key={d} value={d}>{d}</option>
-          ))}
-        </select>
-        <select
-          className="select"
+          onValueChange={setDeptFilter}
+          options={[
+            { value: "all", label: "All departments" },
+            ...depts.map((value) => ({ value, label: value })),
+          ]}
+        />
+        <Select
           aria-label="Filter org graph by role"
           value={roleFilter}
-          onChange={(e) => setRoleFilter(e.target.value)}
-        >
-          <option value="all">All roles</option>
-          {roles.map((r) => (
-            <option key={r} value={r}>{r}</option>
-          ))}
-        </select>
+          onValueChange={setRoleFilter}
+          options={[
+            { value: "all", label: "All roles" },
+            ...roles.map((value) => ({ value, label: value })),
+          ]}
+        />
         <div style={{ display: "flex", gap: 12, marginLeft: "auto" }}>
           {(Object.keys(TIER_META) as Tier[]).map((t) => (
             <span key={t} style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--text-secondary)" }} className="text-micro">

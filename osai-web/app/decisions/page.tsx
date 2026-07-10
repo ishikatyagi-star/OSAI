@@ -4,6 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 import { Sparkles, X } from "lucide-react";
 import { DEMO_DECISIONS, type Decision } from "@/lib/demo-data";
 import { isDemo } from "@/lib/demo";
+import { Select } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const IMPACT_META: Record<Decision["impact"], { cls: string }> = {
   critical: { cls: "badge-red" },
@@ -242,29 +250,29 @@ export default function DecisionsPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <select
-          className="select"
+        <Select
           aria-label="Filter decisions by status"
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
-        >
-          <option value="all">All statuses</option>
-          <option value="proposed">Proposed</option>
-          <option value="approved">Approved</option>
-          <option value="rejected">Rejected</option>
-        </select>
-        <select
-          className="select"
+          onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}
+          options={[
+            { value: "all", label: "All statuses" },
+            { value: "proposed", label: "Proposed" },
+            { value: "approved", label: "Approved" },
+            { value: "rejected", label: "Rejected" },
+          ]}
+        />
+        <Select
           aria-label="Filter decisions by impact level"
           value={impactFilter}
-          onChange={(e) => setImpactFilter(e.target.value as typeof impactFilter)}
-        >
-          <option value="all">All impact levels</option>
-          <option value="critical">Critical</option>
-          <option value="high">High</option>
-          <option value="medium">Medium</option>
-          <option value="low">Low</option>
-        </select>
+          onValueChange={(value) => setImpactFilter(value as typeof impactFilter)}
+          options={[
+            { value: "all", label: "All impact levels" },
+            { value: "critical", label: "Critical" },
+            { value: "high", label: "High" },
+            { value: "medium", label: "Medium" },
+            { value: "low", label: "Low" },
+          ]}
+        />
         <span className="meta" style={{ alignSelf: "center", marginLeft: "auto" }}>
           {filtered.length} of {decisions.length} decisions
         </span>
@@ -344,19 +352,14 @@ export default function DecisionsPage() {
 
       {/* Add / edit decision */}
       {decisionForm && (
-        <dialog
-          open
-          className="modal-overlay"
-          onCancel={(e) => {
-            e.preventDefault();
-            setDecisionForm(null);
-          }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setDecisionForm(null);
-          }}
-        >
-          <div className="modal-card">
-            <h2>{decisionForm.id ? "Edit decision" : "Add decision"}</h2>
+        <Dialog open onOpenChange={(open) => !open && setDecisionForm(null)}>
+          <DialogContent className="modal-card max-w-[440px]">
+            <DialogHeader>
+              <DialogTitle>{decisionForm.id ? "Edit decision" : "Add decision"}</DialogTitle>
+              <DialogDescription className="sr-only">
+                {decisionForm.id ? "Update this decision." : "Add a decision to the log."}
+              </DialogDescription>
+            </DialogHeader>
             <div style={{ display: "grid", gap: 12 }}>
               <label className="text-caption" style={{ display: "grid", gap: 6 }}>
                 <span>Title</span>
@@ -368,31 +371,33 @@ export default function DecisionsPage() {
                 />
               </label>
               <div style={{ display: "grid", gap: 10, gridTemplateColumns: "1fr 1fr" }}>
-                <label className="text-caption" style={{ display: "grid", gap: 6 }}>
+                <div className="text-caption" style={{ display: "grid", gap: 6 }}>
                   <span>Status</span>
-                  <select
-                    className="select"
+                  <Select
+                    aria-label="Decision status"
                     value={decisionForm.status}
-                    onChange={(e) => setDecisionForm((form) => form && { ...form, status: e.target.value as Decision["status"] })}
-                  >
-                    <option value="proposed">Proposed</option>
-                    <option value="approved">Approved</option>
-                    <option value="rejected">Rejected</option>
-                  </select>
-                </label>
-                <label className="text-caption" style={{ display: "grid", gap: 6 }}>
+                    onValueChange={(value) => setDecisionForm((form) => form && { ...form, status: value as Decision["status"] })}
+                    options={[
+                      { value: "proposed", label: "Proposed" },
+                      { value: "approved", label: "Approved" },
+                      { value: "rejected", label: "Rejected" },
+                    ]}
+                  />
+                </div>
+                <div className="text-caption" style={{ display: "grid", gap: 6 }}>
                   <span>Impact</span>
-                  <select
-                    className="select"
+                  <Select
+                    aria-label="Decision impact"
                     value={decisionForm.impact}
-                    onChange={(e) => setDecisionForm((form) => form && { ...form, impact: e.target.value as Decision["impact"] })}
-                  >
-                    <option value="critical">Critical</option>
-                    <option value="high">High</option>
-                    <option value="medium">Medium</option>
-                    <option value="low">Low</option>
-                  </select>
-                </label>
+                    onValueChange={(value) => setDecisionForm((form) => form && { ...form, impact: value as Decision["impact"] })}
+                    options={[
+                      { value: "critical", label: "Critical" },
+                      { value: "high", label: "High" },
+                      { value: "medium", label: "Medium" },
+                      { value: "low", label: "Low" },
+                    ]}
+                  />
+                </div>
               </div>
               <div style={{ display: "grid", gap: 10, gridTemplateColumns: "1fr 1fr" }}>
                 <label className="text-caption" style={{ display: "grid", gap: 6 }}>
@@ -434,25 +439,27 @@ export default function DecisionsPage() {
                 Save decision
               </button>
             </div>
-          </div>
-        </dialog>
+          </DialogContent>
+        </Dialog>
       )}
 
       {/* Delete confirmation */}
       {pendingDelete && (
-        <div className="modal-overlay" onClick={() => setPendingDelete(null)} role="dialog" aria-modal="true">
-          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-            <h2>Delete this decision?</h2>
-            <p className="meta leading-normal">
+        <Dialog open onOpenChange={(open) => !open && setPendingDelete(null)}>
+          <DialogContent className="modal-card max-w-[440px]">
+            <DialogHeader>
+              <DialogTitle>Delete this decision?</DialogTitle>
+            </DialogHeader>
+            <DialogDescription className="meta leading-normal">
               “{pendingDelete.title}” will be permanently removed from the decision log. This cannot
               be undone.
-            </p>
+            </DialogDescription>
             <div className="modal-actions">
               <button className="btn" onClick={() => setPendingDelete(null)}>Cancel</button>
               <button className="btn btn-danger" onClick={confirmDelete}>Delete decision</button>
             </div>
-          </div>
-        </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

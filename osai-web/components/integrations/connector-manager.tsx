@@ -37,6 +37,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Select } from "@/components/ui/select";
 
 type Health = { healthy: boolean; message: string } | null;
 
@@ -358,16 +359,17 @@ export function ConnectorManager({
                           d.title
                         )}
                       </span>
-                      <select
-                        className="select"
+                      <Select
+                        aria-label={`Data tier for ${d.title}`}
                         style={{ height: 40, fontSize: 11 }}
                         value={tier}
-                        onChange={(e) => setFileTier(d.title, e.target.value as TierRule["tier"])}
-                      >
-                        <option value="normal">Normal</option>
-                        <option value="amber">Amber</option>
-                        <option value="red">Red</option>
-                      </select>
+                        onValueChange={(value) => setFileTier(d.title, value as TierRule["tier"])}
+                        options={[
+                          { value: "normal", label: "Normal" },
+                          { value: "amber", label: "Amber" },
+                          { value: "red", label: "Red" },
+                        ]}
+                      />
                     </li>
                   );
                 })}
@@ -425,16 +427,17 @@ export function ConnectorManager({
                     </div>
                   )}
                 </div>
-                <select
-                  className="select"
+                <Select
+                  aria-label="New rule data tier"
                   style={{ height: 40, fontSize: 12 }}
                   value={newTier}
-                  onChange={(e) => setNewTier(e.target.value as TierRule["tier"])}
-                >
-                  <option value="normal">Normal</option>
-                  <option value="amber">Amber</option>
-                  <option value="red">Red</option>
-                </select>
+                  onValueChange={(value) => setNewTier(value as TierRule["tier"])}
+                  options={[
+                    { value: "normal", label: "Normal" },
+                    { value: "amber", label: "Amber" },
+                    { value: "red", label: "Red" },
+                  ]}
+                />
                 <Button variant="ghost" size="sm" className="h-10" onClick={() => addRule(newPattern, newTier)}>
                   <Plus className="size-3.5" /> Add
                 </Button>

@@ -13,6 +13,7 @@ import {
   type TeamInvite,
   type TeamMember,
 } from "@/lib/api";
+import { Select } from "@/components/ui/select";
 
 type Tab = "members" | "departments" | "invites";
 const ROLES = ["admin", "manager", "member"] as const;
@@ -148,29 +149,25 @@ export default function TeamPage() {
                   <div className="meta">{m.email}</div>
                 </td>
                 <td>
-                  <select
-                    className="select"
+                  <Select
+                    aria-label={`Role for ${m.display_name}`}
                     style={{ height: 30 }}
                     value={m.role}
-                    onChange={(e) => changeMember(m, { role: e.target.value })}
-                  >
-                    {ROLES.map((r) => (
-                      <option key={r} value={r}>{r}</option>
-                    ))}
-                  </select>
+                    onValueChange={(value) => changeMember(m, { role: value })}
+                    options={ROLES.map((value) => ({ value, label: value }))}
+                  />
                 </td>
                 <td>
-                  <select
-                    className="select"
+                  <Select
+                    aria-label={`Department for ${m.display_name}`}
                     style={{ height: 30 }}
-                    value={m.department_id ?? ""}
-                    onChange={(e) => changeMember(m, { department_id: e.target.value || null })}
-                  >
-                    <option value="">— Unassigned —</option>
-                    {departments.map((d) => (
-                      <option key={d.id} value={d.id}>{d.name}</option>
-                    ))}
-                  </select>
+                    value={m.department_id ?? "unassigned"}
+                    onValueChange={(value) => changeMember(m, { department_id: value === "unassigned" ? null : value })}
+                    options={[
+                      { value: "unassigned", label: "— Unassigned —" },
+                      ...departments.map((department) => ({ value: department.id, label: department.name })),
+                    ]}
+                  />
                 </td>
                 <td>
                   {m.role === "admin" ? (
@@ -178,16 +175,13 @@ export default function TeamPage() {
                       All (admin)
                     </span>
                   ) : (
-                    <select
-                      className="select"
+                    <Select
+                      aria-label={`Data access for ${m.display_name}`}
                       style={{ height: 30 }}
                       value={m.data_tier}
-                      onChange={(e) => changeMember(m, { data_tier: e.target.value })}
-                    >
-                      {TIERS.map((t) => (
-                        <option key={t} value={t}>{TIER_LABEL[t]}</option>
-                      ))}
-                    </select>
+                      onValueChange={(value) => changeMember(m, { data_tier: value })}
+                      options={TIERS.map((value) => ({ value, label: TIER_LABEL[value] }))}
+                    />
                   )}
                 </td>
               </tr>
@@ -254,28 +248,35 @@ export default function TeamPage() {
             </div>
             <div>
               <label className="meta" style={{ display: "block", marginBottom: 4 }}>Role</label>
-              <select className="select" value={inviteRole} onChange={(e) => setInviteRole(e.target.value)}>
-                {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
-              </select>
+              <Select
+                aria-label="Invite role"
+                value={inviteRole}
+                onValueChange={setInviteRole}
+                options={ROLES.map((value) => ({ value, label: value }))}
+              />
             </div>
             <div>
               <label className="meta" style={{ display: "block", marginBottom: 4 }}>Data access</label>
-              <select
-                className="select"
+              <Select
+                aria-label="Invite data access"
                 value={inviteRole === "admin" ? "red" : inviteTier}
                 disabled={inviteRole === "admin"}
-                onChange={(e) => setInviteTier(e.target.value)}
+                onValueChange={setInviteTier}
                 title={inviteRole === "admin" ? "Admins see all data tiers" : "Highest data tier this member can see"}
-              >
-                {TIERS.map((t) => <option key={t} value={t}>{TIER_LABEL[t]}</option>)}
-              </select>
+                options={TIERS.map((value) => ({ value, label: TIER_LABEL[value] }))}
+              />
             </div>
             <div>
               <label className="meta" style={{ display: "block", marginBottom: 4 }}>Department</label>
-              <select className="select" value={inviteDept} onChange={(e) => setInviteDept(e.target.value)}>
-                <option value="">— None —</option>
-                {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-              </select>
+              <Select
+                aria-label="Invite department"
+                value={inviteDept || "none"}
+                onValueChange={(value) => setInviteDept(value === "none" ? "" : value)}
+                options={[
+                  { value: "none", label: "— None —" },
+                  ...departments.map((department) => ({ value: department.id, label: department.name })),
+                ]}
+              />
             </div>
             <button type="submit" className="btn btn-primary" disabled={inviting}>
               {inviting ? "Inviting…" : "Send invite"}

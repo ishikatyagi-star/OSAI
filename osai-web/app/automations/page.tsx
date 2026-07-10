@@ -28,6 +28,7 @@ import { DEMO_WORKFLOW_RUNS } from "@/lib/demo-data";
 import { isDemo } from "@/lib/demo";
 import { getConnectorIcon } from "@/lib/connector-meta";
 import type { ActionItem, WorkflowRun } from "@/lib/types";
+import { Select } from "@/components/ui/select";
 
 const CADENCES = ["manual", "hourly", "daily", "weekly"] as const;
 
@@ -354,16 +355,15 @@ export default function AutomationsPage() {
                 onChange={(e) => setName(e.target.value)}
                 style={{ flex: 1, minWidth: 240 }}
               />
-              <select
-                className="select"
+              <Select
                 aria-label="Automation cadence"
                 value={cadence}
-                onChange={(e) => setCadence(e.target.value)}
-              >
-                {CADENCES.map((c) => (
-                  <option key={c} value={c}>{c === "manual" ? "On demand" : c}</option>
-                ))}
-              </select>
+                onValueChange={setCadence}
+                options={CADENCES.map((value) => ({
+                  value,
+                  label: value === "manual" ? "On demand" : value,
+                }))}
+              />
             </div>
             <textarea
               className="search-input"
@@ -473,13 +473,18 @@ export default function AutomationsPage() {
                 <label className="text-micro font-semibold" style={{ color: "var(--text-secondary)" }}>
                   Push items to:
                 </label>
-                <select value={destination} onChange={(e) => setDestination(e.target.value)} className="select">
-                  <option value="manual">Manual Review</option>
-                  <option value="notion">Notion</option>
-                  <option value="freshdesk">Freshdesk</option>
-                  <option value="slack">Slack</option>
-                  <option value="google_drive">Google Drive</option>
-                </select>
+                <Select
+                  aria-label="Action item destination"
+                  value={destination}
+                  onValueChange={setDestination}
+                  options={[
+                    { value: "manual", label: "Manual Review" },
+                    { value: "notion", label: "Notion" },
+                    { value: "freshdesk", label: "Freshdesk" },
+                    { value: "slack", label: "Slack" },
+                    { value: "google_drive", label: "Google Drive" },
+                  ]}
+                />
                 <button type="submit" className="btn btn-primary" disabled={extracting || !inputText.trim()}>
                   {extracting ? "Running…" : "Extract action items"}
                 </button>
