@@ -20,7 +20,7 @@ def _stub_retrieval(monkeypatch):
 
     monkeypatch.setattr(orch, "retrieve_answer", _fake_retrieve)
 
-    async def _no_actions(_request, _answer):
+    async def _no_actions(_request, _answer, user_id=None):
         return []
 
     monkeypatch.setattr(orch, "_plan_actions", _no_actions)
@@ -30,7 +30,9 @@ async def test_ask_uses_hermes_when_it_answers(monkeypatch):
     _stub_retrieval(monkeypatch)
     monkeypatch.setattr(orch, "hermes_enabled", lambda: True)
 
-    async def _fake_hermes(prompt, org_id, *, user_id=None, permissions=None):
+    async def _fake_hermes(
+        prompt, org_id, *, user_id=None, permissions=None, history=None, extra_context=""
+    ):
         return "hermes answer"
 
     monkeypatch.setattr(orch, "run_via_hermes", _fake_hermes)
@@ -47,7 +49,9 @@ async def test_ask_falls_back_to_inhouse_when_hermes_fails(monkeypatch):
     _stub_retrieval(monkeypatch)
     monkeypatch.setattr(orch, "hermes_enabled", lambda: True)
 
-    async def _fake_hermes(prompt, org_id, *, user_id=None, permissions=None):
+    async def _fake_hermes(
+        prompt, org_id, *, user_id=None, permissions=None, history=None, extra_context=""
+    ):
         return None  # sidecar down / errored
 
     monkeypatch.setattr(orch, "run_via_hermes", _fake_hermes)

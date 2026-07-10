@@ -62,6 +62,8 @@ async def run_via_hermes(
     *,
     user_id: str | None = None,
     permissions: list[str] | None = None,
+    history: list | None = None,
+    extra_context: str = "",
     timeout: float = 120.0,
 ) -> str | None:
     """Run a prompt through the *per-user* Hermes sidecar. Carries org_id +
@@ -73,14 +75,31 @@ async def run_via_hermes(
         return None
     url = settings.hermes_sidecar_url.rstrip("/") + "/run"
 
+    # Hermes has no system prompt of its own: without the environment preamble
+    # it answers as a standalone CLI agent (cron jobs, no connector access).
+    from agent.context import environment_preamble
+
+    parts = [await environment_preamble(org_id)]
+    if extra_context:
+        parts.append(extra_context)
+
     # Ground Hermes in the user's permitted org context (enforced here in OSAI).
     context = await _permitted_context(prompt, org_id, permissions or [])
-    augmented = (
-        f"Context from your organization (only what you are permitted to see):\n"
-        f"{context}\n\nTask: {prompt}"
-        if context
-        else prompt
-    )
+    if context:
+        parts.append(
+            "Context from your organization (only what you are permitted to see):\n"
+            f"{context}"
+        )
+    # Recent conversation, so clarifying answers accumulate across turns.
+    if history:
+        turns = [
+            f"{'User' if getattr(m, 'role', '') == 'user' else 'Assistant'}: "
+            f"{getattr(m, 'content', '')}"
+            for m in history[-10:]
+        ]
+        parts.append("Conversation so far:\n" + "\n".join(turns))
+    parts.append(f"Task: {prompt}")
+    augmented = "\n\n".join(p for p in parts if p)
     payload = {
         "prompt": augmented,
         "org_id": org_id,

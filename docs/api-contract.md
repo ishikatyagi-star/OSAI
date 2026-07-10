@@ -299,8 +299,30 @@ Powers the eval/debug dashboard. Backed by `evals/run_evals.py`.
 
 ---
 
+## Automations (NL scheduled tasks)
+
+- `GET /automations` — list for the caller's org.
+- `POST /automations` — `{name, prompt, cadence, status?}`; cadence one of
+  `manual|hourly|daily|weekly`, status one of `draft|active|paused` (default `active`).
+- `PATCH /automations/{id}` — partial update: any of `name`, `prompt`, `cadence`,
+  `enabled`, `status`. 400 on invalid cadence/status, 404 if not in the caller's org.
+- `DELETE /automations/{id}`.
+- `POST /automations/{id}/run` — run now. The prompt is executed with injected
+  run context: connected data sources, connectors added since last run, and
+  documents ingested since `last_run_at`. Returns `{id, result, via, citations}`.
+
+Serialized shape adds `status` (legacy `enabled=false` reads as `paused`) and
+`updated_at`. The agent can also create/update automations conversationally via
+`/ask` — it proposes a `create_automation` / `update_automation` action which the
+user confirms through `/ask/actions/{id}/confirm`.
+
+---
+
 ## Changelog
 
+- **2026-07-10** — Automations: added `PATCH /automations/{id}`, `status` +
+  `updated_at` fields, run-context injection, and conversational create/update
+  via `/ask` proposed actions.
 - **2026-06-11** — Initial contract. Documented all implemented endpoints; added
   frontend-drafted proposals for `/ask`, `/ask/actions/{id}/confirm`, `/graph/*`, and
   `/evals` to unblock Phase 1/4/6 UI work. Backend lane to ratify the proposed shapes.

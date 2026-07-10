@@ -210,9 +210,14 @@ class Automation(Base):
     prompt: Mapped[str] = mapped_column(Text)
     cadence: Mapped[str] = mapped_column(String, default="manual")  # manual|hourly|daily|weekly
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    # draft = agent still clarifying; active = runs on cadence; paused = kept, not scheduled.
+    status: Mapped[str] = mapped_column(String, default="active")
     last_run_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     last_result: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Connector snapshot at last run, so the next run can report newly added sources.
+    last_connectors: Mapped[list | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc, onupdate=now_utc)
 
 
 class AuditEvent(Base):

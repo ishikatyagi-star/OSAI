@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import {
   ArrowRight,
   Bot,
@@ -9,8 +10,10 @@ import {
   ChevronUp,
   ListChecks,
   Loader2,
+  Pencil,
   Play,
   Plus,
+  Sparkles,
   Trash2,
   User,
 } from "lucide-react";
@@ -22,6 +25,7 @@ import {
   getWorkflowRuns,
   postWorkflow,
   runAutomation,
+  updateAutomation,
   type Automation,
 } from "@/lib/api";
 import { DEMO_WORKFLOW_RUNS } from "@/lib/demo-data";
@@ -29,18 +33,10 @@ import { isDemo } from "@/lib/demo";
 import { getConnectorIcon } from "@/lib/connector-meta";
 import type { ActionItem, WorkflowRun } from "@/lib/types";
 import { Select } from "@/components/ui/select";
+import { timeAgo } from "@/lib/utils";
 
 const CADENCES = ["manual", "hourly", "daily", "weekly"] as const;
 
-function timeAgo(iso: string | null) {
-  if (!iso) return "never";
-  const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-  if (m < 1) return "just now";
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
-}
 
 const TIER_COLORS: Record<string, string> = {
   normal: "var(--text-muted)",
@@ -171,6 +167,96 @@ function RunCard({
   );
 }
 
+// ─── Edit automation (PATCH) ─────────────────────────────────────────────────
+
+function EditAutomationForm({
+  automation,
+  onSaved,
+  onCancel,
+}: {
+  automation: Automation;
+  onSaved: () => void;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState(automation.name);
+  const [prompt, setPrompt] = useState(automation.prompt);
+  const [cadence, setCadence] = useState<string>(automation.cadence);
+  const [status, setStatus] = useState<string>(automation.status ?? "active");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim() || !prompt.trim()) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await updateAutomation(automation.id, {
+        name: name.trim(),
+        prompt: prompt.trim(),
+        cadence: cadence as Automation["cadence"],
+        status: status as Automation["status"],
+      });
+      onSaved();
+    } catch {
+      setError("Couldn't save changes. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form onSubmit={handleSave} style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+        <input
+          className="search-input"
+          aria-label="Automation name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          style={{ flex: 1, minWidth: 200 }}
+        />
+        <Select
+          aria-label="Automation cadence"
+          value={cadence}
+          onValueChange={setCadence}
+          options={CADENCES.map((value) => ({
+            value,
+            label: value === "manual" ? "On demand" : value,
+          }))}
+        />
+        <Select
+          aria-label="Automation status"
+          value={status}
+          onValueChange={setStatus}
+          options={[
+            { value: "active", label: "active" },
+            { value: "paused", label: "paused" },
+            { value: "draft", label: "draft" },
+          ]}
+        />
+      </div>
+      <textarea
+        className="search-input"
+        aria-label="Automation task prompt"
+        value={prompt}
+        onChange={(e) => setPrompt(e.target.value)}
+        rows={3}
+        style={{ width: "100%", resize: "vertical", marginBottom: 10 }}
+      />
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <button type="submit" className="btn btn-primary" style={{ fontSize: 12 }} disabled={saving || !name.trim() || !prompt.trim()}>
+          {saving ? <Loader2 className="size-3.5 animate-spin" /> : null}
+          Save changes
+        </button>
+        <button type="button" className="btn" style={{ fontSize: 12 }} onClick={onCancel}>
+          Cancel
+        </button>
+        {error && <span className="meta" style={{ color: "var(--red)" }}>{error}</span>}
+      </div>
+    </form>
+  );
+}
+
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 type Mode = "task" | "transcript";
@@ -186,6 +272,7 @@ export default function AutomationsPage() {
   const [creating, setCreating] = useState(false);
   const [running, setRunning] = useState<string | null>(null);
   const [result, setResult] = useState<{ id: string; text: string } | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   // Transcript extraction
   const [runs, setRuns] = useState<WorkflowRun[]>([]);
@@ -344,7 +431,26 @@ export default function AutomationsPage() {
 
       {mode === "task" ? (
         <>
-          {/* Create automation */}
+          {/* Create conversationally: OSAI asks clarifying questions in chat and
+              creates the automation itself once the goal, sources and cadence are clear. */}
+          <div className="card" style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <Sparkles className="size-4" style={{ color: "var(--accent)", flexShrink: 0 }} />
+            <div style={{ flex: 1, minWidth: 220 }}>
+              <span style={{ fontWeight: 600, fontSize: 13 }}>Create with OSAI</span>
+              <p className="meta" style={{ fontSize: 12, margin: 0 }}>
+                Describe the job in chat — OSAI asks what it needs, then sets up the automation for you.
+              </p>
+            </div>
+            <Link
+              href={`/ask?q=${encodeURIComponent("Set up an automation: ")}`}
+              className="btn btn-primary"
+              style={{ fontSize: 12, padding: "6px 14px", flexShrink: 0 }}
+            >
+              Open chat →
+            </Link>
+          </div>
+
+          {/* Create automation (manual form) */}
           <form className="card" onSubmit={handleCreate} style={{ marginBottom: 24 }}>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
               <input
@@ -399,11 +505,16 @@ export default function AutomationsPage() {
                 <div key={a.id} className="card">
                   <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
                         <span style={{ fontWeight: 600, fontSize: 14 }}>{a.name}</span>
                         <span className="badge badge-grey" style={{ fontSize: 10 }}>
                           {a.cadence === "manual" ? "on demand" : a.cadence}
                         </span>
+                        {a.status && a.status !== "active" && (
+                          <span className={`badge ${a.status === "paused" ? "badge-yellow" : "badge-grey"}`} style={{ fontSize: 10 }}>
+                            {a.status}
+                          </span>
+                        )}
                         <span className="meta" style={{ fontSize: 11 }}>· last run {timeAgo(a.last_run_at)}</span>
                       </div>
                       <p className="meta" style={{ fontSize: 12, lineHeight: 1.5, margin: 0 }}>{a.prompt}</p>
@@ -419,6 +530,23 @@ export default function AutomationsPage() {
                         Run now
                       </button>
                       <button
+                        className="btn"
+                        style={{ fontSize: 12, padding: "6px 10px" }}
+                        onClick={() => setEditingId(editingId === a.id ? null : a.id)}
+                        aria-label="Edit automation"
+                      >
+                        <Pencil className="size-3.5" />
+                      </button>
+                      <Link
+                        href={`/ask?q=${encodeURIComponent(`Update automation ${a.id} ("${a.name}"): `)}`}
+                        className="btn"
+                        style={{ fontSize: 12, padding: "6px 10px" }}
+                        aria-label="Refine with OSAI"
+                        title="Refine with OSAI"
+                      >
+                        <Sparkles className="size-3.5" />
+                      </Link>
+                      <button
                         className="btn btn-danger"
                         style={{ fontSize: 12, padding: "6px 10px" }}
                         onClick={() => handleDelete(a.id)}
@@ -428,6 +556,17 @@ export default function AutomationsPage() {
                       </button>
                     </div>
                   </div>
+
+                  {editingId === a.id && (
+                    <EditAutomationForm
+                      automation={a}
+                      onSaved={() => {
+                        setEditingId(null);
+                        refresh();
+                      }}
+                      onCancel={() => setEditingId(null)}
+                    />
+                  )}
 
                   {(result?.id === a.id || a.last_result) && (
                     <div

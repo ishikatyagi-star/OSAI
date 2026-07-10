@@ -5,6 +5,7 @@ import { RotateCw } from "lucide-react";
 import { getDashboardMetrics, type DashboardMetrics } from "@/lib/api";
 import { isDemo } from "@/lib/demo";
 import { CONNECTOR_META } from "@/lib/connector-meta";
+import { timeAgo } from "@/lib/utils";
 
 const TIER_COLOR: Record<string, string> = {
   normal: "var(--green)",
@@ -25,15 +26,6 @@ const DEMO_METRICS: DashboardMetrics = {
   automations: 3,
 };
 
-function timeAgo(iso: string | null) {
-  if (!iso) return "never";
-  const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-  if (m < 1) return "just now";
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
-}
 
 function BarChart({ data, colorFor }: { data: Record<string, number>; colorFor: (k: string) => string }) {
   const entries = Object.entries(data).sort((a, b) => b[1] - a[1]);

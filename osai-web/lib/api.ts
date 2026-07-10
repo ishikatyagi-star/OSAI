@@ -528,8 +528,10 @@ export type Automation = {
   prompt: string;
   cadence: "manual" | "hourly" | "daily" | "weekly";
   enabled: boolean;
+  status: "draft" | "active" | "paused";
   last_run_at: string | null;
   last_result: string | null;
+  updated_at: string | null;
 };
 
 export function getAutomations() {
@@ -542,6 +544,13 @@ export function createAutomation(input: {
   cadence: string;
 }) {
   return apiPost<typeof input, Automation>("/automations", input);
+}
+
+export function updateAutomation(
+  id: string,
+  patch: Partial<Pick<Automation, "name" | "prompt" | "cadence" | "enabled" | "status">>
+) {
+  return apiPatch<typeof patch, Automation>(`/automations/${id}`, patch);
 }
 
 export function deleteAutomation(id: string) {
