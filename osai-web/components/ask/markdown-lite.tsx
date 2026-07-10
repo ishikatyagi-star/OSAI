@@ -2,7 +2,7 @@ import * as React from "react";
 
 /**
  * Minimal, safe markdown renderer for agent answers. Supports **bold**, line
- * breaks, and simple ordered/unordered lists. Avoids dangerouslySetInnerHTML —
+ * breaks, and simple ordered/unordered lists. Avoids dangerouslySetInnerHTML -
  * everything is rendered as React nodes.
  */
 

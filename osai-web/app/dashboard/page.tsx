@@ -100,14 +100,14 @@ export default function DashboardPage() {
       <div className="page-header">
         <div className="page-header-left">
           <h1>Dashboard</h1>
-          <p>{greeting} — here&apos;s what needs your attention today.</p>
+          <p>{greeting} - here&apos;s what needs your attention today.</p>
         </div>
         <Link href="/inbox" className="btn btn-primary">
           + Add Context
         </Link>
       </div>
 
-      {/* Spotlight banner — violet gradient atmosphere tile */}
+      {/* Spotlight banner - violet gradient atmosphere tile */}
       <div
         className="spotlight spotlight-violet"
         style={{
@@ -128,8 +128,8 @@ export default function DashboardPage() {
           </h2>
           <p className="text-body" style={{ marginTop: 10, maxWidth: 480 }}>
             {documentsIndexed > 0
-              ? `${documentsIndexed.toLocaleString()} sources indexed across every connector — ask anything, surface blockers, and keep decisions moving.`
-              : "Connect your tools to index your company context — then ask anything, surface blockers, and keep decisions moving."}
+              ? `${documentsIndexed.toLocaleString()} sources indexed across every connector - ask anything, surface blockers, and keep decisions moving.`
+              : "Connect your tools to index your company context - then ask anything, surface blockers, and keep decisions moving."}
           </p>
         </div>
         <Link
@@ -137,7 +137,7 @@ export default function DashboardPage() {
           className="btn btn-primary"
           style={{ flexShrink: 0 }}
         >
-          Ask OSAI →
+          Ask Sheldon AI →
         </Link>
       </div>
 

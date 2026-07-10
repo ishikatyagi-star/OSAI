@@ -75,7 +75,7 @@ export default function DecisionsPage() {
   const [pendingDelete, setPendingDelete] = useState<Decision | null>(null);
   const [decisionForm, setDecisionForm] = useState<DecisionForm | null>(null);
 
-  // /board redirects here with ?source=osai — honour it as the initial filter.
+  // /board redirects here with ?source=osai - honour it as the initial filter.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("source") === "osai") setSourceFilter("osai");
@@ -210,9 +210,9 @@ export default function DecisionsPage() {
         <div className="page-header-left">
           <h1>Decision Log</h1>
           <p>
-            Every key decision and action across your org — owned, dated, and tagged. Items OSAI
+            Every key decision and action across your org - owned, dated, and tagged. Items Sheldon AI
             inferred from context but that aren&apos;t tracked in your tools are marked{" "}
-            <span className="badge badge-purple" style={{ fontSize: 10 }}>OSAI found this</span>.
+            <span className="badge badge-purple" style={{ fontSize: 10 }}>Sheldon AI found this</span>.
           </p>
         </div>
         <button className="btn btn-primary" onClick={openAddDecision}>+ Add Decision</button>
@@ -236,7 +236,7 @@ export default function DecisionsPage() {
           className={`btn btn-sm${sourceFilter === "osai" ? " btn-primary" : ""}`}
           onClick={() => setSourceFilter((s) => (s === "osai" ? "all" : "osai"))}
         >
-          <Sparkles className="size-3.5" /> OSAI-identified{osaiCount > 0 ? ` (${osaiCount})` : ""}
+          <Sparkles className="size-3.5" /> Sheldon AI-identified{osaiCount > 0 ? ` (${osaiCount})` : ""}
         </button>
       </div>
 
@@ -301,7 +301,7 @@ export default function DecisionsPage() {
                 <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
                   {d.identifiedBy === "osai" && (
                     <span className="badge badge-purple" style={{ fontSize: 10 }}>
-                      <Sparkles className="size-3" /> OSAI found this
+                      <Sparkles className="size-3" /> Sheldon AI found this
                     </span>
                   )}
                   {d.tags.map((t) => (
@@ -342,7 +342,7 @@ export default function DecisionsPage() {
             <tr>
               <td colSpan={7} style={{ textAlign: "center", color: "var(--text-muted)", padding: "32px 16px" }}>
                 {decisions.length === 0
-                  ? "No decisions yet. OSAI logs decisions and surfaces uncaptured action items as it indexes your connected tools."
+                  ? "No decisions yet. Sheldon AI logs decisions and surfaces uncaptured action items as it indexes your connected tools."
                   : "No decisions match this filter."}
               </td>
             </tr>

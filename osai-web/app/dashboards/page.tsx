@@ -81,7 +81,7 @@ export default function DashboardsPage() {
     ? [
         { label: "Documents indexed", value: m.total_documents, color: "var(--teal)" },
         { label: "Connected tools", value: m.connectors_connected, color: "var(--green)" },
-        { label: "Sync success", value: successRate === null ? "—" : `${successRate}%`, color: "var(--text-primary)" },
+        { label: "Sync success", value: successRate === null ? "-" : `${successRate}%`, color: "var(--text-primary)" },
         { label: "Team members", value: m.members, color: "var(--text-primary)" },
         { label: "Departments", value: m.departments, color: "var(--text-primary)" },
         { label: "Automations", value: m.automations, color: "var(--text-primary)" },

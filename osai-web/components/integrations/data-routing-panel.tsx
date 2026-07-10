@@ -35,7 +35,7 @@ const TIER_META: Record<Tier, { color: string; icon: LucideIcon; title: string; 
     icon: AlertTriangle,
     title: "Amber",
     description:
-      "Sensitive business data. Restricted connector set — only Notion and Google Drive permitted. Cloud LLM processing disabled; search-only mode.",
+      "Sensitive business data. Restricted connector set - only Notion and Google Drive permitted. Cloud LLM processing disabled; search-only mode.",
     badge: "badge-amber",
   },
   red: {

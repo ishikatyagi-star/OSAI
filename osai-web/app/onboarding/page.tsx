@@ -126,7 +126,7 @@ export default function OnboardingPage() {
           </h1>
           <p className="onboarding-copy">
             Connect a source now, or skip and add it later from Integrations.
-            OSAI keeps every connection optional.
+            Sheldon AI keeps every connection optional.
           </p>
 
           <div className="onboarding-progress" aria-label="Connector setup progress">
@@ -231,7 +231,7 @@ export default function OnboardingPage() {
                 <p className="onboarding-step-count">Workspace details</p>
                 <h2 className="onboarding-title">Name your workspace</h2>
                 <p className="onboarding-description">
-                  This creates your isolated workspace in OSAI.
+                  This creates your isolated workspace in Sheldon AI.
                 </p>
               </div>
               <div className="space-y-3">
@@ -255,12 +255,12 @@ export default function OnboardingPage() {
                 <h2 className="onboarding-title">You're all set</h2>
                 <p className="onboarding-description">
                   {connected.size > 0
-                    ? `Connected ${connected.size} source${connected.size > 1 ? "s" : ""}. OSAI is indexing your context now. Ask it anything.`
-                    : "You can connect your tools anytime from Integrations. Ask OSAI is ready when you are."}
+                    ? `Connected ${connected.size} source${connected.size > 1 ? "s" : ""}. Sheldon AI is indexing your context now. Ask it anything.`
+                    : "You can connect your tools anytime from Integrations. Ask Sheldon AI is ready when you are."}
                 </p>
               </div>
               <Button onClick={finish} className="w-full">
-                <Sparkles className="size-4" /> Ask OSAI your first question
+                <Sparkles className="size-4" /> Ask Sheldon AI your first question
               </Button>
             </div>
           )}

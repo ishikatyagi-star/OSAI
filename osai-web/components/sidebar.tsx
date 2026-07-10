@@ -20,6 +20,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { clearSession, deleteAccount } from "@/lib/api";
+import { brandText } from "@/lib/utils";
 
 type NavItem = {
   href: string;
@@ -33,7 +34,7 @@ type NavGroup = {
   items: NavItem[];
 };
 
-// Decluttered IA: Search folds into Ask OSAI, Team Board folds into Decision Log,
+// Decluttered IA: Search folds into Ask Sheldon AI, Team Board folds into Decision Log,
 // and Evals + Data Routing move into Settings / Integrations. One consistent icon
 // set (lucide, outline, uniform stroke) so no item reads heavier than the others.
 const NAV_GROUPS: NavGroup[] = [
@@ -41,7 +42,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Workspace",
     items: [
       { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-      { href: "/ask", icon: Sparkles, label: "Ask OSAI" },
+      { href: "/ask", icon: Sparkles, label: "Ask Sheldon AI" },
       { href: "/dashboards", icon: BarChart3, label: "Analytics" },
     ],
   },
@@ -71,8 +72,8 @@ export default function Sidebar() {
   const [orgName, setOrgName] = useState("");
   const [deleting, setDeleting] = useState(false);
   useEffect(() => {
-    setUserName(localStorage.getItem("osai_user_name") || "You");
-    setOrgName(localStorage.getItem("osai_org_name") || "Your workspace");
+    setUserName(brandText(localStorage.getItem("osai_user_name") || "You"));
+    setOrgName(brandText(localStorage.getItem("osai_org_name") || "Your workspace"));
   }, []);
   const initial = (userName || "U").trim().charAt(0).toUpperCase();
 
@@ -107,7 +108,7 @@ export default function Sidebar() {
       <Link href="/dashboard" className="sidebar-logo">
         <div className="sidebar-logo-mark">O</div>
         <div>
-          <span className="sidebar-logo-text">OSAI</span>
+          <span className="sidebar-logo-text">Sheldon AI</span>
           <span className="sidebar-logo-version"> v1</span>
         </div>
       </Link>

@@ -1,7 +1,7 @@
 import * as React from "react";
 import { CONNECTOR_META } from "@/lib/connector-meta";
 import type { SourceCitation } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import { brandText, cn } from "@/lib/utils";
 
 /**
  * Compact, clickable citation chip. If the citation has a URL it opens the
@@ -27,7 +27,7 @@ export function CitationChip({
         </span>
       )}
       <span className="max-w-[220px] truncate font-medium text-foreground">
-        {citation.source_record_title}
+        {brandText(citation.source_record_title)}
       </span>
       <span className="text-muted-foreground tabular-nums">{pct}%</span>
     </>
@@ -45,7 +45,7 @@ export function CitationChip({
         target="_blank"
         rel="noopener noreferrer"
         className={className}
-        title={`${meta?.label ?? citation.source_tool} — open source`}
+        title={`${meta?.label ?? citation.source_tool} - open source`}
       >
         {inner}
       </a>

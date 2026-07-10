@@ -106,7 +106,7 @@ export type ApproveResult = {
 };
 
 
-// ─── Ask OSAI agent (Phase 1 — POST /ask) ───────────────────────────────────
+// ─── Ask Sheldon AI agent (Phase 1 - POST /ask) ───────────────────────────────────
 
 export type ChatRole = "user" | "assistant";
 
@@ -157,7 +157,7 @@ export type ConfirmActionResult = {
   error: string | null;
 };
 
-// ─── Org knowledge graph (Phase 4 — GET /graph/*) ────────────────────────────
+// ─── Org knowledge graph (Phase 4 - GET /graph/*) ────────────────────────────
 
 export type GraphEntityType =
   | "person"
@@ -195,7 +195,7 @@ export type GraphEdge = {
   source_tool: string | null;
 };
 
-// ─── Evals (Phase 6 — GET /evals) ────────────────────────────────────────────
+// ─── Evals (Phase 6 - GET /evals) ────────────────────────────────────────────
 
 export type EvalCategory = "ticket_triage" | "ownership" | "routing" | "qa";
 

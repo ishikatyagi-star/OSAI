@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/tooltip";
 import { getDashboardMetrics } from "@/lib/api";
 import { isDemo } from "@/lib/demo";
+import { brandText } from "@/lib/utils";
 
 // Pages that render without the sidebar/topbar shell
 const SHELL_EXCLUDED = ["/login", "/demo"];
@@ -24,7 +25,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
   // permanent "LIVE" even when nothing is connected.
   const [connected, setConnected] = useState<boolean | null>(null);
   useEffect(() => {
-    setWorkspace(localStorage.getItem("osai_org_name") || "Your workspace");
+    setWorkspace(brandText(localStorage.getItem("osai_org_name") || "Your workspace"));
     if (isDemo()) {
       setConnected(true);
       return;
@@ -85,7 +86,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
                 </TooltipTrigger>
                 <TooltipContent>
                   {connected === false
-                    ? "No connectors are connected yet — click to add a source."
+                    ? "No connectors are connected yet - click to add a source."
                     : "Your workspace is syncing data from connected tools."}
                 </TooltipContent>
               </Tooltip>

@@ -65,7 +65,7 @@ const COMPOSER_MODES: {
     id: "action",
     label: "Take action",
     icon: Zap,
-    placeholder: "Tell OSAI to open a ticket, assign an owner, or post a status update...",
+    placeholder: "Tell Sheldon AI to open a ticket, assign an owner, or post a status update...",
   },
 ];
 
@@ -174,7 +174,7 @@ export default function AskPage() {
               id: uid("a"),
               role: "assistant",
               content:
-                "I couldn't reach the OSAI backend just now. Check your connection and try again.",
+                "I couldn't reach the Sheldon AI backend just now. Check your connection and try again.",
             },
           ]);
         }
@@ -185,7 +185,7 @@ export default function AskPage() {
     [pending, turns, conversationId]
   );
 
-  // Deep links (e.g. the Automations page's "Create with OSAI") seed the
+  // Deep links (e.g. the Automations page's "Create with Sheldon AI") seed the
   // composer via ?q=…; prefill only, so the user can review before sending.
   useEffect(() => {
     const q = new URLSearchParams(window.location.search).get("q");
@@ -286,9 +286,9 @@ export default function AskPage() {
       {/* Header */}
       <div className="page-header shrink-0">
         <div className="page-header-left">
-          <h1>Ask OSAI</h1>
+          <h1>Ask Sheldon AI</h1>
           <p>
-            Ask anything about your org and get a cited answer, or have OSAI open
+            Ask anything about your org and get a cited answer, or have Sheldon AI open
             tickets, chase follow-ups, pull status, and check ownership.
           </p>
         </div>
@@ -327,7 +327,7 @@ export default function AskPage() {
                       onKeyDown={handleKeyDown}
                       rows={1}
                       placeholder="Ask anything about your org..."
-                      aria-label="Ask OSAI prompt"
+                      aria-label="Ask Sheldon AI prompt"
                       className="max-h-44 min-h-[44px] flex-1 resize-none self-center border-0 bg-transparent px-1 py-1 text-base shadow-none outline-none focus-visible:ring-0 placeholder:text-[var(--text-muted)]"
                       autoFocus
                     />
@@ -416,7 +416,7 @@ export default function AskPage() {
 
               {/* Disclaimer */}
               <p className="ask-disclaimer">
-                OSAI can make mistakes. Actions that change your tools always
+                Sheldon AI can make mistakes. Actions that change your tools always
                 require approval.
               </p>
             </div>
@@ -463,8 +463,8 @@ export default function AskPage() {
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
                   rows={1}
-                  placeholder="Ask a follow-up, or tell OSAI to take an action..."
-                  aria-label="Ask OSAI follow-up prompt"
+                  placeholder="Ask a follow-up, or tell Sheldon AI to take an action..."
+                  aria-label="Ask Sheldon AI follow-up prompt"
                   className="max-h-40 min-h-[40px] flex-1 resize-none self-center border-0 bg-transparent px-1 py-1.5 text-sm shadow-none outline-none focus-visible:ring-0 placeholder:text-[var(--text-muted)]"
                   autoFocus
                 />
@@ -484,7 +484,7 @@ export default function AskPage() {
                 </Button>
               </div>
               <p className="ask-disclaimer mt-2 text-center">
-                OSAI can make mistakes. Actions that change your tools always
+                Sheldon AI can make mistakes. Actions that change your tools always
                 require approval.
               </p>
             </div>

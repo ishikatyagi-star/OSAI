@@ -56,7 +56,7 @@ export default function InboxPage() {
       <div className="page-header">
         <div className="page-header-left">
           <h1>Context Inbox</h1>
-          <p>Synced context items from all connected sources — tag, review, or escalate.</p>
+          <p>Synced context items from all connected sources - tag, review, or escalate.</p>
         </div>
         <div style={{ display: "flex", gap: 10 }}>
           <span className="badge badge-red" style={{ alignSelf: "center" }}>{inboxCount} unreviewed</span>
@@ -64,7 +64,7 @@ export default function InboxPage() {
         </div>
       </div>
 
-      {/* Filters — grouped and labelled so the active selection is unambiguous */}
+      {/* Filters - grouped and labelled so the active selection is unambiguous */}
       <div className="filter-bar">
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <span className="filter-group-label">Type</span>

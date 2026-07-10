@@ -1,4 +1,4 @@
-// Demo-mode gate. By default OSAI shows real synced data (or empty states); the
+// Demo-mode gate. By default Sheldon AI shows real synced data (or empty states); the
 // bundled DEMO_* fixtures are only used when demo mode is explicitly on. This
 // keeps a customer's workspace free of sample content once they connect tools.
 //

@@ -7,7 +7,7 @@ export type LayoutResult = Record<string, NodePosition>;
  * Lightweight, dependency-free force-directed layout (Fruchterman-Reingold
  * style). Deterministic for a given input (seeded initial placement) so the
  * graph doesn't jump around between renders. Runs a fixed number of iterations
- * synchronously — fine for the small org graphs we render.
+ * synchronously - fine for the small org graphs we render.
  */
 export function computeLayout(
   entities: GraphEntity[],

@@ -15,12 +15,13 @@ import {
 } from "@/lib/api";
 import { isDemo } from "@/lib/demo";
 import { Select } from "@/components/ui/select";
+import { brandText } from "@/lib/utils";
 
 function writeErrorMessage(err: unknown): string {
-  if (isDemo()) return "Team changes aren't available in the shared demo workspace — sign in with Google to manage a real team.";
+  if (isDemo()) return "Team changes aren't available in the shared demo workspace - sign in with Google to manage a real team.";
   if (err instanceof Error && err.message.includes("(401)"))
     return "Your session doesn't allow this change. Try signing in again.";
-  return "Couldn't save this change — please try again.";
+  return "Couldn't save this change - please try again.";
 }
 
 type Tab = "members" | "departments" | "invites";
@@ -70,7 +71,7 @@ export default function TeamPage() {
   const [deptName, setDeptName] = useState("");
 
   // Inline write-failure message. Writes are admin-gated on the backend, so
-  // they 401 in the demo workspace — that must never eject the session.
+  // they 401 in the demo workspace - that must never eject the session.
   const [writeError, setWriteError] = useState("");
 
   async function handleInvite(e: React.FormEvent) {
@@ -179,13 +180,13 @@ export default function TeamPage() {
               <tr key={m.id}>
                 <td>
                   <div className="text-caption" style={{ color: "var(--text-primary)", fontWeight: 600 }}>
-                    {m.display_name}
+                    {brandText(m.display_name)}
                   </div>
                   <div className="meta">{m.email}</div>
                 </td>
                 <td>
                   <Select
-                    aria-label={`Role for ${m.display_name}`}
+                    aria-label={`Role for ${brandText(m.display_name)}`}
                     style={{ height: 30 }}
                     value={m.role}
                     onValueChange={(value) => changeMember(m, { role: value })}
@@ -194,12 +195,12 @@ export default function TeamPage() {
                 </td>
                 <td>
                   <Select
-                    aria-label={`Department for ${m.display_name}`}
+                    aria-label={`Department for ${brandText(m.display_name)}`}
                     style={{ height: 30 }}
                     value={m.department_id ?? "unassigned"}
                     onValueChange={(value) => changeMember(m, { department_id: value === "unassigned" ? null : value })}
                     options={[
-                      { value: "unassigned", label: "— Unassigned —" },
+                      { value: "unassigned", label: "- Unassigned -" },
                       ...departments.map((department) => ({ value: department.id, label: department.name })),
                     ]}
                   />
@@ -211,7 +212,7 @@ export default function TeamPage() {
                     </span>
                   ) : (
                     <Select
-                      aria-label={`Data access for ${m.display_name}`}
+                      aria-label={`Data access for ${brandText(m.display_name)}`}
                       style={{ height: 30 }}
                       value={m.data_tier}
                       onValueChange={(value) => changeMember(m, { data_tier: value })}
@@ -251,7 +252,7 @@ export default function TeamPage() {
               <div key={d.id} className="card" style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <span style={{ width: 10, height: 10, borderRadius: "50%", background: d.color }} />
                 <div style={{ flex: 1 }}>
-                  <div className="font-semibold">{d.name}</div>
+                  <div className="font-semibold">{brandText(d.name)}</div>
                   <div className="meta">
                     {d.members} member{d.members === 1 ? "" : "s"}
                   </div>
@@ -308,7 +309,7 @@ export default function TeamPage() {
                 value={inviteDept || "none"}
                 onValueChange={(value) => setInviteDept(value === "none" ? "" : value)}
                 options={[
-                  { value: "none", label: "— None —" },
+                  { value: "none", label: "- None -" },
                   ...departments.map((department) => ({ value: department.id, label: department.name })),
                 ]}
               />

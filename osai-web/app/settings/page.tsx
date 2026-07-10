@@ -33,7 +33,7 @@ const LINKS: SettingsLink[] = [
     icon: FlaskConical,
     title: "Advanced · Evals",
     description:
-      "Quality and regression tracking for OSAI's answers and routing. Moved out of the main nav to keep things simple.",
+      "Quality and regression tracking for Sheldon AI's answers and routing. Moved out of the main nav to keep things simple.",
   },
 ];
 
@@ -53,7 +53,7 @@ export default function SettingsPage() {
       setResetMsg(`Cleared ${total} records. Re-sync your connectors to pull real data.`);
       setDialogOpen(false);
     } catch {
-      setResetMsg("Couldn't reset — please try again.");
+      setResetMsg("Couldn't reset - please try again.");
     } finally {
       setResetting(false);
     }
@@ -104,7 +104,7 @@ export default function SettingsPage() {
         <div style={{ flex: 1, height: 1, background: "color-mix(in srgb, var(--red) 40%, var(--border))" }} />
       </div>
 
-      {/* Danger zone — clear seeded/ingested content */}
+      {/* Danger zone - clear seeded/ingested content */}
       <div
         className="card"
         style={{ borderColor: "color-mix(in srgb, var(--red) 35%, var(--border))" }}
@@ -120,7 +120,7 @@ export default function SettingsPage() {
             <h2 style={{ margin: 0 }}>Reset workspace data</h2>
             <p className="meta" style={{ margin: "4px 0 12px", lineHeight: 1.5 }}>
               Delete all indexed documents, decisions, workflows and sample data. Your connected
-              tools stay connected — just click &quot;Sync now&quot; afterwards to pull your real data back in.
+              tools stay connected - just click &quot;Sync now&quot; afterwards to pull your real data back in.
             </p>
             {resetMsg && (
               <p className="success-text" style={{ marginBottom: 10 }}>{resetMsg}</p>

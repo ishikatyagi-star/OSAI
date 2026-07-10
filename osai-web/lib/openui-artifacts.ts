@@ -13,7 +13,7 @@ import type {
 export const OSAI_OPENUI_PROMPT = openuiLibrary.prompt({
   ...openuiPromptOptions,
   preamble: [
-    "You generate compact, trustworthy OSAI workspace artifacts.",
+    "You generate compact, trustworthy Sheldon AI workspace artifacts.",
     "Every artifact must preserve citations, confidence, and action approval state.",
     openuiPromptOptions.preamble,
   ]
@@ -74,7 +74,7 @@ export function buildOpenUiArtifacts(response: AskResponse): AskUiArtifact[] {
       kind: "answer_summary",
       title: "OpenUI answer workspace",
       subtitle:
-        "Structured from the Ask OSAI response without changing the approval flow.",
+        "Structured from the Ask Sheldon AI response without changing the approval flow.",
       metrics,
     },
   ];
@@ -84,7 +84,7 @@ export function buildOpenUiArtifacts(response: AskResponse): AskUiArtifact[] {
       id: "openui-source-table",
       kind: "source_table",
       title: "Source evidence",
-      subtitle: "Citations returned by the OSAI retrieval layer.",
+      subtitle: "Citations returned by the Sheldon AI retrieval layer.",
       rows: response.citations.map((citation) => ({
         label: citation.source_record_title,
         value: citation.source_tool,
@@ -119,7 +119,7 @@ export function buildOpenUiArtifacts(response: AskResponse): AskUiArtifact[] {
       kind: "context_gap",
       title: "Context gap",
       subtitle:
-        "OSAI did not have enough indexed evidence. Sync relevant connectors before relying on this answer.",
+        "Sheldon AI did not have enough indexed evidence. Sync relevant connectors before relying on this answer.",
     });
   }
 

@@ -11,7 +11,7 @@ import { ConnectorManager } from "@/components/integrations/connector-manager";
 import { DataRoutingPanel } from "@/components/integrations/data-routing-panel";
 import { StatusDot } from "@/components/ui/status-dot";
 import { TabsPill, TabsPillList, TabsPillTrigger, TabsPillContent } from "@/components/ui/tabs-pill";
-import { timeAgo } from "@/lib/utils";
+import { brandText, timeAgo } from "@/lib/utils";
 
 type Tab = "connectors" | "routing";
 
@@ -25,7 +25,7 @@ export default function IntegrationsPage() {
   const [managedKey, setManagedKey] = useState<string | null>(null);
   const [justConnected, setJustConnected] = useState(false);
   // Real per-connector indexed-doc counts so the cards match Analytics/Sync Runs
-  // instead of always showing "—" for signed-in users.
+  // instead of always showing "-" for signed-in users.
   const [docsByConnector, setDocsByConnector] = useState<Record<string, number>>({});
 
   function loadIntegrations() {
@@ -71,17 +71,17 @@ export default function IntegrationsPage() {
       // Composio syncs now run in the background and return "started"; the docs
       // land shortly and show up in Sync Runs, so don't claim a count yet.
       // A 200 response can still carry a failed persisted run (e.g. missing
-      // credentials) — report that honestly, never as "Sync complete".
+      // credentials) - report that honestly, never as "Sync complete".
       setSyncMsg((m) => ({
         ...m,
         [key]:
           res.status === "failed"
-            ? `Sync failed — ${(res.error || "see Sync Runs for details.").split("\n")[0].slice(0, 140)}`
+            ? `Sync failed - ${(res.error || "see Sync Runs for details.").split("\n")[0].slice(0, 140)}`
             : res.status === "started"
-              ? "Sync started — files will appear in Sync Runs shortly."
+              ? "Sync started - files will appear in Sync Runs shortly."
               : indexed > 0
                 ? `Indexed ${indexed} file${indexed > 1 ? "s" : ""}`
-                : "Sync complete — no new documents.",
+                : "Sync complete - no new documents.",
       }));
       loadIntegrations();
     } catch {
@@ -89,7 +89,7 @@ export default function IntegrationsPage() {
         ...m,
         [key]: isDemo()
           ? "Sync triggered (demo mode)"
-          : "Sync failed — please try again.",
+          : "Sync failed - please try again.",
       }));
     } finally {
       setSyncing((s) => ({ ...s, [key]: false }));
@@ -105,11 +105,11 @@ export default function IntegrationsPage() {
         // Full-page navigation to Composio's OAuth consent screen.
         window.location.href = res.redirect_url;
       } else {
-        // No redirect URL means the backend couldn't start the handshake —
+        // No redirect URL means the backend couldn't start the handshake -
         // surface it plainly instead of silently doing nothing.
         setSyncMsg((m) => ({
           ...m,
-          [key]: res.error || "Couldn't start authorization — please try again.",
+          [key]: res.error || "Couldn't start authorization - please try again.",
         }));
       }
     } catch {
@@ -140,7 +140,7 @@ export default function IntegrationsPage() {
       );
       setSyncMsg((m) => ({ ...m, [key]: "Disconnected" }));
     } catch {
-      setSyncMsg((m) => ({ ...m, [key]: "Couldn't disconnect — try again" }));
+      setSyncMsg((m) => ({ ...m, [key]: "Couldn't disconnect - try again" }));
     }
   }
 
@@ -194,12 +194,12 @@ export default function IntegrationsPage() {
             >
               <span className="inline-flex items-start gap-1.5">
                 <Check className="mt-0.5 size-3.5 shrink-0" strokeWidth={2} />
-                <span>Connected. Your data is being indexed — click “Sync now” on the connector to pull it in.</span>
+                <span>Connected. Your data is being indexed - click “Sync now” on the connector to pull it in.</span>
               </span>
             </div>
           )}
 
-          {/* Summary — dashboard stat-card styling */}
+          {/* Summary - dashboard stat-card styling */}
           <div className="stats-grid stats-grid--auto">
             <div className="stat-card">
               <div className="stat-card-label">Connected</div>
@@ -261,7 +261,7 @@ export default function IntegrationsPage() {
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                        <h2 style={{ margin: 0 }}>{meta.label}</h2>
+                        <h2 style={{ margin: 0 }}>{brandText(meta.label)}</h2>
                         <StatusDot state={item.auth_state} />
                         <span
                           className={`badge badge-${item.auth_state === "connected" ? "green" : item.auth_state === "error" ? "red" : "grey"}`}
@@ -272,7 +272,7 @@ export default function IntegrationsPage() {
                       <p className="meta" style={{ margin: 0 }}>
                         {item.auth_state === "connected" && item.account_email
                           ? `Connected as ${item.account_email}`
-                          : meta.description}
+                          : brandText(meta.description)}
                       </p>
                     </div>
                   </div>
@@ -281,7 +281,7 @@ export default function IntegrationsPage() {
                   <div className="connector-stats-row">
                     <div className="connector-stat">
                       <span className="connector-stat-value">
-                        {docCount > 0 ? docCount.toLocaleString() : "—"}
+                        {docCount > 0 ? docCount.toLocaleString() : "-"}
                       </span>
                       <span className="connector-stat-label">Docs indexed</span>
                     </div>
@@ -291,7 +291,7 @@ export default function IntegrationsPage() {
                     </div>
                     <div className="connector-stat">
                       <span className="connector-stat-value">
-                        {item.last_sync ? timeAgo(item.last_sync) : "—"}
+                        {item.last_sync ? timeAgo(item.last_sync) : "-"}
                       </span>
                       <span className="connector-stat-label">Last sync</span>
                     </div>
@@ -309,7 +309,7 @@ export default function IntegrationsPage() {
                   {item.sync_error && (
                     <p className="error-text" style={{ marginBottom: 12, display: "inline-flex", alignItems: "flex-start", gap: 6 }}>
                       <AlertTriangle className="mt-0.5 size-3.5 shrink-0" strokeWidth={1.8} />
-                      <span>{item.sync_error}</span>
+                      <span>{brandText(item.sync_error)}</span>
                     </p>
                   )}
 
