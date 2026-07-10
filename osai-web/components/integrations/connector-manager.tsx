@@ -26,6 +26,7 @@ import {
 } from "@/lib/api";
 import { CONNECTOR_META } from "@/lib/connector-meta";
 import type { Integration, SyncRun } from "@/lib/types";
+import { timeAgo } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import {
   Dialog,
@@ -41,15 +42,9 @@ import { Select } from "@/components/ui/select";
 
 type Health = { healthy: boolean; message: string } | null;
 
-function relativeTime(iso: string) {
-  const diff = Date.now() - new Date(iso).getTime();
-  const m = Math.floor(diff / 60000);
-  if (m < 1) return "just now";
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
-}
+// Shared timeAgo treats the backend's offset-less UTC timestamps correctly
+// (a local copy here was the source of the "synced 5h ago" QA finding).
+const relativeTime = timeAgo;
 
 const RUN_TONE: Record<SyncRun["status"], string> = {
   succeeded: "text-success",
@@ -63,6 +58,7 @@ export function ConnectorManager({
   onOpenChange,
   recentRuns,
   syncing,
+  syncMessage = "",
   onSync,
   onToggleConnection,
 }: {
@@ -71,6 +67,7 @@ export function ConnectorManager({
   onOpenChange: (open: boolean) => void;
   recentRuns: SyncRun[];
   syncing: boolean;
+  syncMessage?: string;
   onSync: (key: string) => void;
   onToggleConnection: (key: string, connect: boolean) => void;
 }) {
@@ -526,11 +523,29 @@ export function ConnectorManager({
             </Button>
           )}
         </div>
+        {syncMessage && (
+          <p
+            className="-mt-2 text-[12px] inline-flex items-center gap-1.5"
+            role="status"
+            style={{
+              color: /failed/i.test(syncMessage) ? "var(--red)" : "var(--green)",
+            }}
+          >
+            {/failed/i.test(syncMessage) ? (
+              <XCircle className="size-3.5" />
+            ) : (
+              <CheckCircle2 className="size-3.5" />
+            )}
+            {syncMessage}
+          </p>
+        )}
         {!connected && (
           <p className="-mt-2 text-[11px] text-muted-foreground">
             Connect redirects you to {meta?.label ?? "the provider"} to authorize
-            access. OSAI only requests read-only access to index and search your
-            content — it never modifies it.
+            access. OSAI indexes and searches your content; it never edits or
+            deletes existing items.
+            {integration.capabilities?.includes("execute") &&
+              " This connector can also create new items (tickets, messages, pages) — only when you approve a proposed action."}
           </p>
         )}
       </DialogContent>

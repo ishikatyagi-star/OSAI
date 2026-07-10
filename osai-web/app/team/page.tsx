@@ -13,7 +13,15 @@ import {
   type TeamInvite,
   type TeamMember,
 } from "@/lib/api";
+import { isDemo } from "@/lib/demo";
 import { Select } from "@/components/ui/select";
+
+function writeErrorMessage(err: unknown): string {
+  if (isDemo()) return "Team changes aren't available in the shared demo workspace — sign in with Google to manage a real team.";
+  if (err instanceof Error && err.message.includes("(401)"))
+    return "Your session doesn't allow this change. Try signing in again.";
+  return "Couldn't save this change — please try again.";
+}
 
 type Tab = "members" | "departments" | "invites";
 const ROLES = ["admin", "manager", "member"] as const;
@@ -61,16 +69,23 @@ export default function TeamPage() {
   // Department form
   const [deptName, setDeptName] = useState("");
 
+  // Inline write-failure message. Writes are admin-gated on the backend, so
+  // they 401 in the demo workspace — that must never eject the session.
+  const [writeError, setWriteError] = useState("");
+
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault();
     if (!inviteEmail.trim()) return;
     setInviting(true);
+    setWriteError("");
     try {
       await createInvite(inviteEmail.trim(), inviteRole, inviteDept || null, inviteTier);
       setInviteEmail("");
       setInviteDept("");
       setInviteTier("normal");
       getInvites().then(setInvites);
+    } catch (err) {
+      setWriteError(writeErrorMessage(err));
     } finally {
       setInviting(false);
     }
@@ -79,9 +94,14 @@ export default function TeamPage() {
   async function handleAddDept(e: React.FormEvent) {
     e.preventDefault();
     if (!deptName.trim()) return;
-    await createDepartment(deptName.trim());
-    setDeptName("");
-    getDepartments().then(setDepartments);
+    setWriteError("");
+    try {
+      await createDepartment(deptName.trim());
+      setDeptName("");
+      getDepartments().then(setDepartments);
+    } catch (err) {
+      setWriteError(writeErrorMessage(err));
+    }
   }
 
   async function changeMember(
@@ -89,7 +109,12 @@ export default function TeamPage() {
     patch: { role?: string; department_id?: string | null; data_tier?: string }
   ) {
     setMembers((prev) => prev.map((x) => (x.id === m.id ? { ...x, ...patch } : x)));
-    await updateMember(m.id, patch);
+    setWriteError("");
+    try {
+      await updateMember(m.id, patch);
+    } catch (err) {
+      setWriteError(writeErrorMessage(err));
+    }
     refresh();
   }
 
@@ -127,6 +152,16 @@ export default function TeamPage() {
           </button>
         ))}
       </div>
+
+      {writeError && (
+        <div
+          className="card"
+          role="alert"
+          style={{ marginBottom: 16, padding: "10px 14px", color: "var(--yellow)", fontSize: 13 }}
+        >
+          {writeError}
+        </div>
+      )}
 
       {/* MEMBERS */}
       {tab === "members" && (

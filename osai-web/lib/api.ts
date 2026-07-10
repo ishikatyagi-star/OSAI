@@ -38,8 +38,13 @@ const DEFAULT_TIMEOUT_MS = 8000;
 
 // A 401 means the session token is missing/expired/invalid (e.g. an old
 // pre-JWT token). Clear it and send the user back to sign in.
+//
+// Exception: the demo workspace. Its "demo-token" is not a real JWT, so any
+// admin-gated write 401s by design — that must surface as an inline "not
+// available in demo" message, not eject the whole session (QA ISSUE-002).
 function handleUnauthorized(status: number) {
   if (status === 401 && typeof window !== "undefined") {
+    if (localStorage.getItem("osai_token") === "demo-token") return;
     const onPublic = ["/login", "/demo", "/auth/callback"].some((p) =>
       window.location.pathname.startsWith(p)
     );
