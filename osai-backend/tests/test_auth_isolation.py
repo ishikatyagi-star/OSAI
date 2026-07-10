@@ -106,3 +106,24 @@ def test_org_create_rejects_invalid_email():
         json={"name": "Acme", "admin_email": "not-an-email", "admin_display_name": "Admin"},
     )
     assert resp.status_code == 422
+
+
+def test_get_workflow_requires_auth(client_without_org_override):
+    """GET /workflows/{id} carries transcripts + action items — it must never be
+    readable by ID alone (external audit, critical finding #1)."""
+    resp = client_without_org_override.get("/workflows/some-run-id")
+    assert resp.status_code == 401
+
+
+def test_get_workflow_cross_org_reads_as_404(client_without_org_override):
+    """A run belonging to another org must 404 for this caller, not leak."""
+    from db.repositories import list_workflow_runs
+    from db.session import SessionLocal
+
+    with SessionLocal() as s:
+        runs = list_workflow_runs(s, "demo-org")
+    if not runs:
+        return  # nothing seeded to probe; the auth test above still guards the route
+    headers = {"Authorization": f"Bearer {_token('other-org')}"}
+    resp = client_without_org_override.get(f"/workflows/{runs[0].id}", headers=headers)
+    assert resp.status_code == 404

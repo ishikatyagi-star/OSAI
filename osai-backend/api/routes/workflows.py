@@ -45,14 +45,19 @@ async def list_workflows(db: DbSession, org_id: OrgId) -> list[dict]:
 
 
 @router.get("/{workflow_id}")
-async def get_workflow(workflow_id: str, db: DbSession) -> dict:
-    """Return a single workflow run with its action items."""
+async def get_workflow(workflow_id: str, db: DbSession, org_id: OrgId) -> dict:
+    """Return a single workflow run with its action items (caller's org only).
+
+    Runs contain meeting transcripts and extracted action items, so this must
+    never be readable by ID alone — 404 (not 403) on an org mismatch so the
+    response doesn't confirm the ID exists in another workspace.
+    """
     run = try_db(
         "get_workflow_run",
         None,
         lambda: get_workflow_run(db, workflow_id),
     )
-    if run is None:
+    if run is None or run.get("org_id") != org_id:
         raise HTTPException(status_code=404, detail=f"Workflow run {workflow_id!r} not found")
     return run
 
