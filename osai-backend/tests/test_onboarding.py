@@ -31,15 +31,19 @@ def override_get_db():
         db.close()
 
 
-app.dependency_overrides[get_db] = override_get_db
 client = TestClient(app)
 
 
 @pytest.fixture(autouse=True)
 def setup_db():
+    # Install the sqlite override per-test (not at import time): pytest imports
+    # every test module at collection, so a module-level override would leak
+    # into all other test files in the session.
+    app.dependency_overrides[get_db] = override_get_db
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     yield
+    app.dependency_overrides.pop(get_db, None)
 
 
 def test_provision_org_repository() -> None:

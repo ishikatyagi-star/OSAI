@@ -56,6 +56,59 @@ _ACTION_TOOLS: dict[str, dict[str, Any]] = {
 }
 
 
+# Internal tools: no connector behind them — they act on OSAI's own objects
+# (automations). Executed by the orchestrator's confirm path, provider="internal".
+_INTERNAL_TOOLS: dict[str, dict[str, Any]] = {
+    "create_automation": {
+        "tool": "osai",
+        "action": "create_automation",
+        "description": (
+            "Create a recurring OSAI automation once the user's intent is fully "
+            "clear. Ask clarifying questions first if the goal, data sources, or "
+            "cadence are ambiguous."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Short automation title."},
+                "prompt": {
+                    "type": "string",
+                    "description": (
+                        "The finalized, fully-specified instruction composed from "
+                        "the conversation — not the user's raw message."
+                    ),
+                },
+                "cadence": {
+                    "type": "string",
+                    "enum": ["manual", "hourly", "daily", "weekly"],
+                },
+            },
+            "required": ["name", "prompt", "cadence"],
+        },
+    },
+    "update_automation": {
+        "tool": "osai",
+        "action": "update_automation",
+        "description": "Update an existing OSAI automation's name, prompt, cadence, or status.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "automation_id": {"type": "string"},
+                "name": {"type": "string"},
+                "prompt": {"type": "string"},
+                "cadence": {"type": "string", "enum": ["manual", "hourly", "daily", "weekly"]},
+                "status": {"type": "string", "enum": ["draft", "active", "paused"]},
+            },
+            "required": ["automation_id"],
+        },
+    },
+}
+
+
+def internal_tools() -> dict[str, dict[str, Any]]:
+    return dict(_INTERNAL_TOOLS)
+
+
 def available_action_tools() -> dict[str, dict[str, Any]]:
     """Action tools whose connector is registered and execute-capable."""
     enabled: dict[str, dict[str, Any]] = {}
@@ -73,7 +126,7 @@ def tool_specs(org_id: str) -> list[dict[str, Any]]:
     """JSON-schema tool list for the planner / UI. `search_knowledge` is implicit
     (always run first), so only action tools are advertised here."""
     specs: list[dict[str, Any]] = []
-    for name, spec in available_action_tools().items():
+    for name, spec in {**available_action_tools(), **_INTERNAL_TOOLS}.items():
         specs.append(
             {
                 "name": name,
@@ -106,4 +159,14 @@ def build_payload(tool_name: str, params: dict[str, Any]) -> dict[str, Any]:
             "title": params.get("title") or params.get("subject") or "OSAI note",
             "description": params.get("description", ""),
         }
+    if tool_name == "create_automation":
+        cadence = params.get("cadence", "manual")
+        return {
+            "name": params.get("name") or params.get("title") or "OSAI automation",
+            "prompt": params.get("prompt") or params.get("description", ""),
+            "cadence": cadence if cadence in ("manual", "hourly", "daily", "weekly") else "manual",
+        }
+    if tool_name == "update_automation":
+        allowed = ("automation_id", "name", "prompt", "cadence", "status")
+        return {k: v for k, v in params.items() if k in allowed and v is not None}
     return dict(params)

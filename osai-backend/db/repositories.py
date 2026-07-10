@@ -1,6 +1,6 @@
 import secrets
 from collections.abc import Sequence
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from sqlalchemy import desc, select
 from sqlalchemy.exc import SQLAlchemyError
@@ -1296,11 +1296,41 @@ def create_automation(
     name: str,
     prompt: str,
     cadence: str,
+    status: str = "active",
 ) -> Automation:
     auto = Automation(
-        org_id=org_id, user_id=user_id, name=name, prompt=prompt, cadence=cadence
+        org_id=org_id, user_id=user_id, name=name, prompt=prompt, cadence=cadence,
+        status=status,
     )
     session.add(auto)
+    session.commit()
+    return auto
+
+
+def update_automation(
+    session: Session,
+    org_id: str,
+    automation_id: str,
+    *,
+    name: str | None = None,
+    prompt: str | None = None,
+    cadence: str | None = None,
+    enabled: bool | None = None,
+    status: str | None = None,
+) -> Automation | None:
+    auto = session.get(Automation, automation_id)
+    if auto is None or auto.org_id != org_id:
+        return None
+    if name is not None:
+        auto.name = name
+    if prompt is not None:
+        auto.prompt = prompt
+    if cadence is not None:
+        auto.cadence = cadence
+    if enabled is not None:
+        auto.enabled = enabled
+    if status is not None:
+        auto.status = status
     session.commit()
     return auto
 
@@ -1325,10 +1355,30 @@ def delete_automation(session: Session, org_id: str, automation_id: str) -> bool
 
 
 def record_automation_run(
-    session: Session, automation_id: str, result: str
+    session: Session,
+    automation_id: str,
+    result: str,
+    connectors: list[str] | None = None,
 ) -> None:
     auto = session.get(Automation, automation_id)
     if auto:
         auto.last_run_at = now_utc()
         auto.last_result = result
+        if connectors is not None:
+            auto.last_connectors = connectors
         session.commit()
+
+
+def list_documents_since(
+    session: Session, org_id: str, since: datetime | None, limit: int = 50
+) -> list[tuple[str, str, datetime]]:
+    """(source_type, title, ingested_at) for documents ingested after `since` —
+    the 'what's new' feed an automation run summarizes."""
+    q = session.query(
+        SourceDocumentRecord.source_type,
+        SourceDocumentRecord.title,
+        SourceDocumentRecord.ingested_at,
+    ).filter(SourceDocumentRecord.org_id == org_id)
+    if since is not None:
+        q = q.filter(SourceDocumentRecord.ingested_at > since)
+    return [tuple(r) for r in q.order_by(desc(SourceDocumentRecord.ingested_at)).limit(limit)]

@@ -11,18 +11,10 @@ import { ConnectorManager } from "@/components/integrations/connector-manager";
 import { DataRoutingPanel } from "@/components/integrations/data-routing-panel";
 import { StatusDot } from "@/components/ui/status-dot";
 import { TabsPill, TabsPillList, TabsPillTrigger, TabsPillContent } from "@/components/ui/tabs-pill";
+import { timeAgo } from "@/lib/utils";
 
 type Tab = "connectors" | "routing";
 
-function timeAgo(iso: string) {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
-}
 
 export default function IntegrationsPage() {
   const [tab, setTab] = useState<Tab>("connectors");

@@ -185,6 +185,14 @@ export default function AskPage() {
     [pending, turns, conversationId]
   );
 
+  // Deep links (e.g. the Automations page's "Create with OSAI") seed the
+  // composer via ?q=…; prefill only, so the user can review before sending.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get("q");
+    if (q) setInput(q);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     send(input);

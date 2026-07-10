@@ -16,7 +16,7 @@ import time
 from uuid import uuid4
 
 from agent.hermes_client import _correlation_id, hermes_enabled, run_via_hermes
-from agent.tools import available_action_tools, build_payload, tool_specs
+from agent.tools import available_action_tools, build_payload, internal_tools, tool_specs
 from api.schemas.agent import AgentAction, AskRequest, AskResponse, ConfirmActionResult
 from api.schemas.connector import ConnectorAction
 from api.schemas.search import SearchRequest
@@ -74,11 +74,16 @@ async def run_ask(
     answer = rag.answer
     via: str = "osai"
     if hermes_enabled():
+        # Connector/environment awareness is injected inside run_via_hermes
+        # (environment_preamble); the plain-RAG fallback below stays untouched —
+        # its answers come from retrieval and adding connector context there
+        # would require threading it through the retriever.
         hermes_answer = await run_via_hermes(
             request.question,
             request.org_id,
             user_id=user_id,
             permissions=requester_permissions or [],
+            history=request.history,
         )
         if hermes_answer:
             answer = hermes_answer
@@ -91,7 +96,7 @@ async def run_ask(
             )
 
     # 3. Plan actions (proposed, never auto-executed) over the final answer.
-    actions = await _plan_actions(request, answer)
+    actions = await _plan_actions(request, answer, user_id=user_id)
 
     if via == "hermes":
         model_route = "hermes"
@@ -136,6 +141,8 @@ async def confirm_action(
             message="This action does not belong to your workspace.",
             error="org_mismatch",
         )
+    if proposed.get("provider") == "internal":
+        return _execute_internal(action_id, proposed)
     if proposed.get("provider") == "composio":
         return await _execute_composio(action_id, proposed)
     try:
@@ -178,19 +185,20 @@ async def confirm_action(
 # ---------------------------------------------------------------------------
 
 
-async def _plan_actions(request: AskRequest, answer: str) -> list[AgentAction]:
+async def _plan_actions(
+    request: AskRequest, answer: str, user_id: str | None = None
+) -> list[AgentAction]:
     from connectors.composio_tool import get_default_composio_client
 
-    tools = available_action_tools()
+    # Internal tools (automations) are always available alongside connector tools.
+    tools = {**available_action_tools(), **internal_tools()}
     composio = get_default_composio_client()
-    if not tools and not composio.available():
-        return []
     if settings.gemini_api_key or settings.llm_api_key:
         try:
-            return await _llm_plan(request, answer, tools)
+            return await _llm_plan(request, answer, tools, user_id=user_id)
         except Exception as exc:  # noqa: BLE001 — degrade to heuristic on any LLM failure
             logger.info("LLM action planning unavailable (%s); using heuristic.", exc)
-    return _heuristic_plan(request, answer, tools, composio)
+    return _heuristic_plan(request, answer, tools, composio, user_id=user_id)
 
 
 def _record(
@@ -200,6 +208,7 @@ def _record(
     action_slug: str,
     payload: dict,
     summary: str,
+    user_id: str | None = None,
 ) -> AgentAction:
     """Build a proposed action and stash its execution descriptor for confirm."""
     action = AgentAction(
@@ -218,6 +227,7 @@ def _record(
         "action": action_slug,
         "payload": payload,
         "summary": summary,
+        "user_id": user_id,
     }
     _PROPOSED[action.id] = descriptor  # fast path within this process
     try:
@@ -244,21 +254,36 @@ def _remember_resolution(proposed: dict) -> None:
         logger.info("Could not record resolution memory: %s", exc)
 
 
-async def _llm_plan(request: AskRequest, answer: str, tools: dict) -> list[AgentAction]:
+async def _llm_plan(
+    request: AskRequest, answer: str, tools: dict, user_id: str | None = None
+) -> list[AgentAction]:
     from llm.gemini import generate_json
 
+    history_block = ""
+    if request.history:
+        turns = "\n".join(
+            f"{m.role}: {m.content}" for m in request.history[-10:]
+        )
+        history_block = f"Conversation so far:\n{turns}\n\n"
     prompt = (
         "You decide whether the user's request implies an action in an external "
         "tool. Available tools (JSON schemas):\n"
         f"{json.dumps(tool_specs(request.org_id))}\n\n"
+        f"{history_block}"
         f"User request: {request.question}\n"
         f"Known answer/context: {answer[:1500]}\n\n"
+        "If the request is to set up a recurring task/automation but details are "
+        "ambiguous (which sources, what cadence, what output), return NO actions — "
+        "the answer should ask the clarifying question instead. Only propose "
+        "create_automation when the goal, sources, and cadence are all explicit "
+        "in the conversation.\n"
         'Return ONLY JSON: {"actions": [{"name": <tool name>, '
         '"params": {..}, "summary": <one line>}]}. '
         "Return an empty list if no action is warranted."
     )
     data = await generate_json(prompt)
     planned = data.get("actions", []) if isinstance(data, dict) else []
+    internal = internal_tools()
     actions: list[AgentAction] = []
     for item in planned:
         name = item.get("name")
@@ -269,21 +294,54 @@ async def _llm_plan(request: AskRequest, answer: str, tools: dict) -> list[Agent
         actions.append(
             _record(
                 request.org_id,
-                "connector",
+                "internal" if name in internal else "connector",
                 spec["tool"],
                 spec["action"],
                 payload,
                 item.get("summary", spec["description"]),
+                user_id=user_id,
             )
         )
     return actions
 
 
+def _infer_cadence(q: str) -> str | None:
+    if any(k in q for k in ("hourly", "every hour", "each hour")):
+        return "hourly"
+    if any(k in q for k in ("daily", "every day", "each day", "every morning")):
+        return "daily"
+    if any(k in q for k in ("weekly", "every week", "each week")):
+        return "weekly"
+    return None
+
+
 def _heuristic_plan(
-    request: AskRequest, answer: str, tools: dict, composio
+    request: AskRequest, answer: str, tools: dict, composio, user_id: str | None = None
 ) -> list[AgentAction]:
     q = request.question.lower()
     summary_src = request.question.strip()
+
+    # Automation setup: only propose when a cadence is explicit AND there is a
+    # concrete task beyond the automation keywords themselves; otherwise return
+    # nothing so the answer asks the clarifying question.
+    if any(k in q for k in ("automation", "automate", "remind", "recurring", "summary of")):
+        cadence = _infer_cadence(q)
+        if cadence and len(summary_src.split()) >= 5:
+            return [
+                _record(
+                    request.org_id,
+                    "internal",
+                    "osai",
+                    "create_automation",
+                    build_payload(
+                        "create_automation",
+                        {"name": summary_src[:60], "prompt": summary_src, "cadence": cadence},
+                    ),
+                    f"Create a {cadence} automation: {summary_src[:80]}",
+                    user_id=user_id,
+                )
+            ]
+        return []
 
     # Composio: real-time web search (no_auth, executes immediately).
     _web_cues = ("search the web", "web search", "look up online", "search online", "latest news")
@@ -347,6 +405,71 @@ def _heuristic_plan(
             )
         ]
     return []
+
+
+def _execute_internal(action_id: str, proposed: dict) -> ConfirmActionResult:
+    """Execute an internal (OSAI-object) action: create/update an automation."""
+    from db.repositories import create_automation, update_automation
+    from db.session import SessionLocal
+
+    payload = proposed.get("payload") or {}
+    action = proposed.get("action")
+    try:
+        with SessionLocal() as session:
+            if action == "create_automation":
+                auto = create_automation(
+                    session,
+                    org_id=proposed["org_id"],
+                    user_id=proposed.get("user_id"),
+                    name=payload.get("name") or "OSAI automation",
+                    prompt=payload.get("prompt") or "",
+                    cadence=payload.get("cadence") or "manual",
+                )
+                _forget_proposed(action_id)
+                _remember_resolution(proposed)
+                return ConfirmActionResult(
+                    id=action_id,
+                    status="executed",
+                    message=(
+                        f"Automation '{auto.name}' created ({auto.cadence}) — "
+                        "see the Automations page."
+                    ),
+                )
+            if action == "update_automation":
+                auto = update_automation(
+                    session,
+                    proposed["org_id"],
+                    payload.get("automation_id", ""),
+                    name=payload.get("name"),
+                    prompt=payload.get("prompt"),
+                    cadence=payload.get("cadence"),
+                    status=payload.get("status"),
+                )
+                if auto is None:
+                    return ConfirmActionResult(
+                        id=action_id,
+                        status="failed",
+                        message="Automation not found in this workspace.",
+                        error="automation_missing",
+                    )
+                _forget_proposed(action_id)
+                _remember_resolution(proposed)
+                return ConfirmActionResult(
+                    id=action_id,
+                    status="executed",
+                    message=f"Automation '{auto.name}' updated.",
+                )
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Internal action %s failed: %s", action_id, exc)
+        return ConfirmActionResult(
+            id=action_id, status="failed", message="Execution error.", error=str(exc)
+        )
+    return ConfirmActionResult(
+        id=action_id,
+        status="failed",
+        message=f"Unknown internal action {action!r}.",
+        error="unknown_internal_action",
+    )
 
 
 async def _execute_composio(action_id: str, proposed: dict) -> ConfirmActionResult:

@@ -8,16 +8,8 @@ import { DEMO_SYNC_RUNS, DEMO_STATS } from "@/lib/demo-data";
 import { isDemo } from "@/lib/demo";
 import { CONNECTOR_META, getConnectorIcon } from "@/lib/connector-meta";
 import type { SyncRun } from "@/lib/types";
+import { timeAgo } from "@/lib/utils";
 
-function timeAgo(iso: string) {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
-}
 
 const STATUS_BADGE: Record<string, string> = {
   succeeded: "badge-green",
