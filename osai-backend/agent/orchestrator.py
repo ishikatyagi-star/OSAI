@@ -119,7 +119,11 @@ async def run_ask(
 
 
 async def confirm_action(
-    action_id: str, conversation_id: str, caller_org_id: str | None = None
+    action_id: str,
+    conversation_id: str,
+    caller_org_id: str | None = None,
+    caller_user_id: str | None = None,
+    require_separate_approver: bool = False,
 ) -> ConfirmActionResult:
     # Fast path (same process), then durable store (another worker / after a
     # restart between propose and confirm).
@@ -140,6 +144,13 @@ async def confirm_action(
             status="failed",
             message="This action does not belong to your workspace.",
             error="org_mismatch",
+        )
+    if require_separate_approver and caller_user_id and proposed.get("user_id") == caller_user_id:
+        return ConfirmActionResult(
+            id=action_id,
+            status="failed",
+            message="A different approver is required for this action.",
+            error="initiator_cannot_approve",
         )
     if proposed.get("provider") == "internal":
         return _execute_internal(action_id, proposed)
@@ -190,9 +201,25 @@ async def _plan_actions(
 ) -> list[AgentAction]:
     from connectors.composio_tool import get_default_composio_client
 
-    # Internal tools (automations) are always available alongside connector tools.
-    tools = {**available_action_tools(), **internal_tools()}
+    # Internal tools are always available. Native connector actions are retained
+    # only for the explicit demo org; real organizations act through Composio.
+    tools = dict(internal_tools())
+    if request.org_id == settings.default_org_id:
+        tools = {**available_action_tools(), **tools}
     composio = get_default_composio_client()
+    if composio.available():
+        try:
+            connections = await composio.list_connections(request.org_id)
+            toolkits = [
+                str(connection["toolkit"])
+                for connection in connections
+                if connection.get("toolkit") and (connection.get("status") or "").upper() == "ACTIVE"
+            ]
+            for spec in (await composio.list_tools(toolkits, limit=15, important=True))[:100]:
+                spec["provider"] = "composio"
+                tools[spec["name"]] = spec
+        except Exception as exc:  # noqa: BLE001 - static tools remain available on catalog failure
+            logger.info("Connected Composio tools unavailable: %s", exc)
     if settings.gemini_api_key or settings.llm_api_key:
         try:
             return await _llm_plan(request, answer, tools, user_id=user_id)
@@ -268,7 +295,7 @@ async def _llm_plan(
     prompt = (
         "You decide whether the user's request implies an action in an external "
         "tool. Available tools (JSON schemas):\n"
-        f"{json.dumps(tool_specs(request.org_id))}\n\n"
+        f"{json.dumps([{k: spec[k] for k in ('name', 'tool', 'action', 'description', 'parameters')} for spec in tools.values()])}\n\n"
         f"{history_block}"
         f"User request: {request.question}\n"
         f"Known answer/context: {answer[:1500]}\n\n"
@@ -294,7 +321,7 @@ async def _llm_plan(
         actions.append(
             _record(
                 request.org_id,
-                "internal" if name in internal else "connector",
+                "internal" if name in internal else spec.get("provider", "connector"),
                 spec["tool"],
                 spec["action"],
                 payload,

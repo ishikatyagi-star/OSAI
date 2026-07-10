@@ -193,7 +193,7 @@ class FreshdeskConnector(Connector):
         priority_map = {1: "low", 2: "medium", 3: "high", 4: "urgent"}
 
         return SourceDocument(
-            source_id=f"freshdesk:ticket:{ticket_id}",
+            source_id=f"{org_id}:freshdesk:ticket:{ticket_id}",
             source_type="freshdesk",
             org_id=org_id,
             external_id=str(ticket_id),

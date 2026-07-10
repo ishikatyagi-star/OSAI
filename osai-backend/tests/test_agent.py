@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 from agent.tools import available_action_tools, tool_specs
 from api.main import app
 from api.schemas.agent import AskResponse, AskUiArtifact
+from db.models import Base, Conversation, ConversationMessage
 
 client = TestClient(app)
 
@@ -75,11 +78,27 @@ def test_action_intent_is_proposed_not_executed():
         assert all(a["requires_confirmation"] for a in actions)
 
 
-def test_confirm_unknown_action_fails_gracefully():
+def test_confirm_action_requires_admin_approval():
     resp = client.post(
         "/ask/actions/does-not-exist/confirm", json={"conversation_id": "x"}
     )
-    assert resp.status_code == 200
-    body = resp.json()
-    assert body["status"] == "failed"
-    assert body["error"] == "unknown_action"
+    assert resp.status_code == 403
+    assert resp.json()["detail"] == "Only organization admins can approve actions."
+
+
+def test_conversation_messages_persist_by_conversation_id():
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine)()
+    session.add(Conversation(id="conv-1", org_id="demo-org", user_id="user-1"))
+    session.add_all(
+        [
+            ConversationMessage(conversation_id="conv-1", role="user", content="What changed?"),
+            ConversationMessage(conversation_id="conv-1", role="assistant", content="The catalog expanded."),
+        ]
+    )
+    session.commit()
+    assert [row.content for row in session.query(ConversationMessage).all()] == [
+        "What changed?",
+        "The catalog expanded.",
+    ]

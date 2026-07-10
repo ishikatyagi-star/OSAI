@@ -4,9 +4,9 @@ Goal: stand up the Hermes sidecar, prove it actually runs, then point OSAI at it
 OSAI stays on its in-house agent until the final step, so nothing breaks while
 you do this.
 
-> ✅ **Validated end-to-end on Groq (July 2026):** local Docker build → `/health`
-> → `/run` returns a real Hermes answer → OSAI `run_ask` returns `via: "hermes"`.
-> The Groq settings below are the exact validated recipe.
+> **Model identifier verified against Groq Docs (July 2026):**
+> `llama-3.3-70b-versatile` remains available. The live `/run` and OSAI
+> `via: "hermes"` gates below must still be passed for each deployment.
 
 ---
 

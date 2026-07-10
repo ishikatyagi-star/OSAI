@@ -4,6 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import { Sparkles, X } from "lucide-react";
 import { DEMO_DECISIONS, type Decision } from "@/lib/demo-data";
 import { isDemo } from "@/lib/demo";
+import {
+  createDecision,
+  deleteDecision,
+  getDecisions,
+  type DecisionRecord,
+  updateDecision,
+} from "@/lib/api";
 import { Select } from "@/components/ui/select";
 import {
   Dialog,
@@ -54,6 +61,24 @@ const EMPTY_DECISION_FORM: DecisionForm = {
   tags: "",
 };
 
+function toDecision(record: DecisionRecord): Decision {
+  return {
+    id: record.id,
+    title: record.title,
+    tags: record.tags,
+    status: record.status,
+    impact: record.impact,
+    owner: record.owner,
+    date: new Date(record.created_at).toLocaleDateString("en-US", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    }),
+    source: record.source,
+    identifiedBy: record.identified_by,
+  };
+}
+
 // First token of the signed-in user's name, used to match decisions to "me".
 function myNameToken(): string {
   if (typeof window === "undefined") return "";
@@ -74,11 +99,17 @@ export default function DecisionsPage() {
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [pendingDelete, setPendingDelete] = useState<Decision | null>(null);
   const [decisionForm, setDecisionForm] = useState<DecisionForm | null>(null);
+  const [writeError, setWriteError] = useState("");
 
   // /board redirects here with ?source=osai - honour it as the initial filter.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("source") === "osai") setSourceFilter("osai");
+  }, []);
+
+  useEffect(() => {
+    if (isDemo()) return;
+    void getDecisions().then((rows) => setDecisions(rows.map(toDecision)));
   }, []);
 
   function toggleSort(key: SortKey) {
@@ -90,8 +121,16 @@ export default function DecisionsPage() {
     }
   }
 
-  function confirmDelete() {
+  async function confirmDelete() {
     if (!pendingDelete) return;
+    if (!isDemo()) {
+      try {
+        await deleteDecision(pendingDelete.id);
+      } catch {
+        setWriteError("Could not delete this decision. Try again.");
+        return;
+      }
+    }
     setDecisions((prev) => prev.filter((d) => d.id !== pendingDelete.id));
     setPendingDelete(null);
   }
@@ -112,34 +151,51 @@ export default function DecisionsPage() {
     });
   }
 
-  function saveDecision() {
+  async function saveDecision() {
     if (!decisionForm || decisionForm.title.trim() === "") return;
     const tags = decisionForm.tags
       .split(",")
       .map((tag) => tag.trim().toLowerCase())
       .filter(Boolean);
-    const nextDecision: Decision = {
-      id: decisionForm.id ?? `dec-${Date.now()}`,
+    const input = {
       title: decisionForm.title.trim(),
       tags,
       status: decisionForm.status,
       impact: decisionForm.impact,
       owner: decisionForm.owner.trim() || "Unassigned",
-      date: new Date().toLocaleDateString("en-US", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      }),
       source: decisionForm.source.trim() || "Manual",
-      identifiedBy: "source",
     };
 
-    setDecisions((prev) =>
-      decisionForm.id
-        ? prev.map((decision) => (decision.id === decisionForm.id ? nextDecision : decision))
-        : [nextDecision, ...prev]
-    );
-    setDecisionForm(null);
+    if (isDemo()) {
+      const nextDecision: Decision = {
+        id: decisionForm.id ?? `dec-${Date.now()}`,
+        ...input,
+        date: new Date().toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" }),
+        identifiedBy: "source",
+      };
+      setDecisions((prev) =>
+        decisionForm.id
+          ? prev.map((decision) => (decision.id === decisionForm.id ? nextDecision : decision))
+          : [nextDecision, ...prev]
+      );
+      setDecisionForm(null);
+      return;
+    }
+
+    try {
+      const saved = decisionForm.id
+        ? await updateDecision(decisionForm.id, input)
+        : await createDecision({ ...input, identified_by: "source" });
+      const nextDecision = toDecision(saved);
+      setDecisions((prev) =>
+        decisionForm.id
+          ? prev.map((decision) => (decision.id === decisionForm.id ? nextDecision : decision))
+          : [nextDecision, ...prev]
+      );
+      setDecisionForm(null);
+    } catch {
+      setWriteError("Could not save this decision. Try again.");
+    }
   }
 
   const filtered = useMemo(() => {
@@ -217,6 +273,7 @@ export default function DecisionsPage() {
         </div>
         <button className="btn btn-primary" onClick={openAddDecision}>+ Add Decision</button>
       </div>
+      {writeError && <p className="text-caption" style={{ color: "var(--red)", marginBottom: 14 }}>{writeError}</p>}
 
       {/* Segmented owner / source filters (the merged Team Board lens) */}
       <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>

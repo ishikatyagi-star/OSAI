@@ -276,7 +276,7 @@ async def _fetch_notion(client: ComposioClient, org_id: str, limit: int) -> list
             text = ""
         documents.append(
             SourceDocument(
-                source_id=f"notion:{page_id}",
+                source_id=f"{org_id}:notion:{page_id}",
                 source_type="notion",
                 org_id=org_id,
                 external_id=page_id,
@@ -346,7 +346,7 @@ async def _fetch_googledrive(
                 text = ""
         documents.append(
             SourceDocument(
-                source_id=f"gdrive:{fid}",
+                source_id=f"{org_id}:gdrive:{fid}",
                 source_type="google_drive",
                 org_id=org_id,
                 external_id=fid,
@@ -388,12 +388,106 @@ async def _fetch_slack(client: ComposioClient, org_id: str, limit: int) -> list[
             text = ""
         documents.append(
             SourceDocument(
-                source_id=f"slack:{cid}",
+                source_id=f"{org_id}:slack:{cid}",
                 source_type="slack",
                 org_id=org_id,
                 external_id=cid,
                 title=f"#{name}",
                 text=text or f"#{name}",
+                permissions=["source:all"],
+            )
+        )
+    return documents
+
+
+async def _fetch_gmail(client: ComposioClient, org_id: str, limit: int) -> list[SourceDocument]:
+    """Index a bounded set of recent messages from the connected Gmail account."""
+    res = await client.execute(
+        "GMAIL_FETCH_EMAILS", {"query": "newer_than:365d", "max_results": limit}, org_id
+    )
+    data = res.get("data") or {}
+    messages = _first_list(
+        _dig(data, "response_data", "messages"),
+        _dig(data, "messages"),
+        _dig(data, "response_data", "threads"),
+        _dig(data, "threads"),
+        data if isinstance(data, list) else None,
+    )
+    documents: list[SourceDocument] = []
+    for message in messages[:limit]:
+        message_id = message.get("id") or message.get("message_id") or message.get("threadId")
+        if not message_id:
+            continue
+        payload = message.get("payload") or message
+        headers = payload.get("headers") or []
+        subject = next(
+            (
+                str(header.get("value"))
+                for header in headers
+                if isinstance(header, dict) and str(header.get("name", "")).lower() == "subject"
+            ),
+            "Untitled email",
+        )
+        sender = next(
+            (
+                str(header.get("value"))
+                for header in headers
+                if isinstance(header, dict) and str(header.get("name", "")).lower() == "from"
+            ),
+            None,
+        )
+        text = message.get("snippet") or payload.get("snippet") or subject
+        documents.append(
+            SourceDocument(
+                source_id=f"{org_id}:gmail:{message_id}",
+                source_type="gmail",
+                org_id=org_id,
+                external_id=str(message_id),
+                title=subject,
+                text=str(text),
+                author=sender,
+                permissions=["source:all"],
+            )
+        )
+    return documents
+
+
+async def _fetch_github(client: ComposioClient, org_id: str, limit: int) -> list[SourceDocument]:
+    """Index repository metadata from the connected GitHub account."""
+    res = await client.execute("GITHUB_LIST_REPOSITORIES", {"per_page": limit}, org_id)
+    data = res.get("data") or {}
+    repositories = _first_list(
+        _dig(data, "response_data", "repositories"),
+        _dig(data, "response_data", "items"),
+        _dig(data, "repositories"),
+        _dig(data, "items"),
+        data if isinstance(data, list) else None,
+    )
+    documents: list[SourceDocument] = []
+    for repository in repositories[:limit]:
+        repo_id = repository.get("id") or repository.get("node_id") or repository.get("full_name")
+        if not repo_id:
+            continue
+        title = repository.get("full_name") or repository.get("name") or "Untitled repository"
+        description = repository.get("description") or "No repository description."
+        text = "\n".join(
+            value
+            for value in (
+                str(description),
+                f"Language: {repository.get('language')}" if repository.get("language") else "",
+                f"Default branch: {repository.get('default_branch')}" if repository.get("default_branch") else "",
+            )
+            if value
+        )
+        documents.append(
+            SourceDocument(
+                source_id=f"{org_id}:github:{repo_id}",
+                source_type="github",
+                org_id=org_id,
+                external_id=str(repo_id),
+                title=str(title),
+                url=repository.get("html_url"),
+                text=text,
                 permissions=["source:all"],
             )
         )
@@ -416,7 +510,13 @@ _FETCHERS = {
     "notion": _fetch_notion,
     "googledrive": _fetch_googledrive,
     "slack": _fetch_slack,
+    "gmail": _fetch_gmail,
+    "github": _fetch_github,
 }
+
+
+def supports_sync(toolkit: str) -> bool:
+    return toolkit.lower() in _FETCHERS
 
 
 async def sync_all_connections(
@@ -438,13 +538,21 @@ async def sync_all_connections(
     for conn in connections:
         toolkit = conn.get("toolkit")
         status = (conn.get("status") or "").upper()
-        if status and status != "ACTIVE":
+        if not toolkit or (status and status != "ACTIVE"):
             continue
+        account = ensure_connector_account(session, org_id, to_native_key(toolkit))
+        config = dict(account.config or {})
+        config["account_external_id"] = conn.get("id")
+        config["account_email"] = conn.get("email")
+        account.config = config
+        account.auth_state = "connected"
         if toolkit not in _FETCHERS:
+            synced.append({"toolkit": toolkit, "status": "connected", "sync": False})
             continue
         synced.append(
             await ingest_composio_toolkit(
                 org_id, toolkit, session, client=client, qdrant_store=qdrant_store, limit=limit
             )
         )
+    session.commit()
     return {"status": "ok", "synced": synced}

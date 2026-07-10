@@ -8,6 +8,7 @@ import { isDemo } from "@/lib/demo";
 import { CONNECTOR_META, getConnectorIcon } from "@/lib/connector-meta";
 import type { Integration, SyncRun } from "@/lib/types";
 import { ConnectorManager } from "@/components/integrations/connector-manager";
+import { CatalogBrowser } from "@/components/integrations/catalog-browser";
 import { DataRoutingPanel } from "@/components/integrations/data-routing-panel";
 import { StatusDot } from "@/components/ui/status-dot";
 import { TabsPill, TabsPillList, TabsPillTrigger, TabsPillContent } from "@/components/ui/tabs-pill";
@@ -385,6 +386,8 @@ export default function IntegrationsPage() {
               </div>
             )})}
           </div>
+
+          <CatalogBrowser onConnectionChange={loadIntegrations} />
 
           <ConnectorManager
             integration={managed}

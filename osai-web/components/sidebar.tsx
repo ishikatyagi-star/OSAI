@@ -17,6 +17,7 @@ import {
   Sparkles,
   Trash2,
   Users,
+  X,
   type LucideIcon,
 } from "lucide-react";
 import { clearSession, deleteAccount } from "@/lib/api";
@@ -65,7 +66,13 @@ const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({
+  open = false,
+  onClose,
+}: {
+  open?: boolean;
+  onClose?: () => void;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const [userName, setUserName] = useState("");
@@ -103,15 +110,23 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar${open ? " sidebar--open" : ""}`}>
       {/* Logo */}
-      <Link href="/dashboard" className="sidebar-logo">
+      <Link href="/dashboard" className="sidebar-logo" onClick={onClose}>
         <div className="sidebar-logo-mark">O</div>
         <div>
           <span className="sidebar-logo-text">Sheldon AI</span>
           <span className="sidebar-logo-version"> v1</span>
         </div>
       </Link>
+      <button
+        type="button"
+        className="sidebar-close"
+        aria-label="Close navigation menu"
+        onClick={onClose}
+      >
+        <X size={18} />
+      </button>
 
       {/* Nav */}
       <nav className="sidebar-nav">
@@ -128,6 +143,7 @@ export default function Sidebar() {
                   href={item.href}
                   className={`sidebar-nav-item${active ? " active" : ""}`}
                   aria-current={active ? "page" : undefined}
+                  onClick={onClose}
                 >
                   <span className="nav-icon">
                     <Icon size={16} strokeWidth={1.75} />
@@ -148,6 +164,7 @@ export default function Sidebar() {
         <Link
           href="/settings"
           className={`sidebar-nav-item${pathname.startsWith("/settings") ? " active" : ""}`}
+          onClick={onClose}
         >
           <span className="nav-icon">
             <Settings size={16} strokeWidth={1.75} />

@@ -4,14 +4,15 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from config import settings
-from connectors.composio_ingest import ingest_composio_toolkit, sync_all_connections
+from connectors.composio_ingest import ingest_composio_toolkit, supports_sync, sync_all_connections
 from connectors.composio_tool import get_default_composio_client
-from db.session import SessionLocal, get_db, get_org_id
+from db.session import get_db, get_org_id
+from workers.tasks.ingest import sync_composio_connections
 
 router = APIRouter(prefix="/integrations/composio", tags=["composio"])
 OrgId = Annotated[str, Depends(get_org_id)]
@@ -26,9 +27,31 @@ def _client_or_404():
 
 
 @router.get("/toolkits")
-async def list_toolkits() -> list[dict]:
+async def list_toolkits(
+    org_id: OrgId,
+    search: str | None = None,
+    category: str | None = None,
+    cursor: str | None = None,
+    limit: int = Query(default=40, ge=1, le=100),
+) -> dict:
     """Available Composio apps (Gmail, Calendar, Slack, …)."""
-    return await _client_or_404().list_toolkits()
+    client = _client_or_404()
+    try:
+        page = await client.list_toolkits(search=search, category=category, cursor=cursor, limit=limit)
+        connections = await client.list_connections(org_id)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    connected = {(connection.get("toolkit") or "").lower() for connection in connections if (connection.get("status") or "").upper() == "ACTIVE"}
+    for item in page["items"]:
+        slug = str(item.get("slug") or "").lower()
+        item["connected"] = slug in connected
+        item["capabilities"] = {"sync": supports_sync(slug), "actions": True}
+    return page
+
+
+@router.get("/toolkit-categories")
+async def list_toolkit_categories() -> dict:
+    return {"items": await _client_or_404().list_toolkit_categories()}
 
 
 @router.get("/tools")
@@ -57,31 +80,13 @@ async def connect(toolkit: str, org_id: OrgId) -> dict:
     return result
 
 
-async def _sync_in_background(org_id: str) -> None:
-    """Run the post-connect ingest off the request path, with its own DB session.
-
-    Ingesting inside the OAuth callback request blocked the single free-tier
-    worker for the whole sync — long enough to hit Render's request timeout or
-    OOM the instance, surfacing to the user as a 502 on the redirect. Running it
-    as a background task lets the callback redirect instantly; the sync then
-    proceeds (bounded per-file in composio_ingest) without holding the request.
-    """
-    with SessionLocal() as db:
-        try:
-            await sync_all_connections(org_id, db)
-        except Exception:  # noqa: BLE001 — best-effort; never crash the worker
-            pass
-
-
 @router.get("/callback")
-async def callback(
-    org_id: str, background_tasks: BackgroundTasks
-) -> RedirectResponse:
+async def callback(org_id: str) -> RedirectResponse:
     """Where Composio sends the user after authorizing. Kicks off ingestion of
     the org's connections in the background, then redirects back immediately."""
     client = get_default_composio_client()
     if client.available():
-        background_tasks.add_task(_sync_in_background, org_id)
+        sync_composio_connections.delay(org_id)
     # Land the user back on the Integrations page (not the marketing root) so they
     # immediately see the connection they just authorized.
     base = settings.frontend_redirect.rstrip("/")

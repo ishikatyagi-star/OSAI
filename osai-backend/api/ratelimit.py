@@ -5,12 +5,24 @@ multiple web workers (the counters are per-process)."""
 
 from __future__ import annotations
 
+import asyncio
 import time
 from collections import defaultdict, deque
 
 from fastapi import HTTPException, Request, status
+import redis
+
+from config import settings
 
 _HITS: dict[str, deque[float]] = defaultdict(deque)
+
+
+def _redis_increment(key: str, window_seconds: int) -> int:
+    client = redis.Redis.from_url(settings.redis_url, socket_connect_timeout=2)
+    count = int(client.incr(key))
+    if count == 1:
+        client.expire(key, window_seconds)
+    return count
 
 
 def rate_limit(max_calls: int, window_seconds: int):
@@ -19,7 +31,19 @@ def rate_limit(max_calls: int, window_seconds: int):
 
     async def _dependency(request: Request) -> None:
         ip = request.client.host if request.client else "unknown"
-        key = f"{request.url.path}:{ip}"
+        key = f"osai:ratelimit:{request.url.path}:{ip}"
+        if settings.env not in {"local", "demo"}:
+            try:
+                if await asyncio.to_thread(_redis_increment, key, window_seconds) > max_calls:
+                    raise HTTPException(
+                        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                        detail="Too many requests. Please wait a moment and try again.",
+                    )
+                return
+            except HTTPException:
+                raise
+            except Exception:  # noqa: BLE001 - fallback keeps auth available during Redis recovery
+                pass
         now = time.monotonic()
         hits = _HITS[key]
         cutoff = now - window_seconds

@@ -192,7 +192,7 @@ class SlackConnector(Connector):
         text = "\n".join(f"[{_ts_to_iso(m.get('ts', ''))}] {m['text']}" for m in messages)
         latest_ts = max((m.get("ts", "0") for m in messages), default="0")
         return SourceDocument(
-            source_id=f"slack:channel:{channel_id}",
+            source_id=f"{org_id}:slack:channel:{channel_id}",
             source_type="slack",
             org_id=org_id,
             external_id=channel_id,

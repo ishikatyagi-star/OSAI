@@ -8,23 +8,31 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from api.schemas.graph import GraphEdge, GraphEntity
-from db.repositories import try_db
-from db.session import get_db, get_org_id
+from db.repositories import try_db, user_clearance, user_permissions
+from db.session import get_db, get_optional_claims, get_org_id
 from graph.provider import build_access_graph, build_graph
 
 router = APIRouter(prefix="/graph", tags=["graph"])
 DbSession = Annotated[Session, Depends(get_db)]
 OrgId = Annotated[str, Depends(get_org_id)]
+OptionalClaims = Annotated[dict | None, Depends(get_optional_claims)]
 
 
 @router.get("/entities", response_model=list[GraphEntity])
 async def list_entities(
     db: DbSession,
     org_id: OrgId,
+    claims: OptionalClaims,
     type: str | None = None,
     q: str | None = None,
 ) -> list[GraphEntity]:
-    entities, _ = try_db("build_graph", ([], []), lambda: build_graph(db, org_id))
+    entities, _ = try_db(
+        "build_graph",
+        ([], []),
+        lambda: build_graph(
+            db, org_id, user_permissions(db, claims), user_clearance(db, claims)
+        ),
+    )
     if type:
         entities = [e for e in entities if e.type == type]
     if q:
@@ -52,9 +60,16 @@ async def access_map(db: DbSession, org_id: OrgId) -> dict:
 async def list_edges(
     db: DbSession,
     org_id: OrgId,
+    claims: OptionalClaims,
     entity_id: str | None = None,
 ) -> list[GraphEdge]:
-    _, edges = try_db("build_graph", ([], []), lambda: build_graph(db, org_id))
+    _, edges = try_db(
+        "build_graph",
+        ([], []),
+        lambda: build_graph(
+            db, org_id, user_permissions(db, claims), user_clearance(db, claims)
+        ),
+    )
     if entity_id:
         edges = [e for e in edges if entity_id in (e.source_id, e.target_id)]
     return edges

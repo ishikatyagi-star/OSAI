@@ -10,6 +10,7 @@ from connectors.composio_tool import get_default_composio_client
 from connectors.registry import connector_registry
 from connectors.sync_service import sync_connector
 from connectors.toolkit_map import NATIVE_TO_COMPOSIO, to_native_key
+from config import settings
 from db.models import SourceDocumentRecord
 from db.repositories import get_tier_rules, set_tier_rules, try_db
 from db.repositories import list_integrations as list_db_integrations
@@ -18,6 +19,10 @@ from db.session import SessionLocal, get_db, get_org_id
 router = APIRouter(prefix="/integrations", tags=["integrations"])
 DbSession = Annotated[Session, Depends(get_db)]
 OrgId = Annotated[str, Depends(get_org_id)]
+
+
+def _may_use_native_fallback(org_id: str) -> bool:
+    return org_id == settings.default_org_id
 
 
 @router.get("")
@@ -133,6 +138,17 @@ async def trigger_sync(
                 "status": "started",
                 "documents_indexed": 0,
             }
+        if not _may_use_native_fallback(org_id):
+            raise HTTPException(
+                status_code=409,
+                detail="Connect this app through Composio before syncing it in this workspace.",
+            )
+
+    if not _may_use_native_fallback(org_id):
+        raise HTTPException(
+            status_code=409,
+            detail="Composio must be configured before syncing apps in this workspace.",
+        )
 
     return await sync_connector(connector_key, org_id, db)
 
@@ -190,6 +206,13 @@ async def connector_healthcheck(connector_key: str, org_id: OrgId) -> dict[str, 
                 }
         except Exception:  # noqa: BLE001 — fall back to native healthcheck
             pass
+
+    if not _may_use_native_fallback(org_id):
+        return {
+            "connector_key": connector_key,
+            "healthy": False,
+            "message": "Connect this app through Composio to use it in this workspace.",
+        }
 
     connector = connector_registry.get(connector_key)
     result = await connector.healthcheck(org_id)

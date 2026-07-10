@@ -3,11 +3,15 @@
 // keeps a customer's workspace free of sample content once they connect tools.
 //
 // Demo mode is active when ANY of:
-//   - NEXT_PUBLIC_OSAI_DEMO=1 at build time (e.g. the pitch deployment), or
+//   - NEXT_PUBLIC_OSAI_DEMO=1 (or the documented legacy NEXT_PUBLIC_DEMO_MODE=1)
+//     at build time (e.g. the pitch deployment), or
 //   - localStorage `osai_demo` === "1", or
 //   - the session org is the shared "demo-org" (the /demo + "Try Demo" path).
 export function isDemo(): boolean {
-  if (process.env.NEXT_PUBLIC_OSAI_DEMO === "1") return true;
+  if (
+    process.env.NEXT_PUBLIC_OSAI_DEMO === "1" ||
+    process.env.NEXT_PUBLIC_DEMO_MODE === "1"
+  ) return true;
   if (typeof window === "undefined") return false;
   return (
     localStorage.getItem("osai_demo") === "1" ||

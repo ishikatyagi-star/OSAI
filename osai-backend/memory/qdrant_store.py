@@ -54,9 +54,21 @@ class QdrantStore:
             )
         except Exception:
             pass  # index already exists
+        try:
+            await self.client.create_payload_index(
+                collection_name=self.collection_name,
+                field_name="data_tier",
+                field_schema=models.PayloadSchemaType.KEYWORD,
+            )
+        except Exception:
+            pass  # index already exists
 
     async def search(
-        self, query_vector: list[float], org_id: str, limit: int = 8
+        self,
+        query_vector: list[float],
+        org_id: str,
+        limit: int = 8,
+        allowed_tiers: list[str] | None = None,
     ) -> list[Any]:
         """Vector search scoped to an org. Returns scored points (.score, .payload)."""
         response = await self.client.query_points(
@@ -67,7 +79,17 @@ class QdrantStore:
                 must=[
                     models.FieldCondition(
                         key="org_id", match=models.MatchValue(value=org_id)
-                    )
+                    ),
+                    *(
+                        [
+                            models.FieldCondition(
+                                key="data_tier",
+                                match=models.MatchAny(any=allowed_tiers),
+                            )
+                        ]
+                        if allowed_tiers
+                        else []
+                    ),
                 ]
             ),
             with_payload=True,

@@ -168,7 +168,7 @@ class NotionConnector(Connector):
         updated_at = _parse_notion_datetime(page.get("last_edited_time"))
         created_at = _parse_notion_datetime(page.get("created_time"))
         return SourceDocument(
-            source_id=f"notion:{page_id}",
+            source_id=f"{org_id}:notion:{page_id}",
             source_type="notion",
             org_id=org_id,
             external_id=page_id,

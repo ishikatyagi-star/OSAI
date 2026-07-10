@@ -19,6 +19,22 @@ class EmbeddingProvider:
         raise NotImplementedError
 
 
+class EmbeddingsUnavailableError(RuntimeError):
+    pass
+
+
+class UnavailableEmbeddingProvider(EmbeddingProvider):
+    """Makes missing production embeddings an explicit, actionable failure."""
+
+    def __init__(self, dimension: int) -> None:
+        self.dimension = dimension
+
+    async def embed_texts(self, texts: list[str]) -> list[list[float]]:
+        raise EmbeddingsUnavailableError(
+            "Embeddings are not configured. Set OSAI_GEMINI_API_KEY before using semantic retrieval."
+        )
+
+
 # ---------------------------------------------------------------------------
 # Hash-based dev embeddings (no external dependency, always available)
 # ---------------------------------------------------------------------------
@@ -96,7 +112,8 @@ class GeminiEmbeddingProvider(EmbeddingProvider):
 
 
 # ---------------------------------------------------------------------------
-# Default provider — Gemini if key available, otherwise hash
+# Default provider — Gemini in configured deployments; hash remains test-only
+# when instantiated explicitly by a test or local fixture.
 # ---------------------------------------------------------------------------
 
 
@@ -107,7 +124,7 @@ def _build_default_provider() -> EmbeddingProvider:
             model=settings.gemini_embedding_model,
             dimension=settings.embedding_dimension,
         )
-    return HashEmbeddingProvider(dimension=settings.embedding_dimension)
+    return UnavailableEmbeddingProvider(dimension=settings.embedding_dimension)
 
 
 default_embedding_provider: EmbeddingProvider = _build_default_provider()

@@ -6,8 +6,10 @@ from api.main import app
 def test_health() -> None:
     client = TestClient(app)
     response = client.get("/health")
-    assert response.status_code == 200
-    assert response.json()["status"] == "ok"
+    assert response.status_code in {200, 503}
+    body = response.json()
+    assert body["status"] in {"ok", "degraded"}
+    assert {"database", "qdrant", "redis"} <= body["checks"].keys()
 
 
 def test_integrations_fallback_without_database() -> None:

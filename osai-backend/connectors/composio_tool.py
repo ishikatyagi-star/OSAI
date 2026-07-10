@@ -13,6 +13,7 @@ agent simply has no Composio tools.
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any
 
 import httpx
@@ -30,6 +31,9 @@ TOOLKIT_SCOPES: dict[str, list[str]] = {
 
 
 class ComposioClient:
+    _catalog_cache: dict[tuple[str, str, str, int], tuple[float, dict[str, Any]]] = {}
+    _catalog_ttl_seconds = 600
+
     def __init__(self, api_key: str | None = None, base_url: str | None = None) -> None:
         self.api_key = api_key or settings.composio_api_key
         self.base_url = (base_url or settings.composio_base_url).rstrip("/")
@@ -41,7 +45,7 @@ class ComposioClient:
         return {"x-api-key": self.api_key or "", "Content-Type": "application/json"}
 
     async def list_tools(
-        self, toolkits: list[str] | None = None, limit: int = 20
+        self, toolkits: list[str] | None = None, limit: int = 20, *, important: bool = False
     ) -> list[dict[str, Any]]:
         """Return Composio tools mapped into OSAI agent tool-spec format."""
         toolkits = toolkits or settings.composio_toolkit_list
@@ -51,7 +55,7 @@ class ComposioClient:
                 resp = await client.get(
                     f"{self.base_url}/api/v3/tools",
                     headers=self._headers(),
-                    params={"toolkit_slug": toolkit, "limit": limit},
+                    params={"toolkit_slug": toolkit, "limit": limit, "important": str(important).lower()},
                 )
                 if resp.status_code != 200:
                     logger.warning("Composio list_tools %s -> %s", toolkit, resp.status_code)
@@ -60,17 +64,31 @@ class ComposioClient:
                     specs.append(_to_spec(tool))
         return specs
 
-    async def list_toolkits(self, limit: int = 50) -> list[dict[str, Any]]:
-        """Available Composio toolkits (apps) with auth + tool counts."""
+    async def list_toolkits(self, *, search: str | None = None, category: str | None = None, cursor: str | None = None, limit: int = 40) -> dict[str, Any]:
+        """Return a cursor-paginated Composio catalog page."""
+        key = (search or "", category or "", cursor or "", min(max(limit, 1), 100))
+        now = time.monotonic()
+        cached = self._catalog_cache.get(key)
+        if cached and now - cached[0] < self._catalog_ttl_seconds:
+            return cached[1]
+        params = {"limit": key[3], "sort_by": "usage"}
+        if search:
+            params["search"] = search
+        if category:
+            params["category"] = category
+        if cursor:
+            params["cursor"] = cursor
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.get(
-                f"{self.base_url}/api/v3/toolkits",
+                f"{self.base_url}/api/v3.1/toolkits",
                 headers=self._headers(),
-                params={"limit": limit},
+                params=params,
             )
         if resp.status_code != 200:
-            return []
-        out = []
+            if cached:
+                return cached[1]
+            raise RuntimeError(f"Composio toolkit catalog returned HTTP {resp.status_code}")
+        out: list[dict[str, Any]] = []
         for tk in resp.json().get("items", []):
             meta = tk.get("meta", {})
             out.append(
@@ -84,7 +102,23 @@ class ComposioClient:
                     "categories": [c.get("name") for c in meta.get("categories", [])],
                 }
             )
-        return out
+        result = {"items": out, "next_cursor": resp.json().get("next_cursor")}
+        self._catalog_cache[key] = (now, result)
+        return result
+
+    async def list_toolkit_categories(self) -> list[dict[str, Any]]:
+        key = ("categories", "", "", 0)
+        now = time.monotonic()
+        cached = self._catalog_cache.get(key)
+        if cached and now - cached[0] < self._catalog_ttl_seconds:
+            return cached[1]["items"]
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.get(f"{self.base_url}/api/v3.1/toolkits/categories", headers=self._headers())
+        if resp.status_code != 200:
+            return cached[1]["items"] if cached else []
+        items = [{"id": item.get("id"), "name": item.get("name")} for item in resp.json().get("items", [])]
+        self._catalog_cache[key] = (now, {"items": items})
+        return items
 
     async def _ensure_auth_config(self, client: httpx.AsyncClient, toolkit: str) -> str | None:
         """Return an auth_config id for a toolkit, creating a managed one if needed.

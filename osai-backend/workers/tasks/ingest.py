@@ -16,6 +16,7 @@ from db.session import SessionLocal
 from workers.celery_app import celery_app
 
 logger = logging.getLogger("osai.tasks.ingest")
+MAX_TRANSCRIBE_BYTES = 25 * 1024 * 1024
 
 MOCK_TRANSCRIPT = (
     "Anish: Hi team, let's review the launch tasks for the OSAI platform.\n"
@@ -34,9 +35,27 @@ MOCK_TRANSCRIPT = (
 )
 
 
+def _validate_transcription_size(audio_content: bytes) -> None:
+    if len(audio_content) > MAX_TRANSCRIBE_BYTES:
+        raise RuntimeError(
+            "Recording exceeds the 25 MB transcription limit. Split the recording before retrying."
+        )
+
+
 @celery_app.task
 def sync_connector(connector_key: str, org_id: str) -> dict[str, str]:
-    return {"connector_key": connector_key, "org_id": org_id, "status": "queued"}
+    from connectors.sync_service import sync_connector as run_sync
+
+    with SessionLocal() as session:
+        return asyncio.run(run_sync(connector_key, org_id, session))
+
+
+@celery_app.task
+def sync_composio_connections(org_id: str) -> dict:
+    from connectors.composio_ingest import sync_all_connections
+
+    with SessionLocal() as session:
+        return asyncio.run(sync_all_connections(org_id, session))
 
 
 @celery_app.task(
@@ -75,6 +94,7 @@ def download_and_transcribe(
     # 2. Call the Whisper API (Groq by default) if audio content is available
     if audio_content and settings.transcribe_key:
         try:
+            _validate_transcription_size(audio_content)
             logger.info("Sending audio to Whisper API...")
             with httpx.Client(timeout=120) as client:
                 headers = {"Authorization": f"Bearer {settings.transcribe_key}"}
@@ -94,13 +114,19 @@ def download_and_transcribe(
         except Exception as exc:
             logger.error(f"Error calling Whisper API: {exc}")
 
-    # 3. Fallback to mock transcript if necessary
+    # 3. A sample transcript is useful only in the explicitly-labelled demo
+    # workspace. Real recordings must fail honestly so downstream workflows never
+    # manufacture meeting outcomes from fixture data.
     if not transcript:
+        if org_id != settings.default_org_id:
+            raise RuntimeError(
+                "Transcription is unavailable. Configure a transcription provider and retry the recording."
+            )
         logger.info("Using mock transcript fallback.")
         transcript = MOCK_TRANSCRIPT
 
     # 4. Save raw transcript and chunk document
-    doc_id = f"zoom:meeting:{meeting_id}"
+    doc_id = f"{org_id}:zoom:meeting:{meeting_id}"
     doc = SourceDocument(
         source_id=doc_id,
         source_type="zoom",

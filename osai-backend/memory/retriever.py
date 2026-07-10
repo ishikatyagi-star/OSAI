@@ -4,31 +4,22 @@ from __future__ import annotations
 
 import logging
 
+import httpx
+
 from api.schemas.search import SearchRequest, SearchResponse, SourceCitation
 from config import settings
-from memory.embeddings import default_embedding_provider
+from llm.router import model_router
+from memory.embeddings import EmbeddingsUnavailableError, default_embedding_provider
 from memory.qdrant_store import get_default_qdrant_store
+from policy import TIER_ORDER, allowed_tiers, can_access, tier_visible, visible
 
 logger = logging.getLogger("osai.retriever")
 
 # Data-clearance ordering (least→most sensitive). A member sees a chunk only if
 # its tier is at or below their clearance; "red" clearance sees everything.
-_TIER_ORDER = {"normal": 0, "amber": 1, "red": 2}
-
-
-def _tier_visible(chunk_tier: str | None, requester_tier: str) -> bool:
-    return _TIER_ORDER.get(chunk_tier or "normal", 0) <= _TIER_ORDER.get(requester_tier, 2)
-
-
-def _visible(chunk_permissions: list[str] | None, requester_permissions: list[str]) -> bool:
-    """Data-governance check. Empty/admin requester = system context (sees all);
-    otherwise a chunk is visible only if it's public or shares a permission grant."""
-    if not requester_permissions or "role:admin" in requester_permissions:
-        return True
-    chunk_permissions = chunk_permissions or []
-    if not chunk_permissions or "source:all" in chunk_permissions:
-        return True
-    return bool(set(chunk_permissions) & set(requester_permissions))
+_TIER_ORDER = TIER_ORDER
+_tier_visible = tier_visible
+_visible = visible
 
 
 async def retrieve_answer(request: SearchRequest) -> SearchResponse:
@@ -43,7 +34,12 @@ async def retrieve_answer(request: SearchRequest) -> SearchResponse:
     hits: list = []
     try:
         vectors = await default_embedding_provider.embed_texts([request.query])
-        hits = await qdrant.search(vectors[0], request.org_id, limit=8)
+        permitted_tiers = allowed_tiers(request.requester_tier)
+        hits = await qdrant.search(
+            vectors[0], request.org_id, limit=8, allowed_tiers=permitted_tiers
+        )
+    except EmbeddingsUnavailableError as exc:
+        return SearchResponse(answer=str(exc), citations=[], enough_context=False)
     except Exception:
         hits = []
 
@@ -58,8 +54,12 @@ async def retrieve_answer(request: SearchRequest) -> SearchResponse:
     hits = [
         h
         for h in hits
-        if _visible((h.payload or {}).get("permissions"), request.requester_permissions)
-        and _tier_visible((h.payload or {}).get("data_tier"), request.requester_tier)
+        if can_access(
+            (h.payload or {}).get("permissions"),
+            (h.payload or {}).get("data_tier"),
+            request.requester_permissions,
+            request.requester_tier,
+        )
     ]
 
     if not hits and not memories:
@@ -113,8 +113,21 @@ async def retrieve_answer(request: SearchRequest) -> SearchResponse:
     context_text = "\n\n---\n\n".join(context_parts)
     doc_titles = [c.source_record_title for c in citations if c.source_tool != "memory"]
 
-    # 4. Synthesise answer with the configured LLM, else an honest fallback.
-    if settings.llm_api_key or settings.gemini_api_key:
+    # 4. Synthesize through the central tier router. Red context is local-only;
+    # a local-model outage falls back to raw grounded retrieval, never cloud.
+    highest_tier = max(
+        ((hit.payload or {}).get("data_tier", "normal") for hit in hits),
+        key=lambda tier: _TIER_ORDER.get(tier, 0),
+        default="normal",
+    )
+    route = model_router.route("retrieval", highest_tier)
+    if route.provider == "local":
+        try:
+            answer = await _ollama_answer(request.query, context_text)
+        except Exception:
+            logger.exception("Local red-tier synthesis failed; returning grounded fallback")
+            answer = _fallback_answer(memory_block, doc_titles)
+    elif settings.llm_api_key or settings.gemini_api_key:
         try:
             answer = await _gemini_answer(request.query, context_text)
         except Exception:
@@ -155,7 +168,11 @@ def _fallback_answer(memory_block: str, doc_titles: list[str]) -> str:
 async def _gemini_answer(query: str, context: str) -> str:
     from llm.gemini import generate
 
-    prompt = (
+    return await generate(_answer_prompt(query, context))
+
+
+def _answer_prompt(query: str, context: str) -> str:
+    return (
         "You are a precise enterprise knowledge assistant for university operations. "
         "Answer the question using ONLY the provided context (documents + OSAI memory). "
         "Cite document titles inline. Be concise.\n"
@@ -166,4 +183,15 @@ async def _gemini_answer(query: str, context: str) -> str:
         f"QUESTION: {query}\n\n"
         "ANSWER:"
     )
-    return await generate(prompt)
+
+
+async def _ollama_answer(query: str, context: str) -> str:
+    payload = {
+        "model": settings.ollama_model,
+        "stream": False,
+        "messages": [{"role": "user", "content": _answer_prompt(query, context)}],
+    }
+    async with httpx.AsyncClient(timeout=60) as client:
+        response = await client.post(f"{settings.ollama_url.rstrip('/')}/api/chat", json=payload)
+        response.raise_for_status()
+    return str(response.json()["message"]["content"]).strip()
