@@ -1,4 +1,4 @@
-// Demo data used as fallback when API is unavailable — makes the product look
+// Demo data used as fallback when API is unavailable - makes the product look
 // fully populated for recordings and stakeholder demos.
 
 import type { Integration, SyncRun, WorkflowRun, SearchResponse, DataRouting } from "./types";
@@ -104,7 +104,7 @@ export const DEMO_SYNC_RUNS: SyncRun[] = [
     started_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
     documents_seen: 0,
     documents_indexed: 0,
-    error: "Invalid API credentials — regenerate token in Freshdesk settings",
+    error: "Invalid API credentials - regenerate token in Freshdesk settings",
   },
   {
     id: "sync-slack-007",
@@ -253,7 +253,7 @@ export const DEMO_SEARCH_ANSWERS: Record<string, SearchResponse> = {
   },
   "what are the q3 priorities": {
     answer:
-      "Your Q3 priorities centre on three themes:\n\n1. **Search & Retrieval Quality** — improve citation accuracy and reduce hallucination in the RAG pipeline (Notion: Q3 Roadmap doc)\n2. **Connector Coverage** — ship Linear and Confluence connectors, bringing total coverage to 7 sources (Notion: Sprint Backlog)\n3. **Enterprise Readiness** — SSO integration, audit logs export, and SLA-backed uptime targets (Slack: #product-strategy, Jun 4)\n\nAll three are tracked in Notion with owners and weekly check-ins scheduled.",
+      "Your Q3 priorities centre on three themes:\n\n1. **Search & Retrieval Quality** - improve citation accuracy and reduce hallucination in the RAG pipeline (Notion: Q3 Roadmap doc)\n2. **Connector Coverage** - ship Linear and Confluence connectors, bringing total coverage to 7 sources (Notion: Sprint Backlog)\n3. **Enterprise Readiness** - SSO integration, audit logs export, and SLA-backed uptime targets (Slack: #product-strategy, Jun 4)\n\nAll three are tracked in Notion with owners and weekly check-ins scheduled.",
     citations: [
       {
         source_tool: "notion",
@@ -263,13 +263,13 @@ export const DEMO_SEARCH_ANSWERS: Record<string, SearchResponse> = {
       },
       {
         source_tool: "slack",
-        source_record_title: "#product-strategy — Jun 4 thread",
+        source_record_title: "#product-strategy - Jun 4 thread",
         url: null,
         confidence: 0.87,
       },
       {
         source_tool: "notion",
-        source_record_title: "Sprint Backlog — June",
+        source_record_title: "Sprint Backlog - June",
         url: null,
         confidence: 0.82,
       },
@@ -288,7 +288,7 @@ export const DEMO_SEARCH_ANSWERS: Record<string, SearchResponse> = {
       },
       {
         source_tool: "freshdesk",
-        source_record_title: "Ticket #101 — VPC Security Encryption",
+        source_record_title: "Ticket #101 - VPC Security Encryption",
         url: "https://freshdesk.com/tickets/101",
         confidence: 0.91,
       },
@@ -297,17 +297,17 @@ export const DEMO_SEARCH_ANSWERS: Record<string, SearchResponse> = {
   },
   "what is the onboarding process for new engineers": {
     answer:
-      "New engineer onboarding at your organisation involves four steps according to the Slack #onboarding channel and the Notion Onboarding Guide:\n\n1. **Day 1** — Read the Notion Onboarding Guide, set up local Docker environment (API on port 8000, Qdrant on port 6333)\n2. **Day 1–2** — Connect your Linear and GitHub accounts; get added to relevant Slack channels\n3. **Day 3** — Pair with a senior engineer to walk through the connector architecture\n4. **Week 1** — Ship one small fix or connector improvement to get familiar with the deploy pipeline\n\nThe full guide is maintained in Notion and updated monthly.",
+      "New engineer onboarding at your organisation involves four steps according to the Slack #onboarding channel and the Notion Onboarding Guide:\n\n1. **Day 1** - Read the Notion Onboarding Guide, set up local Docker environment (API on port 8000, Qdrant on port 6333)\n2. **Day 1–2** - Connect your Linear and GitHub accounts; get added to relevant Slack channels\n3. **Day 3** - Pair with a senior engineer to walk through the connector architecture\n4. **Week 1** - Ship one small fix or connector improvement to get familiar with the deploy pipeline\n\nThe full guide is maintained in Notion and updated monthly.",
     citations: [
       {
         source_tool: "notion",
-        source_record_title: "OSAI Team Onboarding Guidelines",
+        source_record_title: "Sheldon AI Team Onboarding Guidelines",
         url: null,
         confidence: 0.98,
       },
       {
         source_tool: "slack",
-        source_record_title: "#onboarding channel — pinned message",
+        source_record_title: "#onboarding channel - pinned message",
         url: null,
         confidence: 0.84,
       },
@@ -316,17 +316,17 @@ export const DEMO_SEARCH_ANSWERS: Record<string, SearchResponse> = {
   },
   "any open sla escalations in freshdesk": {
     answer:
-      "There are **2 open SLA escalations** currently tracked in Freshdesk:\n\n1. **Ticket #204** — Enterprise customer \"Meridian Corp\" has a P1 bug affecting API authentication. Opened 3h 42m ago, SLA deadline in 18 minutes. Owner: support@company.com\n2. **Ticket #198** — Connector sync failure on Google Drive for \"Apex Ventures\". Opened 6h ago, within SLA but approaching amber threshold.\n\nBoth tickets are synced into OSAI and will trigger a Slack alert in #operations if the SLA threshold is breached.",
+      "There are **2 open SLA escalations** currently tracked in Freshdesk:\n\n1. **Ticket #204** - Enterprise customer \"Meridian Corp\" has a P1 bug affecting API authentication. Opened 3h 42m ago, SLA deadline in 18 minutes. Owner: support@company.com\n2. **Ticket #198** - Connector sync failure on Google Drive for \"Apex Ventures\". Opened 6h ago, within SLA but approaching amber threshold.\n\nBoth tickets are synced into Sheldon AI and will trigger a Slack alert in #operations if the SLA threshold is breached.",
     citations: [
       {
         source_tool: "freshdesk",
-        source_record_title: "Ticket #204 — P1 Auth API Bug (Meridian Corp)",
+        source_record_title: "Ticket #204 - P1 Auth API Bug (Meridian Corp)",
         url: null,
         confidence: 0.99,
       },
       {
         source_tool: "freshdesk",
-        source_record_title: "Ticket #198 — Google Drive Sync Failure (Apex Ventures)",
+        source_record_title: "Ticket #198 - Google Drive Sync Failure (Apex Ventures)",
         url: null,
         confidence: 0.94,
       },
@@ -395,7 +395,7 @@ export const DEMO_INBOX_ITEMS: InboxItem[] = [
   {
     id: "inbox-2",
     type: "follow-up",
-    text: "The Meridian Corp demo went well — they asked for a Confluence connector and SSO by end of Q3. Anish promised a follow-up email with a timeline.",
+    text: "The Meridian Corp demo went well - they asked for a Confluence connector and SSO by end of Q3. Anish promised a follow-up email with a timeline.",
     source: "Zoom · Partnership Meeting Recording",
     dept: "Sales",
     person: "Anish M.",
@@ -435,7 +435,7 @@ export const DEMO_INBOX_ITEMS: InboxItem[] = [
   {
     id: "inbox-6",
     type: "follow-up",
-    text: "Board meeting deck needs to include competitor positioning slide — Glean, Onyx, and Notion AI comparison. Sarah to prepare by June 10.",
+    text: "Board meeting deck needs to include competitor positioning slide - Glean, Onyx, and Notion AI comparison. Sarah to prepare by June 10.",
     source: "Google Drive · Exec Presentations",
     dept: "Leadership",
     person: "Sarah R.",
@@ -472,9 +472,9 @@ export type Decision = {
   impact: "critical" | "high" | "medium" | "low";
   owner: string;
   date: string;
-  // Where this surfaced from. `identifiedBy: "osai"` marks items OSAI inferred
+  // Where this surfaced from. `identifiedBy: "osai"` marks items Sheldon AI inferred
   // from context that are NOT tracked in the source tool (the merged Team Board's
-  // reason to exist — e.g. the 11th/12th task Notion never listed).
+  // reason to exist - e.g. the 11th/12th task Notion never listed).
   source: string;
   identifiedBy: "source" | "osai";
 };
@@ -537,7 +537,7 @@ export const DEMO_DECISIONS: Decision[] = [
   },
   {
     id: "dec-6",
-    title: "Price OSAI at $29/seat/month for SMB, $99/seat/month for Enterprise",
+    title: "Price Sheldon AI at $29/seat/month for SMB, $99/seat/month for Enterprise",
     tags: ["pricing", "business"],
     status: "proposed",
     impact: "high",
@@ -568,7 +568,7 @@ export const DEMO_DECISIONS: Decision[] = [
     source: "Notion",
     identifiedBy: "source",
   },
-  // OSAI-identified — surfaced from Slack/Freshdesk context but never logged in
+  // Sheldon AI-identified - surfaced from Slack/Freshdesk context but never logged in
   // Notion. These are what the old Team Board existed to highlight.
   {
     id: "dec-9",
@@ -583,7 +583,7 @@ export const DEMO_DECISIONS: Decision[] = [
   },
   {
     id: "dec-10",
-    title: "Escalate Freshdesk P1 #FD-2891 — SLA breach risk for Meridian Corp",
+    title: "Escalate Freshdesk P1 #FD-2891 - SLA breach risk for Meridian Corp",
     tags: ["support", "sla"],
     status: "proposed",
     impact: "high",
@@ -624,7 +624,7 @@ export const DEMO_BOARD_TASKS: BoardTask[] = [
 ];
 
 
-// ─── Ask OSAI demo answers (fallback for POST /ask) ──────────────────────────
+// ─── Ask Sheldon AI demo answers (fallback for POST /ask) ──────────────────────────
 
 import type {
   AskResponse,
@@ -644,7 +644,7 @@ export const DEMO_ASK_ANSWERS: Record<string, AskResponse> = {
   default: {
     conversation_id: "conv-demo",
     answer:
-      "I can answer questions across everything OSAI has indexed — Notion, Slack, Google Drive, Freshdesk and Zoom transcripts — and take actions in your connected tools. Try one of the suggested prompts to see a cited answer, and ask me to *open a ticket* or *post to Slack* to see an action-confirmation card.",
+      "I can answer questions across everything Sheldon AI has indexed - Notion, Slack, Google Drive, Freshdesk and Zoom transcripts - and take actions in your connected tools. Try one of the suggested prompts to see a cited answer, and ask me to *open a ticket* or *post to Slack* to see an action-confirmation card.",
     citations: [],
     actions_taken: [],
     enough_context: true,
@@ -655,10 +655,10 @@ export const DEMO_ASK_ANSWERS: Record<string, AskResponse> = {
   "what are the q3 priorities": {
     conversation_id: "conv-demo",
     answer:
-      "Your **Q3 priorities** centre on three themes:\n\n1. **Search & retrieval quality** — improve citation accuracy and reduce hallucination in the RAG pipeline.\n2. **Connector coverage** — ship Linear and Confluence connectors (7 sources total).\n3. **Enterprise readiness** — SSO, audit-log export, and SLA-backed uptime.\n\nAll three are tracked in Notion with owners and weekly check-ins.",
+      "Your **Q3 priorities** centre on three themes:\n\n1. **Search & retrieval quality** - improve citation accuracy and reduce hallucination in the RAG pipeline.\n2. **Connector coverage** - ship Linear and Confluence connectors (7 sources total).\n3. **Enterprise readiness** - SSO, audit-log export, and SLA-backed uptime.\n\nAll three are tracked in Notion with owners and weekly check-ins.",
     citations: [
       { source_tool: "notion", source_record_title: "Q3 2026 Product Roadmap", url: null, confidence: 0.96 },
-      { source_tool: "slack", source_record_title: "#product-strategy — Jun 4 thread", url: null, confidence: 0.87 },
+      { source_tool: "slack", source_record_title: "#product-strategy - Jun 4 thread", url: null, confidence: 0.87 },
     ],
     actions_taken: [],
     enough_context: true,
@@ -672,7 +672,7 @@ export const DEMO_ASK_ANSWERS: Record<string, AskResponse> = {
       "The VPC security setup is owned by **Yash** (yash@company.com). Per the Security Audit workflow, both tracked tasks are **done**:\n\n- Mapping VPC security groups for Ollama services ✅\n- Encrypting all Red-tier databases on local Qdrant ✅\n\nThe work was auto-pushed to Freshdesk ticket #101.",
     citations: [
       { source_tool: "notion", source_record_title: "VPC and Ollama Security Setup", url: null, confidence: 0.95 },
-      { source_tool: "freshdesk", source_record_title: "Ticket #101 — VPC Security Encryption", url: "https://freshdesk.com/tickets/101", confidence: 0.91 },
+      { source_tool: "freshdesk", source_record_title: "Ticket #101 - VPC Security Encryption", url: "https://freshdesk.com/tickets/101", confidence: 0.91 },
     ],
     actions_taken: [],
     enough_context: true,
@@ -683,10 +683,10 @@ export const DEMO_ASK_ANSWERS: Record<string, AskResponse> = {
   "summarise open sla escalations in freshdesk": {
     conversation_id: "conv-demo",
     answer:
-      "There are **2 open SLA escalations** in Freshdesk:\n\n1. **#204** — Meridian Corp, P1 API auth bug. SLA deadline in ~18 min. Owner: support@company.com\n2. **#198** — Apex Ventures, Google Drive sync failure. Within SLA but approaching the amber threshold.\n\nBoth will trigger a Slack alert in #operations if breached.",
+      "There are **2 open SLA escalations** in Freshdesk:\n\n1. **#204** - Meridian Corp, P1 API auth bug. SLA deadline in ~18 min. Owner: support@company.com\n2. **#198** - Apex Ventures, Google Drive sync failure. Within SLA but approaching the amber threshold.\n\nBoth will trigger a Slack alert in #operations if breached.",
     citations: [
-      { source_tool: "freshdesk", source_record_title: "Ticket #204 — P1 Auth API Bug (Meridian Corp)", url: null, confidence: 0.99 },
-      { source_tool: "freshdesk", source_record_title: "Ticket #198 — Google Drive Sync Failure (Apex Ventures)", url: null, confidence: 0.94 },
+      { source_tool: "freshdesk", source_record_title: "Ticket #204 - P1 Auth API Bug (Meridian Corp)", url: null, confidence: 0.99 },
+      { source_tool: "freshdesk", source_record_title: "Ticket #198 - Google Drive Sync Failure (Apex Ventures)", url: null, confidence: 0.94 },
     ],
     actions_taken: [],
     enough_context: true,
@@ -697,9 +697,9 @@ export const DEMO_ASK_ANSWERS: Record<string, AskResponse> = {
   "open a freshdesk ticket for the redis connection pool issue": {
     conversation_id: "conv-demo",
     answer:
-      "I found the issue in Slack #engineering: the **Redis connection pool is exhausting under load** (>500 concurrent tasks), flagged by Dev T. ahead of the June 12 production deploy. I've drafted a Freshdesk ticket — review and approve it below and I'll create it.",
+      "I found the issue in Slack #engineering: the **Redis connection pool is exhausting under load** (>500 concurrent tasks), flagged by Dev T. ahead of the June 12 production deploy. I've drafted a Freshdesk ticket - review and approve it below and I'll create it.",
     citations: [
-      { source_tool: "slack", source_record_title: "#engineering — Redis pool exhaustion", url: null, confidence: 0.92 },
+      { source_tool: "slack", source_record_title: "#engineering - Redis pool exhaustion", url: null, confidence: 0.92 },
     ],
     actions_taken: [
       {
@@ -729,7 +729,7 @@ export const DEMO_ASK_ANSWERS: Record<string, AskResponse> = {
 // ─── Org knowledge graph demo (fallback for GET /graph/*) ────────────────────
 
 export const DEMO_GRAPH_ENTITIES: GraphEntity[] = [
-  { id: "ent-yash", type: "person", label: "Yash K.", summary: "Engineering — owns infra & security", source_tool: "notion", attributes: { email: "yash@company.com", department: "Engineering" }, degree: 5 },
+  { id: "ent-yash", type: "person", label: "Yash K.", summary: "Engineering - owns infra & security", source_tool: "notion", attributes: { email: "yash@company.com", department: "Engineering" }, degree: 5 },
   { id: "ent-ishika", type: "person", label: "Ishika T.", summary: "Product & backend", source_tool: "notion", attributes: { email: "ishika@company.com", department: "Product" }, degree: 4 },
   { id: "ent-sarah", type: "person", label: "Sarah R.", summary: "Eng lead", source_tool: "slack", attributes: { email: "sarah@company.com", department: "Engineering" }, degree: 3 },
   { id: "ent-anish", type: "person", label: "Anish M.", summary: "Sales / partnerships", source_tool: "zoom", attributes: { email: "anish@company.com", department: "Sales" }, degree: 2 },
@@ -739,7 +739,7 @@ export const DEMO_GRAPH_ENTITIES: GraphEntity[] = [
   { id: "ent-q3", type: "project", label: "Q3 Roadmap", summary: "Search quality, connectors, enterprise", source_tool: "notion", attributes: { status: "active" }, degree: 4 },
   { id: "ent-dec-qdrant", type: "decision", label: "Adopt Qdrant as vector store", summary: "Replaces pgvector", source_tool: "notion", attributes: { impact: "critical" }, degree: 2 },
   { id: "ent-dec-sso", type: "decision", label: "Add SSO before enterprise launch", summary: "Okta integration", source_tool: "notion", attributes: { impact: "critical" }, degree: 2 },
-  { id: "ent-tkt-204", type: "ticket", label: "Freshdesk #204", summary: "P1 API auth bug — Meridian Corp", source_tool: "freshdesk", attributes: { priority: "P1" }, degree: 2 },
+  { id: "ent-tkt-204", type: "ticket", label: "Freshdesk #204", summary: "P1 API auth bug - Meridian Corp", source_tool: "freshdesk", attributes: { priority: "P1" }, degree: 2 },
   { id: "ent-tkt-101", type: "ticket", label: "Freshdesk #101", summary: "VPC security encryption", source_tool: "freshdesk", attributes: { priority: "P2" }, degree: 2 },
 ];
 
@@ -776,7 +776,7 @@ export const DEMO_EVAL_RUN: EvalRun = {
     { id: "route-01", category: "routing", question: "Where should a new product decision be logged?", expected: "Decision Log (Notion)", actual: "Notion Decision Log", passed: true, score: 0.9, latency_ms: 1400, notes: null },
     { id: "route-02", category: "routing", question: "Which channel gets SLA-breach alerts?", expected: "#operations", actual: "#ops", passed: false, score: 0.55, latency_ms: 1380, notes: "Returned an alias, not the canonical channel name." },
     { id: "qa-01", category: "qa", question: "What replaced pgvector?", expected: "Qdrant", actual: "Qdrant", passed: true, score: 0.98, latency_ms: 1320, notes: null },
-    { id: "qa-02", category: "qa", question: "What is the onboarding day-1 task?", expected: "Read onboarding guide + set up Docker", actual: "Set up Docker environment", passed: false, score: 0.62, latency_ms: 1600, notes: "Partial — missed the onboarding-guide step." },
+    { id: "qa-02", category: "qa", question: "What is the onboarding day-1 task?", expected: "Read onboarding guide + set up Docker", actual: "Set up Docker environment", passed: false, score: 0.62, latency_ms: 1600, notes: "Partial - missed the onboarding-guide step." },
     { id: "qa-03", category: "qa", question: "Which connector handles meeting transcripts?", expected: "Zoom", actual: "Zoom", passed: true, score: 0.96, latency_ms: 1280, notes: null },
     { id: "own-03", category: "ownership", question: "Who raised the Meridian Corp escalation?", expected: "Anish", actual: "Unclear from context", passed: false, score: 0.4, latency_ms: 1720, notes: "Low retrieval confidence on the Zoom transcript." },
     { id: "triage-03", category: "ticket_triage", question: "How many open SLA escalations exist?", expected: "2", actual: "2", passed: true, score: 0.93, latency_ms: 1510, notes: null },
@@ -784,7 +784,7 @@ export const DEMO_EVAL_RUN: EvalRun = {
     { id: "qa-04", category: "qa", question: "What is the default LLM route?", expected: "gemini-2.0-flash", actual: "Gemini 2.0 Flash", passed: true, score: 0.95, latency_ms: 1300, notes: null },
     { id: "qa-05", category: "qa", question: "What tier blocks LLM access entirely?", expected: "Red", actual: "Red tier", passed: true, score: 0.97, latency_ms: 1250, notes: null },
     { id: "own-04", category: "ownership", question: "Who owns the Redis pool fix?", expected: "Dev", actual: "Dev T.", passed: true, score: 0.92, latency_ms: 1480, notes: null },
-    { id: "triage-04", category: "ticket_triage", question: "Is ticket #101 resolved?", expected: "Yes", actual: "Yes — executed", passed: true, score: 0.94, latency_ms: 1390, notes: null },
+    { id: "triage-04", category: "ticket_triage", question: "Is ticket #101 resolved?", expected: "Yes", actual: "Yes - executed", passed: true, score: 0.94, latency_ms: 1390, notes: null },
     { id: "route-04", category: "routing", question: "Which connector is document-retrieval only?", expected: "Qdrant", actual: "Qdrant", passed: true, score: 0.96, latency_ms: 1270, notes: null },
     { id: "qa-06", category: "qa", question: "Name the three data-routing tiers.", expected: "Normal, Amber, Red", actual: "Normal, Amber, Red", passed: true, score: 0.99, latency_ms: 1230, notes: null },
   ],

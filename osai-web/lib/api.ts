@@ -32,7 +32,7 @@ function getHeaders(extraHeaders: Record<string, string> = {}): Record<string, s
 }
 
 // Network requests are bounded by a timeout so a slow/unreachable backend can
-// never leave the UI hanging on a spinner — on timeout or error we resolve to
+// never leave the UI hanging on a spinner - on timeout or error we resolve to
 // the provided fallback (typically demo data or null).
 const DEFAULT_TIMEOUT_MS = 8000;
 
@@ -40,7 +40,7 @@ const DEFAULT_TIMEOUT_MS = 8000;
 // pre-JWT token). Clear it and send the user back to sign in.
 //
 // Exception: the demo workspace. Its "demo-token" is not a real JWT, so any
-// admin-gated write 401s by design — that must surface as an inline "not
+// admin-gated write 401s by design - that must surface as an inline "not
 // available in demo" message, not eject the whole session (QA ISSUE-002).
 function handleUnauthorized(status: number) {
   if (status === 401 && typeof window !== "undefined") {
@@ -204,7 +204,7 @@ export function getAuthConfig() {
 }
 
 // Clear the local session (token + cached org/user). Used by sign-out and after
-// account deletion. Does not call the backend — JWTs are stateless.
+// account deletion. Does not call the backend - JWTs are stateless.
 export function clearSession() {
   if (typeof window === "undefined") return;
   for (const k of [
@@ -233,7 +233,7 @@ export function onboardOrg(payload: OrgOnboardPayload): Promise<OrgOnboardRespon
   return apiPost<OrgOnboardPayload, OrgOnboardResponse>("/orgs", payload);
 }
 
-// Delete all ingested content for the current org (keeps connections) — used to
+// Delete all ingested content for the current org (keeps connections) - used to
 // clear seed/demo data before showing a customer their own workspace.
 export function resetWorkspaceContent(orgId: string) {
   return apiPost<Record<string, never>, { org_id: string; deleted: Record<string, number> }>(
@@ -461,7 +461,7 @@ export function patchDataRouting(routing: DataRouting) {
   );
 }
 
-// ─── Ask OSAI agent (Phase 1 — POST /ask) ────────────────────────────────────
+// ─── Ask Sheldon AI agent (Phase 1 - POST /ask) ────────────────────────────────────
 
 function currentOrgId(orgId?: string) {
   return (
@@ -569,7 +569,7 @@ export function runAutomation(id: string) {
   );
 }
 
-// ─── Org knowledge graph (Phase 4 — GET /graph/*) ────────────────────────────
+// ─── Org knowledge graph (Phase 4 - GET /graph/*) ────────────────────────────
 
 export function getGraphEntities(params: { type?: string; q?: string } = {}) {
   const qs = new URLSearchParams();
@@ -607,7 +607,7 @@ export function getAccessMap() {
   });
 }
 
-// ─── Evals (Phase 6 — GET /evals) ─────────────────────────────────────────────
+// ─── Evals (Phase 6 - GET /evals) ─────────────────────────────────────────────
 
 export function getEvalRun() {
   return apiGet<EvalRun | null>("/evals", null);

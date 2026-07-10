@@ -36,7 +36,7 @@ export default function LoginPage() {
   }, []);
 
   // Demo workspace = shared sample data, no real account. Real sign-in is
-  // Google only — the passwordless email login accepted any address without
+  // Google only - the passwordless email login accepted any address without
   // verification, so it was removed.
   function enterDemo() {
     localStorage.setItem("osai_token", "demo-token");
@@ -56,7 +56,7 @@ export default function LoginPage() {
       <nav className="login-nav">
         <Link href="/" className="login-nav-logo">
           <span className="login-nav-logo-mark">O</span>
-          <span>OSAI</span>
+          <span>Sheldon AI</span>
         </Link>
         <Link href="/" className="login-nav-back">← Back to site</Link>
       </nav>
@@ -66,7 +66,7 @@ export default function LoginPage() {
         {/* Header */}
         <div className="login-card-header">
           <div className="login-logo-mark">O</div>
-          <h1 className="login-title">Welcome to OSAI</h1>
+          <h1 className="login-title">Welcome to Sheldon AI</h1>
           <p className="login-subtitle">The operating layer for your company&apos;s knowledge</p>
         </div>
 
@@ -107,7 +107,7 @@ export default function LoginPage() {
         {/* Demo CTA */}
         <button onClick={enterDemo} className="login-demo-btn">
           <Sparkles className="size-4" />
-          <span>Try Demo — no account needed</span>
+          <span>Try Demo - no account needed</span>
           <ArrowRight className="login-demo-arrow size-4" />
         </button>
       </div>

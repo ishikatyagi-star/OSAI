@@ -22,6 +22,7 @@ import {
   TagBlock,
 } from "@openuidev/react-ui";
 import type { AskUiArtifact, AskUiArtifactMetric, AskUiArtifactRow } from "@/lib/types";
+import { brandText } from "@/lib/utils";
 
 const TONE_TO_TAG: Record<
   NonNullable<AskUiArtifactMetric["tone"]>,
@@ -54,7 +55,7 @@ function MetricTags({ metrics }: { metrics: AskUiArtifactMetric[] }) {
           key={metric.label}
           size="sm"
           variant={TONE_TO_TAG[metric.tone ?? "neutral"]}
-          text={`${metric.label}: ${metric.value}`}
+          text={brandText(`${metric.label}: ${metric.value}`)}
         />
       ))}
     </TagBlock>
@@ -80,22 +81,22 @@ function ArtifactRows({ rows }: { rows: AskUiArtifactRow[] }) {
               <span className="ask-openui-row-title">
                 {row.href ? (
                   <a href={row.href} target="_blank" rel="noreferrer">
-                    {row.label}
+                    {brandText(row.label)}
                     <ExternalLink className="size-3" />
                   </a>
                 ) : (
-                  row.label
+                  brandText(row.label)
                 )}
               </span>
               {showsConfidence && row.meta && (
-                <span className="ask-openui-row-meta">{row.meta}</span>
+                <span className="ask-openui-row-meta">{brandText(row.meta)}</span>
               )}
             </TableCell>
             <TableCell>
               <Tag
                 size="sm"
                 variant={TONE_TO_TAG[row.tone ?? "neutral"]}
-                text={row.value}
+                text={brandText(row.value)}
               />
             </TableCell>
             <TableCell align="right">
@@ -123,16 +124,16 @@ export function OpenUiArtifacts({ artifacts }: { artifacts?: AskUiArtifact[] }) 
             <Callout
               key={artifact.id}
               variant="warning"
-              title={artifact.title}
-              description={artifact.subtitle}
+              title={brandText(artifact.title)}
+              description={brandText(artifact.subtitle)}
               className="ask-openui-callout"
             />
           ) : (
             <Card key={artifact.id} variant="card" width="full" className="ask-openui-card">
               <CardHeader
                 icon={<ArtifactIcon kind={artifact.kind} />}
-                title={artifact.title}
-                subtitle={artifact.subtitle}
+                title={brandText(artifact.title)}
+                subtitle={brandText(artifact.subtitle)}
               />
               {artifact.metrics?.length ? <MetricTags metrics={artifact.metrics} /> : null}
               {artifact.rows?.length ? <ArtifactRows rows={artifact.rows} /> : null}

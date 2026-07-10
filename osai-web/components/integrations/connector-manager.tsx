@@ -26,7 +26,7 @@ import {
 } from "@/lib/api";
 import { CONNECTOR_META } from "@/lib/connector-meta";
 import type { Integration, SyncRun } from "@/lib/types";
-import { timeAgo } from "@/lib/utils";
+import { brandText, timeAgo } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import {
   Dialog,
@@ -161,7 +161,7 @@ export function ConnectorManager({
       setRules(res.rules);
       setRulesSaved(true);
     } catch {
-      // Backend unreachable — keep local state; surfaced by absence of saved tick.
+      // Backend unreachable - keep local state; surfaced by absence of saved tick.
     } finally {
       setRulesSaving(false);
       setTimeout(() => setRulesSaved(false), 3000);
@@ -188,7 +188,7 @@ export function ConnectorManager({
               <ConnectorIcon className="size-5" strokeWidth={1.8} />
             </div>
             <div>
-              <DialogTitle>{meta?.label ?? integration.display_name}</DialogTitle>
+              <DialogTitle>{brandText(meta?.label ?? integration.display_name)}</DialogTitle>
               <DialogDescription>
                 {connected
                   ? integration.account_email
@@ -274,7 +274,7 @@ export function ConnectorManager({
                   <span
                     className={health.healthy ? "text-success" : "text-destructive"}
                   >
-                    {health.message}
+                    {brandText(health.message)}
                   </span>
                 </>
               ) : (
@@ -284,7 +284,7 @@ export function ConnectorManager({
             {integration.sync_error && (
               <p className="mt-2 inline-flex items-start gap-1.5 text-xs text-destructive">
                 <AlertTriangle className="mt-0.5 size-3.5 shrink-0" strokeWidth={1.8} />
-                <span>{integration.sync_error}</span>
+                <span>{brandText(integration.sync_error)}</span>
               </p>
             )}
           </section>
@@ -319,7 +319,7 @@ export function ConnectorManager({
           </section>
         )}
 
-        {/* Classify synced files — pick a tier per file (default Normal/green) */}
+        {/* Classify synced files - pick a tier per file (default Normal/green) */}
         {connected && (
           <section className="rounded-lg border border-border bg-background/40 p-3">
             <p className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -332,7 +332,7 @@ export function ConnectorManager({
 
             {docs.length === 0 ? (
               <p className="text-xs text-muted-foreground">
-                Nothing indexed yet — click “Sync now” to pull in this source.
+                Nothing indexed yet - click “Sync now” to pull in this source.
               </p>
             ) : (
               <ul className="max-h-52 space-y-1 overflow-y-auto">
@@ -350,14 +350,14 @@ export function ConnectorManager({
                       <span className="min-w-0 flex-1 truncate text-foreground/90">
                         {d.url ? (
                           <a href={d.url} target="_blank" rel="noreferrer" className="hover:underline">
-                            {d.title}
+                            {brandText(d.title)}
                           </a>
                         ) : (
-                          d.title
+                          brandText(d.title)
                         )}
                       </span>
                       <Select
-                        aria-label={`Data tier for ${d.title}`}
+                        aria-label={`Data tier for ${brandText(d.title)}`}
                         style={{ height: 40, fontSize: 11 }}
                         value={tier}
                         onValueChange={(value) => setFileTier(d.title, value as TierRule["tier"])}
@@ -410,7 +410,7 @@ export function ConnectorManager({
                             onClick={() => addRule(s.title, newTier)}
                             className="block w-full truncate px-2.5 py-1.5 text-left text-xs hover:bg-accent"
                           >
-                            {s.title}
+                            {brandText(s.title)}
                           </button>
                         </li>
                       ))}
@@ -418,7 +418,7 @@ export function ConnectorManager({
                   )}
                   {patternFocused && docs.length === 0 && (
                     <div className="absolute z-10 mt-1 w-full rounded-md border border-border bg-card px-2.5 py-2 text-[11px] text-muted-foreground shadow-lg">
-                      No synced files yet — run “Sync now” to pull files in, then
+                      No synced files yet - run “Sync now” to pull files in, then
                       they’ll appear here to pick from. You can still type a
                       folder or keyword rule.
                     </div>
@@ -448,13 +448,13 @@ export function ConnectorManager({
                       className="flex items-center gap-2 rounded-md border border-border bg-card px-2.5 py-1.5 text-xs"
                     >
                       <span className="inline-block size-2 shrink-0 rounded-full" style={{ background: TIER_DOT[r.tier] }} />
-                      <span className="min-w-0 flex-1 truncate font-mono text-foreground/90">{r.pattern}</span>
+                      <span className="min-w-0 flex-1 truncate font-mono text-foreground/90">{brandText(r.pattern)}</span>
                       <Badge variant="muted" className="capitalize">{r.tier}</Badge>
                       <button
                         type="button"
                         onClick={() => removeRule(r.pattern)}
                         className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-md text-foreground hover:text-destructive"
-                        aria-label={`Remove rule ${r.pattern}`}
+                        aria-label={`Remove rule ${brandText(r.pattern)}`}
                       >
                         <Trash2 className="size-3.5" />
                       </button>
@@ -472,7 +472,7 @@ export function ConnectorManager({
               {rulesSaved && (
                 <span className="inline-flex items-center gap-1.5 text-xs text-success">
                   <Check className="size-3.5" strokeWidth={2} />
-                  Saved — applies on next sync
+                  Saved - applies on next sync
                 </span>
               )}
             </div>
@@ -536,16 +536,16 @@ export function ConnectorManager({
             ) : (
               <CheckCircle2 className="size-3.5" />
             )}
-            {syncMessage}
+            {brandText(syncMessage)}
           </p>
         )}
         {!connected && (
           <p className="-mt-2 text-[11px] text-muted-foreground">
             Connect redirects you to {meta?.label ?? "the provider"} to authorize
-            access. OSAI indexes and searches your content; it never edits or
+            access. Sheldon AI indexes and searches your content; it never edits or
             deletes existing items.
             {integration.capabilities?.includes("execute") &&
-              " This connector can also create new items (tickets, messages, pages) — only when you approve a proposed action."}
+              " This connector can also create new items (tickets, messages, pages) - only when you approve a proposed action."}
           </p>
         )}
       </DialogContent>

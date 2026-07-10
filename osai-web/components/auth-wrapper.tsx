@@ -30,9 +30,9 @@ export default function AuthWrapper({ children }: { children: ReactNode }) {
     return <>{children}</>;
   }
 
-  // Not authenticated — blank while redirect fires
+  // Not authenticated - blank while redirect fires
   if (!token) return null;
 
-  // Authenticated — render full app
+  // Authenticated - render full app
   return <>{children}</>;
 }

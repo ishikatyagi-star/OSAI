@@ -9,6 +9,7 @@ import { DEMO_WORKFLOW_RUNS } from "@/lib/demo-data";
 import { isDemo } from "@/lib/demo";
 import { CONNECTOR_META } from "@/lib/connector-meta";
 import type { ActionItem, WorkflowRun } from "@/lib/types";
+import { brandText } from "@/lib/utils";
 
 const TIER_COLORS: Record<string, string> = {
   normal: "var(--text-muted)",
@@ -50,11 +51,11 @@ export default function WorkflowDetailPage() {
     setApproving(item.id);
     try {
       const result = await approveActionItem(runId, item.id);
-      setMsgs((prev) => ({ ...prev, [item.id]: result.message }));
+      setMsgs((prev) => ({ ...prev, [item.id]: brandText(result.message) }));
       const updated = await getWorkflowRun(runId);
       setRun(updated);
     } catch {
-      // Demo mode — update locally
+      // Demo mode - update locally
       setRun((prev) =>
         prev
           ? {
@@ -162,7 +163,7 @@ export default function WorkflowDetailPage() {
                 )}
                 <div style={{ flex: 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                    <strong className="text-body-sm" style={{ color: "var(--text-primary)" }}>{item.title}</strong>
+                    <strong className="text-body-sm" style={{ color: "var(--text-primary)" }}>{brandText(item.title)}</strong>
                     <span className={statusClass(item.status)}>{item.status}</span>
                   </div>
                   <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
@@ -175,7 +176,7 @@ export default function WorkflowDetailPage() {
               </div>
 
               {item.source_quote && (
-                <blockquote className="source-quote">&ldquo;{item.source_quote}&rdquo;</blockquote>
+                <blockquote className="source-quote">&ldquo;{brandText(item.source_quote)}&rdquo;</blockquote>
               )}
 
               {item.external_url && (

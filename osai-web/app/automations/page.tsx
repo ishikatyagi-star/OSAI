@@ -33,7 +33,7 @@ import { isDemo } from "@/lib/demo";
 import { getConnectorIcon } from "@/lib/connector-meta";
 import type { ActionItem, WorkflowRun } from "@/lib/types";
 import { Select } from "@/components/ui/select";
-import { timeAgo } from "@/lib/utils";
+import { brandText, timeAgo } from "@/lib/utils";
 
 const CADENCES = ["manual", "hourly", "daily", "weekly"] as const;
 
@@ -378,7 +378,7 @@ export default function AutomationsPage() {
     try {
       await approveActionItem(runId, itemId);
     } catch {
-      // Demo mode — update local state only.
+      // Demo mode - update local state only.
     }
     setRuns((prev) =>
       prev.map((r) =>
@@ -400,7 +400,7 @@ export default function AutomationsPage() {
         <div className="page-header-left">
           <h1>Automations</h1>
           <p>
-            Give OSAI a job to do — run a task on demand or on a cadence, or extract action items
+            Give Sheldon AI a job to do - run a task on demand or on a cadence, or extract action items
             from a meeting transcript.
           </p>
         </div>
@@ -431,14 +431,14 @@ export default function AutomationsPage() {
 
       {mode === "task" ? (
         <>
-          {/* Create conversationally: OSAI asks clarifying questions in chat and
+          {/* Create conversationally: Sheldon AI asks clarifying questions in chat and
               creates the automation itself once the goal, sources and cadence are clear. */}
           <div className="card" style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             <Sparkles className="size-4" style={{ color: "var(--accent)", flexShrink: 0 }} />
             <div style={{ flex: 1, minWidth: 220 }}>
-              <span style={{ fontWeight: 600, fontSize: 13 }}>Create with OSAI</span>
+              <span style={{ fontWeight: 600, fontSize: 13 }}>Create with Sheldon AI</span>
               <p className="meta" style={{ fontSize: 12, margin: 0 }}>
-                Describe the job in chat — OSAI asks what it needs, then sets up the automation for you.
+                Describe the job in chat - Sheldon AI asks what it needs, then sets up the automation for you.
               </p>
             </div>
             <Link
@@ -473,7 +473,7 @@ export default function AutomationsPage() {
             </div>
             <textarea
               className="search-input"
-              placeholder="What should OSAI do? e.g. Summarise open blockers across Notion and Slack and list owners."
+              placeholder="What should Sheldon AI do? e.g. Summarise open blockers across Notion and Slack and list owners."
               aria-label="Automation task prompt"
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
@@ -490,7 +490,7 @@ export default function AutomationsPage() {
             </button>
             {(!name.trim() || !prompt.trim()) && (
               <span className="meta" style={{ marginLeft: 10 }}>
-                Add a name and describe what OSAI should do.
+                Add a name and describe what Sheldon AI should do.
               </span>
             )}
           </form>
@@ -506,7 +506,7 @@ export default function AutomationsPage() {
                   <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
-                        <span style={{ fontWeight: 600, fontSize: 14 }}>{a.name}</span>
+                        <span style={{ fontWeight: 600, fontSize: 14 }}>{brandText(a.name)}</span>
                         <span className="badge badge-grey" style={{ fontSize: 10 }}>
                           {a.cadence === "manual" ? "on demand" : a.cadence}
                         </span>
@@ -517,7 +517,7 @@ export default function AutomationsPage() {
                         )}
                         <span className="meta" style={{ fontSize: 11 }}>· last run {timeAgo(a.last_run_at)}</span>
                       </div>
-                      <p className="meta" style={{ fontSize: 12, lineHeight: 1.5, margin: 0 }}>{a.prompt}</p>
+                      <p className="meta" style={{ fontSize: 12, lineHeight: 1.5, margin: 0 }}>{brandText(a.prompt)}</p>
                     </div>
                     <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
                       <button
@@ -541,8 +541,8 @@ export default function AutomationsPage() {
                         href={`/ask?q=${encodeURIComponent(`Update automation ${a.id} ("${a.name}"): `)}`}
                         className="btn"
                         style={{ fontSize: 12, padding: "6px 10px" }}
-                        aria-label="Refine with OSAI"
-                        title="Refine with OSAI"
+                        aria-label="Refine with Sheldon AI"
+                        title="Refine with Sheldon AI"
                       >
                         <Sparkles className="size-3.5" />
                       </Link>
@@ -582,7 +582,7 @@ export default function AutomationsPage() {
                         color: "var(--text-secondary)",
                       }}
                     >
-                      {result?.id === a.id ? result.text : a.last_result}
+                      {brandText(result?.id === a.id ? result.text : a.last_result ?? "")}
                     </div>
                   )}
                 </div>
@@ -643,8 +643,8 @@ export default function AutomationsPage() {
             <div className="card" style={{ textAlign: "center", padding: "40px 24px" }}>
               <p className="text-body font-semibold" style={{ marginBottom: 6 }}>No extractions yet</p>
               <p className="meta leading-normal" style={{ maxWidth: 460, margin: "0 auto 8px" }}>
-                Paste meeting notes or a transcript and OSAI extracts the action items — owner, due date
-                and a source quote — then pushes them to Notion, Slack, Freshdesk or manual review.
+                Paste meeting notes or a transcript and Sheldon AI extracts the action items - owner, due date
+                and a source quote - then pushes them to Notion, Slack, Freshdesk or manual review.
               </p>
             </div>
           ) : (

@@ -211,7 +211,7 @@ export default function GraphPage() {
                           if (!a) {
                             return (
                               <td key={c.key} style={{ textAlign: "center", color: "var(--text-muted)" }}>
-                                <span title="No access">—</span>
+                                <span title="No access">-</span>
                               </td>
                             );
                           }

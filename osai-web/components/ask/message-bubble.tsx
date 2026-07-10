@@ -7,7 +7,7 @@ import { MarkdownLite } from "./markdown-lite";
 import { CitationChip } from "./citation-chip";
 import { ActionCard } from "./action-card";
 import { OpenUiArtifacts } from "./openui-artifacts";
-import { cn } from "@/lib/utils";
+import { brandText, cn } from "@/lib/utils";
 
 export type AskTurn = {
   id: string;
@@ -52,12 +52,12 @@ export function MessageBubble({
       </div>
       <div className="min-w-0 flex-1 space-y-3">
         <div className="rounded-[20px] rounded-tl-sm border border-[var(--border)] bg-[var(--bg-surface)] px-4 py-3">
-          <MarkdownLite text={turn.content} />
+          <MarkdownLite text={brandText(turn.content)} />
 
           {turn.enoughContext === false && (
             <p className="mt-3 inline-flex items-start gap-1.5 border-t border-border pt-2.5 text-xs text-warning">
               <AlertTriangle className="mt-0.5 size-3.5 shrink-0" strokeWidth={1.8} />
-              <span>Limited indexed context — trigger a sync from Integrations to improve coverage.</span>
+              <span>Limited indexed context - trigger a sync from Integrations to improve coverage.</span>
             </p>
           )}
         </div>
@@ -99,7 +99,7 @@ export function MessageBubble({
           >
             {turn.modelRoute && (
               <span className="inline-flex items-center gap-1">
-                <Cpu className="size-3" /> {turn.modelRoute}
+                <Cpu className="size-3" /> {brandText(turn.modelRoute)}
               </span>
             )}
             {turn.latencyMs != null && (

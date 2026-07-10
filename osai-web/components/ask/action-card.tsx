@@ -6,7 +6,7 @@ import { CONNECTOR_META } from "@/lib/connector-meta";
 import type { AgentAction } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { brandText, cn } from "@/lib/utils";
 
 /**
  * Action-confirmation card. For proposed actions that require confirmation it
@@ -70,21 +70,21 @@ export function ActionCard({
             </span>
             {statusBadge}
           </div>
-          <p className="mt-1 text-sm text-foreground/90">{action.summary}</p>
+          <p className="mt-1 text-sm text-foreground/90">{brandText(action.summary)}</p>
 
           {action.params && Object.keys(action.params).length > 0 && (
             <dl className="mt-2.5 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-md border border-border bg-background/40 p-2.5 text-xs">
               {Object.entries(action.params).map(([k, v]) => (
                 <React.Fragment key={k}>
                   <dt className="font-mono text-muted-foreground">{k}</dt>
-                  <dd className="truncate text-foreground/80">{String(v)}</dd>
+                  <dd className="truncate text-foreground/80">{brandText(String(v))}</dd>
                 </React.Fragment>
               ))}
             </dl>
           )}
 
           {action.error && (
-            <p className="mt-2 text-xs text-destructive">{action.error}</p>
+            <p className="mt-2 text-xs text-destructive">{brandText(action.error)}</p>
           )}
 
           {action.external_url && (

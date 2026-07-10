@@ -8,7 +8,7 @@ import { DEMO_SYNC_RUNS, DEMO_STATS } from "@/lib/demo-data";
 import { isDemo } from "@/lib/demo";
 import { CONNECTOR_META, getConnectorIcon } from "@/lib/connector-meta";
 import type { SyncRun } from "@/lib/types";
-import { timeAgo } from "@/lib/utils";
+import { brandText, timeAgo } from "@/lib/utils";
 
 
 const STATUS_BADGE: Record<string, string> = {
@@ -20,7 +20,7 @@ const STATUS_BADGE: Record<string, string> = {
 
 export default function SyncRunsPage() {
   const [runs, setRuns] = useState<SyncRun[]>([]);
-  // Active searchable index size — the single source of truth shared with the
+  // Active searchable index size - the single source of truth shared with the
   // dashboard/analytics/integration cards. NOT the sum of historical runs (which
   // double-counts re-syncs and old, since-removed accounts).
   const [activeDocs, setActiveDocs] = useState(0);
@@ -48,12 +48,12 @@ export default function SyncRunsPage() {
           <h1>Sync Runs</h1>
           <p>
             Ingestion activity across all connected sources. Each run fetches, chunks, and indexes
-            documents into the OSAI knowledge base.
+            documents into the Sheldon AI knowledge base.
           </p>
         </div>
       </div>
 
-      {/* Summary stats — dashboard stat-card styling; color reserved for status */}
+      {/* Summary stats - dashboard stat-card styling; color reserved for status */}
       <div className="stats-grid stats-grid--auto">
         {[
           { label: "Total runs", value: display.length, color: "var(--text-primary)" },
@@ -156,7 +156,7 @@ export default function SyncRunsPage() {
                     <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
                       <span
                         className="meta"
-                        title="Skipped during indexing — usually empty, too short, or an unsupported format."
+                        title="Skipped during indexing - usually empty, too short, or an unsupported format."
                         style={{ cursor: "help", display: "inline-flex", alignItems: "center", gap: 4 }}
                       >
                         <Info size={12} strokeWidth={1.8} /> {run.documents_seen - run.documents_indexed} skipped
@@ -186,7 +186,7 @@ export default function SyncRunsPage() {
                   <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                     <span className="error-text inline-flex items-center gap-1.5">
                       <AlertTriangle size={13} strokeWidth={1.8} />
-                      {run.error}
+                      {brandText(run.error)}
                     </span>
                     <Link
                       href="/integrations"

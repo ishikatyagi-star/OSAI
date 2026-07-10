@@ -17,7 +17,7 @@ export type ConnectorMeta = {
    * Accent hex pulled from the FRAMER palette (see globals.css). Used only for
    * low-prominence single-connector accents (manager modal, a citation icon,
    * graph side panel). Connector lists/grids render neutrally to keep each
-   * screen calm — matching the dashboard's Connector Health pattern.
+   * screen calm - matching the dashboard's Connector Health pattern.
    */
   color: string;
   description: string;

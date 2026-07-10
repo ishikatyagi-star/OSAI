@@ -8,7 +8,7 @@
    selection, white PILL primary CTAs, charcoal pill secondaries, poster-grade
    display type with aggressive negative tracking, and oversized gradient
    spotlight cards (violet / magenta / orange / coral) used as accents.
-   The brand IS dark — there is no light mode.
+   The brand IS dark - there is no light mode.
    ─────────────────────────────────────────────────────────────────────────── */
 :root {
   /* Canvas + surfaces (surface lift carries hierarchy, never opacity) */
@@ -20,12 +20,12 @@
   --border-hover: #d6d3d1;
   --border-soft:  #f0efed;
 
-  /* Ink — hierarchy is binary: ink or ink-muted */
+  /* Ink - hierarchy is binary: ink or ink-muted */
   --text-primary: #0c0a09;
   --text-secondary: #4e4e4e;
   --text-muted:   #6b655e;
 
-  /* Single chromatic accent — links / focus rings / selection ONLY.
+  /* Single chromatic accent - links / focus rings / selection ONLY.
      (--teal* names retained as aliases so legacy refs resolve to the accent.) */
   --accent:       #292524;
   --accent-foreground: #ffffff;
@@ -61,7 +61,7 @@
   --font-display: 'Instrument Serif', 'Times New Roman', serif;
   --font-mono:    'JetBrains Mono', ui-monospace, monospace;
 
-  /* Inter OpenType character variants — the framer body "voice". */
+  /* Inter OpenType character variants - the framer body "voice". */
   --feat:         "cv01" 1, "cv05" 1, "cv09" 1, "cv11" 1, "ss03" 1, "ss07" 1;
 
   --tab-active-bg:   #292524;
@@ -326,7 +326,7 @@
 html, body { height: 100%; }
 
 /* Tailwind's preflight is intentionally disabled (see theme.css) so it can't
-   clobber this design system — but that also means form controls no longer
+   clobber this design system - but that also means form controls no longer
    inherit the body font and fall back to the browser default (which renders
    <textarea> in monospace). Restore inheritance for shadcn inputs/buttons. */
 input, textarea, select, button { font-family: inherit; }
@@ -957,7 +957,7 @@ h2 {
 .error-text { color: var(--red); font-size: 12px; }
 .success-text { color: var(--teal); font-size: 12px; }
 
-/* ─── Buttons — framer pills (white primary, charcoal secondary) ────────────── */
+/* ─── Buttons - framer pills (white primary, charcoal secondary) ────────────── */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -1182,7 +1182,7 @@ select {
 .badge-yellow  { background: #f2e7d2; color: #513406; border: 1px solid rgba(81,52,6,0.35); }
 .badge-purple  { background: var(--bg-elevated); color: var(--text-secondary); border: 1px solid var(--border); }
 /* Amber is intentionally preserved: it's the Red/Amber/Normal data-routing
-   (RAG) signal — a deliberate third governance state, not decoration. */
+   (RAG) signal - a deliberate third governance state, not decoration. */
 .badge-amber   { background: #f4e5db; color: #4f2613; border: 1px solid rgba(79,38,19,0.35); }
 
 /* ─── Priority/type tags ─────────────────────────────────────────────────────── */
@@ -1462,7 +1462,7 @@ select {
   background: var(--accent-dim);
 }
 
-/* Selected filter state — single source of truth so pages no longer inline
+/* Selected filter state - single source of truth so pages no longer inline
    the accent color on every chip. */
 .suggestion-chip.active {
   border-color: var(--accent);
@@ -2430,11 +2430,11 @@ select {
 
 
 /* ───────────────────────────────────────────────────────────────────────────
-   Ask OSAI — framer "command-center" poster (monochrome).
+   Ask Sheldon AI - framer "command-center" poster (monochrome).
 
    Follows DESIGN.md: near-black canvas, poster-grade white display type with
    aggressive negative tracking, charcoal surfaces, and a SINGLE blue accent
-   reserved only for focus / selection — never a fill. No gradient atmosphere
+   reserved only for focus / selection - never a fill. No gradient atmosphere
    cards here: the palette is white / black / charcoal, matching the dashboard.
    Scoped to the Ask page via .ask-canvas; nothing leaks to other routes.
    ─────────────────────────────────────────────────────────────────────────── */
@@ -2739,7 +2739,7 @@ select {
 /* Framer pricing-tab pattern: muted text by default, charcoal pill when active */
 .ask-mode-tab {
   /* Preflight is disabled in this project, so reset native <button> chrome
-     explicitly — otherwise inactive tabs render as bright UA grey pills. */
+     explicitly - otherwise inactive tabs render as bright UA grey pills. */
   appearance: none;
   -webkit-appearance: none;
   display: inline-flex;
@@ -2858,7 +2858,7 @@ select {
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
-   Dashboard monochrome palette — scoped to .dashboard-root only.
+   Dashboard monochrome palette - scoped to .dashboard-root only.
 
    Reduces the dashboard to shades of white / black / blue. Red and green are
    reserved strictly as signals (red = blocker/bad, green = approved/healthy).

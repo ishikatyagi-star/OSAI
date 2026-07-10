@@ -2,7 +2,7 @@ import type { GraphEntityType } from "./types";
 
 export type EntityTypeMeta = {
   label: string;
-  /** Hex color pulled from the OSAI palette. */
+  /** Hex color pulled from the Sheldon AI palette. */
   color: string;
   icon: string;
 };

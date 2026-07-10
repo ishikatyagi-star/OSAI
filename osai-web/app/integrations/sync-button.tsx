@@ -12,7 +12,7 @@ export default function SyncButton({ connectorKey }: { connectorKey: string }) {
     try {
       const result = await triggerSync(connectorKey);
       if ((result as { status?: string }).status === "started") {
-        setMsg("Sync started — see Sync Runs");
+        setMsg("Sync started - see Sync Runs");
       } else {
         const docs = result.documents_indexed ?? result.documents_seen ?? 0;
         setMsg(`Synced ${docs} documents`);

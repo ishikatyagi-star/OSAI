@@ -172,7 +172,7 @@ export function EvalDashboard() {
         setRun(res);
         setUsingDemo(false);
       } else if (isDemo()) {
-        // No backend reachable, demo mode on — show the bundled demo run.
+        // No backend reachable, demo mode on - show the bundled demo run.
         setRun(DEMO_EVAL_RUN);
         setUsingDemo(true);
       } else {
@@ -236,7 +236,7 @@ export function EvalDashboard() {
       <div className="page-header">
         <div className="page-header-left">
           <h1>Evals</h1>
-          <p>Quality and regression tracking for OSAI&apos;s answers and routing.</p>
+          <p>Quality and regression tracking for Sheldon AI&apos;s answers and routing.</p>
         </div>
         {hasData && run && (
           <div className="page-header-meta">
