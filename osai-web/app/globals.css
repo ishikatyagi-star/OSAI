@@ -563,6 +563,7 @@ a { color: inherit; }
 /* ─── Main content area ─────────────────────────────────────────────────────── */
 .dashboard-layout {
   flex: 1;
+  min-width: 0;
   margin-left: var(--sidebar-w);
   display: flex;
   flex-direction: column;
@@ -632,6 +633,7 @@ a { color: inherit; }
 /* ─── Page content ──────────────────────────────────────────────────────────── */
 main {
   flex: 1;
+  min-width: 0;
   overflow-y: auto;
   padding: 28px 32px 48px;
 }
@@ -684,6 +686,10 @@ main {
 
   .sidebar-user {
     justify-content: center;
+  }
+
+  .dashboard-layout {
+    width: calc(100% - var(--sidebar-w));
   }
 
   .topbar {

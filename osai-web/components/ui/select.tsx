@@ -58,11 +58,13 @@ function Select({
                 key={option.value}
                 value={option.value}
                 disabled={option.disabled}
-                className="relative flex min-h-10 cursor-default select-none items-center rounded-md py-2 pl-8 pr-3 text-[13px] outline-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[highlighted]:bg-[var(--bg-elevated)]"
+                className="flex min-h-10 cursor-default select-none items-center gap-2 rounded-md px-3 py-2 text-[13px] outline-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[highlighted]:bg-[var(--bg-elevated)]"
               >
-                <SelectPrimitive.ItemIndicator className="absolute left-2 inline-flex items-center">
-                  <Check className="size-3.5" />
-                </SelectPrimitive.ItemIndicator>
+                <span className="inline-flex w-4 shrink-0 items-center justify-center">
+                  <SelectPrimitive.ItemIndicator>
+                    <Check className="size-3.5" />
+                  </SelectPrimitive.ItemIndicator>
+                </span>
                 <SelectPrimitive.ItemText>{option.label}</SelectPrimitive.ItemText>
               </SelectPrimitive.Item>
             ))}

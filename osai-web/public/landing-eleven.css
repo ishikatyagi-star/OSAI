@@ -776,6 +776,20 @@ footer .footer-logo,
     line-height: 1.08 !important;
   }
 
+  .hero-inner,
+  .hero-left,
+  .hero-sub {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  .hero h1,
+  .hero-sub,
+  .hero-tag,
+  .eyebrow.dot {
+    overflow-wrap: anywhere;
+
   h2 {
     font-size: clamp(32px, 11vw, 46px) !important;
   }

@@ -364,17 +364,18 @@ export default function DecisionsPage() {
               <label className="text-caption" style={{ display: "grid", gap: 6 }}>
                 <span>Title</span>
                 <input
-                  className="search-input"
+                  className="search-input min-w-0 w-full"
                   value={decisionForm.title}
                   onChange={(e) => setDecisionForm((form) => form && { ...form, title: e.target.value })}
                   placeholder="Decision title"
                 />
               </label>
-              <div style={{ display: "grid", gap: 10, gridTemplateColumns: "1fr 1fr" }}>
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                 <div className="text-caption" style={{ display: "grid", gap: 6 }}>
                   <span>Status</span>
                   <Select
                     aria-label="Decision status"
+                    className="w-full min-w-0"
                     value={decisionForm.status}
                     onValueChange={(value) => setDecisionForm((form) => form && { ...form, status: value as Decision["status"] })}
                     options={[
@@ -388,6 +389,7 @@ export default function DecisionsPage() {
                   <span>Impact</span>
                   <Select
                     aria-label="Decision impact"
+                    className="w-full min-w-0"
                     value={decisionForm.impact}
                     onValueChange={(value) => setDecisionForm((form) => form && { ...form, impact: value as Decision["impact"] })}
                     options={[
@@ -399,11 +401,11 @@ export default function DecisionsPage() {
                   />
                 </div>
               </div>
-              <div style={{ display: "grid", gap: 10, gridTemplateColumns: "1fr 1fr" }}>
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                 <label className="text-caption" style={{ display: "grid", gap: 6 }}>
                   <span>Owner</span>
                   <input
-                    className="search-input"
+                    className="search-input min-w-0 w-full"
                     value={decisionForm.owner}
                     onChange={(e) => setDecisionForm((form) => form && { ...form, owner: e.target.value })}
                     placeholder="Owner"
@@ -412,7 +414,7 @@ export default function DecisionsPage() {
                 <label className="text-caption" style={{ display: "grid", gap: 6 }}>
                   <span>Source</span>
                   <input
-                    className="search-input"
+                    className="search-input min-w-0 w-full"
                     value={decisionForm.source}
                     onChange={(e) => setDecisionForm((form) => form && { ...form, source: e.target.value })}
                     placeholder="Source"
@@ -422,7 +424,7 @@ export default function DecisionsPage() {
               <label className="text-caption" style={{ display: "grid", gap: 6 }}>
                 <span>Tags</span>
                 <input
-                  className="search-input"
+                  className="search-input min-w-0 w-full"
                   value={decisionForm.tags}
                   onChange={(e) => setDecisionForm((form) => form && { ...form, tags: e.target.value })}
                   placeholder="architecture, security"
