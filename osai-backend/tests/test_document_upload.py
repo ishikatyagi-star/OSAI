@@ -130,3 +130,49 @@ def test_upload_requires_auth():
         files=[("files", ("a.txt", b"hello", "text/plain"))],
     )
     assert resp.status_code == 401
+
+
+def _first_doc_id(resp) -> str:
+    return resp.json()["documents"][0]["id"]
+
+
+def test_access_roundtrip_after_upload():
+    up = _upload([("files", ("plan.txt", b"Q3 plan", "text/plain"))])
+    doc_id = _first_doc_id(up)
+    # Unauthenticated upload lands workspace-wide (no user to scope to).
+    resp = client.get(f"/documents/{doc_id}/access")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["visibility"] == "company"
+    assert body["title"] == "plan.txt"
+
+
+def test_access_patch_updates_visibility():
+    up = _upload([("files", ("plan2.txt", b"Q4 plan", "text/plain"))])
+    doc_id = _first_doc_id(up)
+    with patch("api.routes.documents.get_default_qdrant_store") as mock_store:
+        mock_store.return_value.set_document_payload = AsyncMock(return_value=None)
+        resp = client.patch(
+            f"/documents/{doc_id}/access", json={"visibility": "company"}
+        )
+    assert resp.status_code == 200
+    assert resp.json()["visibility"] == "company"
+    assert resp.json()["qdrant_error"] is None
+
+
+def test_access_patch_rejects_bad_visibility_and_unknown_doc():
+    up = _upload([("files", ("plan3.txt", b"notes", "text/plain"))])
+    doc_id = _first_doc_id(up)
+    assert (
+        client.patch(f"/documents/{doc_id}/access", json={"visibility": "everyone"}).status_code
+        == 422
+    )
+    assert (
+        client.patch("/documents/upload-nope/access", json={"visibility": "company"}).status_code
+        == 404
+    )
+
+
+def test_notifications_empty_for_unauthenticated():
+    assert client.get("/notifications").status_code == 200
+    assert client.get("/notifications").json() == []

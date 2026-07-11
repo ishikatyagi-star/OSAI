@@ -11,6 +11,7 @@ from api.routes import (
     documents,
     evals,
     feedback,
+    notifications,
     graph,
     health,
     integrations,
@@ -40,6 +41,7 @@ app.include_router(documents.router)
 app.include_router(graph.router)
 app.include_router(evals.router)
 app.include_router(feedback.router)
+app.include_router(notifications.router)
 app.include_router(decisions.router)
 app.include_router(composio.router)
 app.include_router(integrations.router)

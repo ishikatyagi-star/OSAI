@@ -19,7 +19,14 @@ import { cn } from "@/lib/utils";
 import type { AgentAction, AskResponse } from "@/lib/types";
 import { MessageBubble, type AskTurn } from "@/components/ask/message-bubble";
 import { ComposerAttach } from "@/components/ask/composer-attach";
-import { getDepartments, type Department } from "@/lib/api";
+import {
+  getDepartments,
+  getNotifications,
+  markNotificationRead,
+  type AppNotification,
+  type Department,
+} from "@/lib/api";
+import type { UploadedFile } from "@/components/ask/file-card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -212,10 +219,39 @@ export default function AskPage() {
     send(input);
   }
 
-  // A successful upload lands in the thread as an assistant note, so the file
-  // is immediately askable in context instead of vanishing into another page.
-  const handleUploaded = useCallback((note: string) => {
-    setTurns((prev) => [...prev, { id: uid("a"), role: "assistant", content: note }]);
+  // A successful upload lands in the thread as file cards (with a ⋯ menu to
+  // manage access), so the file is immediately askable in context.
+  const handleUploaded = useCallback(
+    (files: UploadedFile[], skipped: { filename: string; reason: string }[]) => {
+      const notes = skipped.map((s) => `${s.filename}: ${s.reason}`);
+      const content =
+        files.length > 0
+          ? `Added to your knowledge base — private to you until you share ${
+              files.length > 1 ? "them" : "it"
+            } (⋯ → Manage access).${notes.length ? ` ${notes.join(" ")}` : ""}`
+          : notes.join(" ");
+      setTurns((prev) => [
+        ...prev,
+        { id: uid("a"), role: "assistant", content, files },
+      ]);
+    },
+    []
+  );
+
+  const handleUploadError = useCallback((message: string) => {
+    setTurns((prev) => [...prev, { id: uid("a"), role: "assistant", content: message }]);
+  }, []);
+
+  // "X shared a file with you" — unread share notifications, dismissible.
+  const [shareNotices, setShareNotices] = useState<AppNotification[]>([]);
+  useEffect(() => {
+    getNotifications()
+      .then((all) => setShareNotices(all.filter((n) => n.type === "document.shared")))
+      .catch(() => setShareNotices([]));
+  }, []);
+  const dismissNotice = useCallback((id: string) => {
+    setShareNotices((prev) => prev.filter((n) => n.id !== id));
+    markNotificationRead(id).catch(() => {});
   }, []);
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -328,6 +364,33 @@ export default function AskPage() {
         )}
       </div>
 
+      {shareNotices.length > 0 && (
+        <div className="mx-auto w-full max-w-3xl shrink-0 px-4 pb-2">
+          {shareNotices.map((n) => (
+            <div
+              key={n.id}
+              className="card mb-2 flex items-center justify-between gap-3"
+              style={{ padding: "10px 14px" }}
+              role="status"
+            >
+              <span className="text-sm">
+                <strong>{n.payload.shared_by ?? "A teammate"}</strong> shared{" "}
+                <strong>{n.payload.title ?? "a file"}</strong> with you — you can ask
+                about it here.
+              </span>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => dismissNotice(n.id)}
+                aria-label="Dismiss notification"
+              >
+                Got it
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       {empty ? (
         /* EMPTY STATE */
         <div className="ask-scroll flex-1">
@@ -368,7 +431,7 @@ export default function AskPage() {
               <form onSubmit={handleSubmit} className="w-full">
                 <div className="ask-composer ask-composer-hero" style={{ position: "relative" }}>
                   <div className="flex items-center gap-3 px-4 py-3">
-                    <ComposerAttach onUploaded={handleUploaded} disabled={pending} />
+                    <ComposerAttach onUploaded={handleUploaded} onError={handleUploadError} disabled={pending} />
                     <Textarea
                       ref={inputRef}
                       value={input}
@@ -514,7 +577,7 @@ export default function AskPage() {
                 className="ask-composer flex items-center gap-2 px-4 py-3"
                 style={{ position: "relative" }}
               >
-                <ComposerAttach onUploaded={handleUploaded} disabled={pending} />
+                <ComposerAttach onUploaded={handleUploaded} onError={handleUploadError} disabled={pending} />
                 <Textarea
                   ref={inputRef}
                   value={input}
