@@ -2740,6 +2740,29 @@ select {
   .ask-citations > * {
     width: 100%;
   }
+
+  .ask-action-card {
+    padding: 12px;
+  }
+
+  .ask-action-layout {
+    gap: 8px;
+  }
+
+  .ask-action-icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  .ask-action-params {
+    grid-template-columns: minmax(68px, auto) minmax(0, 1fr);
+    gap: 6px 10px;
+    padding: 10px;
+  }
+
+  .ask-action-buttons > button {
+    flex: 1;
+  }
 }
 
 .ask-send-button {
