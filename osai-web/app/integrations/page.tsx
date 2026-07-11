@@ -10,16 +10,12 @@ import type { Integration, SyncRun } from "@/lib/types";
 import { AddConnectorDialog } from "@/components/integrations/add-connector-dialog";
 import { ConnectorManager } from "@/components/integrations/connector-manager";
 import { Button } from "@/components/ui/button";
-import { DataRoutingPanel } from "@/components/integrations/data-routing-panel";
 import { StatusDot } from "@/components/ui/status-dot";
-import { TabsPill, TabsPillList, TabsPillTrigger, TabsPillContent } from "@/components/ui/tabs-pill";
 import { brandText, timeAgo } from "@/lib/utils";
 
-type Tab = "connectors" | "routing";
 
 
 export default function IntegrationsPage() {
-  const [tab, setTab] = useState<Tab>("connectors");
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [syncing, setSyncing] = useState<Record<string, boolean>>({});
   const [syncMsg, setSyncMsg] = useState<Record<string, string>>({});
@@ -42,10 +38,9 @@ export default function IntegrationsPage() {
     }
   }
 
-  // Honour ?tab=routing and ?connected=1 (back from the Composio OAuth round-trip).
+  // Honour ?connected=1 (back from the Composio OAuth round-trip).
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get("tab") === "routing") setTab("routing");
     if (params.get("connected") === "1") {
       setJustConnected(true);
       setTimeout(() => setJustConnected(false), 6000);
@@ -165,8 +160,8 @@ export default function IntegrationsPage() {
         <div className="page-header-left">
           <h1>Integrations</h1>
           <p>
-            Connect your company tools to start indexing context, and control how the information
-            inside them is classified into data tiers.
+            Connect your company tools to start indexing context. Who can see an
+            uploaded file is managed on the file itself, from Ask.
           </p>
         </div>
         <Button onClick={() => setCatalogOpen(true)}>
@@ -184,18 +179,7 @@ export default function IntegrationsPage() {
           .map((i) => COMPOSIO_TOOLKIT[i.key] ?? i.key)}
       />
 
-      {/* Tabs: Connectors | Data Routing */}
-      <TabsPill value={tab} onValueChange={(v) => setTab(v as Tab)}>
-        <TabsPillList>
-          <TabsPillTrigger value="connectors">Connectors</TabsPillTrigger>
-          <TabsPillTrigger value="routing">Data Routing</TabsPillTrigger>
-        </TabsPillList>
-
-        <TabsPillContent value="routing">
-          <DataRoutingPanel />
-        </TabsPillContent>
-
-        <TabsPillContent value="connectors">
+      <div>
           {justConnected && (
             <div
               className="card text-caption"
@@ -382,8 +366,7 @@ export default function IntegrationsPage() {
             onSync={handleSync}
             onToggleConnection={handleToggleConnection}
           />
-        </TabsPillContent>
-      </TabsPill>
+      </div>
     </div>
   );
 }

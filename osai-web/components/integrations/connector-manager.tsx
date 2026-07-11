@@ -4,30 +4,22 @@ import { useEffect, useState } from "react";
 import {
   Activity,
   AlertTriangle,
-  Check,
   CheckCircle2,
   FileText,
   Loader2,
   Plug,
   PlugZap,
-  Plus,
   RefreshCw,
-  ShieldAlert,
-  Trash2,
   XCircle,
 } from "lucide-react";
 import {
   getConnectorDocuments,
   getHealthcheck,
-  getTierRules,
-  putTierRules,
   type ConnectorDocument,
-  type TierRule,
 } from "@/lib/api";
 import { CONNECTOR_META } from "@/lib/connector-meta";
 import type { Integration, SyncRun } from "@/lib/types";
 import { brandText, timeAgo } from "@/lib/utils";
-import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -38,7 +30,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Select } from "@/components/ui/select";
 
 type Health = { healthy: boolean; message: string } | null;
 
@@ -77,13 +68,6 @@ export function ConnectorManager({
   // Recently synced files for this connector.
   const [docs, setDocs] = useState<ConnectorDocument[]>([]);
 
-  // Per-info data-tier rules (e.g. a specific Drive folder = Red).
-  const [rules, setRules] = useState<TierRule[]>([]);
-  const [newPattern, setNewPattern] = useState("");
-  const [newTier, setNewTier] = useState<TierRule["tier"]>("red");
-  const [rulesSaving, setRulesSaving] = useState(false);
-  const [rulesSaved, setRulesSaved] = useState(false);
-
   const meta =
     integration && CONNECTOR_META[integration.key]
       ? CONNECTOR_META[integration.key]
@@ -100,81 +84,18 @@ export function ConnectorManager({
     }
   }
 
-  // Auto health-check + load tier rules whenever a connected connector opens.
+  // Auto health-check + load synced files whenever a connected connector opens.
   useEffect(() => {
     if (open && integration && integration.auth_state === "connected") {
       runHealthcheck(integration.key);
-      getTierRules(integration.key).then((r) => setRules(r.rules));
       getConnectorDocuments(integration.key).then(setDocs);
     } else {
       setHealth(null);
-      setRules([]);
       setDocs([]);
     }
-    setNewPattern("");
-    setRulesSaved(false);
   }, [open, integration]);
 
-  function addRule(pattern: string, tier: TierRule["tier"]) {
-    const p = pattern.trim();
-    if (!p) return;
-    setRules((prev) => [...prev.filter((r) => r.pattern !== p), { pattern: p, tier }]);
-    setNewPattern("");
-    setRulesSaved(false);
-  }
-
-  function removeRule(pattern: string) {
-    setRules((prev) => prev.filter((r) => r.pattern !== pattern));
-    setRulesSaved(false);
-  }
-
-  // Files are classified by an exact-title rule; everything unruled stays Normal.
-  const docTitles = new Set(docs.map((d) => d.title));
-  function tierForFile(title: string): TierRule["tier"] {
-    return rules.find((r) => r.pattern === title)?.tier ?? "normal";
-  }
-  function setFileTier(title: string, tier: TierRule["tier"]) {
-    setRules((prev) => {
-      const without = prev.filter((r) => r.pattern !== title);
-      return tier === "normal" ? without : [...without, { pattern: title, tier }];
-    });
-    setRulesSaved(false);
-  }
-  // Keyword/folder rules = patterns that aren't an exact synced-file title.
-  const keywordRules = rules.filter((r) => !docTitles.has(r.pattern));
-  // Preview/autocomplete for the keyword box. On focus (empty box) we preview
-  // the available synced files so the user can pick one; as they type we filter.
-  const [patternFocused, setPatternFocused] = useState(false);
-  const query = newPattern.trim().toLowerCase();
-  const suggestions = !patternFocused
-    ? []
-    : (query
-        ? docs.filter((d) => d.title.toLowerCase().includes(query))
-        : docs
-      ).slice(0, 8);
-
-  async function saveRules() {
-    if (!integration) return;
-    setRulesSaving(true);
-    try {
-      const res = await putTierRules(integration.key, rules);
-      setRules(res.rules);
-      setRulesSaved(true);
-    } catch {
-      // Backend unreachable - keep local state; surfaced by absence of saved tick.
-    } finally {
-      setRulesSaving(false);
-      setTimeout(() => setRulesSaved(false), 3000);
-    }
-  }
-
   if (!integration) return null;
-
-  const TIER_DOT: Record<TierRule["tier"], string> = {
-    normal: "var(--green)",
-    amber: "var(--yellow, var(--orange))",
-    red: "var(--red)",
-  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -319,163 +240,36 @@ export function ConnectorManager({
           </section>
         )}
 
-        {/* Classify synced files - pick a tier per file (default Normal/green) */}
+        {/* Synced files */}
         {connected && (
           <section className="rounded-lg border border-border bg-background/40 p-3">
             <p className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              <FileText className="size-3.5" /> Files &amp; sensitivity ({docs.length})
+              <FileText className="size-3.5" /> Synced files ({docs.length})
             </p>
-            <p className="mb-2.5 text-[11px] text-muted-foreground">
-              Choose a tier for any file. Everything stays{" "}
-              <span style={{ color: "var(--green)" }}>Normal</span> unless you change it.
-            </p>
-
             {docs.length === 0 ? (
               <p className="text-xs text-muted-foreground">
                 Nothing indexed yet - click “Sync now” to pull in this source.
               </p>
             ) : (
               <ul className="max-h-52 space-y-1 overflow-y-auto">
-                {docs.map((d) => {
-                  const tier = tierForFile(d.title);
-                  return (
-                    <li
-                      key={d.id}
-                      className="flex items-center gap-2 rounded-md border border-border bg-card px-2.5 py-1.5 text-xs"
-                    >
-                      <span
-                        className="inline-block size-2 shrink-0 rounded-full"
-                        style={{ background: TIER_DOT[tier] }}
-                      />
-                      <span className="min-w-0 flex-1 truncate text-foreground/90">
-                        {d.url ? (
-                          <a href={d.url} target="_blank" rel="noreferrer" className="hover:underline">
-                            {brandText(d.title)}
-                          </a>
-                        ) : (
-                          brandText(d.title)
-                        )}
-                      </span>
-                      <Select
-                        aria-label={`Data tier for ${brandText(d.title)}`}
-                        style={{ height: 40, fontSize: 11 }}
-                        value={tier}
-                        onValueChange={(value) => setFileTier(d.title, value as TierRule["tier"])}
-                        options={[
-                          { value: "normal", label: "Normal" },
-                          { value: "amber", label: "Amber" },
-                          { value: "red", label: "Red" },
-                        ]}
-                      />
-                    </li>
-                  );
-                })}
+                {docs.map((d) => (
+                  <li
+                    key={d.id}
+                    className="flex items-center gap-2 rounded-md border border-border bg-card px-2.5 py-1.5 text-xs"
+                  >
+                    <span className="min-w-0 flex-1 truncate text-foreground/90">
+                      {d.url ? (
+                        <a href={d.url} target="_blank" rel="noreferrer" className="hover:underline">
+                          {brandText(d.title)}
+                        </a>
+                      ) : (
+                        brandText(d.title)
+                      )}
+                    </span>
+                  </li>
+                ))}
               </ul>
             )}
-
-            {/* Folder / keyword rule with autocomplete against file names */}
-            <div className="mt-3 border-t border-border pt-3">
-              <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                <ShieldAlert className="size-3.5" /> Rule by folder or keyword
-              </p>
-              <div className="relative flex items-center gap-1.5">
-                <div className="relative flex-1">
-                  <Input
-                    value={newPattern}
-                    onChange={(e) => setNewPattern(e.target.value)}
-                    onFocus={() => setPatternFocused(true)}
-                    // Delay blur so a click on a suggestion registers first.
-                    onBlur={() => setTimeout(() => setPatternFocused(false), 150)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        addRule(newPattern, newTier);
-                      }
-                    }}
-                    placeholder="Type or pick a folder or file name…"
-                    className="min-h-10"
-                  />
-                  {suggestions.length > 0 && (
-                    <ul className="absolute z-10 mt-1 max-h-40 w-full overflow-y-auto rounded-md border border-border bg-card shadow-lg">
-                      {!query && (
-                        <li className="px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                          Synced files
-                        </li>
-                      )}
-                      {suggestions.map((s) => (
-                        <li key={s.id}>
-                          <button
-                            type="button"
-                            onMouseDown={(e) => e.preventDefault()}
-                            onClick={() => addRule(s.title, newTier)}
-                            className="block w-full truncate px-2.5 py-1.5 text-left text-xs hover:bg-accent"
-                          >
-                            {brandText(s.title)}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  {patternFocused && docs.length === 0 && (
-                    <div className="absolute z-10 mt-1 w-full rounded-md border border-border bg-card px-2.5 py-2 text-[11px] text-muted-foreground shadow-lg">
-                      No synced files yet - run “Sync now” to pull files in, then
-                      they’ll appear here to pick from. You can still type a
-                      folder or keyword rule.
-                    </div>
-                  )}
-                </div>
-                <Select
-                  aria-label="New rule data tier"
-                  style={{ height: 40, fontSize: 12 }}
-                  value={newTier}
-                  onValueChange={(value) => setNewTier(value as TierRule["tier"])}
-                  options={[
-                    { value: "normal", label: "Normal" },
-                    { value: "amber", label: "Amber" },
-                    { value: "red", label: "Red" },
-                  ]}
-                />
-                <Button variant="ghost" size="sm" className="h-10" onClick={() => addRule(newPattern, newTier)}>
-                  <Plus className="size-3.5" /> Add
-                </Button>
-              </div>
-
-              {keywordRules.length > 0 && (
-                <ul className="mt-2 space-y-1">
-                  {keywordRules.map((r) => (
-                    <li
-                      key={r.pattern}
-                      className="flex items-center gap-2 rounded-md border border-border bg-card px-2.5 py-1.5 text-xs"
-                    >
-                      <span className="inline-block size-2 shrink-0 rounded-full" style={{ background: TIER_DOT[r.tier] }} />
-                      <span className="min-w-0 flex-1 truncate font-mono text-foreground/90">{brandText(r.pattern)}</span>
-                      <Badge variant="muted" className="capitalize">{r.tier}</Badge>
-                      <button
-                        type="button"
-                        onClick={() => removeRule(r.pattern)}
-                        className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-md text-foreground hover:text-destructive"
-                        aria-label={`Remove rule ${brandText(r.pattern)}`}
-                      >
-                        <Trash2 className="size-3.5" />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            <div className="mt-3 flex items-center gap-2">
-              <Button size="sm" className="h-10" disabled={rulesSaving} onClick={saveRules}>
-                {rulesSaving ? <Loader2 className="size-3.5 animate-spin" /> : null}
-                Save tiers
-              </Button>
-              {rulesSaved && (
-                <span className="inline-flex items-center gap-1.5 text-xs text-success">
-                  <Check className="size-3.5" strokeWidth={2} />
-                  Saved - applies on next sync
-                </span>
-              )}
-            </div>
           </section>
         )}
 
