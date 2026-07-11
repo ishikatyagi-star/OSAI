@@ -3,8 +3,8 @@
 import { useState, useEffect, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
-// Pages that don't require authentication (handled by route.ts or their own UI)
-const PUBLIC_PATHS = ["/login", "/demo", "/auth/callback"];
+// Pages that don't require authentication (handled by route handlers or their own UI)
+const PUBLIC_PATHS = ["/", "/landing", "/login", "/demo", "/auth/callback"];
 
 export default function AuthWrapper({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);

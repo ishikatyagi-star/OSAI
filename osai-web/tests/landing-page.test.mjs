@@ -8,6 +8,8 @@ import { brandText } from "../lib/utils.ts";
 const html = await readFile(new URL("../public/saas.html", import.meta.url), "utf8");
 const universityHtml = await readFile(new URL("../public/osai.html", import.meta.url), "utf8");
 const css = await readFile(new URL("../public/landing-eleven.css", import.meta.url), "utf8");
+const nextConfig = await readFile(new URL("../next.config.ts", import.meta.url), "utf8");
+const landingRoute = await readFile(new URL("../app/landing/route.ts", import.meta.url), "utf8");
 const root = fileURLToPath(new URL("..", import.meta.url));
 
 async function frontendSourceFiles(dir) {
@@ -38,6 +40,11 @@ test("homepage keeps its audit fixes", () => {
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
   assert.match(css, /\.prose p strong\s*{[^}]*color: var\(--el-ink\) !important;/s);
   assert.match(css, /\.out-cell p\s*{[^}]*color: var\(--el-body\) !important;/s);
+});
+
+test("root landing route does not shadow app routes", () => {
+  assert.match(nextConfig, /source:\s*["']\/["'],\s*destination:\s*["']\/landing["']/);
+  assert.match(landingRoute, /public.*saas\.html/s);
 });
 
 test("marketing pages expose only the Sheldon brand", () => {
