@@ -53,6 +53,11 @@ export type SourceCitation = {
   source_record_title: string;
   url: string | null;
   confidence: number;
+  data_tier?: string | null;
+  // Policy explain (from the backend's actual governance decisions).
+  access_reason?: string | null;
+  model_routing?: "cloud" | "local-only" | null;
+  routing_reason?: string | null;
 };
 
 export type AskUiArtifactKind =

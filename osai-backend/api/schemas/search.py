@@ -22,6 +22,12 @@ class SourceCitation(BaseModel):
     # Tier of the cited document, so downstream egress points (e.g. the Hermes
     # sidecar context builder) can apply the org's data-routing policy.
     data_tier: str | None = None
+    # Policy explain: why this source is visible to the requester, and where its
+    # content was allowed to go. Derived from the same checks that made the
+    # decision (_visible / cloud_llm_allowed), so it can't drift from reality.
+    access_reason: str | None = None
+    model_routing: str | None = None  # "cloud" | "local-only"
+    routing_reason: str | None = None
 
 
 class SearchResponse(BaseModel):
