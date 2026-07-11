@@ -13,17 +13,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from agent.context import connector_context
-from agent.hermes_client import run_via_hermes
-from agent.orchestrator import run_ask
-from api.schemas.agent import AskRequest
+from agent.automation_runner import execute_automation
 from db.models import Automation, User
 from db.repositories import (
     create_automation,
     delete_automation,
     list_automations,
-    list_documents_since,
-    record_automation_run,
     update_automation,
 )
 from db.session import get_db, get_optional_claims, get_org_id
@@ -119,8 +114,8 @@ async def delete_(automation_id: str, db: DbSession, org_id: OrgId) -> dict[str,
 async def run_(
     automation_id: str, db: DbSession, org_id: OrgId, claims: OptionalClaims
 ) -> dict[str, object]:
-    """Run an automation now: execute its prompt through the agent and store the
-    result. (Recurring execution on the cadence requires the Celery beat worker.)"""
+    """Run an automation now through the shared runner (the Celery beat scheduler
+    uses the same runner, so manual and scheduled runs behave identically)."""
     auto = db.get(Automation, automation_id)
     if auto is None or auto.org_id != org_id:
         raise HTTPException(status_code=404, detail="Automation not found.")
@@ -128,43 +123,10 @@ async def run_(
     # Resolve the acting user's identity + permissions so a per-user Hermes runs
     # in their isolated context and OSAI can scope any retrieval to their access.
     user_id = claims.get("sub") if claims else None
-    permissions: list[str] = []
+    permissions: list[str] | None = None
     if user_id:
         user = db.get(User, user_id)
         if user:
             permissions = list(user.permissions or [])
 
-    # Run context: what's connected now, which sources were added since the last
-    # run, and which documents arrived — so "summarize what's new" is answerable.
-    connectors_now = await connector_context(org_id)
-    current_names = [
-        line.split(" ", 2)[1] for line in connectors_now.splitlines() if line.startswith("- ")
-    ]
-    added = [n for n in current_names if n not in (auto.last_connectors or [])]
-    new_docs = list_documents_since(db, org_id, auto.last_run_at)
-    doc_lines = [
-        f"- [{source}] {title} ({ingested:%Y-%m-%d})" for source, title, ingested in new_docs
-    ] or ["No new items."]
-    run_context = "\n".join(
-        [
-            "Automation context:",
-            connectors_now or "No data sources are connected yet.",
-            "Connectors added since last run: " + (", ".join(added) if added else "none"),
-            f"New items since last run ({auto.last_run_at or 'never'}):",
-            *doc_lines,
-        ]
-    )
-
-    # --- executor seam: per-user Hermes sidecar if configured, else in-house ---
-    hermes = await run_via_hermes(
-        auto.prompt, org_id, user_id=user_id, permissions=permissions,
-        extra_context=run_context,
-    )
-    if hermes is not None:
-        record_automation_run(db, automation_id, hermes, connectors=current_names)
-        return {"id": automation_id, "result": hermes, "via": "hermes", "citations": []}
-    resp = await run_ask(
-        AskRequest(org_id=org_id, question=f"{run_context}\n\nTask: {auto.prompt}")
-    )
-    record_automation_run(db, automation_id, resp.answer, connectors=current_names)
-    return {"id": automation_id, "result": resp.answer, "via": "osai", "citations": resp.citations}
+    return await execute_automation(db, auto, user_id=user_id, permissions=permissions)

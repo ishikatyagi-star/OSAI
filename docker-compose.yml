@@ -21,7 +21,10 @@ services:
   worker:
     build:
       context: ./osai-backend
-    command: uv run celery -A workers.celery_app worker --loglevel=info
+    # -B runs the beat scheduler in-process (fine for a single worker node);
+    # -Q makes the worker consume the routed queues, which it previously
+    # didn't — tasks routed to ingest/extract/execute sat unconsumed.
+    command: uv run celery -A workers.celery_app worker -B -Q celery,ingest,extract,execute --loglevel=info
     volumes:
       - ./osai-backend:/app
       - /app/.venv

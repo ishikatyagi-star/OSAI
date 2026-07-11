@@ -1344,6 +1344,36 @@ def list_automations(session: Session, org_id: str) -> list[Automation]:
     )
 
 
+# How often each cadence is due. `manual` is intentionally absent — those only
+# run via POST /automations/{id}/run.
+CADENCE_INTERVALS = {
+    "hourly": timedelta(hours=1),
+    "daily": timedelta(days=1),
+    "weekly": timedelta(days=7),
+}
+
+
+def list_due_automations(session: Session, now: datetime | None = None) -> list[Automation]:
+    """Active scheduled automations (across all orgs) whose cadence interval has
+    elapsed since their last run. Never-run automations are due immediately.
+    Consumed by the Celery beat scheduler."""
+    now = now or now_utc()
+    candidates = (
+        session.query(Automation)
+        .filter(
+            Automation.enabled.is_(True),
+            Automation.status == "active",
+            Automation.cadence.in_(tuple(CADENCE_INTERVALS)),
+        )
+        .all()
+    )
+    return [
+        a
+        for a in candidates
+        if a.last_run_at is None or a.last_run_at <= now - CADENCE_INTERVALS[a.cadence]
+    ]
+
+
 def delete_automation(session: Session, org_id: str, automation_id: str) -> bool:
     n = (
         session.query(Automation)
