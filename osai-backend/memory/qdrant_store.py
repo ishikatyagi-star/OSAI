@@ -166,6 +166,7 @@ def _chunk_payload(chunk: dict[str, Any]) -> dict[str, Any]:
         "url": metadata.get("url"),
         "permissions": chunk.get("permissions", []),
         "data_tier": chunk.get("data_tier", "normal"),
+        "department_id": chunk.get("department_id"),
     }
 
 

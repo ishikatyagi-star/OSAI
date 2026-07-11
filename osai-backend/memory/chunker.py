@@ -16,6 +16,7 @@ def chunk_document(document: SourceDocument, max_chars: int = 4000) -> list[dict
                 "content_preview": text[:240],
                 "permissions": document.permissions,
                 "data_tier": document.data_tier,
+                "department_id": document.department_id,
                 "metadata": {"title": document.title, "url": document.url},
             }
         )

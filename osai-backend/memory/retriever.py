@@ -65,6 +65,16 @@ async def retrieve_answer(request: SearchRequest) -> SearchResponse:
         and _tier_visible((h.payload or {}).get("data_tier"), request.requester_tier)
     ]
 
+    # Department scope ("Ask Engineering"): keep only documents attributed to
+    # the requested department. Applied after the governance filters — scoping
+    # narrows visibility, never widens it.
+    if request.department_id:
+        hits = [
+            h
+            for h in hits
+            if (h.payload or {}).get("department_id") == request.department_id
+        ]
+
     if not hits and not memories:
         return SearchResponse(
             answer="No relevant context found. Trigger a connector sync to ingest data.",

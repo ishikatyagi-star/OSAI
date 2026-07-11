@@ -18,6 +18,7 @@ import { buildOpenUiArtifacts } from "@/lib/openui-artifacts";
 import { cn } from "@/lib/utils";
 import type { AgentAction, AskResponse } from "@/lib/types";
 import { MessageBubble, type AskTurn } from "@/components/ask/message-bubble";
+import { getDepartments, type Department } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -116,6 +117,13 @@ export default function AskPage() {
   const [pending, setPending] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [busyActionId, setBusyActionId] = useState<string | null>(null);
+  // Department scope: restrict retrieval to one department's documents.
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [departmentId, setDepartmentId] = useState<string>("");
+
+  useEffect(() => {
+    getDepartments().then(setDepartments).catch(() => setDepartments([]));
+  }, []);
   const threadRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -162,7 +170,7 @@ export default function AskPage() {
       try {
         const res = isDemo()
           ? getDemoAnswer(q)
-          : await askOsai(q, { conversationId, history });
+          : await askOsai(q, { conversationId, history, departmentId: departmentId || null });
         setConversationId(res.conversation_id ?? conversationId);
         setTurns((prev) => [...prev, toTurn(res)]);
       } catch {
@@ -187,7 +195,7 @@ export default function AskPage() {
         setPending(false);
       }
     },
-    [pending, turns, conversationId]
+    [pending, turns, conversationId, departmentId]
   );
 
   // Deep links (e.g. the Automations page's "Create with Sheldon AI") seed the
@@ -321,6 +329,32 @@ export default function AskPage() {
               </div>
 
               {/* HERO composer */}
+              {departments.length > 0 && (
+                <div className="mb-2 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                  <label className="inline-flex items-center gap-2">
+                    Scope
+                    <select
+                      aria-label="Department scope"
+                      value={departmentId}
+                      onChange={(e) => setDepartmentId(e.target.value)}
+                      style={{
+                        background: "var(--bg-surface)",
+                        color: "inherit",
+                        border: "1px solid var(--border)",
+                        borderRadius: 8,
+                        padding: "4px 8px",
+                      }}
+                    >
+                      <option value="">Whole workspace</option>
+                      {departments.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              )}
               <form onSubmit={handleSubmit} className="w-full">
                 <div className="ask-composer ask-composer-hero">
                   <div className="flex items-center gap-3 px-4 py-3">

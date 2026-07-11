@@ -64,6 +64,7 @@ async def run_ask(
             requester_permissions=requester_permissions or [],
             requester_tier=requester_tier,
             requester_user_id=user_id,
+            department_id=request.department_id,
         )
     )
 

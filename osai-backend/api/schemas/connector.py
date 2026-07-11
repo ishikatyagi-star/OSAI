@@ -20,6 +20,8 @@ class SourceDocument(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
     permissions: list[str] = Field(default_factory=list)
     data_tier: DataTier = "normal"
+    # Owning department (org-defined), for "Ask Engineering"-style scoping.
+    department_id: str | None = None
 
 
 class AuthStatus(BaseModel):

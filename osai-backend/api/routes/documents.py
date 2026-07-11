@@ -17,6 +17,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from api.schemas.connector import SourceDocument
+from db.models import Department
 from db.repositories import chunks_for_documents, try_db, upsert_source_documents
 from db.session import get_db, get_optional_claims, get_org_id
 from memory.qdrant_store import get_default_qdrant_store
@@ -69,6 +70,7 @@ async def upload_documents(
     files: Annotated[list[UploadFile], File(...)],
     data_tier: Annotated[str, Form()] = "normal",
     permissions: Annotated[str, Form()] = "",
+    department_id: Annotated[str, Form()] = "",
 ) -> dict:
     """Ingest uploaded files into the knowledge base.
 
@@ -81,6 +83,12 @@ async def upload_documents(
         )
     grants = [p.strip() for p in permissions.split(",") if p.strip()] or ["source:all"]
     author = claims.get("email") or claims.get("sub") if claims else None
+    # Optional department attribution — must be one of this org's departments.
+    dept = department_id.strip() or None
+    if dept:
+        row = db.get(Department, dept)
+        if row is None or row.org_id != org_id:
+            raise HTTPException(status_code=422, detail="Unknown department for this workspace.")
 
     documents: list[SourceDocument] = []
     skipped: list[dict] = []
@@ -112,6 +120,7 @@ async def upload_documents(
                 metadata={"origin": "direct_upload", "content_length": len(text)},
                 permissions=grants,
                 data_tier=data_tier,  # type: ignore[arg-type]
+                department_id=dept,
             )
         )
 

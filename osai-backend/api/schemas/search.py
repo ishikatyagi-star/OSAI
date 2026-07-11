@@ -12,6 +12,9 @@ class SearchRequest(BaseModel):
     # Caller's user id — scopes org-memory recall (private memories stay private).
     # None = system context (see-all), same stance as the other requester fields.
     requester_user_id: str | None = None
+    # Optional department scope: restrict retrieval to documents attributed to
+    # this department ("Ask Engineering"). None = whole org corpus.
+    department_id: str | None = None
 
 
 class SourceCitation(BaseModel):

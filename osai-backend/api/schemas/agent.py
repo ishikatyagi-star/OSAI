@@ -28,6 +28,8 @@ class AskRequest(BaseModel):
     question: str
     conversation_id: str | None = None
     history: list[ChatMessage] | None = None
+    # Optional department scope for retrieval ("Ask Engineering").
+    department_id: str | None = None
 
 
 class AgentAction(BaseModel):
