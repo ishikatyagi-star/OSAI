@@ -48,6 +48,25 @@ async def list_integrations(db: DbSession, org_id: OrgId) -> list[dict[str, obje
                     # than what the last sync persisted).
                     if conn.get("email") and not by_key[key].get("account_email"):
                         by_key[key]["account_email"] = conn.get("email")
+                else:
+                    # A catalog connector with no native counterpart (e.g. Gmail,
+                    # Linear via Composio) — synthesize a card so anything the
+                    # user connects from the full catalog is visible here.
+                    items.append(
+                        {
+                            "key": key,
+                            "display_name": (conn.get("toolkit") or key)
+                            .replace("_", " ")
+                            .title(),
+                            "capabilities": ["execute"],
+                            "auth_state": "connected",
+                            "scopes": [],
+                            "last_sync": None,
+                            "sync_error": None,
+                            "account_email": conn.get("email"),
+                            "source": "composio",
+                        }
+                    )
         except Exception:  # noqa: BLE001 — connection overlay is best-effort
             pass
 

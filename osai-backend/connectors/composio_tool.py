@@ -60,18 +60,34 @@ class ComposioClient:
                     specs.append(_to_spec(tool))
         return specs
 
-    async def list_toolkits(self, limit: int = 50) -> list[dict[str, Any]]:
-        """Available Composio toolkits (apps) with auth + tool counts."""
+    async def list_toolkits(
+        self,
+        limit: int = 50,
+        search: str | None = None,
+        cursor: str | None = None,
+    ) -> dict[str, Any]:
+        """Available Composio toolkits (apps) with auth + tool counts.
+
+        Supports the full catalog: `search` filters by name/slug and `cursor`
+        pages through results. Returns `{"items": [...], "next_cursor": ...}`
+        so the UI can browse everything Composio offers, not a fixed subset.
+        """
+        params: dict[str, Any] = {"limit": limit}
+        if search:
+            params["search"] = search
+        if cursor:
+            params["cursor"] = cursor
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.get(
                 f"{self.base_url}/api/v3/toolkits",
                 headers=self._headers(),
-                params={"limit": limit},
+                params=params,
             )
         if resp.status_code != 200:
-            return []
+            return {"items": [], "next_cursor": None}
+        body = resp.json()
         out = []
-        for tk in resp.json().get("items", []):
+        for tk in body.get("items", []):
             meta = tk.get("meta", {})
             out.append(
                 {
@@ -84,7 +100,16 @@ class ComposioClient:
                     "categories": [c.get("name") for c in meta.get("categories", [])],
                 }
             )
-        return out
+        # Belt and braces: if the provider ignores `search`, filter locally so
+        # the UI's search box still narrows results.
+        if search:
+            q = search.lower()
+            out = [
+                t
+                for t in out
+                if q in (t["slug"] or "").lower() or q in (t["name"] or "").lower()
+            ]
+        return {"items": out, "next_cursor": body.get("next_cursor")}
 
     async def _ensure_auth_config(self, client: httpx.AsyncClient, toolkit: str) -> str | None:
         """Return an auth_config id for a toolkit, creating a managed one if needed.

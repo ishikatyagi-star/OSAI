@@ -43,6 +43,14 @@ def test_composio_toolkits_endpoint():
     _client_or_skip()
     resp = client.get("/integrations/composio/toolkits")
     assert resp.status_code == 200
-    toolkits = resp.json()
-    assert len(toolkits) >= 1
-    assert all("slug" in t for t in toolkits)
+    page = resp.json()
+    assert len(page["items"]) >= 1
+    assert all("slug" in t for t in page["items"])
+
+
+def test_composio_toolkits_search():
+    _client_or_skip()
+    resp = client.get("/integrations/composio/toolkits", params={"search": "gmail"})
+    assert resp.status_code == 200
+    slugs = [t["slug"] for t in resp.json()["items"]]
+    assert any("gmail" in s for s in slugs)

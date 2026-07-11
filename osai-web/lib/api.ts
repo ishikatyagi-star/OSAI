@@ -327,12 +327,40 @@ export function triggerSync(connectorKey: string) {
 }
 
 // Native connector key → Composio toolkit slug (Composio uses its own slugs).
-const COMPOSIO_TOOLKIT: Record<string, string> = {
+export const COMPOSIO_TOOLKIT: Record<string, string> = {
   notion: "notion",
   google_drive: "googledrive",
   slack: "slack",
   freshdesk: "freshdesk",
 };
+
+// One app in the Composio catalog (browse/search from the Add-connector dialog).
+export type ComposioToolkit = {
+  slug: string;
+  name: string;
+  no_auth: boolean;
+  tools_count?: number | null;
+  logo?: string | null;
+  categories?: string[];
+};
+
+export type ComposioToolkitPage = {
+  items: ComposioToolkit[];
+  next_cursor?: string | null;
+};
+
+// Browse the full Composio app catalog — everything the org can connect,
+// searchable and cursor-paginated (not just OSAI's native connectors).
+export function listComposioToolkits(search?: string, cursor?: string) {
+  const params = new URLSearchParams();
+  if (search) params.set("search", search);
+  if (cursor) params.set("cursor", cursor);
+  const qs = params.toString();
+  return apiGet<ComposioToolkitPage>(
+    `/integrations/composio/toolkits${qs ? `?${qs}` : ""}`,
+    { items: [], next_cursor: null }
+  );
+}
 
 export type ComposioConnectResult = {
   redirect_url?: string;

@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Check } from "lucide-react";
-import { composioConnect, composioDisconnect, getDashboardMetrics, getIntegrations, getSyncRuns, triggerSync } from "@/lib/api";
+import { AlertTriangle, Check, Plus } from "lucide-react";
+import { COMPOSIO_TOOLKIT, composioConnect, composioDisconnect, getDashboardMetrics, getIntegrations, getSyncRuns, triggerSync } from "@/lib/api";
 import { DEMO_INTEGRATIONS, DEMO_STATS, DEMO_SYNC_RUNS } from "@/lib/demo-data";
 import { isDemo } from "@/lib/demo";
 import { CONNECTOR_META, getConnectorIcon } from "@/lib/connector-meta";
 import type { Integration, SyncRun } from "@/lib/types";
+import { AddConnectorDialog } from "@/components/integrations/add-connector-dialog";
 import { ConnectorManager } from "@/components/integrations/connector-manager";
+import { Button } from "@/components/ui/button";
 import { DataRoutingPanel } from "@/components/integrations/data-routing-panel";
 import { StatusDot } from "@/components/ui/status-dot";
 import { TabsPill, TabsPillList, TabsPillTrigger, TabsPillContent } from "@/components/ui/tabs-pill";
@@ -24,6 +26,7 @@ export default function IntegrationsPage() {
   const [syncRuns, setSyncRuns] = useState<SyncRun[]>([]);
   const [managedKey, setManagedKey] = useState<string | null>(null);
   const [justConnected, setJustConnected] = useState(false);
+  const [catalogOpen, setCatalogOpen] = useState(false);
   // Real per-connector indexed-doc counts so the cards match Analytics/Sync Runs
   // instead of always showing "-" for signed-in users.
   const [docsByConnector, setDocsByConnector] = useState<Record<string, number>>({});
@@ -166,7 +169,20 @@ export default function IntegrationsPage() {
             inside them is classified into data tiers.
           </p>
         </div>
+        <Button onClick={() => setCatalogOpen(true)}>
+          <Plus size={14} /> Add connector
+        </Button>
       </div>
+
+      <AddConnectorDialog
+        open={catalogOpen}
+        onOpenChange={setCatalogOpen}
+        connectedKeys={integrations
+          .filter((i) => i.auth_state === "connected")
+          // Catalog entries use Composio slugs; translate native keys so
+          // already-connected apps read "Connected" in the dialog.
+          .map((i) => COMPOSIO_TOOLKIT[i.key] ?? i.key)}
+      />
 
       {/* Tabs: Connectors | Data Routing */}
       <TabsPill value={tab} onValueChange={(v) => setTab(v as Tab)}>
@@ -354,36 +370,6 @@ export default function IntegrationsPage() {
               );
             })}
 
-            {/* Coming-soon connectors */}
-            {[
-              { key: "linear", label: "Linear" },
-              { key: "confluence", label: "Confluence" },
-            ].map((c) => {
-              const Icon = getConnectorIcon(c.key);
-              return (
-              <div key={c.key} className="card connector-card card-muted">
-                <div style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 16 }}>
-                  <div
-                    className="connector-icon-badge"
-                    style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)" }}
-                  >
-                    <Icon size={18} strokeWidth={1.8} />
-                  </div>
-                  <div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                      <h2 style={{ margin: 0 }}>{c.label}</h2>
-                      <span className="badge badge-grey" style={{ fontSize: 10 }}>coming soon</span>
-                    </div>
-                    <p className="meta" style={{ margin: 0 }}>
-                      {CONNECTOR_META[c.key]?.description}
-                    </p>
-                  </div>
-                </div>
-                <button className="btn btn-sm" disabled>
-                  Notify me
-                </button>
-              </div>
-            )})}
           </div>
 
           <ConnectorManager
