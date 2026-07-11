@@ -133,7 +133,7 @@ export function UploadCard({ onUploaded }: { onUploaded?: () => void }) {
             <option value="red">Red</option>
           </select>
         </label>
-        <Button className="min-w-[140px]" onClick={() => inputRef.current?.click()} disabled={busy}>
+        <Button size="lg" className="min-w-[152px] shadow-sm" onClick={() => inputRef.current?.click()} disabled={busy}>
           {busy ? <Loader2 size={14} className="animate-spin" /> : <FileUp size={14} />}
           {busy ? "Uploading…" : "Upload files"}
         </Button>
