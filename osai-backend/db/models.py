@@ -250,6 +250,31 @@ class ModelCall(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
 
 
+class AnswerFeedback(Base):
+    """User verdicts on Ask answers, stored with the retrieval trace.
+
+    This is the eval dataset for retrieval-quality work: each row captures what
+    was asked, what was answered, which sources were cited (with scores/tiers),
+    which model route produced it, and what the user thought of it."""
+
+    __tablename__ = "answer_feedback"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
+    org_id: Mapped[str] = mapped_column(String, ForeignKey("orgs.id"), index=True)
+    user_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    conversation_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    query: Mapped[str] = mapped_column(Text)
+    answer: Mapped[str] = mapped_column(Text)
+    rating: Mapped[str] = mapped_column(String, index=True)  # up | down
+    comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Titles the user flagged as irrelevant/wrong sources.
+    wrong_sources: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    # Snapshot of the answer's provenance: citations (title/tool/score/tier),
+    # via (osai|hermes), model_route — enough to replay the retrieval offline.
+    retrieval_trace: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc, index=True)
+
+
 class OrgMemory(Base):
     """Evolving agent/org state — distinct from the document knowledge base.
 

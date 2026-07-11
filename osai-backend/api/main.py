@@ -8,6 +8,7 @@ from api.routes import (
     composio,
     dashboard,
     evals,
+    feedback,
     graph,
     health,
     integrations,
@@ -35,6 +36,7 @@ app.include_router(health.router)
 app.include_router(agent.router)
 app.include_router(graph.router)
 app.include_router(evals.router)
+app.include_router(feedback.router)
 app.include_router(composio.router)
 app.include_router(integrations.router)
 app.include_router(sync_runs.router)

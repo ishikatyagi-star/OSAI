@@ -149,6 +149,8 @@ export default function AskPage() {
         id: uid("a"),
         role: "assistant",
         content: res.answer,
+        question: q,
+        conversationId: res.conversation_id ?? conversationId,
         citations: res.citations,
         actions: res.actions_taken,
         enoughContext: res.enough_context,

@@ -53,6 +53,7 @@ export type SourceCitation = {
   source_record_title: string;
   url: string | null;
   confidence: number;
+  data_tier?: string | null;
 };
 
 export type AskUiArtifactKind =
