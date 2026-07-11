@@ -2445,7 +2445,7 @@ select {
     var(--bg);
 }
 
-.ask-scroll { scrollbar-gutter: stable; }
+.ask-scroll { scrollbar-gutter: stable both-edges; }
 
 .ask-thread {
   padding-inline: 4px;
@@ -2457,6 +2457,11 @@ select {
   width: 100%;
   max-width: 768px;
   margin-inline: auto;
+}
+
+.ask-page-header[data-conversation="true"] .btn {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .ask-user-bubble {
