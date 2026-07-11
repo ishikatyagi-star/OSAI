@@ -235,7 +235,7 @@ export default function OnboardingPage() {
                 </p>
               </div>
               <div className="space-y-3">
-                <Input value={orgName} onChange={(e) => setOrgName(e.target.value)} placeholder="Organization name" autoFocus />
+                <Input value={orgName} onChange={(e) => setOrgName(e.target.value)} placeholder="Organization name" />
                 <Input value={adminName} onChange={(e) => setAdminName(e.target.value)} placeholder="Your name" />
                 <Input type="email" value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} placeholder="Your work email" />
               </div>

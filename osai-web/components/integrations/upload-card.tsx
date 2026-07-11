@@ -95,6 +95,7 @@ export function UploadCard({ onUploaded }: { onUploaded?: () => void }) {
           <label className="meta inline-flex items-center gap-2" style={{ whiteSpace: "nowrap" }}>
             Department
             <select
+              aria-label="Upload department"
               value={departmentId}
               onChange={(e) => setDepartmentId(e.target.value)}
               style={{
@@ -117,6 +118,7 @@ export function UploadCard({ onUploaded }: { onUploaded?: () => void }) {
         <label className="meta inline-flex items-center gap-2" style={{ whiteSpace: "nowrap" }}>
           Tier
           <select
+            aria-label="Upload data tier"
             value={tier}
             onChange={(e) => setTier(e.target.value as Tier)}
             title={TIER_HINT[tier]}

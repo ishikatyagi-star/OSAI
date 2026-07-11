@@ -67,7 +67,7 @@ function PassRateBar({ rate }: { rate: number }) {
     <div className="flex items-center gap-2">
       <div className="h-1.5 w-full overflow-hidden rounded-full" style={{ background: 'var(--bg-hover)' }}>
         <div
-          className="h-full rounded-full transition-all"
+          className="h-full rounded-full transition-[width,background-color]"
           style={{ width: `${pct}%`, background: color }}
         />
       </div>
