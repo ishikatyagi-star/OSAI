@@ -36,8 +36,16 @@ async def _permitted_context(prompt: str, org_id: str, permissions: list[str]) -
         )
     except Exception:  # noqa: BLE001 — context is best-effort
         return ""
+    # Egress policy: the sidecar may call cloud models, so only forward citation
+    # material from tiers the org allows out (same policy the retriever applies
+    # to its own synthesis; retrieve_answer's answer text is already compliant).
+    from llm.policy import cloud_llm_allowed, load_data_routing
+
+    routing = load_data_routing(org_id)
     parts = [res.answer or ""]
     for c in res.citations[:5]:
+        if not cloud_llm_allowed(routing, getattr(c, "data_tier", None)):
+            continue
         title = getattr(c, "title", None) or getattr(c, "source_tool", "")
         snippet = getattr(c, "snippet", None) or getattr(c, "content_preview", "")
         if title or snippet:

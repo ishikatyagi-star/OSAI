@@ -6,6 +6,7 @@ import logging
 
 from api.schemas.search import SearchRequest, SearchResponse, SourceCitation
 from config import settings
+from llm.policy import cloud_llm_allowed, load_data_routing
 from memory.embeddings import default_embedding_provider
 from memory.qdrant_store import get_default_qdrant_store
 
@@ -69,8 +70,14 @@ async def retrieve_answer(request: SearchRequest) -> SearchResponse:
             enough_context=False,
         )
 
+    # Model-egress policy: the org's data-routing settings say which tiers may
+    # be sent to a cloud LLM. Partition context accordingly — restricted parts
+    # only ever reach a local model (see synthesis below).
+    routing = load_data_routing(request.org_id)
+
     # 2. Build context snippets and citations
-    context_parts: list[str] = []
+    context_parts: list[str] = []  # cloud-eligible
+    restricted_parts: list[str] = []  # local-model only, per routing policy
     citations: list[SourceCitation] = []
     seen: set[str] = set()
 
@@ -81,8 +88,12 @@ async def retrieve_answer(request: SearchRequest) -> SearchResponse:
         source_type = payload.get("source_type", "unknown")
         text = payload.get("text") or payload.get("content_preview", "")
         doc_id = payload.get("source_document_id", "")
+        tier = payload.get("data_tier") or "normal"
 
-        context_parts.append(f"[{title}]\n{text}")
+        if cloud_llm_allowed(routing, tier):
+            context_parts.append(f"[{title}]\n{text}")
+        else:
+            restricted_parts.append(f"[{title}]\n{text}")
 
         if doc_id not in seen:
             seen.add(doc_id)
@@ -92,6 +103,7 @@ async def retrieve_answer(request: SearchRequest) -> SearchResponse:
                     source_record_title=title,
                     url=url,
                     confidence=round(float(hit.score), 3),
+                    data_tier=tier,
                 )
             )
 
@@ -113,25 +125,59 @@ async def retrieve_answer(request: SearchRequest) -> SearchResponse:
     context_text = "\n\n---\n\n".join(context_parts)
     doc_titles = [c.source_record_title for c in citations if c.source_tool != "memory"]
 
-    # 4. Synthesise answer with the configured LLM, else an honest fallback.
-    if settings.llm_api_key or settings.gemini_api_key:
+    # 4. Synthesise the answer, honouring the egress policy:
+    #    - restricted-tier context present → full context goes to the LOCAL
+    #      model (Ollama); on local failure, cloud synthesis runs over the
+    #      cloud-eligible parts only and the withholding is stated in the
+    #      answer — restricted text never reaches a cloud provider.
+    #    - no restricted context → cloud LLM as before, else honest fallback.
+    if restricted_parts:
+        full_context = "\n\n---\n\n".join(restricted_parts + context_parts)
         try:
-            answer = await _gemini_answer(request.query, context_text)
+            from llm.ollama import generate_local
+
+            answer = await generate_local(
+                _answer_prompt(request.query, full_context)
+            )
         except Exception:
-            # Swallowed on purpose (retrieval must degrade gracefully, never
-            # 500), but silent failure here is undiagnosable in prod — a bad
-            # key, a rate limit, and a network error all render as the same
-            # "language model is busy" text. Log the real cause.
-            logger.exception("LLM synthesis failed; falling back to raw retrieval")
-            answer = _fallback_answer(memory_block, doc_titles)
+            logger.warning(
+                "Local model unavailable; withholding %d restricted-tier snippet(s) "
+                "from cloud synthesis per data-routing policy",
+                len(restricted_parts),
+            )
+            answer = await _cloud_or_fallback(request.query, context_text, memory_block, doc_titles)
+            answer += (
+                f"\n\nNote: {len(restricted_parts)} document(s) in restricted data tiers "
+                "were excluded from processing per your data-routing policy. Configure a "
+                "local model (Ollama) or adjust Data Routing to include them."
+            )
     else:
-        answer = _fallback_answer(memory_block, doc_titles)
+        answer = await _cloud_or_fallback(request.query, context_text, memory_block, doc_titles)
 
     return SearchResponse(
         answer=answer,
         citations=citations,
         enough_context=True,
     )
+
+
+async def _cloud_or_fallback(
+    query: str, context_text: str, memory_block: str, doc_titles: list[str]
+) -> str:
+    """Cloud synthesis when a provider is configured, else the honest fallback."""
+    if not context_text and not memory_block:
+        return _fallback_answer(memory_block, doc_titles)
+    if settings.llm_api_key or settings.gemini_api_key:
+        try:
+            return await _gemini_answer(query, context_text)
+        except Exception:
+            # Swallowed on purpose (retrieval must degrade gracefully, never
+            # 500), but silent failure here is undiagnosable in prod — a bad
+            # key, a rate limit, and a network error all render as the same
+            # "language model is busy" text. Log the real cause.
+            logger.exception("LLM synthesis failed; falling back to raw retrieval")
+            return _fallback_answer(memory_block, doc_titles)
+    return _fallback_answer(memory_block, doc_titles)
 
 
 def _fallback_answer(memory_block: str, doc_titles: list[str]) -> str:
@@ -152,10 +198,10 @@ def _fallback_answer(memory_block: str, doc_titles: list[str]) -> str:
     )
 
 
-async def _gemini_answer(query: str, context: str) -> str:
-    from llm.gemini import generate
-
-    prompt = (
+def _answer_prompt(query: str, context: str) -> str:
+    """Shared synthesis prompt — identical for the cloud and local model paths
+    so routing a tier locally never changes answer behaviour, only egress."""
+    return (
         "You are a precise enterprise knowledge assistant for university operations. "
         "Answer the question using ONLY the provided context (documents + OSAI memory). "
         "Cite document titles inline. Be concise.\n"
@@ -166,4 +212,9 @@ async def _gemini_answer(query: str, context: str) -> str:
         f"QUESTION: {query}\n\n"
         "ANSWER:"
     )
-    return await generate(prompt)
+
+
+async def _gemini_answer(query: str, context: str) -> str:
+    from llm.gemini import generate
+
+    return await generate(_answer_prompt(query, context))

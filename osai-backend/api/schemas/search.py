@@ -16,6 +16,9 @@ class SourceCitation(BaseModel):
     source_record_title: str
     url: str | None = None
     confidence: float = 0.0
+    # Tier of the cited document, so downstream egress points (e.g. the Hermes
+    # sidecar context builder) can apply the org's data-routing policy.
+    data_tier: str | None = None
 
 
 class SearchResponse(BaseModel):
