@@ -298,12 +298,15 @@ export default function AskPage() {
         {!empty && (
           <button
             className="btn"
+            aria-label="New chat"
             onClick={() => {
               setTurns([]);
               setConversationId(null);
             }}
           >
-            <Plus className="size-3.5" /> New chat
+            <Plus className="size-3.5" />
+            <span className="ask-new-chat-wide">New chat</span>
+            <span className="ask-new-chat-compact" aria-hidden>New</span>
           </button>
         )}
       </div>

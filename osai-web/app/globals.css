@@ -2690,6 +2690,10 @@ select {
   box-shadow: none;
 }
 
+.ask-new-chat-compact {
+  display: none;
+}
+
 @media (max-width: 700px) {
   .ask-page-header[data-conversation="true"] {
     align-items: center;
@@ -2702,13 +2706,21 @@ select {
   }
 
   .ask-page-header[data-conversation="true"] h1 {
-    font-size: 28px;
+    font-size: 24px;
   }
 
   .ask-page-header[data-conversation="true"] .btn {
     flex: none;
     min-height: 40px;
     padding-inline: 14px;
+  }
+
+  .ask-page-header[data-conversation="true"] .ask-new-chat-wide {
+    display: none;
+  }
+
+  .ask-page-header[data-conversation="true"] .ask-new-chat-compact {
+    display: inline;
   }
 
   .ask-assistant-turn {
@@ -2755,9 +2767,13 @@ select {
   }
 
   .ask-action-params {
-    grid-template-columns: minmax(68px, auto) minmax(0, 1fr);
-    gap: 6px 10px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
     padding: 10px;
+  }
+
+  .ask-action-params dt:not(:first-child) {
+    margin-top: 6px;
   }
 
   .ask-action-buttons > button {

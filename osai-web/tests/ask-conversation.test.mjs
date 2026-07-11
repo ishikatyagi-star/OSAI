@@ -23,6 +23,8 @@ test("answers keep the app shell fixed and avoid duplicate generated cards", () 
   assert.match(citations, /inline-flex max-w-full min-w-0/);
   assert.doesNotMatch(citations, /max-w-\[220px\]/);
   assert.match(page, /data-conversation={!empty}/);
+  assert.match(page, /aria-label="New chat"/);
+  assert.match(page, /ask-new-chat-compact/);
   assert.doesNotMatch(page, /<Plus className="size-5 shrink-0/);
   assert.match(actionCard, /action\.action\.replaceAll\("_", " "\)/);
   assert.match(actionCard, /variant="outline"/);
