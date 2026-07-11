@@ -54,19 +54,19 @@ const COMPOSER_MODES: {
     id: "ask",
     label: "Ask",
     icon: Sparkles,
-    placeholder: "Ask anything about your org: projects, owners, decisions, status...",
+    placeholder: "Ask anything about your org...",
   },
   {
     id: "search",
     label: "Search",
     icon: Search,
-    placeholder: "Search across Notion, Slack, Google Drive, Freshdesk and Zoom...",
+    placeholder: "Search connected tools...",
   },
   {
     id: "action",
     label: "Take action",
     icon: Zap,
-    placeholder: "Tell Sheldon AI to open a ticket, assign an owner, or post a status update...",
+    placeholder: "Describe an action...",
   },
 ];
 
