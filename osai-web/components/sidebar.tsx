@@ -15,11 +15,10 @@ import {
   Settings,
   Share2,
   Sparkles,
-  Trash2,
   Users,
   type LucideIcon,
 } from "lucide-react";
-import { clearSession, deleteAccount } from "@/lib/api";
+import { clearSession } from "@/lib/api";
 import { brandText } from "@/lib/utils";
 
 type NavItem = {
@@ -70,7 +69,6 @@ export default function Sidebar() {
   const router = useRouter();
   const [userName, setUserName] = useState("");
   const [orgName, setOrgName] = useState("");
-  const [deleting, setDeleting] = useState(false);
   useEffect(() => {
     setUserName(brandText(localStorage.getItem("osai_user_name") || "You"));
     setOrgName(brandText(localStorage.getItem("osai_org_name") || "Your workspace"));
@@ -80,26 +78,6 @@ export default function Sidebar() {
   function handleSignOut() {
     clearSession();
     router.replace("/login");
-  }
-
-  async function handleDeleteAccount() {
-    if (
-      !window.confirm(
-        "Permanently delete your account? This cannot be undone. You'll be signed out."
-      )
-    ) {
-      return;
-    }
-    setDeleting(true);
-    try {
-      await deleteAccount();
-    } catch {
-      // Even if the server call fails (e.g. demo token), clear the local session
-      // so the user isn't stuck in a half-signed-in state.
-      clearSession();
-    } finally {
-      router.replace("/login");
-    }
   }
 
   return (
@@ -171,24 +149,6 @@ export default function Sidebar() {
             <LogOut size={16} strokeWidth={1.75} />
           </span>
           <span>Sign out</span>
-        </button>
-        <button
-          type="button"
-          onClick={handleDeleteAccount}
-          disabled={deleting}
-          className="sidebar-nav-item"
-          style={{
-            width: "100%",
-            background: "none",
-            border: "none",
-            cursor: deleting ? "default" : "pointer",
-            color: "var(--red)",
-          }}
-        >
-          <span className="nav-icon">
-            <Trash2 size={16} strokeWidth={1.75} />
-          </span>
-          <span>{deleting ? "Deleting…" : "Delete account"}</span>
         </button>
       </div>
     </aside>

@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { FlaskConical, Route, ChevronRight, Trash2, type LucideIcon } from "lucide-react";
-import { resetWorkspaceContent } from "@/lib/api";
+import { clearSession, deleteAccount, resetWorkspaceContent } from "@/lib/api";
 import {
   Dialog,
   DialogContent,
@@ -38,8 +39,11 @@ const LINKS: SettingsLink[] = [
 ];
 
 export default function SettingsPage() {
+  const router = useRouter();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [resetMsg, setResetMsg] = useState("");
 
   async function handleReset() {
@@ -56,6 +60,17 @@ export default function SettingsPage() {
       setResetMsg("Couldn't reset - please try again.");
     } finally {
       setResetting(false);
+    }
+  }
+
+  async function handleDeleteAccount() {
+    setDeleting(true);
+    try {
+      await deleteAccount();
+    } catch {
+      clearSession();
+    } finally {
+      router.replace("/login");
     }
   }
 
@@ -132,6 +147,29 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      <div
+        className="card"
+        style={{ marginTop: 12, borderColor: "color-mix(in srgb, var(--red) 35%, var(--border))" }}
+      >
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
+          <div
+            className="connector-icon-badge"
+            style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", color: "var(--red)" }}
+          >
+            <Trash2 size={18} strokeWidth={1.75} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <h2 style={{ margin: 0 }}>Delete account</h2>
+            <p className="meta" style={{ margin: "4px 0 12px", lineHeight: 1.5 }}>
+              Permanently delete your account and sign out. This cannot be undone.
+            </p>
+            <button className="btn btn-danger" onClick={() => setDeleteDialogOpen(true)}>
+              Delete account
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Confirmation modal */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
@@ -148,6 +186,25 @@ export default function SettingsPage() {
             </button>
             <button className="btn btn-danger" onClick={handleReset} disabled={resetting}>
               {resetting ? "Clearing\u2026" : "Yes, clear data"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete account</DialogTitle>
+            <DialogDescription>
+              Permanently delete your account? This cannot be undone, and you will be signed out.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <button className="btn" onClick={() => setDeleteDialogOpen(false)} disabled={deleting}>
+              Cancel
+            </button>
+            <button className="btn btn-danger" onClick={handleDeleteAccount} disabled={deleting}>
+              {deleting ? "Deleting…" : "Yes, delete account"}
             </button>
           </DialogFooter>
         </DialogContent>
