@@ -103,6 +103,7 @@ export function ActionCard({
             <div className="ask-action-buttons mt-3 flex items-center gap-2">
               <Button
                 size="sm"
+                className="min-w-[72px] border-0"
                 onClick={() => onApprove(action)}
                 disabled={busy}
               >
@@ -119,6 +120,7 @@ export function ActionCard({
               <Button
                 size="sm"
                 variant="outline"
+                className="min-w-[72px]"
                 onClick={() => onDismiss(action)}
                 disabled={busy}
               >

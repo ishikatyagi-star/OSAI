@@ -26,5 +26,6 @@ test("answers keep the app shell fixed and avoid duplicate generated cards", () 
   assert.doesNotMatch(page, /<Plus className="size-5 shrink-0/);
   assert.match(actionCard, /action\.action\.replaceAll\("_", " "\)/);
   assert.match(actionCard, /variant="outline"/);
+  assert.match(actionCard, /min-w-\[72px\] border-0/);
   assert.doesNotMatch(actionCard, /<dd className="truncate/);
 });
