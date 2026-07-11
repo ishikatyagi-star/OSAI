@@ -199,9 +199,9 @@ def test_run_prompt_carries_connector_and_delta_context(monkeypatch):
         captured["extra_context"] = extra_context
         return "summary result"
 
-    import api.routes.automations as auto_routes
+    import agent.automation_runner as runner
 
-    monkeypatch.setattr(auto_routes, "run_via_hermes", _fake_hermes)
+    monkeypatch.setattr(runner, "run_via_hermes", _fake_hermes)
     resp = client.post(f"/automations/{auto['id']}/run")
     assert resp.status_code == 200
     assert resp.json()["result"] == "summary result"
