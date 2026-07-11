@@ -104,8 +104,8 @@ export function AddConnectorDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[760px] gap-0 overflow-hidden p-0">
-        <DialogHeader className="border-b border-border px-6 pb-5 pr-20 pt-6">
+      <DialogContent className="connector-catalog-dialog max-w-[760px] gap-0 overflow-hidden p-0">
+        <DialogHeader className="connector-catalog-header border-b border-border">
           <DialogTitle className="text-xl">Add a connector</DialogTitle>
           <DialogDescription className="max-w-2xl leading-relaxed">
             Search the full app catalog and connect any tool your team uses.
@@ -114,7 +114,7 @@ export function AddConnectorDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="relative px-6 py-4">
+        <div className="connector-catalog-search relative">
           <Search
             className="absolute left-9 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
           />
@@ -134,7 +134,7 @@ export function AddConnectorDialog({
           </p>
         )}
 
-        <div className="grid max-h-[min(60vh,560px)] grid-cols-1 gap-3 overflow-y-auto border-t border-border bg-muted/20 p-4 sm:grid-cols-2">
+        <div className="connector-catalog-grid grid max-h-[min(60vh,560px)] grid-cols-1 gap-3 overflow-y-auto border-t border-border bg-muted/20 sm:grid-cols-2">
           {loading ? (
             <div className="col-span-full flex justify-center py-12">
               <Loader2 className="animate-spin" size={18} />
@@ -145,7 +145,7 @@ export function AddConnectorDialog({
               return (
                 <div
                   key={tk.slug}
-                  className="flex min-h-[92px] items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-border-hover"
+                  className="connector-catalog-card flex min-h-[92px] items-center gap-3 rounded-xl border border-border bg-card transition-colors hover:border-border-hover"
                 >
                   <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border bg-background">
                     {tk.logo ? (

@@ -2535,6 +2535,37 @@ select {
   line-height: 1.4;
 }
 
+/* Radix connector catalog: scoped spacing lives here because the global reset
+   intentionally runs after utility styles. */
+.connector-catalog-header {
+  padding: 24px 80px 20px 24px;
+}
+
+.connector-catalog-header [data-slot="dialog-title"] {
+  font-size: 20px;
+  line-height: 1.25;
+}
+
+.connector-catalog-search {
+  padding: 16px 24px;
+}
+
+.connector-catalog-search > svg {
+  left: 36px;
+}
+
+.connector-catalog-search input {
+  padding: 0 14px 0 40px;
+}
+
+.connector-catalog-grid {
+  padding: 16px;
+}
+
+.connector-catalog-card {
+  padding: 16px;
+}
+
 /* ── Heading + supporting copy ─────────────────────────────────────────────── */
 .ask-eyebrow {
   display: inline-flex;
