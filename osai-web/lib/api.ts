@@ -614,6 +614,23 @@ export function runAutomation(id: string) {
   );
 }
 
+// ─── Answer feedback (POST /feedback) ────────────────────────────────────────
+
+export function submitFeedback(input: {
+  conversation_id: string | null;
+  query: string;
+  answer: string;
+  rating: "up" | "down";
+  comment?: string | null;
+  wrong_sources?: string[] | null;
+  retrieval_trace?: Record<string, unknown> | null;
+}) {
+  return apiPost<typeof input, { id: string | null; recorded: boolean }>(
+    "/feedback",
+    input
+  );
+}
+
 // ─── Org knowledge graph (Phase 4 - GET /graph/*) ────────────────────────────
 
 export function getGraphEntities(params: { type?: string; q?: string } = {}) {

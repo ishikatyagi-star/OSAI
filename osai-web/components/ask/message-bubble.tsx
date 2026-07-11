@@ -7,12 +7,16 @@ import { MarkdownLite } from "./markdown-lite";
 import { CitationChip } from "./citation-chip";
 import { ActionCard } from "./action-card";
 import { OpenUiArtifacts } from "./openui-artifacts";
-import { brandText } from "@/lib/utils";
+import { FeedbackButtons } from "./feedback-buttons";
+import { brandText, cn } from "@/lib/utils";
 
 export type AskTurn = {
   id: string;
   role: "user" | "assistant";
   content: string;
+  // The user question this assistant turn answered (for feedback capture).
+  question?: string;
+  conversationId?: string | null;
   citations?: SourceCitation[];
   actions?: AgentAction[];
   enoughContext?: boolean;
@@ -93,6 +97,36 @@ export function MessageBubble({
 
         <OpenUiArtifacts artifacts={turn.artifacts} />
 
+<<<<<<< HEAD
+        {(turn.modelRoute || turn.latencyMs != null || turn.question) && (
+          <div
+            className={cn(
+              "flex items-center gap-3 text-[11px] text-muted-foreground"
+            )}
+          >
+            {turn.question && (
+              <FeedbackButtons
+                question={turn.question}
+                answer={turn.content}
+                conversationId={turn.conversationId}
+                citations={turn.citations}
+                modelRoute={turn.modelRoute}
+              />
+            )}
+            {turn.modelRoute && (
+              <span className="inline-flex items-center gap-1">
+                <Cpu className="size-3" /> {brandText(turn.modelRoute)}
+              </span>
+            )}
+            {turn.latencyMs != null && (
+              <span className="inline-flex items-center gap-1">
+                <Clock className="size-3" /> {(turn.latencyMs / 1000).toFixed(2)}s
+              </span>
+            )}
+          </div>
+        )}
+=======
+>>>>>>> origin/main
       </div>
     </div>
   );
