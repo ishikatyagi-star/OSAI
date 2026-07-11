@@ -122,7 +122,7 @@ export default function AskPage() {
   // Focus the composer on mount and whenever a response finishes, so the user
   // can start (or keep) typing without clicking into the field.
   useEffect(() => {
-    if (!pending) inputRef.current?.focus();
+    if (!pending) inputRef.current?.focus({ preventScroll: true });
   }, [pending]);
 
   const scrollToBottom = useCallback(() => {
@@ -355,7 +355,7 @@ export default function AskPage() {
                   value={mode}
                   onValueChange={(value) => {
                     setMode(value as ComposerMode);
-                    inputRef.current?.focus();
+                    inputRef.current?.focus({ preventScroll: true });
                   }}
                 >
                   <TabsList
@@ -466,7 +466,7 @@ export default function AskPage() {
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
                   rows={1}
-                  placeholder="Ask a follow-up, or tell Sheldon AI to take an action..."
+                  placeholder="Ask a follow-up..."
                   aria-label="Ask Sheldon AI follow-up prompt"
                   className="max-h-40 min-h-[40px] flex-1 resize-none self-center border-0 bg-transparent px-1 py-1.5 text-sm shadow-none outline-none focus-visible:ring-0 placeholder:text-[var(--text-muted)]"
                   autoFocus
