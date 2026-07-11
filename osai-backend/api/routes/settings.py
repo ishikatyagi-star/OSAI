@@ -12,21 +12,13 @@ from db.models import Org
 from db.repositories import try_db
 from db.session import get_db, get_org_id
 
+# Defaults live with the egress policy (llm/policy.py) — the module that
+# actually enforces them — so route and enforcement can never drift apart.
+from llm.policy import DEFAULT_DATA_ROUTING
+
 router = APIRouter(prefix="/settings", tags=["settings"])
 DbSession = Annotated[Session, Depends(get_db)]
 OrgId = Annotated[str, Depends(get_org_id)]
-
-DEFAULT_DATA_ROUTING = {
-    "normal": {
-        "allowed_connectors": ["notion", "slack", "freshdesk", "google_drive"],
-        "llm_allowed": True,
-    },
-    # Must match the Amber policy copy in the UI ("only Notion and Google Drive"):
-    # a governance default that contradicts its own description reads as a
-    # security bug (QA ISSUE-005).
-    "amber": {"allowed_connectors": ["notion", "google_drive"], "llm_allowed": False},
-    "red": {"allowed_connectors": [], "llm_allowed": False},
-}
 
 
 class DataRoutingUpdate(BaseModel):
