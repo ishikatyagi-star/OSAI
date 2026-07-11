@@ -432,7 +432,7 @@ export default function AskPage() {
         <>
           <div
             ref={threadRef}
-            className="ask-scroll max-h-[calc(100vh-260px)] min-h-[320px] overflow-y-auto"
+            className="ask-scroll min-h-[320px] flex-1 overflow-y-auto"
           >
             <div className="ask-thread mx-auto w-full max-w-3xl space-y-7 py-2">
               {turns.map((t) => (
@@ -465,7 +465,7 @@ export default function AskPage() {
 
           {/* Composer pinned to the bottom of the thread */}
           <form onSubmit={handleSubmit} className="shrink-0 pt-4">
-            <div className="mx-auto w-full max-w-3xl">
+            <div className="ask-conversation-composer mx-auto w-full max-w-3xl">
               <div className="ask-composer flex items-center gap-2 px-4 py-3">
                 <Textarea
                   ref={inputRef}

@@ -2451,6 +2451,14 @@ select {
   padding-inline: 4px;
 }
 
+.ask-page-header[data-conversation="true"],
+.ask-thread,
+.ask-conversation-composer {
+  width: 100%;
+  max-width: 768px;
+  margin-inline: auto;
+}
+
 .ask-user-bubble {
   min-width: 64px;
   border-radius: 18px 18px 4px 18px;
