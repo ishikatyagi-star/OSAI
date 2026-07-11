@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import type { AgentAction, AskResponse } from "@/lib/types";
 import { MessageBubble, type AskTurn } from "@/components/ask/message-bubble";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 
 function normaliseKey(q: string) {
@@ -157,7 +158,9 @@ export default function AskPage() {
       });
 
       try {
-        const res = await askOsai(q, { conversationId, history });
+        const res = isDemo()
+          ? getDemoAnswer(q)
+          : await askOsai(q, { conversationId, history });
         setConversationId(res.conversation_id ?? conversationId);
         setTurns((prev) => [...prev, toTurn(res)]);
       } catch {
@@ -227,6 +230,19 @@ export default function AskPage() {
   const handleApprove = useCallback(
     async (turnId: string, action: AgentAction) => {
       setBusyActionId(action.id);
+      if (isDemo()) {
+        patchAction(turnId, action.id, {
+          status: "executed",
+          requires_confirmation: false,
+          external_url:
+            action.tool === "freshdesk"
+              ? "https://freshdesk.com/tickets/205"
+              : `https://example.com/${action.tool}/created`,
+          error: null,
+        });
+        setBusyActionId(null);
+        return;
+      }
       try {
         const res = await confirmAgentAction(
           action.id,
@@ -239,27 +255,14 @@ export default function AskPage() {
           requires_confirmation: false,
         });
       } catch {
-        if (isDemo()) {
-          // Demo mode only: simulate a successful execution against fake tools.
-          patchAction(turnId, action.id, {
-            status: "executed",
-            requires_confirmation: false,
-            external_url:
-              action.tool === "freshdesk"
-                ? "https://freshdesk.com/tickets/205"
-                : `https://example.com/${action.tool}/created`,
-            error: null,
-          });
-        } else {
-          // Real workspace: never claim success or fabricate a URL. Surface the
-          // failure honestly and let the user retry.
-          patchAction(turnId, action.id, {
-            status: "failed",
-            requires_confirmation: false,
-            external_url: null,
-            error: "Couldn't complete this action. Please try again.",
-          });
-        }
+        // Real workspace: never claim success or fabricate a URL. Surface the
+        // failure honestly and let the user retry.
+        patchAction(turnId, action.id, {
+          status: "failed",
+          requires_confirmation: false,
+          external_url: null,
+          error: "Couldn't complete this action. Please try again.",
+        });
       } finally {
         setBusyActionId(null);
       }
@@ -326,7 +329,7 @@ export default function AskPage() {
                       onChange={(e) => setInput(e.target.value)}
                       onKeyDown={handleKeyDown}
                       rows={1}
-                      placeholder="Ask anything about your org..."
+                      placeholder={activeMode.placeholder}
                       aria-label="Ask Sheldon AI prompt"
                       className="max-h-44 min-h-[44px] flex-1 resize-none self-center border-0 bg-transparent px-1 py-1 text-base shadow-none outline-none focus-visible:ring-0 placeholder:text-[var(--text-muted)]"
                       autoFocus
@@ -348,26 +351,32 @@ export default function AskPage() {
                   </div>
                 </div>
                 {/* Mode pills below the input bar */}
-                <div className="ask-composer-modes flex items-center justify-center gap-2.5">
-                  {COMPOSER_MODES.map((m) => {
-                    const Icon = m.icon;
-                    return (
-                      <button
-                        key={m.id}
-                        type="button"
-                        data-active={mode === m.id}
-                        onClick={() => {
-                          setMode(m.id);
-                          inputRef.current?.focus();
-                        }}
-                        className="ask-mode-pill"
-                      >
-                        <Icon className="size-3.5" />
-                        {m.label}
-                      </button>
-                    );
-                  })}
-                </div>
+                <Tabs
+                  value={mode}
+                  onValueChange={(value) => {
+                    setMode(value as ComposerMode);
+                    inputRef.current?.focus();
+                  }}
+                >
+                  <TabsList
+                    className="ask-composer-modes"
+                    aria-label="Choose how Sheldon AI should help"
+                  >
+                    {COMPOSER_MODES.map((m) => {
+                      const Icon = m.icon;
+                      return (
+                        <TabsTrigger
+                          key={m.id}
+                          value={m.id}
+                          className="ask-mode-pill"
+                        >
+                          <Icon className="size-3.5" />
+                          {m.label}
+                        </TabsTrigger>
+                      );
+                    })}
+                  </TabsList>
+                </Tabs>
               </form>
 
               {/* Response expectations */}
@@ -385,7 +394,7 @@ export default function AskPage() {
               {/* Recommended workflows */}
               <div className="flex flex-col gap-3">
                 <span className="ask-section-label">Recommended workflows</span>
-                <div className="grid gap-4 sm:grid-cols-3">
+                <div className="grid gap-2">
                   {ASK_MODES.map((m) => {
                     const Icon = m.icon;
                     return (
@@ -401,13 +410,7 @@ export default function AskPage() {
                         <span className="ask-mode-card-title">{m.label}</span>
                         <span className="ask-mode-card-desc">{m.desc}</span>
                         <span className="ask-example">“{m.example}”</span>
-                        <span className="flex flex-wrap gap-1.5">
-                          {m.sources.map((s) => (
-                            <span key={s} className="ask-source-badge">
-                              {s}
-                            </span>
-                          ))}
-                        </span>
+                        <span className="ask-source-badge">{m.sources.join(" + ")}</span>
                       </button>
                     );
                   })}
