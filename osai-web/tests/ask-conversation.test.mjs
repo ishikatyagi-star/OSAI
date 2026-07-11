@@ -15,6 +15,10 @@ const actionCard = await readFile(
   new URL("../components/ask/action-card.tsx", import.meta.url),
   "utf8",
 );
+const messageBubble = await readFile(
+  new URL("../components/ask/message-bubble.tsx", import.meta.url),
+  "utf8",
+);
 
 test("answers keep the app shell fixed and avoid duplicate generated cards", () => {
   assert.match(page, /focus\(\{ preventScroll: true \}\)/);
@@ -30,4 +34,13 @@ test("answers keep the app shell fixed and avoid duplicate generated cards", () 
   assert.match(actionCard, /variant="outline"/);
   assert.match(actionCard, /min-w-\[72px\] border-0/);
   assert.doesNotMatch(actionCard, /<dd className="truncate/);
+});
+
+test("conversation messages use calm answer typography and a stable loading lane", () => {
+  assert.match(page, /className="ask-loading-row" role="status" aria-live="polite"/);
+  assert.match(page, /Searching your workspace/);
+  assert.match(page, /Checking connected sources for relevant context/);
+  assert.match(messageBubble, /className="ask-context-notice" role="note"/);
+  assert.doesNotMatch(messageBubble, /Clock|Cpu|latencyMs \/ 1000/);
+  assert.doesNotMatch(messageBubble, /ask-assistant-bubble rounded/);
 });

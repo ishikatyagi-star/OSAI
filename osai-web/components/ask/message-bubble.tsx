@@ -1,13 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { AlertTriangle, Clock, Cpu } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import type { AgentAction, AskUiArtifact, SourceCitation } from "@/lib/types";
 import { MarkdownLite } from "./markdown-lite";
 import { CitationChip } from "./citation-chip";
 import { ActionCard } from "./action-card";
 import { OpenUiArtifacts } from "./openui-artifacts";
-import { brandText, cn } from "@/lib/utils";
+import { brandText } from "@/lib/utils";
 
 export type AskTurn = {
   id: string;
@@ -35,7 +35,7 @@ export function MessageBubble({
   if (turn.role === "user") {
     return (
       <div className="ask-user-turn flex justify-end">
-        <div className="ask-user-bubble max-w-[80%] rounded-[20px] rounded-br-sm border border-[var(--border)] bg-[var(--bg-surface)] px-4 py-2.5 text-sm text-foreground">
+        <div className="ask-user-bubble max-w-[72%]">
           {turn.content}
         </div>
       </div>
@@ -50,17 +50,19 @@ export function MessageBubble({
       >
         O
       </div>
-      <div className="ask-turn-body min-w-0 flex-1 space-y-3">
-        <div className="ask-assistant-bubble rounded-[20px] rounded-tl-sm border border-[var(--border)] bg-[var(--bg-surface)] px-4 py-3">
+      <div className="ask-turn-body min-w-0 flex-1 space-y-4">
+        <div className="ask-assistant-bubble">
           <MarkdownLite text={brandText(turn.content)} />
-
-          {turn.enoughContext === false && (
-            <p className="mt-3 inline-flex items-start gap-1.5 border-t border-border pt-2.5 text-xs text-warning">
-              <AlertTriangle className="mt-0.5 size-3.5 shrink-0" strokeWidth={1.8} />
-              <span>Limited indexed context - trigger a sync from Integrations to improve coverage.</span>
-            </p>
-          )}
         </div>
+
+        {turn.enoughContext === false && (
+          <div className="ask-context-notice" role="note">
+            <AlertTriangle className="size-4 shrink-0" strokeWidth={1.8} />
+            <span>
+              Limited workspace context. Sync your integrations for a more complete answer.
+            </span>
+          </div>
+        )}
 
         {turn.citations && turn.citations.length > 0 && (
           <div className="space-y-1.5">
@@ -91,24 +93,6 @@ export function MessageBubble({
 
         <OpenUiArtifacts artifacts={turn.artifacts} />
 
-        {(turn.modelRoute || turn.latencyMs != null) && (
-          <div
-            className={cn(
-              "flex items-center gap-3 text-[11px] text-muted-foreground"
-            )}
-          >
-            {turn.modelRoute && (
-              <span className="inline-flex items-center gap-1">
-                <Cpu className="size-3" /> {brandText(turn.modelRoute)}
-              </span>
-            )}
-            {turn.latencyMs != null && (
-              <span className="inline-flex items-center gap-1">
-                <Clock className="size-3" /> {(turn.latencyMs / 1000).toFixed(2)}s
-              </span>
-            )}
-          </div>
-        )}
       </div>
     </div>
   );

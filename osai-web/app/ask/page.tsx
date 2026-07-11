@@ -434,7 +434,7 @@ export default function AskPage() {
             ref={threadRef}
             className="ask-scroll max-h-[calc(100vh-260px)] min-h-[320px] overflow-y-auto"
           >
-            <div className="mx-auto w-full max-w-3xl space-y-6 py-1">
+            <div className="ask-thread mx-auto w-full max-w-3xl space-y-7 py-2">
               {turns.map((t) => (
                 <MessageBubble
                   key={t.id}
@@ -445,13 +445,18 @@ export default function AskPage() {
                 />
               ))}
               {pending && (
-                <div className="flex gap-3">
-                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-extrabold text-primary-foreground">
+                <div className="ask-loading-row" role="status" aria-live="polite">
+                  <div className="ask-turn-avatar flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-extrabold text-primary-foreground">
                     O
                   </div>
-                  <div className="flex items-center gap-2 rounded-xl rounded-tl-sm border border-[var(--border)] bg-[var(--bg-surface)] px-4 py-3 text-sm text-muted-foreground">
-                    <Loader2 className="size-4 animate-spin text-primary" />
-                    Searching across your connected knowledge base...
+                  <div className="ask-loading-copy">
+                    <span className="ask-loading-title">
+                      <Loader2 className="size-4 animate-spin" />
+                      Searching your workspace
+                    </span>
+                    <span className="ask-loading-detail">
+                      Checking connected sources for relevant context.
+                    </span>
                   </div>
                 </div>
               )}
