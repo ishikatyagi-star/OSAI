@@ -33,7 +33,7 @@ type NavGroup = {
   items: NavItem[];
 };
 
-// Decluttered IA: Search folds into Ask Sheldon AI, Team Board folds into Decision Log,
+// Decluttered IA: Search folds into Ask Sheldon, Team Board folds into Decision Log,
 // and Evals + Data Routing move into Settings / Integrations. One consistent icon
 // set (lucide, outline, uniform stroke) so no item reads heavier than the others.
 const NAV_GROUPS: NavGroup[] = [
@@ -41,7 +41,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Workspace",
     items: [
       { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-      { href: "/ask", icon: Sparkles, label: "Ask Sheldon AI" },
+      { href: "/ask", icon: Sparkles, label: "Ask Sheldon" },
       { href: "/dashboards", icon: BarChart3, label: "Analytics" },
     ],
   },
@@ -86,7 +86,7 @@ export default function Sidebar() {
       <Link href="/dashboard" className="sidebar-logo">
         <div className="sidebar-logo-mark">O</div>
         <div>
-          <span className="sidebar-logo-text">Sheldon AI</span>
+          <span className="sidebar-logo-text">Sheldon</span>
           <span className="sidebar-logo-version"> v1</span>
         </div>
       </Link>

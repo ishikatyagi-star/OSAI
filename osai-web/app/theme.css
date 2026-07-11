@@ -1,12 +1,12 @@
 /* ───────────────────────────────────────────────────────────────────────────
-   Tailwind v4 + shadcn/ui theme for Sheldon AI.
+   Tailwind v4 + shadcn/ui theme for Sheldon.
 
    IMPORTANT: We intentionally import Tailwind WITHOUT preflight (the `base`
    layer) so it does not reset / clobber the existing hand-written design system
    in globals.css. We only pull in the `theme` (tokens) and `utilities` layers,
    which is all shadcn/ui components need. Animations come from tw-animate-css.
 
-   shadcn design tokens are mapped 1:1 to Sheldon AI's palette so generated components
+   shadcn design tokens are mapped 1:1 to Sheldon's palette so generated components
    (Button, Card, Input, Badge, Tabs, …) look native to the product.
    ─────────────────────────────────────────────────────────────────────────── */
 

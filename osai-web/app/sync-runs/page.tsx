@@ -48,7 +48,7 @@ export default function SyncRunsPage() {
           <h1>Sync Runs</h1>
           <p>
             Ingestion activity across all connected sources. Each run fetches, chunks, and indexes
-            documents into the Sheldon AI knowledge base.
+            documents into the Sheldon knowledge base.
           </p>
         </div>
       </div>

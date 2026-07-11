@@ -301,7 +301,7 @@ export const DEMO_SEARCH_ANSWERS: Record<string, SearchResponse> = {
     citations: [
       {
         source_tool: "notion",
-        source_record_title: "Sheldon AI Team Onboarding Guidelines",
+        source_record_title: "Sheldon Team Onboarding Guidelines",
         url: null,
         confidence: 0.98,
       },
@@ -316,7 +316,7 @@ export const DEMO_SEARCH_ANSWERS: Record<string, SearchResponse> = {
   },
   "any open sla escalations in freshdesk": {
     answer:
-      "There are **2 open SLA escalations** currently tracked in Freshdesk:\n\n1. **Ticket #204** - Enterprise customer \"Meridian Corp\" has a P1 bug affecting API authentication. Opened 3h 42m ago, SLA deadline in 18 minutes. Owner: support@company.com\n2. **Ticket #198** - Connector sync failure on Google Drive for \"Apex Ventures\". Opened 6h ago, within SLA but approaching amber threshold.\n\nBoth tickets are synced into Sheldon AI and will trigger a Slack alert in #operations if the SLA threshold is breached.",
+      "There are **2 open SLA escalations** currently tracked in Freshdesk:\n\n1. **Ticket #204** - Enterprise customer \"Meridian Corp\" has a P1 bug affecting API authentication. Opened 3h 42m ago, SLA deadline in 18 minutes. Owner: support@company.com\n2. **Ticket #198** - Connector sync failure on Google Drive for \"Apex Ventures\". Opened 6h ago, within SLA but approaching amber threshold.\n\nBoth tickets are synced into Sheldon and will trigger a Slack alert in #operations if the SLA threshold is breached.",
     citations: [
       {
         source_tool: "freshdesk",
@@ -472,7 +472,7 @@ export type Decision = {
   impact: "critical" | "high" | "medium" | "low";
   owner: string;
   date: string;
-  // Where this surfaced from. `identifiedBy: "osai"` marks items Sheldon AI inferred
+  // Where this surfaced from. `identifiedBy: "osai"` marks items Sheldon inferred
   // from context that are NOT tracked in the source tool (the merged Team Board's
   // reason to exist - e.g. the 11th/12th task Notion never listed).
   source: string;
@@ -537,7 +537,7 @@ export const DEMO_DECISIONS: Decision[] = [
   },
   {
     id: "dec-6",
-    title: "Price Sheldon AI at $29/seat/month for SMB, $99/seat/month for Enterprise",
+    title: "Price Sheldon at $29/seat/month for SMB, $99/seat/month for Enterprise",
     tags: ["pricing", "business"],
     status: "proposed",
     impact: "high",
@@ -568,7 +568,7 @@ export const DEMO_DECISIONS: Decision[] = [
     source: "Notion",
     identifiedBy: "source",
   },
-  // Sheldon AI-identified - surfaced from Slack/Freshdesk context but never logged in
+  // Sheldon-identified - surfaced from Slack/Freshdesk context but never logged in
   // Notion. These are what the old Team Board existed to highlight.
   {
     id: "dec-9",
@@ -624,7 +624,7 @@ export const DEMO_BOARD_TASKS: BoardTask[] = [
 ];
 
 
-// ─── Ask Sheldon AI demo answers (fallback for POST /ask) ──────────────────────────
+// ─── Ask Sheldon demo answers (fallback for POST /ask) ─────────────────────────────
 
 import type {
   AskResponse,
@@ -644,7 +644,7 @@ export const DEMO_ASK_ANSWERS: Record<string, AskResponse> = {
   default: {
     conversation_id: "conv-demo",
     answer:
-      "I can answer questions across everything Sheldon AI has indexed - Notion, Slack, Google Drive, Freshdesk and Zoom transcripts - and take actions in your connected tools. Try one of the suggested prompts to see a cited answer, and ask me to *open a ticket* or *post to Slack* to see an action-confirmation card.",
+      "I can answer questions across everything Sheldon has indexed - Notion, Slack, Google Drive, Freshdesk and Zoom transcripts - and take actions in your connected tools. Try one of the suggested prompts to see a cited answer, and ask me to *open a ticket* or *post to Slack* to see an action-confirmation card.",
     citations: [],
     actions_taken: [],
     enough_context: true,

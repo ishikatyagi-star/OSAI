@@ -187,7 +187,7 @@ export default function AskPage() {
               id: uid("a"),
               role: "assistant",
               content:
-                "I couldn't reach the Sheldon AI backend just now. Check your connection and try again.",
+                "I couldn't reach the Sheldon backend just now. Check your connection and try again.",
             },
           ]);
         }
@@ -198,7 +198,7 @@ export default function AskPage() {
     [pending, turns, conversationId, departmentId]
   );
 
-  // Deep links (e.g. the Automations page's "Create with Sheldon AI") seed the
+  // Deep links (e.g. the Automations page's "Create with Sheldon") seed the
   // composer via ?q=…; prefill only, so the user can review before sending.
   useEffect(() => {
     const q = new URLSearchParams(window.location.search).get("q");
@@ -299,9 +299,9 @@ export default function AskPage() {
       {/* Header */}
       <div className="page-header ask-page-header shrink-0" data-conversation={!empty}>
         <div className="page-header-left">
-          <h1>Ask Sheldon AI</h1>
+          <h1>Ask Sheldon</h1>
           <p>
-            Ask anything about your org and get a cited answer, or have Sheldon AI open
+            Ask anything about your org and get a cited answer, or have Sheldon open
             tickets, chase follow-ups, pull status, and check ownership.
           </p>
         </div>
@@ -368,7 +368,7 @@ export default function AskPage() {
                       onKeyDown={handleKeyDown}
                       rows={1}
                       placeholder={activeMode.placeholder}
-                      aria-label="Ask Sheldon AI prompt"
+                      aria-label="Ask Sheldon prompt"
                       className="max-h-44 min-h-[44px] flex-1 resize-none self-center border-0 bg-transparent px-1 py-1 text-base shadow-none outline-none focus-visible:ring-0 placeholder:text-[var(--text-muted)]"
                       autoFocus
                     />
@@ -398,7 +398,7 @@ export default function AskPage() {
                 >
                   <TabsList
                     className="ask-composer-modes"
-                    aria-label="Choose how Sheldon AI should help"
+                    aria-label="Choose how Sheldon should help"
                   >
                     {COMPOSER_MODES.map((m) => {
                       const Icon = m.icon;
@@ -457,7 +457,7 @@ export default function AskPage() {
 
               {/* Disclaimer */}
               <p className="ask-disclaimer">
-                Sheldon AI can make mistakes. Actions that change your tools always
+                Sheldon can make mistakes. Actions that change your tools always
                 require approval.
               </p>
             </div>
@@ -510,7 +510,7 @@ export default function AskPage() {
                   onKeyDown={handleKeyDown}
                   rows={1}
                   placeholder="Ask a follow-up..."
-                  aria-label="Ask Sheldon AI follow-up prompt"
+                  aria-label="Ask Sheldon follow-up prompt"
                   className="max-h-40 min-h-[40px] flex-1 resize-none self-center border-0 bg-transparent px-1 py-1.5 text-sm shadow-none outline-none focus-visible:ring-0 placeholder:text-[var(--text-muted)]"
                   autoFocus
                 />
@@ -530,7 +530,7 @@ export default function AskPage() {
                 </Button>
               </div>
               <p className="ask-disclaimer mt-2 text-center">
-                Sheldon AI can make mistakes. Actions that change your tools always
+                Sheldon can make mistakes. Actions that change your tools always
                 require approval.
               </p>
             </div>

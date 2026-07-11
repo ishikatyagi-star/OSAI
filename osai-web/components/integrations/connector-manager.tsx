@@ -542,7 +542,7 @@ export function ConnectorManager({
         {!connected && (
           <p className="-mt-2 text-[11px] text-muted-foreground">
             Connect redirects you to {meta?.label ?? "the provider"} to authorize
-            access. Sheldon AI indexes and searches your content; it never edits or
+            access. Sheldon indexes and searches your content; it never edits or
             deletes existing items.
             {integration.capabilities?.includes("execute") &&
               " This connector can also create new items (tickets, messages, pages) - only when you approve a proposed action."}

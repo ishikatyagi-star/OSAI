@@ -32,7 +32,7 @@ test("homepage keeps its audit fixes", () => {
   assert.equal((html.match(/<\/main>/g) ?? []).length, 1);
   assert.match(html, /<details class="nav-mobile-menu">/);
   assert.match(html, /mobileMenu\.removeAttribute\('open'\)/);
-  assert.match(html, /See how Sheldon AI works/);
+  assert.match(html, /See how Sheldon works/);
   assert.doesNotMatch(html, /Explore live workflow/);
   assert.match(html, /matchMedia\('\(prefers-reduced-motion: reduce\)'\)/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
@@ -40,10 +40,11 @@ test("homepage keeps its audit fixes", () => {
   assert.match(css, /\.out-cell p\s*{[^}]*color: var\(--el-body\) !important;/s);
 });
 
-test("marketing pages expose only the Sheldon AI brand", () => {
+test("marketing pages expose only the Sheldon brand", () => {
   for (const source of [html, withoutDataUris(universityHtml)]) {
     const text = visibleText(source);
-    assert.match(text, /Sheldon\s+AI/);
+    assert.match(text, /\bSheldon\b/);
+    assert.doesNotMatch(source, new RegExp(["Sheldon", "AI"].join(" ")));
     assert.doesNotMatch(text, /\bOSAI\b/);
     assert.doesNotMatch(source, /—|&mdash;|&#8212;|&#x2014;|\\u2014/);
   }
@@ -65,10 +66,10 @@ test("frontend source contains no em dash and no unapproved visible OSAI copy", 
 });
 
 test("legacy backend copy is normalized only when displayed", () => {
-  assert.equal(brandText("OSAI Demo Org"), "Sheldon AI Demo Org");
+  assert.equal(brandText("OSAI Demo Org"), "Sheldon Demo Org");
   assert.equal(
     brandText("Set OSAI_NOTION_API_TOKEN to enable Notion sync."),
     "Set the required integration setting to enable Notion sync.",
   );
-  assert.equal(brandText("osai — &mdash; &#8212; &#x2014; \\u2014"), "Sheldon AI - - - - -");
+  assert.equal(brandText("osai — &mdash; &#8212; &#x2014; \\u2014"), "Sheldon - - - - -");
 });

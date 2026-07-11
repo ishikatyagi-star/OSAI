@@ -350,7 +350,7 @@ export type ComposioToolkitPage = {
 };
 
 // Browse the full Composio app catalog: everything the org can connect,
-// searchable and cursor-paginated (not just Sheldon AI's native connectors).
+// searchable and cursor-paginated (not just Sheldon's native connectors).
 export function listComposioToolkits(search?: string, cursor?: string) {
   const params = new URLSearchParams();
   if (search) params.set("search", search);
@@ -489,7 +489,7 @@ export function patchDataRouting(routing: DataRouting) {
   );
 }
 
-// ─── Ask Sheldon AI agent (Phase 1 - POST /ask) ────────────────────────────────────
+// ─── Ask Sheldon agent (Phase 1 - POST /ask) ───────────────────────────────────────
 
 function currentOrgId(orgId?: string) {
   return (

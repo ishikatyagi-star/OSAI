@@ -34,7 +34,7 @@ const LINKS: SettingsLink[] = [
     icon: FlaskConical,
     title: "Advanced · Evals",
     description:
-      "Quality and regression tracking for Sheldon AI's answers and routing. Moved out of the main nav to keep things simple.",
+      "Quality and regression tracking for Sheldon's answers and routing. Moved out of the main nav to keep things simple.",
   },
 ];
 

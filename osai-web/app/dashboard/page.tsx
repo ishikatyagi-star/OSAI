@@ -137,7 +137,7 @@ export default function DashboardPage() {
           className="btn btn-primary"
           style={{ flexShrink: 0 }}
         >
-          Ask Sheldon AI →
+          Ask Sheldon →
         </Link>
       </div>
 

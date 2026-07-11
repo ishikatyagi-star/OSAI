@@ -56,7 +56,7 @@ export default function LoginPage() {
       <nav className="login-nav">
         <Link href="/" className="login-nav-logo">
           <span className="login-nav-logo-mark">O</span>
-          <span>Sheldon AI</span>
+          <span>Sheldon</span>
         </Link>
         <Link href="/" className="login-nav-back">← Back to site</Link>
       </nav>
@@ -66,7 +66,7 @@ export default function LoginPage() {
         {/* Header */}
         <div className="login-card-header">
           <div className="login-logo-mark">O</div>
-          <h1 className="login-title">Welcome to Sheldon AI</h1>
+          <h1 className="login-title">Welcome to Sheldon</h1>
           <p className="login-subtitle">The operating layer for your company&apos;s knowledge</p>
         </div>
 
