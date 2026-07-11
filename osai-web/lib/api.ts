@@ -349,8 +349,8 @@ export type ComposioToolkitPage = {
   next_cursor?: string | null;
 };
 
-// Browse the full Composio app catalog — everything the org can connect,
-// searchable and cursor-paginated (not just OSAI's native connectors).
+// Browse the full Composio app catalog: everything the org can connect,
+// searchable and cursor-paginated (not just Sheldon AI's native connectors).
 export function listComposioToolkits(search?: string, cursor?: string) {
   const params = new URLSearchParams();
   if (search) params.set("search", search);

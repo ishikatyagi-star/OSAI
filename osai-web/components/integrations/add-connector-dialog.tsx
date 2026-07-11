@@ -21,7 +21,7 @@ import {
 /**
  * Browse-and-connect dialog over the full Composio app catalog.
  *
- * The Integrations page's cards only cover OSAI's native connectors; this
+ * The Integrations page's cards only cover Sheldon AI's native connectors; this
  * dialog exposes everything Composio supports (hundreds of apps) with search
  * and "load more" pagination, so users aren't limited to the default five.
  */
@@ -49,7 +49,7 @@ export function AddConnectorDialog({
     setLoading(true);
     setError("");
     const page = await listComposioToolkits(search || undefined);
-    if (seq !== requestSeq.current) return; // stale response — a newer search won
+    if (seq !== requestSeq.current) return; // stale response; a newer search won
     setItems(page.items);
     setCursor(page.next_cursor ?? null);
     setLoading(false);
@@ -57,7 +57,7 @@ export function AddConnectorDialog({
       setError(
         search
           ? "No apps match that search."
-          : "Couldn't load the app catalog — is Composio configured on the backend?"
+          : "Couldn't load the app catalog. Is Composio configured on the backend?"
       );
     }
   }
@@ -93,11 +93,11 @@ export function AddConnectorDialog({
         // native connector cards).
         window.location.href = res.redirect_url;
       } else {
-        setError(res.error || "Couldn't start the connection — try again.");
+        setError(res.error || "Couldn't start the connection. Try again.");
         setConnecting(null);
       }
     } catch {
-      setError("Couldn't start the connection — try again.");
+      setError("Couldn't start the connection. Try again.");
       setConnecting(null);
     }
   }
@@ -109,7 +109,7 @@ export function AddConnectorDialog({
           <DialogTitle>Add a connector</DialogTitle>
           <DialogDescription>
             Search the full app catalog and connect any tool your team uses.
-            OSAI indexes and searches its content; write actions always require
+            Sheldon AI indexes and searches its content; write actions always require
             your approval.
           </DialogDescription>
         </DialogHeader>

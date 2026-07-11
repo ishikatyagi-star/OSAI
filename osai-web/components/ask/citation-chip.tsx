@@ -26,7 +26,7 @@ export function CitationChip({
           {Icon && <Icon className="size-3.5" strokeWidth={1.8} />}
         </span>
       )}
-      <span className="max-w-[220px] truncate font-medium text-foreground">
+      <span className="min-w-0 flex-1 truncate font-medium text-foreground">
         {brandText(citation.source_record_title)}
       </span>
       <span className="text-muted-foreground tabular-nums">{pct}%</span>
@@ -34,7 +34,7 @@ export function CitationChip({
   );
 
   const className = cn(
-    "inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--bg-surface)] px-2.5 py-1 text-[13px] font-medium tracking-[-0.13px] transition-colors",
+    "inline-flex max-w-full min-w-0 items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--bg-surface)] px-2.5 py-1 text-[13px] font-medium tracking-[-0.13px] transition-colors",
     citation.url && "hover:border-[var(--border-hover)] cursor-pointer"
   );
 
