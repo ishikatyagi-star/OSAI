@@ -10,11 +10,22 @@ from sqlalchemy.orm import Session
 from api.schemas.graph import GraphEdge, GraphEntity
 from db.repositories import try_db
 from db.session import get_db, get_org_id
+from graph.gbrain_provider import build_graph_gbrain, gbrain_graph_available
 from graph.provider import build_access_graph, build_graph
 
 router = APIRouter(prefix="/graph", tags=["graph"])
 DbSession = Annotated[Session, Depends(get_db)]
 OrgId = Annotated[str, Depends(get_org_id)]
+
+
+def _org_graph(db: Session, org_id: str) -> tuple[list[GraphEntity], list[GraphEdge]]:
+    """Provider seam: gbrain-backed graph when configured and populated,
+    otherwise the interim Postgres-derived graph."""
+    if gbrain_graph_available(org_id):
+        entities, edges = build_graph_gbrain(org_id)
+        if entities:
+            return entities, edges
+    return try_db("build_graph", ([], []), lambda: build_graph(db, org_id))
 
 
 @router.get("/entities", response_model=list[GraphEntity])
@@ -24,7 +35,7 @@ async def list_entities(
     type: str | None = None,
     q: str | None = None,
 ) -> list[GraphEntity]:
-    entities, _ = try_db("build_graph", ([], []), lambda: build_graph(db, org_id))
+    entities, _ = _org_graph(db, org_id)
     if type:
         entities = [e for e in entities if e.type == type]
     if q:
@@ -54,7 +65,7 @@ async def list_edges(
     org_id: OrgId,
     entity_id: str | None = None,
 ) -> list[GraphEdge]:
-    _, edges = try_db("build_graph", ([], []), lambda: build_graph(db, org_id))
+    _, edges = _org_graph(db, org_id)
     if entity_id:
         edges = [e for e in edges if entity_id in (e.source_id, e.target_id)]
     return edges

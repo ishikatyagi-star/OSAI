@@ -640,6 +640,22 @@ def upsert_source_documents(session: Session, documents: list[SourceDocument]) -
                 )
             )
         indexed += 1
+
+    # Phase 4: mirror ingested documents into the org's gbrain (per-org home)
+    # so the knowledge graph self-wires from real content. Inert unless
+    # OSAI_GBRAIN_HOME is configured; never blocks or fails ingestion.
+    if documents:
+        try:
+            from memory.gbrain_client import mirror_documents
+
+            by_org: dict[str, list[SourceDocument]] = {}
+            for d in documents:
+                by_org.setdefault(d.org_id, []).append(d)
+            for org_id, docs in by_org.items():
+                mirror_documents(org_id, docs)
+        except Exception:  # noqa: BLE001 — best-effort sidecar mirror
+            pass
+
     return indexed
 
 
