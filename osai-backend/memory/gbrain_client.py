@@ -82,6 +82,11 @@ class GbrainClient:
         result = self._run(["backlinks", slug, "--json"])
         return _parse_json_list(result.stdout)
 
+    def list_pages(self, limit: int = 100) -> list[dict]:
+        """All pages ({slug, type, title, updated_at}) — feeds the org graph."""
+        result = self._run(["list", "--json", "--limit", str(limit)])
+        return _parse_json_list(result.stdout)
+
 
 def _parse_json_list(stdout: str) -> list[dict]:
     stdout = (stdout or "").strip()
@@ -102,3 +107,42 @@ def _parse_json_list(stdout: str) -> list[dict]:
 
 def get_default_gbrain_client() -> GbrainClient:
     return GbrainClient()
+
+
+def get_org_gbrain_client(org_id: str) -> GbrainClient:
+    """Per-org brain: each org gets its own GBRAIN_HOME subdirectory so pages
+    and graph edges never mix across tenants (same isolation stance as the
+    Hermes sidecar's per-user HERMES_HOME)."""
+    home = settings.gbrain_home
+    return GbrainClient(home=str(Path(home) / org_id) if home else None)
+
+
+def _page_slug(source_id: str) -> str:
+    """Stable, filesystem/URL-safe page slug for a source document."""
+    return "doc-" + "".join(
+        c if (c.isalnum() and c.isascii()) or c in "-_" else "-" for c in source_id
+    )
+
+
+def mirror_documents(org_id: str, documents: list) -> int:
+    """Best-effort mirror of ingested documents into the org's gbrain as pages.
+
+    Wikilinks are not synthesized here — gbrain self-wires typed edges from the
+    page content. Inert when gbrain isn't configured; any failure is logged and
+    skipped so ingestion never depends on the sidecar. Returns pages written.
+    """
+    client = get_org_gbrain_client(org_id)
+    if not client.available():
+        return 0
+    written = 0
+    for doc in documents:
+        try:
+            title = getattr(doc, "title", None) or "Untitled"
+            text = getattr(doc, "text", "") or ""
+            source_type = getattr(doc, "source_type", "unknown")
+            markdown = f"# {title}\n\nsource: {source_type}\n\n{text}"
+            if client.put_page(_page_slug(getattr(doc, "source_id", title)), markdown):
+                written += 1
+        except Exception as exc:  # noqa: BLE001 — mirroring must never break ingestion
+            logger.warning("gbrain mirror failed for a document: %s", exc)
+    return written
