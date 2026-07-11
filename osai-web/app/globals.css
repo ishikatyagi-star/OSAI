@@ -547,6 +547,10 @@ a { color: inherit; }
   box-shadow: 0 16px 40px -20px rgba(12, 10, 9, 0.5);
 }
 
+.sidebar-profile-menu:not([open]) .sidebar-profile-popover {
+  display: none;
+}
+
 .sidebar-profile-action {
   display: flex;
   width: 100%;
