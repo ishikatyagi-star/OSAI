@@ -4,6 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import { Sparkles, X } from "lucide-react";
 import { DEMO_DECISIONS, type Decision } from "@/lib/demo-data";
 import { isDemo } from "@/lib/demo";
+import {
+  createDecision,
+  deleteDecision,
+  getDecisions,
+  updateDecision,
+  type ApiDecision,
+} from "@/lib/api";
 import { Select } from "@/components/ui/select";
 import {
   Dialog,
@@ -61,6 +68,24 @@ function myNameToken(): string {
   return name.trim().split(/\s+/)[0]?.toLowerCase() ?? "";
 }
 
+function fromApi(row: ApiDecision): Decision {
+  return {
+    id: row.id,
+    title: row.title,
+    tags: row.tags,
+    status: row.status,
+    impact: row.impact,
+    owner: row.owner ?? "Unassigned",
+    date: new Date(row.date).toLocaleDateString("en-US", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    }),
+    source: row.source,
+    identifiedBy: row.identifiedBy,
+  };
+}
+
 export default function DecisionsPage() {
   const [decisions, setDecisions] = useState<Decision[]>(() =>
     isDemo() ? DEMO_DECISIONS : []
@@ -74,6 +99,15 @@ export default function DecisionsPage() {
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [pendingDelete, setPendingDelete] = useState<Decision | null>(null);
   const [decisionForm, setDecisionForm] = useState<DecisionForm | null>(null);
+
+  // Signed-in workspaces load the durable decision log from the API; demo mode
+  // keeps its local fixtures (and local-only mutations below mirror that split).
+  useEffect(() => {
+    if (isDemo()) return;
+    getDecisions().then((rows) => {
+      if (rows.length || !isDemo()) setDecisions(rows.map(fromApi));
+    });
+  }, []);
 
   // /board redirects here with ?source=osai - honour it as the initial filter.
   useEffect(() => {
@@ -92,8 +126,16 @@ export default function DecisionsPage() {
 
   function confirmDelete() {
     if (!pendingDelete) return;
-    setDecisions((prev) => prev.filter((d) => d.id !== pendingDelete.id));
+    const id = pendingDelete.id;
+    setDecisions((prev) => prev.filter((d) => d.id !== id));
     setPendingDelete(null);
+    if (!isDemo()) {
+      // Best-effort persistence; on failure reload the durable list so the UI
+      // never drifts from what the backend actually holds.
+      deleteDecision(id).catch(() =>
+        getDecisions().then((rows) => setDecisions(rows.map(fromApi)))
+      );
+    }
   }
 
   function openAddDecision() {
@@ -140,6 +182,31 @@ export default function DecisionsPage() {
         : [nextDecision, ...prev]
     );
     setDecisionForm(null);
+
+    if (!isDemo()) {
+      const persist = decisionForm.id
+        ? updateDecision(decisionForm.id, {
+            title: nextDecision.title,
+            status: nextDecision.status,
+            impact: nextDecision.impact,
+            owner: nextDecision.owner,
+            source: nextDecision.source,
+            tags,
+          })
+        : createDecision({
+            title: nextDecision.title,
+            status: nextDecision.status,
+            impact: nextDecision.impact,
+            owner: nextDecision.owner,
+            source: nextDecision.source,
+            tags,
+          });
+      // Reload from the backend either way: creates need their server id (so a
+      // follow-up edit/delete targets a real row), failures need honest state.
+      persist
+        .catch(() => null)
+        .then(() => getDecisions().then((rows) => setDecisions(rows.map(fromApi))));
+    }
   }
 
   const filtered = useMemo(() => {

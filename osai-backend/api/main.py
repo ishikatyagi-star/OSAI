@@ -7,6 +7,7 @@ from api.routes import (
     automations,
     composio,
     dashboard,
+    decisions,
     documents,
     evals,
     feedback,
@@ -39,6 +40,7 @@ app.include_router(documents.router)
 app.include_router(graph.router)
 app.include_router(evals.router)
 app.include_router(feedback.router)
+app.include_router(decisions.router)
 app.include_router(composio.router)
 app.include_router(integrations.router)
 app.include_router(sync_runs.router)

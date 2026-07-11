@@ -251,6 +251,29 @@ class ModelCall(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
 
 
+class DecisionRecord(Base):
+    """Org decision log — the durable record behind the Decisions page.
+
+    Previously UI-only local React state (audit: "Decision Log initializes from
+    fixtures and mutates local state; no backend persistence")."""
+
+    __tablename__ = "decisions"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
+    org_id: Mapped[str] = mapped_column(String, ForeignKey("orgs.id"), index=True)
+    title: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String, default="proposed")  # proposed|approved|rejected
+    impact: Mapped[str] = mapped_column(String, default="medium")  # critical|high|medium|low
+    owner: Mapped[str | None] = mapped_column(String, nullable=True)
+    source: Mapped[str] = mapped_column(String, default="Manual")
+    # "osai" = surfaced by the agent from context; "source" = tracked in a tool.
+    identified_by: Mapped[str] = mapped_column(String, default="source")
+    tags: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    decided_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc, onupdate=now_utc)
+
+
 class AnswerFeedback(Base):
     """User verdicts on Ask answers, stored with the retrieval trace.
 
