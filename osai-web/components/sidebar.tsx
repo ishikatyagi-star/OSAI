@@ -123,33 +123,25 @@ export default function Sidebar() {
 
       {/* Footer */}
       <div className="sidebar-footer">
-        <Link
-          href="/settings"
-          className={`sidebar-nav-item${pathname.startsWith("/settings") ? " active" : ""}`}
-        >
-          <span className="nav-icon">
-            <Settings size={16} strokeWidth={1.75} />
-          </span>
-          <span>Settings</span>
-        </Link>
-        <div className="sidebar-user">
-          <div className="sidebar-avatar">{initial}</div>
-          <div className="sidebar-user-info">
-            <div className="sidebar-user-name">{userName}</div>
-            <div className="sidebar-user-role">{orgName}</div>
+        <details className="sidebar-profile-menu">
+          <summary className="sidebar-user" aria-label="Open profile menu">
+            <div className="sidebar-avatar">{initial}</div>
+            <div className="sidebar-user-info">
+              <div className="sidebar-user-name">{userName}</div>
+              <div className="sidebar-user-role">{orgName}</div>
+            </div>
+          </summary>
+          <div className="sidebar-profile-popover">
+            <Link href="/settings" className="sidebar-profile-action">
+              <Settings size={16} strokeWidth={1.75} />
+              <span>Settings</span>
+            </Link>
+            <button type="button" onClick={handleSignOut} className="sidebar-profile-action">
+              <LogOut size={16} strokeWidth={1.75} />
+              <span>Sign out</span>
+            </button>
           </div>
-        </div>
-        <button
-          type="button"
-          onClick={handleSignOut}
-          className="sidebar-nav-item"
-          style={{ width: "100%", background: "none", border: "none", cursor: "pointer" }}
-        >
-          <span className="nav-icon">
-            <LogOut size={16} strokeWidth={1.75} />
-          </span>
-          <span>Sign out</span>
-        </button>
+        </details>
       </div>
     </aside>
   );

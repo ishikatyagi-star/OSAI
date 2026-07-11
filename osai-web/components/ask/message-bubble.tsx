@@ -8,7 +8,7 @@ import { CitationChip } from "./citation-chip";
 import { ActionCard } from "./action-card";
 import { OpenUiArtifacts } from "./openui-artifacts";
 import { FeedbackButtons } from "./feedback-buttons";
-import { brandText, cn } from "@/lib/utils";
+import { brandText } from "@/lib/utils";
 
 export type AskTurn = {
   id: string;
@@ -97,31 +97,15 @@ export function MessageBubble({
 
         <OpenUiArtifacts artifacts={turn.artifacts} />
 
-        {(turn.modelRoute || turn.latencyMs != null || turn.question) && (
-          <div
-            className={cn(
-              "flex items-center gap-3 text-[11px] text-muted-foreground"
-            )}
-          >
-            {turn.question && (
-              <FeedbackButtons
-                question={turn.question}
-                answer={turn.content}
-                conversationId={turn.conversationId}
-                citations={turn.citations}
-                modelRoute={turn.modelRoute}
-              />
-            )}
-            {turn.modelRoute && (
-              <span className="inline-flex items-center gap-1">
-                <Cpu className="size-3" /> {brandText(turn.modelRoute)}
-              </span>
-            )}
-            {turn.latencyMs != null && (
-              <span className="inline-flex items-center gap-1">
-                <Clock className="size-3" /> {(turn.latencyMs / 1000).toFixed(2)}s
-              </span>
-            )}
+        {turn.question && (
+          <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+            <FeedbackButtons
+              question={turn.question}
+              answer={turn.content}
+              conversationId={turn.conversationId}
+              citations={turn.citations}
+              modelRoute={turn.modelRoute}
+            />
           </div>
         )}
       </div>

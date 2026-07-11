@@ -216,7 +216,7 @@ export default function IntegrationsPage() {
             </div>
           )}
 
-          {/* Direct file upload — same ingestion pipeline as connector syncs */}
+          {/* Direct file upload - same ingestion pipeline as connector syncs */}
           <UploadCard onUploaded={loadIntegrations} />
 
           {/* Summary - dashboard stat-card styling */}

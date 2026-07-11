@@ -503,8 +503,71 @@ a { color: inherit; }
 }
 
 .sidebar-footer {
+  position: relative;
   padding: 12px 14px;
   border-top: 1px solid var(--border);
+}
+
+.sidebar-profile-menu {
+  position: relative;
+  width: 100%;
+}
+
+.sidebar-profile-menu > summary {
+  list-style: none;
+  border-radius: 10px;
+  cursor: pointer;
+  padding: 8px;
+}
+
+.sidebar-profile-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.sidebar-profile-menu > summary:hover,
+.sidebar-profile-menu[open] > summary {
+  background: var(--bg-hover);
+}
+
+.sidebar-profile-menu > summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.sidebar-profile-popover {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 100;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-surface);
+  box-shadow: 0 16px 40px -20px rgba(12, 10, 9, 0.5);
+}
+
+.sidebar-profile-action {
+  display: flex;
+  width: 100%;
+  min-height: 40px;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.sidebar-profile-action:hover,
+.sidebar-profile-action:focus-visible {
+  background: var(--bg-hover);
+  outline: none;
 }
 
 .sidebar-user {
@@ -686,6 +749,16 @@ main {
 
   .sidebar-user {
     justify-content: center;
+  }
+
+  .sidebar-profile-menu {
+    width: auto;
+  }
+
+  .sidebar-profile-popover {
+    left: 0;
+    right: auto;
+    width: 200px;
   }
 
   .dashboard-layout {

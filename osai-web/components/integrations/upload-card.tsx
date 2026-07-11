@@ -40,19 +40,19 @@ export function UploadCard({ onUploaded }: { onUploaded?: () => void }) {
       const parts: string[] = [];
       if (res.documents_indexed > 0) {
         parts.push(
-          `Indexed ${res.documents_indexed} file${res.documents_indexed > 1 ? "s" : ""} — ask about them now.`
+          `Indexed ${res.documents_indexed} file${res.documents_indexed > 1 ? "s" : ""} - ask about them now.`
         );
       }
       for (const s of res.skipped) parts.push(`${s.filename}: ${s.reason}`);
-      if (res.vector_error) parts.push("Search indexing is catching up — results may lag briefly.");
+      if (res.vector_error) parts.push("Search indexing is catching up - results may lag briefly.");
       setMessage({ text: parts.join(" "), ok: res.documents_indexed > 0 });
       if (res.documents_indexed > 0) onUploaded?.();
     } catch (err) {
       const detail = err instanceof Error ? err.message : "";
       setMessage({
         text: detail.includes("415") || detail.includes("422")
-          ? "Those files couldn't be ingested — supported types: txt, md, csv, log, pdf, docx."
-          : "Upload failed — please try again.",
+          ? "Those files couldn't be ingested - supported types: txt, md, csv, log, pdf, docx."
+          : "Upload failed - please try again.",
         ok: false,
       });
     } finally {
@@ -88,7 +88,7 @@ export function UploadCard({ onUploaded }: { onUploaded?: () => void }) {
             Upload files to your knowledge base
           </p>
           <p className="meta">
-            Drop PDF, Word, Markdown, or text files here — they become searchable in Ask
+            Drop PDF, Word, Markdown, or text files here - they become searchable in Ask
             with the tier you pick.
           </p>
         </div>
