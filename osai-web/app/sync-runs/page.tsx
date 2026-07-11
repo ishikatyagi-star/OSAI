@@ -175,7 +175,7 @@ export default function SyncRunsPage() {
                           }}
                         />
                       </div>
-                      <span className="text-[10px] font-semibold" style={{ color: "var(--green)" }}>
+                      <span className="text-xs font-semibold" style={{ color: "var(--green)" }}>
                         {Math.round((run.documents_indexed / run.documents_seen) * 100)}%
                       </span>
                     </div>

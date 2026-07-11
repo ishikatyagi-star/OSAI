@@ -113,7 +113,7 @@ export default function SettingsPage() {
       {/* Danger Zone separator */}
       <div style={{ position: "relative", margin: "36px 0 18px", display: "flex", alignItems: "center", gap: 12 }}>
         <div style={{ flex: 1, height: 1, background: "color-mix(in srgb, var(--red) 40%, var(--border))" }} />
-        <span style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px", color: "var(--red)", whiteSpace: "nowrap" }}>
+        <span style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px", color: "var(--red)", whiteSpace: "nowrap" }}>
           Danger Zone
         </span>
         <div style={{ flex: 1, height: 1, background: "color-mix(in srgb, var(--red) 40%, var(--border))" }} />

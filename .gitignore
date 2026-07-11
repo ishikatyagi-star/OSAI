@@ -26,3 +26,8 @@ Thumbs.db
 # Build artefacts / scratch
 outputs/
 work/
+
+# Local design-review evidence and gstack session data
+.gstack/
+osai-web/.gstack/
+osai-web/design-audit-*/
