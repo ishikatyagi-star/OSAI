@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from db.models import Org
 from db.repositories import try_db
-from db.session import get_db, get_org_id
+from db.session import get_db, get_org_id, require_admin
 
 # Defaults live with the egress policy (llm/policy.py) — the module that
 # actually enforces them — so route and enforcement can never drift apart.
@@ -39,8 +39,14 @@ async def get_data_routing(db: DbSession, org_id: OrgId) -> dict:
 
 
 @router.patch("/data-routing")
-async def update_data_routing(body: DataRoutingUpdate, db: DbSession, org_id: OrgId) -> dict:
-    """Update the data-routing configuration for the org."""
+async def update_data_routing(
+    body: DataRoutingUpdate,
+    db: DbSession,
+    org_id: OrgId,
+    _admin: Annotated[dict, Depends(require_admin)],
+) -> dict:
+    """Update the data-routing configuration for the org (admins only — this
+    governs which data tiers may reach cloud LLMs, so members can't relax it)."""
 
     def _update() -> dict:
         org = db.get(Org, org_id)

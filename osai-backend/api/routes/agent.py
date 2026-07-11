@@ -40,7 +40,16 @@ async def ask(
 
 @router.post("/ask/actions/{action_id}/confirm", response_model=ConfirmActionResult)
 async def confirm(
-    action_id: str, body: ConfirmActionRequest, org_id: OrgId
+    action_id: str, body: ConfirmActionRequest, org_id: OrgId, claims: OptionalClaims
 ) -> ConfirmActionResult:
-    """Execute a previously proposed agent action against its connector."""
-    return await confirm_action(action_id, body.conversation_id, caller_org_id=org_id)
+    """Execute a previously proposed agent action against its connector.
+
+    Approval is bound to the proposing user or an org admin — any other member
+    of the org is refused even with a valid action ID."""
+    return await confirm_action(
+        action_id,
+        body.conversation_id,
+        caller_org_id=org_id,
+        caller_user_id=claims.get("sub") if claims else None,
+        caller_role=claims.get("role") if claims else None,
+    )

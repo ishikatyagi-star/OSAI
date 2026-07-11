@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from db.models import ActionItemRecord, WorkflowRun
 from memory.embeddings import default_embedding_provider
 from memory.qdrant_store import get_default_qdrant_store
+from memory.retriever import _tier_visible, _visible
 
 logger = logging.getLogger("osai.workflows.enricher")
 
@@ -21,8 +22,15 @@ async def get_workflow_context_async(
     session: Session,
     limit_chunks: int = 3,
     limit_items: int = 10,
+    requester_permissions: list[str] | None = None,
+    requester_tier: str = "red",
 ) -> dict[str, list[dict]]:
-    """Retrieve related chunks semantically from Qdrant and recent action items from DB."""
+    """Retrieve related chunks semantically from Qdrant and recent action items from DB.
+
+    Enrichment context lands in the extraction prompt, so it must pass the same
+    governance filter as retrieval (`_visible` + clearance tier) for the user who
+    initiated the workflow. Defaults keep system context (Zoom webhook / Celery,
+    no initiating user) at see-all, matching the retriever's stance."""
     documents = []
 
     # 1. Retrieve related chunks from Qdrant
@@ -35,6 +43,14 @@ async def get_workflow_context_async(
 
             # Query Qdrant
             hits = await qdrant.search(query_vector, org_id, limit=limit_chunks)
+            hits = [
+                h
+                for h in hits
+                if _visible(
+                    (h.payload or {}).get("permissions"), requester_permissions or []
+                )
+                and _tier_visible((h.payload or {}).get("data_tier"), requester_tier)
+            ]
 
             for hit in hits:
                 payload = hit.payload or {}
@@ -87,6 +103,8 @@ def get_workflow_context(
     session: Session,
     limit_chunks: int = 3,
     limit_items: int = 10,
+    requester_permissions: list[str] | None = None,
+    requester_tier: str = "red",
 ) -> dict[str, list[dict]]:
     """Synchronous wrapper to retrieve context for Celery and other sync workflows."""
     try:
@@ -103,6 +121,8 @@ def get_workflow_context(
                 session=session,
                 limit_chunks=limit_chunks,
                 limit_items=limit_items,
+                requester_permissions=requester_permissions,
+                requester_tier=requester_tier,
             )
         )
     except Exception as exc:

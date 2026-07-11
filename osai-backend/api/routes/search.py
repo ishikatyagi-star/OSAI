@@ -23,4 +23,5 @@ async def search(
     request.org_id = org_id
     request.requester_permissions = user_permissions(db, claims)
     request.requester_tier = user_clearance(db, claims)
+    request.requester_user_id = claims.get("sub") if claims else None
     return await retrieve_answer(request)

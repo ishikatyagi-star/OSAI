@@ -36,3 +36,49 @@ def test_record_memory_persists():
     mem = record_memory(session, "demo-org", "decision", "We standardized on Qdrant.")
     assert mem.id
     assert "qdrant" in mem.keywords
+
+
+def test_fetch_relevant_scopes_private_memories_to_owner(monkeypatch):
+    """Audit Medium #10: a memory with user_id set is private to that user;
+    org-wide memories (user_id None) are visible to everyone; system context
+    (no requester) keeps see-all."""
+    import db.session as db_session
+    from memory.org_memory import fetch_relevant
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    factory = sessionmaker(bind=engine)
+    monkeypatch.setattr(db_session, "SessionLocal", factory)
+
+    with factory() as session:
+        record_memory(session, "demo-org", "fact", "Qdrant is our vector store.")
+        record_memory(
+            session, "demo-org", "preference", "Qdrant digests weekly for alice.",
+            user_id="alice",
+        )
+
+    def _contents(user_id):
+        found = fetch_relevant("demo-org", "qdrant", requester_user_id=user_id)
+        return {m["content"] for m in found}
+
+    assert _contents("alice") == {
+        "Qdrant is our vector store.",
+        "Qdrant digests weekly for alice.",
+    }
+    assert _contents("bob") == {"Qdrant is our vector store."}
+    assert _contents(None) == {  # system context: see-all
+        "Qdrant is our vector store.",
+        "Qdrant digests weekly for alice.",
+    }
+
+
+def test_seeded_ownership_memories_are_org_wide():
+    """Ownership facts name the owner as subject, not audience — they must not
+    carry a user_id (which now means private-to)."""
+    from db.models import OrgMemory
+
+    session = _session()
+    seed_rich_demo_data(session)
+    derive_memories_from_data(session)
+    owned = session.query(OrgMemory).filter(OrgMemory.kind == "ownership").all()
+    assert owned and all(m.user_id is None for m in owned)

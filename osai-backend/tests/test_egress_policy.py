@@ -65,7 +65,7 @@ def _patch_retrieval(monkeypatch, hits):
 
     monkeypatch.setattr(retriever, "get_default_qdrant_store", lambda: _FakeStore())
     monkeypatch.setattr(retriever, "default_embedding_provider", _FakeEmbeddings())
-    monkeypatch.setattr(org_memory, "fetch_relevant", lambda org_id, q: [])
+    monkeypatch.setattr(org_memory, "fetch_relevant", lambda org_id, q, **kw: [])
     monkeypatch.setattr(
         retriever, "load_data_routing", lambda org_id: DEFAULT_DATA_ROUTING
     )

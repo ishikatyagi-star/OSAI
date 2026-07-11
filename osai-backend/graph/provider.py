@@ -21,7 +21,7 @@ from db.models import (
     User,
     WorkflowRun,
 )
-from memory.retriever import _visible
+from memory.retriever import _tier_visible, _visible
 
 _TIER_RANK = {"normal": 0, "amber": 1, "red": 2}
 
@@ -40,12 +40,25 @@ def _first_line(text: str | None) -> str:
     return next((ln.strip() for ln in text.splitlines() if ln.strip()), "")
 
 
-def build_graph(session: Session, org_id: str) -> tuple[list[GraphEntity], list[GraphEdge]]:
-    docs = (
-        session.query(SourceDocumentRecord)
-        .filter(SourceDocumentRecord.org_id == org_id)
-        .all()
-    )
+def build_graph(
+    session: Session,
+    org_id: str,
+    requester_permissions: list[str] | None = None,
+    requester_tier: str = "red",
+) -> tuple[list[GraphEntity], list[GraphEdge]]:
+    # Source nodes expose titles and content previews, so they must pass the
+    # same governance rule as retrieval (`_visible` + clearance tier) — the
+    # graph must never preview a document the retriever would withhold.
+    docs = [
+        d
+        for d in (
+            session.query(SourceDocumentRecord)
+            .filter(SourceDocumentRecord.org_id == org_id)
+            .all()
+        )
+        if _visible(d.permissions, requester_permissions or [])
+        and _tier_visible(d.data_tier, requester_tier)
+    ]
     items = (
         session.query(ActionItemRecord)
         .join(WorkflowRun, ActionItemRecord.workflow_run_id == WorkflowRun.id)

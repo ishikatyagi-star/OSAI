@@ -63,6 +63,7 @@ async def run_ask(
             query=request.question,
             requester_permissions=requester_permissions or [],
             requester_tier=requester_tier,
+            requester_user_id=user_id,
         )
     )
 
@@ -119,7 +120,11 @@ async def run_ask(
 
 
 async def confirm_action(
-    action_id: str, conversation_id: str, caller_org_id: str | None = None
+    action_id: str,
+    conversation_id: str,
+    caller_org_id: str | None = None,
+    caller_user_id: str | None = None,
+    caller_role: str | None = None,
 ) -> ConfirmActionResult:
     # Fast path (same process), then durable store (another worker / after a
     # restart between propose and confirm).
@@ -140,6 +145,21 @@ async def confirm_action(
             status="failed",
             message="This action does not belong to your workspace.",
             error="org_mismatch",
+        )
+    # Approver binding: execution is restricted to the user who proposed the
+    # action or an org admin — not any member who learns the action ID.
+    # caller_user_id is None only for system/demo context (no authenticated
+    # user), which keeps webhook- and test-driven confirms working.
+    if (
+        caller_user_id is not None
+        and caller_role != "admin"
+        and proposed.get("user_id") not in (None, caller_user_id)
+    ):
+        return ConfirmActionResult(
+            id=action_id,
+            status="failed",
+            message="Only the requesting user or a workspace admin can approve this action.",
+            error="not_approver",
         )
     if proposed.get("provider") == "internal":
         return _execute_internal(action_id, proposed)

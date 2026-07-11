@@ -19,8 +19,14 @@ async def run_action_item_workflow(
     run_id: str,
     request: WorkflowRunCreate,
     db: Session | None = None,
+    requester_permissions: list[str] | None = None,
+    requester_tier: str = "red",
 ) -> WorkflowRunResponse:
-    """Extract action items from meeting transcript using semantic and database context."""
+    """Extract action items from meeting transcript using semantic and database context.
+
+    Enrichment is scoped to the initiating user's permissions/clearance so the
+    extraction prompt never sees documents that user couldn't retrieve. The
+    defaults keep system-triggered runs (Zoom webhook / Celery) at see-all."""
     # 1. Determine query text for context lookup (first 200 chars of transcript)
     query_text = request.input_text[:200] if request.input_text else ""
 
@@ -37,6 +43,8 @@ async def run_action_item_workflow(
                 org_id=request.org_id,
                 query_text=query_text,
                 session=db,
+                requester_permissions=requester_permissions,
+                requester_tier=requester_tier,
             )
             context_docs = ctx.get("documents", [])
             existing_items = ctx.get("action_items", [])
@@ -46,6 +54,8 @@ async def run_action_item_workflow(
                     org_id=request.org_id,
                     query_text=query_text,
                     session=session,
+                    requester_permissions=requester_permissions,
+                    requester_tier=requester_tier,
                 )
                 context_docs = ctx.get("documents", [])
                 existing_items = ctx.get("action_items", [])

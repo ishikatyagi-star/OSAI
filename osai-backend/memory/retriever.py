@@ -38,7 +38,9 @@ async def retrieve_answer(request: SearchRequest) -> SearchResponse:
     qdrant = get_default_qdrant_store()
 
     # 0. Evolving org memory (facts/playbooks) — key-free, independent of vectors.
-    memories = fetch_relevant(request.org_id, request.query)
+    memories = fetch_relevant(
+        request.org_id, request.query, requester_user_id=request.requester_user_id
+    )
 
     # 1. Vector search over the document knowledge base (best-effort).
     hits: list = []

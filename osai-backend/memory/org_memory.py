@@ -49,9 +49,20 @@ def record_memory(
     return mem
 
 
-def fetch_relevant(org_id: str, query: str, limit: int = 5) -> list[dict]:
+def fetch_relevant(
+    org_id: str,
+    query: str,
+    limit: int = 5,
+    requester_user_id: str | None = None,
+) -> list[dict]:
     """Top memories for a query by keyword overlap. Opens its own session so
-    callers (retriever, agent) don't need to thread one through."""
+    callers (retriever, agent) don't need to thread one through.
+
+    Visibility: `user_id` on a memory marks it as private to that user, so recall
+    returns org-wide memories (user_id NULL) plus the requester's own. A None
+    requester is system context (webhook/demo) and keeps see-all, matching the
+    governance stance everywhere else. Memories carry no data tier — they are
+    distilled facts/playbooks, not document content — so there is no tier check."""
     from db.session import SessionLocal
 
     q_tokens = _tokens(query)
@@ -59,7 +70,13 @@ def fetch_relevant(org_id: str, query: str, limit: int = 5) -> list[dict]:
         return []
     try:
         with SessionLocal() as session:
-            memories = session.query(OrgMemory).filter(OrgMemory.org_id == org_id).all()
+            q = session.query(OrgMemory).filter(OrgMemory.org_id == org_id)
+            if requester_user_id is not None:
+                q = q.filter(
+                    (OrgMemory.user_id.is_(None))
+                    | (OrgMemory.user_id == requester_user_id)
+                )
+            memories = q.all()
             scored = []
             for mem in memories:
                 bag = set(mem.keywords or []) | _tokens(mem.content)
@@ -117,7 +134,10 @@ def derive_memories_from_data(session: Session, org_id: str = "demo-org") -> int
         session.add(
             OrgMemory(
                 org_id=org_id,
-                user_id=item.owner,
+                # Ownership facts are org-wide knowledge — the owner is the
+                # *subject*, not the audience, so user_id (= private-to) stays
+                # empty. Setting it would hide "who owns X" from everyone else.
+                user_id=None,
                 kind="ownership",
                 content=content,
                 keywords=sorted(_tokens(item.title) | {item.owner.split("@")[0]}),

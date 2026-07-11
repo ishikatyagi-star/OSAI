@@ -9,6 +9,9 @@ class SearchRequest(BaseModel):
     requester_permissions: list[str] = Field(default_factory=list)
     # Caller's data-clearance tier; "red" = see-all (admin/system/demo default).
     requester_tier: str = "red"
+    # Caller's user id — scopes org-memory recall (private memories stay private).
+    # None = system context (see-all), same stance as the other requester fields.
+    requester_user_id: str | None = None
 
 
 class SourceCitation(BaseModel):
