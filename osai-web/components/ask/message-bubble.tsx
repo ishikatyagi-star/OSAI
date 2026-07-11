@@ -97,7 +97,6 @@ export function MessageBubble({
 
         <OpenUiArtifacts artifacts={turn.artifacts} />
 
-<<<<<<< HEAD
         {(turn.modelRoute || turn.latencyMs != null || turn.question) && (
           <div
             className={cn(
@@ -125,8 +124,6 @@ export function MessageBubble({
             )}
           </div>
         )}
-=======
->>>>>>> origin/main
       </div>
     </div>
   );

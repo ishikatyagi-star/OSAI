@@ -129,6 +129,7 @@ class SourceDocumentRecord(Base):
     metadata_json: Mapped[dict] = mapped_column("metadata", JSON, default=dict)
     permissions: Mapped[list[str]] = mapped_column(JSON, default=list)
     data_tier: Mapped[str] = mapped_column(String, default="normal")
+    department_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     source_created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     source_updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     ingested_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)

@@ -608,6 +608,7 @@ def upsert_source_documents(session: Session, documents: list[SourceDocument]) -
             "metadata_json": document.metadata,
             "permissions": document.permissions,
             "data_tier": document.data_tier,
+            "department_id": document.department_id,
             "source_created_at": document.created_at,
             "source_updated_at": document.updated_at,
             "ingested_at": now_utc(),

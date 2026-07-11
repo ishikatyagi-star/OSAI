@@ -502,13 +502,19 @@ function currentOrgId(orgId?: string) {
 
 export function askOsai(
   question: string,
-  opts: { conversationId?: string | null; history?: AskRequest["history"]; orgId?: string } = {}
+  opts: {
+    conversationId?: string | null;
+    history?: AskRequest["history"];
+    orgId?: string;
+    departmentId?: string | null;
+  } = {}
 ): Promise<AskResponse> {
   const body: AskRequest = {
     org_id: currentOrgId(opts.orgId),
     question,
     conversation_id: opts.conversationId ?? null,
     history: opts.history,
+    department_id: opts.departmentId ?? null,
   };
   return apiPost<AskRequest, AskResponse>("/ask", body);
 }
@@ -687,11 +693,13 @@ export type UploadResult = {
 
 export async function uploadDocuments(
   files: File[],
-  dataTier: "normal" | "amber" | "red" = "normal"
+  dataTier: "normal" | "amber" | "red" = "normal",
+  departmentId?: string
 ): Promise<UploadResult> {
   const form = new FormData();
   for (const file of files) form.append("files", file);
   form.append("data_tier", dataTier);
+  if (departmentId) form.append("department_id", departmentId);
   // No Content-Type header: the browser sets the multipart boundary itself.
   const res = await fetch(`${API_BASE_URL}/documents/upload`, {
     method: "POST",

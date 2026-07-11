@@ -139,6 +139,7 @@ export type AskRequest = {
   question: string;
   conversation_id?: string | null;
   history?: ChatMessage[];
+  department_id?: string | null;
 };
 
 export type AskResponse = {

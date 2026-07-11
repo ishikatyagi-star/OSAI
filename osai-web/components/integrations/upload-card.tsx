@@ -1,8 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FileUp, Loader2 } from "lucide-react";
-import { uploadDocuments, type UploadResult } from "@/lib/api";
+import { getDepartments, uploadDocuments, type Department, type UploadResult } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 
 const ACCEPT = ".txt,.md,.markdown,.csv,.log,.pdf,.docx";
@@ -20,6 +20,12 @@ const TIER_HINT: Record<Tier, string> = {
 export function UploadCard({ onUploaded }: { onUploaded?: () => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [tier, setTier] = useState<Tier>("normal");
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [departmentId, setDepartmentId] = useState<string>("");
+
+  useEffect(() => {
+    getDepartments().then(setDepartments).catch(() => setDepartments([]));
+  }, []);
   const [busy, setBusy] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
@@ -30,7 +36,7 @@ export function UploadCard({ onUploaded }: { onUploaded?: () => void }) {
     setBusy(true);
     setMessage(null);
     try {
-      const res: UploadResult = await uploadDocuments(files, tier);
+      const res: UploadResult = await uploadDocuments(files, tier, departmentId || undefined);
       const parts: string[] = [];
       if (res.documents_indexed > 0) {
         parts.push(
@@ -86,6 +92,29 @@ export function UploadCard({ onUploaded }: { onUploaded?: () => void }) {
             with the tier you pick.
           </p>
         </div>
+        {departments.length > 0 && (
+          <label className="meta inline-flex items-center gap-2" style={{ whiteSpace: "nowrap" }}>
+            Department
+            <select
+              value={departmentId}
+              onChange={(e) => setDepartmentId(e.target.value)}
+              style={{
+                background: "var(--surface, transparent)",
+                color: "inherit",
+                border: "1px solid var(--border, currentColor)",
+                borderRadius: 8,
+                padding: "4px 8px",
+              }}
+            >
+              <option value="">Whole workspace</option>
+              {departments.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <label className="meta inline-flex items-center gap-2" style={{ whiteSpace: "nowrap" }}>
           Tier
           <select
