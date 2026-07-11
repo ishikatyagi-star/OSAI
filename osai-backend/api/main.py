@@ -7,6 +7,7 @@ from api.routes import (
     automations,
     composio,
     dashboard,
+    documents,
     evals,
     feedback,
     graph,
@@ -34,6 +35,7 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(agent.router)
+app.include_router(documents.router)
 app.include_router(graph.router)
 app.include_router(evals.router)
 app.include_router(feedback.router)

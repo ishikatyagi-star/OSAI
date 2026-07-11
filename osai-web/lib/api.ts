@@ -674,3 +674,35 @@ export function getAccessMap() {
 export function getEvalRun() {
   return apiGet<EvalRun | null>("/evals", null);
 }
+
+// ─── Knowledge base uploads (POST /documents/upload) ─────────────────────────
+
+export type UploadResult = {
+  documents_indexed: number;
+  vectors_indexed: number;
+  vector_error: string | null;
+  skipped: { filename: string; reason: string }[];
+  documents: { id: string; title: string; data_tier: string }[];
+};
+
+export async function uploadDocuments(
+  files: File[],
+  dataTier: "normal" | "amber" | "red" = "normal"
+): Promise<UploadResult> {
+  const form = new FormData();
+  for (const file of files) form.append("files", file);
+  form.append("data_tier", dataTier);
+  // No Content-Type header: the browser sets the multipart boundary itself.
+  const res = await fetch(`${API_BASE_URL}/documents/upload`, {
+    method: "POST",
+    headers: getHeaders(),
+    body: form,
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    handleUnauthorized(res.status);
+    const detail = await res.text();
+    throw new Error(`Upload failed (${res.status}): ${detail}`);
+  }
+  return (await res.json()) as UploadResult;
+}

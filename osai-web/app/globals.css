@@ -2445,7 +2445,126 @@ select {
     var(--bg);
 }
 
-.ask-scroll { scrollbar-gutter: stable; }
+.ask-scroll { scrollbar-gutter: stable both-edges; }
+
+.ask-thread {
+  padding-inline: 4px;
+}
+
+.ask-page-header[data-conversation="true"],
+.ask-thread,
+.ask-conversation-composer {
+  width: 100%;
+  max-width: 768px;
+  margin-inline: auto;
+}
+
+.ask-page-header[data-conversation="true"] .btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.ask-user-bubble {
+  min-width: 64px;
+  border-radius: 18px 18px 4px 18px;
+  background: var(--text-primary);
+  color: var(--bg-surface);
+  padding: 10px 15px;
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.ask-assistant-turn,
+.ask-loading-row {
+  align-items: flex-start;
+}
+
+.ask-assistant-bubble {
+  max-width: 68ch;
+  padding-top: 3px;
+}
+
+.ask-assistant-bubble > div {
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.ask-context-notice {
+  display: flex;
+  width: fit-content;
+  max-width: 100%;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid color-mix(in srgb, var(--warning) 18%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--warning) 7%, var(--bg-surface));
+  padding: 9px 11px;
+  color: color-mix(in srgb, var(--warning) 76%, var(--text-primary));
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.ask-loading-row {
+  display: flex;
+  gap: 12px;
+}
+
+.ask-loading-copy {
+  display: flex;
+  min-height: 44px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  padding-top: 1px;
+}
+
+.ask-loading-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.ask-loading-detail {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+/* Radix connector catalog: scoped spacing lives here because the global reset
+   intentionally runs after utility styles. */
+.connector-catalog-header {
+  padding: 24px 80px 20px 24px;
+}
+
+.connector-catalog-header [data-slot="dialog-title"] {
+  font-size: 20px;
+  line-height: 1.25;
+}
+
+.connector-catalog-search {
+  padding: 16px 24px;
+}
+
+.connector-catalog-search > svg {
+  left: 36px;
+}
+
+.connector-catalog-search input {
+  padding: 0 14px 0 40px;
+}
+
+.connector-catalog-grid {
+  padding: 16px;
+}
+
+.connector-catalog-card {
+  padding: 16px;
+}
 
 /* ── Heading + supporting copy ─────────────────────────────────────────────── */
 .ask-eyebrow {
@@ -2467,7 +2586,7 @@ select {
 }
 
 .ask-title {
-  font-size: clamp(34px, 4vw, 46px);
+  font-size: clamp(32px, 3.5vw, 42px);
   font-family: var(--font-display);
   font-weight: 400;
   letter-spacing: -0.6px;
@@ -2684,6 +2803,103 @@ select {
 
 .ask-composer textarea {
   color: var(--text-primary);
+}
+
+.ask-composer textarea:focus-visible {
+  box-shadow: none;
+}
+
+.ask-new-chat-compact {
+  display: none;
+}
+
+@media (max-width: 700px) {
+  .ask-page-header[data-conversation="true"] {
+    align-items: center;
+    flex-direction: row;
+    gap: 12px;
+  }
+
+  .ask-page-header[data-conversation="true"] .page-header-left p {
+    display: none;
+  }
+
+  .ask-page-header[data-conversation="true"] h1 {
+    font-size: 24px;
+  }
+
+  .ask-page-header[data-conversation="true"] .btn {
+    flex: none;
+    min-height: 40px;
+    padding-inline: 14px;
+  }
+
+  .ask-page-header[data-conversation="true"] .ask-new-chat-wide {
+    display: none;
+  }
+
+  .ask-page-header[data-conversation="true"] .ask-new-chat-compact {
+    display: inline;
+  }
+
+  .ask-assistant-turn {
+    gap: 8px;
+  }
+
+  .ask-turn-avatar {
+    display: none;
+  }
+
+  .ask-user-bubble {
+    max-width: 88%;
+    min-width: 56px;
+    border-radius: 16px 16px 4px 16px;
+    padding: 8px 12px;
+  }
+
+  .ask-assistant-bubble {
+    padding: 0;
+  }
+
+  .ask-loading-row {
+    gap: 8px;
+  }
+
+  .ask-citations {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .ask-citations > * {
+    width: 100%;
+  }
+
+  .ask-action-card {
+    padding: 12px;
+  }
+
+  .ask-action-layout {
+    gap: 8px;
+  }
+
+  .ask-action-icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  .ask-action-params {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+    padding: 10px;
+  }
+
+  .ask-action-params dt:not(:first-child) {
+    margin-top: 6px;
+  }
+
+  .ask-action-buttons > button {
+    flex: 1;
+  }
 }
 
 .ask-send-button {

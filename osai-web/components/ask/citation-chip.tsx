@@ -1,4 +1,5 @@
 import * as React from "react";
+import { Lock } from "lucide-react";
 import { CONNECTOR_META } from "@/lib/connector-meta";
 import type { SourceCitation } from "@/lib/types";
 import { brandText, cn } from "@/lib/utils";
@@ -17,6 +18,12 @@ export function CitationChip({
   const meta = CONNECTOR_META[citation.source_tool];
   const Icon = meta?.icon;
   const pct = Math.round(citation.confidence * 100);
+  const localOnly = citation.model_routing === "local-only";
+  // Policy explain: hover answers "why can I see this, and where did it go?"
+  const policyLines = [
+    citation.access_reason ? `Visible: ${citation.access_reason}` : null,
+    citation.routing_reason ? `Routing: ${citation.routing_reason}` : null,
+  ].filter(Boolean);
 
   const inner = (
     <>
@@ -30,6 +37,14 @@ export function CitationChip({
         {brandText(citation.source_record_title)}
       </span>
       <span className="text-muted-foreground tabular-nums">{pct}%</span>
+      {localOnly && (
+        <span
+          aria-label="Processed by local models only"
+          className="inline-flex items-center text-muted-foreground"
+        >
+          <Lock className="size-3" strokeWidth={2} />
+        </span>
+      )}
     </>
   );
 
@@ -45,7 +60,7 @@ export function CitationChip({
         target="_blank"
         rel="noopener noreferrer"
         className={className}
-        title={`${meta?.label ?? citation.source_tool} - open source`}
+        title={[`${meta?.label ?? citation.source_tool} - open source`, ...policyLines].join("\n")}
       >
         {inner}
       </a>
@@ -53,7 +68,10 @@ export function CitationChip({
   }
 
   return (
-    <span className={className} title={meta?.label ?? citation.source_tool}>
+    <span
+      className={className}
+      title={[meta?.label ?? citation.source_tool, ...policyLines].join("\n")}
+    >
       {inner}
     </span>
   );
