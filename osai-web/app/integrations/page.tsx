@@ -170,7 +170,7 @@ export default function IntegrationsPage() {
             inside them is classified into data tiers.
           </p>
         </div>
-        <Button onClick={() => setCatalogOpen(true)}>
+        <Button className="min-w-[140px]" onClick={() => setCatalogOpen(true)}>
           <Plus size={14} /> Add connector
         </Button>
       </div>

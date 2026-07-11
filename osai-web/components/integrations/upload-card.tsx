@@ -66,7 +66,6 @@ export function UploadCard({ onUploaded }: { onUploaded?: () => void }) {
       className="card"
       style={{
         marginBottom: 16,
-        padding: "16px 20px",
         borderStyle: dragOver ? "dashed" : undefined,
         borderColor: dragOver ? "var(--accent, var(--green))" : undefined,
       }}
@@ -134,9 +133,9 @@ export function UploadCard({ onUploaded }: { onUploaded?: () => void }) {
             <option value="red">Red</option>
           </select>
         </label>
-        <Button onClick={() => inputRef.current?.click()} disabled={busy}>
+        <Button className="min-w-[140px]" onClick={() => inputRef.current?.click()} disabled={busy}>
           {busy ? <Loader2 size={14} className="animate-spin" /> : <FileUp size={14} />}
-          {busy ? "Uploading…" : "Choose files"}
+          {busy ? "Uploading…" : "Upload files"}
         </Button>
         <input
           ref={inputRef}
