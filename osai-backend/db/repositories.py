@@ -1304,6 +1304,10 @@ def accept_invite_for_email(session: Session, email: str, display_name: str) -> 
 
 # --- Automations (NL scheduled tasks) --------------------------------------
 
+# Sentinel distinguishing "field not sent" from an explicit None/clear on update.
+UNSET: object = object()
+
+
 def create_automation(
     session: Session,
     *,
@@ -1313,10 +1317,11 @@ def create_automation(
     prompt: str,
     cadence: str,
     status: str = "active",
+    deliver_to: dict | None = None,
 ) -> Automation:
     auto = Automation(
         org_id=org_id, user_id=user_id, name=name, prompt=prompt, cadence=cadence,
-        status=status,
+        status=status, deliver_to=deliver_to,
     )
     session.add(auto)
     session.commit()
@@ -1333,6 +1338,7 @@ def update_automation(
     cadence: str | None = None,
     enabled: bool | None = None,
     status: str | None = None,
+    deliver_to: object = UNSET,
 ) -> Automation | None:
     auto = session.get(Automation, automation_id)
     if auto is None or auto.org_id != org_id:
@@ -1347,6 +1353,8 @@ def update_automation(
         auto.enabled = enabled
     if status is not None:
         auto.status = status
+    if deliver_to is not UNSET:
+        auto.deliver_to = deliver_to  # type: ignore[assignment]
     session.commit()
     return auto
 
@@ -1405,6 +1413,7 @@ def record_automation_run(
     automation_id: str,
     result: str,
     connectors: list[str] | None = None,
+    delivery: dict | None = None,
 ) -> None:
     auto = session.get(Automation, automation_id)
     if auto:
@@ -1412,6 +1421,8 @@ def record_automation_run(
         auto.last_result = result
         if connectors is not None:
             auto.last_connectors = connectors
+        if delivery is not None:
+            auto.last_delivery = delivery
         session.commit()
 
 

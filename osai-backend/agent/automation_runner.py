@@ -74,10 +74,29 @@ async def execute_automation(
         extra_context=run_context,
     )
     if hermes is not None:
-        record_automation_run(db, auto.id, hermes, connectors=current_names)
-        return {"id": auto.id, "result": hermes, "via": "hermes", "citations": []}
+        delivery = await _deliver(auto, hermes)
+        record_automation_run(db, auto.id, hermes, connectors=current_names, delivery=delivery)
+        return {
+            "id": auto.id, "result": hermes, "via": "hermes", "citations": [],
+            "delivery": delivery,
+        }
     resp = await run_ask(
         AskRequest(org_id=auto.org_id, question=f"{run_context}\n\nTask: {auto.prompt}")
     )
-    record_automation_run(db, auto.id, resp.answer, connectors=current_names)
-    return {"id": auto.id, "result": resp.answer, "via": "osai", "citations": resp.citations}
+    delivery = await _deliver(auto, resp.answer)
+    record_automation_run(db, auto.id, resp.answer, connectors=current_names, delivery=delivery)
+    return {
+        "id": auto.id, "result": resp.answer, "via": "osai", "citations": resp.citations,
+        "delivery": delivery,
+    }
+
+
+async def _deliver(auto: Automation, result: str) -> dict | None:
+    """Post the result to the automation's delivery target (None if unconfigured).
+    The target was chosen by the user when configuring the automation — that is
+    the standing approval — and failures are recorded, never raised."""
+    if not auto.deliver_to:
+        return None
+    from agent.delivery import deliver_result
+
+    return await deliver_result(auto.org_id, auto.deliver_to, auto.name, result)

@@ -182,6 +182,9 @@ function EditAutomationForm({
   const [prompt, setPrompt] = useState(automation.prompt);
   const [cadence, setCadence] = useState<string>(automation.cadence);
   const [status, setStatus] = useState<string>(automation.status ?? "active");
+  const [slackTarget, setSlackTarget] = useState<string>(
+    automation.deliver_to?.channel === "slack" ? automation.deliver_to.target : ""
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -196,6 +199,10 @@ function EditAutomationForm({
         prompt: prompt.trim(),
         cadence: cadence as Automation["cadence"],
         status: status as Automation["status"],
+        // Empty input clears delivery ({}), a channel name sets it.
+        deliver_to: slackTarget.trim()
+          ? { channel: "slack", target: slackTarget.trim() }
+          : {},
       });
       onSaved();
     } catch {
@@ -243,6 +250,17 @@ function EditAutomationForm({
         rows={3}
         style={{ width: "100%", resize: "vertical", marginBottom: 10 }}
       />
+      <label className="meta" style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+        Deliver results to Slack channel
+        <input
+          className="search-input"
+          aria-label="Slack channel for results"
+          placeholder="#general (empty = dashboard only)"
+          value={slackTarget}
+          onChange={(e) => setSlackTarget(e.target.value)}
+          style={{ flex: 1, minWidth: 180 }}
+        />
+      </label>
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
         <button type="submit" className="btn btn-primary" style={{ fontSize: 12 }} disabled={saving || !name.trim() || !prompt.trim()}>
           {saving ? <Loader2 className="size-3.5 animate-spin" /> : null}
@@ -516,6 +534,22 @@ export default function AutomationsPage() {
                           </span>
                         )}
                         <span className="meta" style={{ fontSize: 11 }}>· last run {timeAgo(a.last_run_at)}</span>
+                        {a.deliver_to?.channel === "slack" && (
+                          <span
+                            className="meta"
+                            style={{
+                              fontSize: 11,
+                              color:
+                                a.last_delivery?.status === "failed"
+                                  ? "var(--red)"
+                                  : undefined,
+                            }}
+                          >
+                            {a.last_delivery?.status === "failed"
+                              ? `· delivery to ${a.deliver_to.target} failed`
+                              : `· delivers to ${a.deliver_to.target}`}
+                          </span>
+                        )}
                       </div>
                       <p className="meta" style={{ fontSize: 12, lineHeight: 1.5, margin: 0 }}>{brandText(a.prompt)}</p>
                     </div>
