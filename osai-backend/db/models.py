@@ -216,6 +216,11 @@ class Automation(Base):
     last_result: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Connector snapshot at last run, so the next run can report newly added sources.
     last_connectors: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    # Where run results are delivered, e.g. {"channel": "slack", "target": "#general"}.
+    # None = results only land in last_result (the dashboard).
+    deliver_to: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # Outcome of the most recent delivery attempt (status + error), for honest UI.
+    last_delivery: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc, onupdate=now_utc)
 

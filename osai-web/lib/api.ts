@@ -555,6 +555,15 @@ export function getDashboardMetrics() {
 
 // ─── Automations (NL scheduled tasks) ─────────────────────────────────────────
 
+export type DeliveryTarget = { channel: "slack"; target: string };
+
+export type DeliveryOutcome = {
+  status: "delivered" | "failed" | "skipped";
+  via?: string;
+  target?: string;
+  error?: string;
+};
+
 export type Automation = {
   id: string;
   name: string;
@@ -564,6 +573,8 @@ export type Automation = {
   status: "draft" | "active" | "paused";
   last_run_at: string | null;
   last_result: string | null;
+  deliver_to: DeliveryTarget | null;
+  last_delivery: DeliveryOutcome | null;
   updated_at: string | null;
 };
 
@@ -575,13 +586,19 @@ export function createAutomation(input: {
   name: string;
   prompt: string;
   cadence: string;
+  deliver_to?: DeliveryTarget | null;
 }) {
   return apiPost<typeof input, Automation>("/automations", input);
 }
 
 export function updateAutomation(
   id: string,
-  patch: Partial<Pick<Automation, "name" | "prompt" | "cadence" | "enabled" | "status">>
+  patch: Partial<
+    Pick<Automation, "name" | "prompt" | "cadence" | "enabled" | "status">
+  > & {
+    // {} clears the delivery target; omit to leave unchanged.
+    deliver_to?: DeliveryTarget | Record<string, never>;
+  }
 ) {
   return apiPatch<typeof patch, Automation>(`/automations/${id}`, patch);
 }

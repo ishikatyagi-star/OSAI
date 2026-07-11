@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from agent.automation_runner import execute_automation
 from db.models import Automation, User
 from db.repositories import (
+    UNSET,
     create_automation,
     delete_automation,
     list_automations,
@@ -30,6 +31,23 @@ OptionalClaims = Annotated[dict | None, Depends(get_optional_claims)]
 
 VALID_CADENCES = ("manual", "hourly", "daily", "weekly")
 VALID_STATUSES = ("draft", "active", "paused")
+VALID_DELIVERY_CHANNELS = ("slack",)
+
+
+def _validated_delivery(deliver_to: dict | None) -> dict | None:
+    """Normalize/validate a delivery target. None or {} clears delivery."""
+    if not deliver_to:
+        return None
+    channel = str(deliver_to.get("channel", "")).lower()
+    target = str(deliver_to.get("target", "")).strip()
+    if channel not in VALID_DELIVERY_CHANNELS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"delivery channel must be one of {VALID_DELIVERY_CHANNELS}.",
+        )
+    if not target:
+        raise HTTPException(status_code=400, detail="Delivery target is required.")
+    return {"channel": channel, "target": target}
 
 
 class AutomationCreate(BaseModel):
@@ -37,6 +55,7 @@ class AutomationCreate(BaseModel):
     prompt: str
     cadence: str = "manual"
     status: str = "active"
+    deliver_to: dict | None = None
 
 
 class AutomationUpdate(BaseModel):
@@ -45,6 +64,8 @@ class AutomationUpdate(BaseModel):
     cadence: str | None = None
     enabled: bool | None = None
     status: str | None = None
+    # None = leave unchanged; {} = clear delivery; {channel, target} = set.
+    deliver_to: dict | None = None
 
 
 def _serialize(a: Automation) -> dict[str, object]:
@@ -58,6 +79,8 @@ def _serialize(a: Automation) -> dict[str, object]:
         "status": (a.status or "active") if a.enabled else "paused",
         "last_run_at": a.last_run_at.isoformat() if a.last_run_at else None,
         "last_result": a.last_result,
+        "deliver_to": a.deliver_to,
+        "last_delivery": a.last_delivery,
         "updated_at": a.updated_at.isoformat() if a.updated_at else None,
     }
 
@@ -76,6 +99,7 @@ async def create_(body: AutomationCreate, db: DbSession, org_id: OrgId) -> dict[
     a = create_automation(
         db, org_id=org_id, user_id=None, name=body.name.strip(),
         prompt=body.prompt.strip(), cadence=cadence, status=status,
+        deliver_to=_validated_delivery(body.deliver_to),
     )
     return _serialize(a)
 
@@ -97,6 +121,10 @@ async def update_(
         name=body.name.strip() if body.name else None,
         prompt=body.prompt.strip() if body.prompt else None,
         cadence=body.cadence, enabled=body.enabled, status=body.status,
+        # Distinguish "not sent" (leave as-is) from {} (clear) and a dict (set).
+        deliver_to=(
+            UNSET if body.deliver_to is None else _validated_delivery(body.deliver_to)
+        ),
     )
     if a is None:
         raise HTTPException(status_code=404, detail="Automation not found.")
