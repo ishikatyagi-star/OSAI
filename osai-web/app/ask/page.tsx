@@ -55,19 +55,19 @@ const COMPOSER_MODES: {
     id: "ask",
     label: "Ask",
     icon: Sparkles,
-    placeholder: "Ask anything about your org: projects, owners, decisions, status...",
+    placeholder: "Ask anything about your org...",
   },
   {
     id: "search",
     label: "Search",
     icon: Search,
-    placeholder: "Search across Notion, Slack, Google Drive, Freshdesk and Zoom...",
+    placeholder: "Search connected tools...",
   },
   {
     id: "action",
     label: "Take action",
     icon: Zap,
-    placeholder: "Tell Sheldon AI to open a ticket, assign an owner, or post a status update...",
+    placeholder: "Describe an action...",
   },
 ];
 
@@ -297,7 +297,7 @@ export default function AskPage() {
   return (
     <div className="ask-canvas flex min-h-[calc(100vh-128px)] flex-col">
       {/* Header */}
-      <div className="page-header shrink-0">
+      <div className="page-header ask-page-header shrink-0" data-conversation={!empty}>
         <div className="page-header-left">
           <h1>Ask Sheldon AI</h1>
           <p>
@@ -308,12 +308,15 @@ export default function AskPage() {
         {!empty && (
           <button
             className="btn"
+            aria-label="New chat"
             onClick={() => {
               setTurns([]);
               setConversationId(null);
             }}
           >
-            <Plus className="size-3.5" /> New chat
+            <Plus className="size-3.5" />
+            <span className="ask-new-chat-wide">New chat</span>
+            <span className="ask-new-chat-compact" aria-hidden>New</span>
           </button>
         )}
       </div>
@@ -358,7 +361,6 @@ export default function AskPage() {
               <form onSubmit={handleSubmit} className="w-full">
                 <div className="ask-composer ask-composer-hero">
                   <div className="flex items-center gap-3 px-4 py-3">
-                    <Plus className="size-5 shrink-0 text-[var(--text-secondary)]" />
                     <Textarea
                       ref={inputRef}
                       value={input}
@@ -466,9 +468,9 @@ export default function AskPage() {
         <>
           <div
             ref={threadRef}
-            className="ask-scroll max-h-[calc(100vh-260px)] min-h-[320px] overflow-y-auto"
+            className="ask-scroll min-h-[320px] flex-1 overflow-y-auto"
           >
-            <div className="mx-auto w-full max-w-3xl space-y-6 py-1">
+            <div className="ask-thread mx-auto w-full max-w-3xl space-y-7 py-2">
               {turns.map((t) => (
                 <MessageBubble
                   key={t.id}
@@ -479,13 +481,18 @@ export default function AskPage() {
                 />
               ))}
               {pending && (
-                <div className="flex gap-3">
-                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-extrabold text-primary-foreground">
+                <div className="ask-loading-row" role="status" aria-live="polite">
+                  <div className="ask-turn-avatar flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-extrabold text-primary-foreground">
                     O
                   </div>
-                  <div className="flex items-center gap-2 rounded-xl rounded-tl-sm border border-[var(--border)] bg-[var(--bg-surface)] px-4 py-3 text-sm text-muted-foreground">
-                    <Loader2 className="size-4 animate-spin text-primary" />
-                    Searching across your connected knowledge base...
+                  <div className="ask-loading-copy">
+                    <span className="ask-loading-title">
+                      <Loader2 className="size-4 animate-spin" />
+                      Searching your workspace
+                    </span>
+                    <span className="ask-loading-detail">
+                      Checking connected sources for relevant context.
+                    </span>
                   </div>
                 </div>
               )}
@@ -494,7 +501,7 @@ export default function AskPage() {
 
           {/* Composer pinned to the bottom of the thread */}
           <form onSubmit={handleSubmit} className="shrink-0 pt-4">
-            <div className="mx-auto w-full max-w-3xl">
+            <div className="ask-conversation-composer mx-auto w-full max-w-3xl">
               <div className="ask-composer flex items-center gap-2 px-4 py-3">
                 <Textarea
                   ref={inputRef}
