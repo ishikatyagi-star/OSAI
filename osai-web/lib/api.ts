@@ -737,18 +737,26 @@ export type UploadResult = {
   vectors_indexed: number;
   vector_error: string | null;
   skipped: { filename: string; reason: string }[];
+  visibility: UploadVisibility;
   documents: { id: string; title: string; data_tier: string }[];
 };
 
+/** Who can see an uploaded file. Translated to permission grants server-side. */
+export type UploadVisibility = "personal" | "department" | "company" | "people";
+
 export async function uploadDocuments(
   files: File[],
-  dataTier: "normal" | "amber" | "red" = "normal",
-  departmentId?: string
+  opts: {
+    visibility?: UploadVisibility;
+    departmentId?: string;
+    sharedWith?: string[]; // member ids, for visibility "people"
+  } = {}
 ): Promise<UploadResult> {
   const form = new FormData();
   for (const file of files) form.append("files", file);
-  form.append("data_tier", dataTier);
-  if (departmentId) form.append("department_id", departmentId);
+  form.append("visibility", opts.visibility ?? "personal");
+  if (opts.departmentId) form.append("department_id", opts.departmentId);
+  if (opts.sharedWith?.length) form.append("shared_with", opts.sharedWith.join(","));
   // No Content-Type header: the browser sets the multipart boundary itself.
   const res = await fetch(`${API_BASE_URL}/documents/upload`, {
     method: "POST",

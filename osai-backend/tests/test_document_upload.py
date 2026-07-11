@@ -44,13 +44,53 @@ def test_upload_docx_extracts_paragraphs():
     assert resp.json()["documents_indexed"] == 1
 
 
-def test_upload_respects_tier_and_permissions():
+def test_upload_respects_tier():
     resp = _upload(
         [("files", ("salary.txt", b"Compensation bands for 2026.", "text/plain"))],
-        data={"data_tier": "red", "permissions": "source:hr, role:admin"},
+        data={"data_tier": "red"},
     )
     assert resp.status_code == 200
     assert resp.json()["documents"][0]["data_tier"] == "red"
+
+
+def test_upload_default_visibility_is_personal():
+    resp = _upload([("files", ("mine.txt", b"my notes", "text/plain"))])
+    assert resp.status_code == 200
+    assert resp.json()["visibility"] == "personal"
+
+
+def test_upload_rejects_bad_visibility():
+    resp = _upload(
+        [("files", ("a.txt", b"x", "text/plain"))],
+        data={"visibility": "everyone"},
+    )
+    assert resp.status_code == 422
+
+
+def test_upload_company_visibility():
+    resp = _upload(
+        [("files", ("handbook.md", b"# Handbook", "text/markdown"))],
+        data={"visibility": "company"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["visibility"] == "company"
+
+
+def test_upload_people_visibility_requires_recipients():
+    resp = _upload(
+        [("files", ("a.txt", b"x", "text/plain"))],
+        data={"visibility": "people"},
+    )
+    assert resp.status_code == 422
+
+
+def test_upload_department_visibility_requires_department():
+    # Unauthenticated + no department_id: nothing to scope to.
+    resp = _upload(
+        [("files", ("a.txt", b"x", "text/plain"))],
+        data={"visibility": "department"},
+    )
+    assert resp.status_code == 422
 
 
 def test_upload_rejects_bad_tier():

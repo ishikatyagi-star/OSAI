@@ -9,7 +9,6 @@ import { CONNECTOR_META, getConnectorIcon } from "@/lib/connector-meta";
 import type { Integration, SyncRun } from "@/lib/types";
 import { AddConnectorDialog } from "@/components/integrations/add-connector-dialog";
 import { ConnectorManager } from "@/components/integrations/connector-manager";
-import { UploadCard } from "@/components/integrations/upload-card";
 import { Button } from "@/components/ui/button";
 import { DataRoutingPanel } from "@/components/integrations/data-routing-panel";
 import { StatusDot } from "@/components/ui/status-dot";
@@ -215,9 +214,6 @@ export default function IntegrationsPage() {
               </span>
             </div>
           )}
-
-          {/* Direct file upload — same ingestion pipeline as connector syncs */}
-          <UploadCard onUploaded={loadIntegrations} />
 
           {/* Summary - dashboard stat-card styling */}
           <div className="stats-grid stats-grid--auto">

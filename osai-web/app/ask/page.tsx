@@ -18,6 +18,7 @@ import { buildOpenUiArtifacts } from "@/lib/openui-artifacts";
 import { cn } from "@/lib/utils";
 import type { AgentAction, AskResponse } from "@/lib/types";
 import { MessageBubble, type AskTurn } from "@/components/ask/message-bubble";
+import { ComposerAttach } from "@/components/ask/composer-attach";
 import { getDepartments, type Department } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -211,6 +212,12 @@ export default function AskPage() {
     send(input);
   }
 
+  // A successful upload lands in the thread as an assistant note, so the file
+  // is immediately askable in context instead of vanishing into another page.
+  const handleUploaded = useCallback((note: string) => {
+    setTurns((prev) => [...prev, { id: uid("a"), role: "assistant", content: note }]);
+  }, []);
+
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -359,8 +366,9 @@ export default function AskPage() {
                 </div>
               )}
               <form onSubmit={handleSubmit} className="w-full">
-                <div className="ask-composer ask-composer-hero">
+                <div className="ask-composer ask-composer-hero" style={{ position: "relative" }}>
                   <div className="flex items-center gap-3 px-4 py-3">
+                    <ComposerAttach onUploaded={handleUploaded} disabled={pending} />
                     <Textarea
                       ref={inputRef}
                       value={input}
@@ -502,7 +510,11 @@ export default function AskPage() {
           {/* Composer pinned to the bottom of the thread */}
           <form onSubmit={handleSubmit} className="shrink-0 pt-4">
             <div className="ask-conversation-composer mx-auto w-full max-w-3xl">
-              <div className="ask-composer flex items-center gap-2 px-4 py-3">
+              <div
+                className="ask-composer flex items-center gap-2 px-4 py-3"
+                style={{ position: "relative" }}
+              >
+                <ComposerAttach onUploaded={handleUploaded} disabled={pending} />
                 <Textarea
                   ref={inputRef}
                   value={input}
