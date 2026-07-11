@@ -287,7 +287,7 @@ export default function AskPage() {
   return (
     <div className="ask-canvas flex min-h-[calc(100vh-128px)] flex-col">
       {/* Header */}
-      <div className="page-header shrink-0">
+      <div className="page-header ask-page-header shrink-0" data-conversation={!empty}>
         <div className="page-header-left">
           <h1>Ask Sheldon AI</h1>
           <p>
@@ -322,7 +322,6 @@ export default function AskPage() {
               <form onSubmit={handleSubmit} className="w-full">
                 <div className="ask-composer ask-composer-hero">
                   <div className="flex items-center gap-3 px-4 py-3">
-                    <Plus className="size-5 shrink-0 text-[var(--text-secondary)]" />
                     <Textarea
                       ref={inputRef}
                       value={input}

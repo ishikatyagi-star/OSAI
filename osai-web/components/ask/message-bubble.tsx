@@ -34,8 +34,8 @@ export function MessageBubble({
 }) {
   if (turn.role === "user") {
     return (
-      <div className="flex justify-end">
-        <div className="max-w-[80%] rounded-[20px] rounded-br-sm border border-[var(--border)] bg-[var(--bg-surface)] px-4 py-2.5 text-sm text-foreground">
+      <div className="ask-user-turn flex justify-end">
+        <div className="ask-user-bubble max-w-[80%] rounded-[20px] rounded-br-sm border border-[var(--border)] bg-[var(--bg-surface)] px-4 py-2.5 text-sm text-foreground">
           {turn.content}
         </div>
       </div>
@@ -43,15 +43,15 @@ export function MessageBubble({
   }
 
   return (
-    <div className="flex gap-3">
+    <div className="ask-assistant-turn flex gap-3">
       <div
-        className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-extrabold text-primary-foreground"
+        className="ask-turn-avatar flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-extrabold text-primary-foreground"
         aria-hidden
       >
         O
       </div>
-      <div className="min-w-0 flex-1 space-y-3">
-        <div className="rounded-[20px] rounded-tl-sm border border-[var(--border)] bg-[var(--bg-surface)] px-4 py-3">
+      <div className="ask-turn-body min-w-0 flex-1 space-y-3">
+        <div className="ask-assistant-bubble rounded-[20px] rounded-tl-sm border border-[var(--border)] bg-[var(--bg-surface)] px-4 py-3">
           <MarkdownLite text={brandText(turn.content)} />
 
           {turn.enoughContext === false && (
@@ -67,7 +67,7 @@ export function MessageBubble({
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               Sources ({turn.citations.length})
             </p>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="ask-citations flex flex-wrap gap-1.5">
               {turn.citations.map((c, i) => (
                 <CitationChip key={i} citation={c} index={i} />
               ))}

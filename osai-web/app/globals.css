@@ -2467,7 +2467,7 @@ select {
 }
 
 .ask-title {
-  font-size: clamp(34px, 4vw, 46px);
+  font-size: clamp(32px, 3.5vw, 42px);
   font-family: var(--font-display);
   font-weight: 400;
   letter-spacing: -0.6px;
@@ -2684,6 +2684,62 @@ select {
 
 .ask-composer textarea {
   color: var(--text-primary);
+}
+
+.ask-composer textarea:focus-visible {
+  box-shadow: none;
+}
+
+@media (max-width: 700px) {
+  .ask-page-header[data-conversation="true"] {
+    align-items: center;
+    flex-direction: row;
+    gap: 12px;
+  }
+
+  .ask-page-header[data-conversation="true"] .page-header-left p {
+    display: none;
+  }
+
+  .ask-page-header[data-conversation="true"] h1 {
+    font-size: 28px;
+  }
+
+  .ask-page-header[data-conversation="true"] .btn {
+    flex: none;
+    min-height: 40px;
+    padding-inline: 14px;
+  }
+
+  .ask-assistant-turn {
+    gap: 8px;
+  }
+
+  .ask-turn-avatar {
+    width: 28px;
+    height: 28px;
+    font-size: 12px;
+  }
+
+  .ask-user-bubble {
+    max-width: 88%;
+    border-radius: 14px;
+    padding: 8px 12px;
+  }
+
+  .ask-assistant-bubble {
+    border-radius: 14px;
+    padding: 10px 12px;
+  }
+
+  .ask-citations {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .ask-citations > * {
+    width: 100%;
+  }
 }
 
 .ask-send-button {

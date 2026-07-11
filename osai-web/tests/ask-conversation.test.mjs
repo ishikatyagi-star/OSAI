@@ -18,4 +18,6 @@ test("answers keep the app shell fixed and avoid duplicate generated cards", () 
   assert.doesNotMatch(artifacts, /OpenUI answer workspace|Source evidence|Approval queue/);
   assert.match(citations, /inline-flex max-w-full min-w-0/);
   assert.doesNotMatch(citations, /max-w-\[220px\]/);
+  assert.match(page, /data-conversation={!empty}/);
+  assert.doesNotMatch(page, /<Plus className="size-5 shrink-0/);
 });
