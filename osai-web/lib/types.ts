@@ -54,6 +54,10 @@ export type SourceCitation = {
   url: string | null;
   confidence: number;
   data_tier?: string | null;
+  // Policy explain (from the backend's actual governance decisions).
+  access_reason?: string | null;
+  model_routing?: "cloud" | "local-only" | null;
+  routing_reason?: string | null;
 };
 
 export type AskUiArtifactKind =
@@ -135,7 +139,6 @@ export type AskRequest = {
   question: string;
   conversation_id?: string | null;
   history?: ChatMessage[];
-  department_id?: string | null;
 };
 
 export type AskResponse = {

@@ -46,13 +46,13 @@ export function ActionCard({
   return (
     <div
       className={cn(
-        "rounded-[15px] border bg-[var(--bg-surface)] p-4",
+        "ask-action-card rounded-[15px] border bg-[var(--bg-surface)] p-4",
         isPending ? "border-warning/40" : "border-[var(--border)]"
       )}
     >
-      <div className="flex items-start gap-3">
+      <div className="ask-action-layout flex items-start gap-3">
         <div
-          className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--bg-surface)] text-base"
+          className="ask-action-icon mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--bg-surface)] text-base"
           style={meta ? { color: meta.color } : undefined}
           aria-hidden
         >
@@ -64,20 +64,20 @@ export function ActionCard({
         </div>
 
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              {meta?.label ?? action.tool} · {action.action}
+          <div className="ask-action-header flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold text-muted-foreground">
+              {meta?.label ?? action.tool} · <span className="capitalize">{action.action.replaceAll("_", " ")}</span>
             </span>
             {statusBadge}
           </div>
-          <p className="mt-1 text-sm text-foreground/90">{brandText(action.summary)}</p>
+          <p className="ask-action-summary mt-1.5 text-sm leading-relaxed text-foreground/90">{brandText(action.summary)}</p>
 
           {action.params && Object.keys(action.params).length > 0 && (
-            <dl className="mt-2.5 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-md border border-border bg-background/40 p-2.5 text-xs">
+            <dl className="ask-action-params mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 rounded-md bg-[var(--bg-elevated)] p-3 text-xs">
               {Object.entries(action.params).map(([k, v]) => (
                 <React.Fragment key={k}>
                   <dt className="font-mono text-muted-foreground">{k}</dt>
-                  <dd className="truncate text-foreground/80">{brandText(String(v))}</dd>
+                  <dd className="min-w-0 break-words text-foreground/80">{brandText(String(v))}</dd>
                 </React.Fragment>
               ))}
             </dl>
@@ -100,9 +100,10 @@ export function ActionCard({
           )}
 
           {isPending && (
-            <div className="mt-3 flex items-center gap-2">
+            <div className="ask-action-buttons mt-3 flex items-center gap-2">
               <Button
                 size="sm"
+                className="min-w-[72px] border-0"
                 onClick={() => onApprove(action)}
                 disabled={busy}
               >
@@ -118,7 +119,8 @@ export function ActionCard({
               </Button>
               <Button
                 size="sm"
-                variant="ghost"
+                variant="outline"
+                className="min-w-[72px]"
                 onClick={() => onDismiss(action)}
                 disabled={busy}
               >

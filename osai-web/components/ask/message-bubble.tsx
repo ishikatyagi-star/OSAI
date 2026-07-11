@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { AlertTriangle, Clock, Cpu } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import type { AgentAction, AskUiArtifact, SourceCitation } from "@/lib/types";
 import { MarkdownLite } from "./markdown-lite";
 import { CitationChip } from "./citation-chip";
@@ -38,8 +38,8 @@ export function MessageBubble({
 }) {
   if (turn.role === "user") {
     return (
-      <div className="flex justify-end">
-        <div className="max-w-[80%] rounded-[20px] rounded-br-sm border border-[var(--border)] bg-[var(--bg-surface)] px-4 py-2.5 text-sm text-foreground">
+      <div className="ask-user-turn flex justify-end">
+        <div className="ask-user-bubble max-w-[72%]">
           {turn.content}
         </div>
       </div>
@@ -47,31 +47,33 @@ export function MessageBubble({
   }
 
   return (
-    <div className="flex gap-3">
+    <div className="ask-assistant-turn flex gap-3">
       <div
-        className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-extrabold text-primary-foreground"
+        className="ask-turn-avatar flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-extrabold text-primary-foreground"
         aria-hidden
       >
         O
       </div>
-      <div className="min-w-0 flex-1 space-y-3">
-        <div className="rounded-[20px] rounded-tl-sm border border-[var(--border)] bg-[var(--bg-surface)] px-4 py-3">
+      <div className="ask-turn-body min-w-0 flex-1 space-y-4">
+        <div className="ask-assistant-bubble">
           <MarkdownLite text={brandText(turn.content)} />
-
-          {turn.enoughContext === false && (
-            <p className="mt-3 inline-flex items-start gap-1.5 border-t border-border pt-2.5 text-xs text-warning">
-              <AlertTriangle className="mt-0.5 size-3.5 shrink-0" strokeWidth={1.8} />
-              <span>Limited indexed context - trigger a sync from Integrations to improve coverage.</span>
-            </p>
-          )}
         </div>
+
+        {turn.enoughContext === false && (
+          <div className="ask-context-notice" role="note">
+            <AlertTriangle className="size-4 shrink-0" strokeWidth={1.8} />
+            <span>
+              Limited workspace context. Sync your integrations for a more complete answer.
+            </span>
+          </div>
+        )}
 
         {turn.citations && turn.citations.length > 0 && (
           <div className="space-y-1.5">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               Sources ({turn.citations.length})
             </p>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="ask-citations flex flex-wrap gap-1.5">
               {turn.citations.map((c, i) => (
                 <CitationChip key={i} citation={c} index={i} />
               ))}

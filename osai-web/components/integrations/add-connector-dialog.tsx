@@ -104,46 +104,39 @@ export function AddConnectorDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent style={{ maxWidth: 640 }}>
-        <DialogHeader>
-          <DialogTitle>Add a connector</DialogTitle>
-          <DialogDescription>
+      <DialogContent className="connector-catalog-dialog max-w-[760px] gap-0 overflow-hidden p-0">
+        <DialogHeader className="connector-catalog-header border-b border-border">
+          <DialogTitle className="text-xl">Add a connector</DialogTitle>
+          <DialogDescription className="max-w-2xl leading-relaxed">
             Search the full app catalog and connect any tool your team uses.
             Sheldon AI indexes and searches its content; write actions always require
             your approval.
           </DialogDescription>
         </DialogHeader>
 
-        <div style={{ position: "relative", marginBottom: 12 }}>
+        <div className="connector-catalog-search relative">
           <Search
-            size={14}
-            style={{
-              position: "absolute",
-              left: 10,
-              top: "50%",
-              transform: "translateY(-50%)",
-              color: "var(--text-secondary)",
-            }}
+            className="absolute left-9 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
           />
           <Input
             autoFocus
             placeholder="Search apps (Gmail, Jira, HubSpot, GitHub…)"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            style={{ paddingLeft: 30 }}
+            className="h-11 rounded-xl pl-10"
             aria-label="Search connector catalog"
           />
         </div>
 
         {error && (
-          <p className="meta" style={{ color: "var(--destructive, var(--red))", marginBottom: 8 }}>
+          <p className="px-6 pb-4 text-sm text-destructive">
             {error}
           </p>
         )}
 
-        <div style={{ maxHeight: 380, overflowY: "auto", display: "grid", gap: 8 }}>
+        <div className="connector-catalog-grid grid max-h-[min(60vh,560px)] grid-cols-1 gap-3 overflow-y-auto border-t border-border bg-muted/20 sm:grid-cols-2">
           {loading ? (
-            <div style={{ display: "flex", justifyContent: "center", padding: 24 }}>
+            <div className="col-span-full flex justify-center py-12">
               <Loader2 className="animate-spin" size={18} />
             </div>
           ) : (
@@ -152,46 +145,43 @@ export function AddConnectorDialog({
               return (
                 <div
                   key={tk.slug}
-                  className="card"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 12,
-                    padding: "10px 14px",
-                  }}
+                  className="connector-catalog-card flex min-h-[92px] items-center gap-3 rounded-xl border border-border bg-card transition-colors hover:border-border-hover"
                 >
-                  {tk.logo ? (
-                    // Composio-hosted logo; plain <img> keeps remote domains out
-                    // of next.config image allowlists.
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={tk.logo}
-                      alt=""
-                      width={24}
-                      height={24}
-                      style={{ borderRadius: 6, flexShrink: 0 }}
-                    />
-                  ) : (
-                    <Plug size={18} style={{ flexShrink: 0 }} />
-                  )}
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div className="text-body font-semibold">{tk.name || tk.slug}</div>
-                    <div className="meta" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                      {(tk.categories ?? []).slice(0, 2).map((c) => (
-                        <Badge key={c} variant="secondary">
-                          {c}
-                        </Badge>
-                      ))}
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border bg-background">
+                    {tk.logo ? (
+                      // Composio-hosted logo; plain <img> keeps remote domains out
+                      // of next.config image allowlists.
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={tk.logo}
+                        alt=""
+                        width={24}
+                        height={24}
+                        className="rounded-md"
+                      />
+                    ) : (
+                      <Plug className="size-5 text-muted-foreground" />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-semibold text-foreground">
+                      {tk.name || tk.slug}
+                    </div>
+                    <div className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+                      <span className="truncate">
+                        {(tk.categories ?? []).slice(0, 2).join(" · ") || "App connector"}
+                      </span>
                       {typeof tk.tools_count === "number" && (
-                        <span>{tk.tools_count} tools</span>
+                        <span className="shrink-0">· {tk.tools_count} tools</span>
                       )}
                     </div>
                   </div>
                   {isConnected ? (
-                    <Badge variant="secondary">Connected</Badge>
+                    <Badge variant="secondary" className="shrink-0">Connected</Badge>
                   ) : (
                     <Button
                       size="sm"
+                      className="min-w-[76px] shrink-0"
                       disabled={connecting !== null}
                       onClick={() => handleConnect(tk.slug)}
                     >
@@ -207,7 +197,7 @@ export function AddConnectorDialog({
             })
           )}
           {!loading && cursor && (
-            <Button variant="outline" onClick={loadMore} disabled={loadingMore}>
+            <Button className="col-span-full" variant="outline" onClick={loadMore} disabled={loadingMore}>
               {loadingMore ? <Loader2 className="animate-spin" size={14} /> : "Load more"}
             </Button>
           )}

@@ -32,6 +32,22 @@ def _visible(chunk_permissions: list[str] | None, requester_permissions: list[st
     return bool(set(chunk_permissions) & set(requester_permissions))
 
 
+def _access_reason(
+    chunk_permissions: list[str] | None, requester_permissions: list[str]
+) -> str:
+    """Human-readable reason a visible chunk passed `_visible` — mirrors its
+    branches exactly, so the explanation can never disagree with the decision."""
+    if not requester_permissions:
+        return "System context (no user restrictions apply)"
+    if "role:admin" in requester_permissions:
+        return "You're a workspace admin (see-all)"
+    chunk_permissions = chunk_permissions or []
+    if not chunk_permissions or "source:all" in chunk_permissions:
+        return "Shared with everyone in your workspace"
+    shared = sorted(set(chunk_permissions) & set(requester_permissions))
+    return f"Matches your access grant: {', '.join(shared)}"
+
+
 async def retrieve_answer(request: SearchRequest) -> SearchResponse:
     from memory.org_memory import fetch_relevant
 
@@ -102,7 +118,8 @@ async def retrieve_answer(request: SearchRequest) -> SearchResponse:
         doc_id = payload.get("source_document_id", "")
         tier = payload.get("data_tier") or "normal"
 
-        if cloud_llm_allowed(routing, tier):
+        cloud_ok = cloud_llm_allowed(routing, tier)
+        if cloud_ok:
             context_parts.append(f"[{title}]\n{text}")
         else:
             restricted_parts.append(f"[{title}]\n{text}")
@@ -116,6 +133,16 @@ async def retrieve_answer(request: SearchRequest) -> SearchResponse:
                     url=url,
                     confidence=round(float(hit.score), 3),
                     data_tier=tier,
+                    access_reason=_access_reason(
+                        payload.get("permissions"), request.requester_permissions
+                    ),
+                    model_routing="cloud" if cloud_ok else "local-only",
+                    routing_reason=(
+                        f"'{tier}' tier may be sent to cloud models"
+                        if cloud_ok
+                        else f"'{tier}' tier is restricted to local models by your "
+                        "workspace's data-routing policy"
+                    ),
                 )
             )
 
