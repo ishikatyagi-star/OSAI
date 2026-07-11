@@ -620,6 +620,55 @@ export function runAutomation(id: string) {
   );
 }
 
+// ─── Decision log (/decisions) ───────────────────────────────────────────────
+
+export type ApiDecision = {
+  id: string;
+  title: string;
+  status: "proposed" | "approved" | "rejected";
+  impact: "critical" | "high" | "medium" | "low";
+  owner: string | null;
+  source: string;
+  identifiedBy: "source" | "osai";
+  tags: string[];
+  date: string;
+  updated_at: string | null;
+};
+
+export function getDecisions() {
+  return apiGet<ApiDecision[]>("/decisions", []);
+}
+
+export function createDecision(input: {
+  title: string;
+  status: string;
+  impact: string;
+  owner?: string | null;
+  source?: string;
+  identified_by?: string;
+  tags?: string[];
+}) {
+  return apiPost<typeof input, ApiDecision>("/decisions", input);
+}
+
+export function updateDecision(
+  id: string,
+  patch: Partial<{
+    title: string;
+    status: string;
+    impact: string;
+    owner: string | null;
+    source: string;
+    tags: string[];
+  }>
+) {
+  return apiPatch<typeof patch, ApiDecision>(`/decisions/${id}`, patch);
+}
+
+export function deleteDecision(id: string) {
+  return apiDelete<{ deleted: boolean }>(`/decisions/${id}`);
+}
+
 // ─── Answer feedback (POST /feedback) ────────────────────────────────────────
 
 export function submitFeedback(input: {
