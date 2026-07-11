@@ -14,13 +14,16 @@ from db.repositories import (
     list_workflow_runs,
     save_workflow_run,
     try_db,
+    user_clearance,
+    user_permissions,
 )
-from db.session import get_db, get_org_id
+from db.session import get_db, get_optional_claims, get_org_id
 from workflows.runner import run_action_item_workflow
 
 router = APIRouter(prefix="/workflows", tags=["workflows"])
 DbSession = Annotated[Session, Depends(get_db)]
 OrgId = Annotated[str, Depends(get_org_id)]
+OptionalClaims = Annotated[dict | None, Depends(get_optional_claims)]
 
 
 @router.get("")
@@ -64,13 +67,21 @@ async def get_workflow(workflow_id: str, db: DbSession, org_id: OrgId) -> dict:
 
 @router.post("", response_model=WorkflowRunResponse)
 async def create_workflow(
-    request: WorkflowRunCreate, db: DbSession, org_id: OrgId
+    request: WorkflowRunCreate, db: DbSession, org_id: OrgId, claims: OptionalClaims
 ) -> WorkflowRunResponse:
     """Run Gemini action-item extraction and persist the result."""
     # Bind the run to the caller's session org, ignoring any body-supplied org_id.
     request.org_id = org_id
     run_id = f"workflow-{uuid4()}"
-    response = await run_action_item_workflow(run_id=run_id, request=request, db=db)
+    # Enrichment context is scoped to the initiating user's permissions/tier so
+    # the extraction prompt can't become a side-door around retrieval ACLs.
+    response = await run_action_item_workflow(
+        run_id=run_id,
+        request=request,
+        db=db,
+        requester_permissions=user_permissions(db, claims),
+        requester_tier=user_clearance(db, claims),
+    )
 
     # Persist to DB (best-effort; don't fail the response if DB is unavailable)
     try_db(
