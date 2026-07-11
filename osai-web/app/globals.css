@@ -323,7 +323,7 @@
 /* ─── Reset ────────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-html, body { height: 100%; }
+html, body { height: 100%; background: var(--bg); }
 
 /* Tailwind's preflight is intentionally disabled (see theme.css) so it can't
    clobber this design system - but that also means form controls no longer
@@ -449,7 +449,7 @@ a { color: inherit; }
   font-size: 13px;
   font-weight: 500;
   letter-spacing: 0;
-  transition: all 0.15s ease;
+  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .sidebar-nav-item:hover {
@@ -1053,7 +1053,7 @@ h2 {
   letter-spacing: 0;
   cursor: pointer;
   border: 1px solid var(--border);
-  transition: all 0.15s ease;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
   background: var(--bg-surface);
   color: var(--text-primary);
   text-decoration: none;
@@ -1534,7 +1534,7 @@ select {
   font-weight: 500;
   letter-spacing: -0.12px;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
   font-family: var(--font);
 }
 
@@ -1896,7 +1896,7 @@ select {
   font-weight: 500;
   border-radius: 100px;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background-color 0.15s, color 0.15s;
   font-family: var(--font);
   letter-spacing: -0.14px;
 }

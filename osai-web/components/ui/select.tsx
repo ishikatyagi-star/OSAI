@@ -36,7 +36,7 @@ function Select({
   return (
     <SelectPrimitive.Root value={value} onValueChange={onValueChange} disabled={disabled}>
       <SelectPrimitive.Trigger
-        className={cn("select inline-flex items-center justify-between gap-2", className)}
+        className={cn("select inline-flex min-w-36 shrink-0 items-center justify-between gap-2", className)}
         style={style}
         title={title}
         aria-label={ariaLabel}

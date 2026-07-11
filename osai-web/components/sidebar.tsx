@@ -106,6 +106,8 @@ export default function Sidebar() {
                   href={item.href}
                   className={`sidebar-nav-item${active ? " active" : ""}`}
                   aria-current={active ? "page" : undefined}
+                  aria-label={item.label}
+                  title={item.label}
                 >
                   <span className="nav-icon">
                     <Icon size={16} strokeWidth={1.75} />

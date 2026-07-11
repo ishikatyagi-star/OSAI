@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  async rewrites() {
+    return [{ source: "/", destination: "/landing" }];
+  },
   // Deep-link aliases so URLs matching the sidebar labels resolve to the real
   // routes instead of 404-ing (e.g. /context-inbox → /inbox).
   async redirects() {
