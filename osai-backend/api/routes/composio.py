@@ -26,9 +26,14 @@ def _client_or_404():
 
 
 @router.get("/toolkits")
-async def list_toolkits() -> list[dict]:
-    """Available Composio apps (Gmail, Calendar, Slack, …)."""
-    return await _client_or_404().list_toolkits()
+async def list_toolkits(
+    search: str | None = None, cursor: str | None = None, limit: int = 50
+) -> dict:
+    """Browse the full Composio app catalog — searchable and cursor-paginated,
+    so the UI can offer every toolkit Composio supports, not a fixed subset."""
+    return await _client_or_404().list_toolkits(
+        limit=min(limit, 100), search=search, cursor=cursor
+    )
 
 
 @router.get("/tools")
