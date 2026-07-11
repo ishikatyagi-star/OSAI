@@ -6,8 +6,9 @@
 # Deploy: Render → New → Blueprint → pick this repo. After it provisions, set
 # the `sync: false` secrets in the osai-api service's Environment tab.
 #
-# Celery worker and Beat are paid Render workers. They are required for durable
-# ingestion and recurring automations in production.
+# The Celery background worker is omitted (it needs a paid plan). The demo runs
+# fully synchronously in the API; add a `type: worker` service later if you need
+# async ingestion at scale.
 
 databases:
   - name: osai-postgres
@@ -78,8 +79,6 @@ services:
       # Session JWT signing secret — set to a strong random value.
       - key: OSAI_JWT_SECRET
         sync: false
-      - key: OSAI_ZOOM_WEBHOOK_SECRET
-        sync: false
       # Per-user Hermes reasoning sidecar. Leave UNSET to keep OSAI on its
       # in-house agent (default). Set to the deployed sidecar URL (see
       # services/hermes-sidecar/DEPLOY.md) ONLY after its /run gate passes —
@@ -88,82 +87,6 @@ services:
         sync: false
       # Shared secret with the sidecar — set to the SAME random value as
       # SIDECAR_AUTH_TOKEN on osai-hermes (the sidecar is publicly reachable).
-      - key: OSAI_HERMES_SIDECAR_TOKEN
-        sync: false
-
-  - type: worker
-    name: osai-worker
-    runtime: docker
-    dockerfilePath: ./osai-backend/Dockerfile
-    dockerContext: ./osai-backend
-    dockerCommand: celery -A workers.celery_app worker -l info
-    plan: starter
-    envVars:
-      - key: OSAI_ENV
-        value: production
-      - key: OSAI_DATABASE_URL
-        fromDatabase:
-          name: osai-postgres
-          property: connectionString
-      - key: OSAI_REDIS_URL
-        fromService:
-          type: keyvalue
-          name: osai-redis
-          property: connectionString
-      - key: OSAI_QDRANT_URL
-        sync: false
-      - key: OSAI_QDRANT_API_KEY
-        sync: false
-      - key: OSAI_GEMINI_API_KEY
-        sync: false
-      - key: OSAI_LLM_API_KEY
-        sync: false
-      - key: OSAI_COMPOSIO_API_KEY
-        sync: false
-      - key: OSAI_JWT_SECRET
-        sync: false
-      - key: OSAI_ZOOM_WEBHOOK_SECRET
-        sync: false
-      - key: OSAI_HERMES_SIDECAR_URL
-        sync: false
-      - key: OSAI_HERMES_SIDECAR_TOKEN
-        sync: false
-
-  - type: worker
-    name: osai-beat
-    runtime: docker
-    dockerfilePath: ./osai-backend/Dockerfile
-    dockerContext: ./osai-backend
-    dockerCommand: celery -A workers.celery_app beat -l info
-    plan: starter
-    envVars:
-      - key: OSAI_ENV
-        value: production
-      - key: OSAI_DATABASE_URL
-        fromDatabase:
-          name: osai-postgres
-          property: connectionString
-      - key: OSAI_REDIS_URL
-        fromService:
-          type: keyvalue
-          name: osai-redis
-          property: connectionString
-      - key: OSAI_QDRANT_URL
-        sync: false
-      - key: OSAI_QDRANT_API_KEY
-        sync: false
-      - key: OSAI_GEMINI_API_KEY
-        sync: false
-      - key: OSAI_LLM_API_KEY
-        sync: false
-      - key: OSAI_COMPOSIO_API_KEY
-        sync: false
-      - key: OSAI_JWT_SECRET
-        sync: false
-      - key: OSAI_ZOOM_WEBHOOK_SECRET
-        sync: false
-      - key: OSAI_HERMES_SIDECAR_URL
-        sync: false
       - key: OSAI_HERMES_SIDECAR_TOKEN
         sync: false
 

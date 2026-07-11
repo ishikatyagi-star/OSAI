@@ -114,7 +114,7 @@ export default function LoginPage() {
 
       {/* Footer */}
       <p className="login-footer">
-        By continuing you agree to our <Link href="/terms" style={{ color: "var(--text-secondary)", textDecoration: "underline" }}>Terms of Service</Link> and <Link href="/privacy" style={{ color: "var(--text-secondary)", textDecoration: "underline" }}>Privacy Policy</Link>.
+        By continuing you agree to our <a href="#" style={{ color: "var(--text-secondary)", textDecoration: "underline" }}>Terms of Service</a> and <a href="#" style={{ color: "var(--text-secondary)", textDecoration: "underline" }}>Privacy Policy</a>.
       </p>
     </div>
   );

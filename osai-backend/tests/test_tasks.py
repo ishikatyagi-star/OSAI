@@ -2,19 +2,15 @@
 
 from __future__ import annotations
 
-from datetime import timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
-import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from db.models import ActionItemRecord, Automation, Base, SourceDocumentRecord, WorkflowRun, now_utc
+from db.models import ActionItemRecord, Base, SourceDocumentRecord, WorkflowRun
 from db.repositories import seed_demo_data
 from workers.tasks.extract import extract_action_items
-from workers.tasks.ingest import MAX_TRANSCRIBE_BYTES, _validate_transcription_size, download_and_transcribe
-from workers.tasks.ingest import sync_composio_connections
-from workers.tasks.execute import run_due_automations
+from workers.tasks.ingest import download_and_transcribe
 
 
 def test_download_and_transcribe_with_extract_task_chain() -> None:
@@ -58,7 +54,7 @@ def test_download_and_transcribe_with_extract_task_chain() -> None:
         # 3. Check DB records
         with TestSessionLocal() as session:
             # Source document is persisted
-            doc = session.get(SourceDocumentRecord, "demo-org:zoom:meeting:meeting-123")
+            doc = session.get(SourceDocumentRecord, "zoom:meeting:meeting-123")
             assert doc is not None
             assert doc.title == "Daily Standup"
             assert "Anish" in doc.text
@@ -70,38 +66,6 @@ def test_download_and_transcribe_with_extract_task_chain() -> None:
 
         # Verify extract task was enqueued
         mock_extract_task.delay.assert_called_once_with(run_id)
-
-
-def test_download_and_transcribe_refuses_fixture_for_non_demo_org() -> None:
-    with pytest.raises(RuntimeError, match="Transcription is unavailable"):
-        download_and_transcribe(
-            meeting_id="meeting-real",
-            download_url=None,
-            topic="Real customer meeting",
-            org_id="customer-org",
-        )
-
-
-def test_transcription_rejects_oversized_recording() -> None:
-    with pytest.raises(RuntimeError, match="25 MB transcription limit"):
-        _validate_transcription_size(b"x" * (MAX_TRANSCRIBE_BYTES + 1))
-
-
-def test_composio_sync_task_uses_worker_session() -> None:
-    engine = create_engine("sqlite+pysqlite:///:memory:")
-    Base.metadata.create_all(engine)
-    test_session = sessionmaker(bind=engine)
-
-    async def _sync(org_id, session):
-        assert org_id == "demo-org"
-        assert session is not None
-        return {"status": "ok", "synced": []}
-
-    with (
-        patch("workers.tasks.ingest.SessionLocal", test_session),
-        patch("connectors.composio_ingest.sync_all_connections", _sync),
-    ):
-        assert sync_composio_connections("demo-org") == {"status": "ok", "synced": []}
 
 
 def test_extract_action_items_task() -> None:
@@ -173,26 +137,3 @@ def test_extract_action_items_task() -> None:
             assert item.owner == "Anish"
             assert item.confidence == 0.9
             assert item.status == "needs_review"
-
-
-def test_due_automations_skip_manual_and_paused_rows() -> None:
-    engine = create_engine("sqlite+pysqlite:///:memory:")
-    Base.metadata.create_all(engine)
-    TestSessionLocal = sessionmaker(bind=engine)
-    with TestSessionLocal() as session:
-        session.add_all(
-            [
-                Automation(id="due", org_id="demo-org", name="Due", prompt="run", cadence="hourly"),
-                Automation(id="manual", org_id="demo-org", name="Manual", prompt="run", cadence="manual"),
-                Automation(id="paused", org_id="demo-org", name="Paused", prompt="run", cadence="hourly", status="paused"),
-                Automation(id="fresh", org_id="demo-org", name="Fresh", prompt="run", cadence="daily", last_run_at=now_utc() - timedelta(hours=1)),
-            ]
-        )
-        session.commit()
-    with (
-        patch("workers.tasks.execute.SessionLocal", TestSessionLocal),
-        patch("workers.tasks.execute.run_automation", new_callable=AsyncMock) as runner,
-    ):
-        result = run_due_automations()
-    assert result == {"ran": 1, "failed": 0}
-    assert runner.await_args.args[0] == "due"

@@ -161,46 +161,6 @@ async function apiDelete<TResult>(path: string): Promise<TResult> {
   return (await res.json()) as TResult;
 }
 
-export type DecisionRecord = {
-  id: string;
-  title: string;
-  status: "proposed" | "approved" | "rejected";
-  impact: "critical" | "high" | "medium" | "low";
-  owner: string;
-  source: string;
-  tags: string[];
-  identified_by: "source" | "osai";
-  created_at: string;
-  updated_at: string;
-};
-
-export type DecisionInput = Pick<
-  DecisionRecord,
-  "title" | "status" | "impact" | "owner" | "source" | "tags" | "identified_by"
->;
-
-export async function getDecisions(): Promise<DecisionRecord[]> {
-  return apiGet<DecisionRecord[]>("/decisions", []);
-}
-
-export async function createDecision(input: DecisionInput): Promise<DecisionRecord> {
-  return apiPost<DecisionInput, DecisionRecord>("/decisions", input);
-}
-
-export async function updateDecision(
-  id: string,
-  input: Partial<Omit<DecisionInput, "identified_by">>
-): Promise<DecisionRecord> {
-  return apiPatch<Partial<Omit<DecisionInput, "identified_by">>, DecisionRecord>(
-    `/decisions/${id}`,
-    input
-  );
-}
-
-export async function deleteDecision(id: string): Promise<void> {
-  await apiDelete<{ deleted: boolean }>(`/decisions/${id}`);
-}
-
 // ─── Authentication & Onboarding ─────────────────────────────────────────────
 
 export type LoginCredentials = {
@@ -379,36 +339,6 @@ export type ComposioConnectResult = {
   connected_account_id?: string;
   error?: string;
 };
-
-export type ComposioToolkit = {
-  slug: string;
-  name: string;
-  logo?: string | null;
-  categories: string[];
-  tools_count?: number | null;
-  auth_schemes: string[];
-  no_auth: boolean;
-  connected: boolean;
-  capabilities: { sync: boolean; actions: boolean };
-};
-
-export type ComposioToolkitPage = {
-  items: ComposioToolkit[];
-  next_cursor: string | null;
-};
-
-export function getComposioToolkits(params: { search?: string; category?: string; cursor?: string } = {}) {
-  const query = new URLSearchParams();
-  if (params.search) query.set("search", params.search);
-  if (params.category) query.set("category", params.category);
-  if (params.cursor) query.set("cursor", params.cursor);
-  const suffix = query.size ? `?${query}` : "";
-  return apiGet<ComposioToolkitPage>(`/integrations/composio/toolkits${suffix}`, { items: [], next_cursor: null });
-}
-
-export function getComposioToolkitCategories() {
-  return apiGet<{ items: { id: string; name: string }[] }>("/integrations/composio/toolkit-categories", { items: [] });
-}
 
 // Begin a real OAuth connection for a connector via Composio. Returns a
 // redirect_url the browser must open so the user can authorize the app.

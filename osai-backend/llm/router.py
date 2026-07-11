@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 
 from api.schemas.connector import DataTier
-from config import settings
 
 
 @dataclass(frozen=True)
@@ -18,13 +17,13 @@ class ModelRouter:
             return ModelRoute(
                 name=f"{use_case}:local-only",
                 provider="local",
-                model=settings.ollama_model,
+                model="not-configured",
                 data_tier=data_tier,
             )
         return ModelRoute(
             name=f"{use_case}:cloud-default",
-            provider="cloud",
-            model=settings.llm_model if settings.llm_api_key else settings.gemini_model,
+            provider="litellm",
+            model="configured-later",
             data_tier=data_tier,
         )
 

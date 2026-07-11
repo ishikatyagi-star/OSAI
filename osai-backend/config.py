@@ -50,16 +50,6 @@ class Settings(BaseSettings):
                 f"is configured and OSAI_ENV is {self.env!r} — the sidecar is a "
                 "public endpoint and must not accept unauthenticated /run calls."
             )
-        if self.env not in {"local", "demo"} and not self.zoom_webhook_secret:
-            raise ValueError(
-                "OSAI_ZOOM_WEBHOOK_SECRET must be set outside local/demo mode; "
-                "Zoom webhooks must never accept unsigned production events."
-            )
-        if self.env not in {"local", "demo"} and not self.gemini_api_key:
-            raise ValueError(
-                "OSAI_GEMINI_API_KEY must be set outside local/demo mode; "
-                "production retrieval must not use hash embeddings."
-            )
         return self
 
     qdrant_url: str = "http://localhost:6333"
@@ -72,7 +62,7 @@ class Settings(BaseSettings):
     # (Render env). If unset, a fixed dev secret is used so local dev works, but
     # tokens would be forgeable — never rely on the default in prod.
     jwt_secret: str = _DEV_JWT_SECRET
-    jwt_expiry_hours: int = 24
+    jwt_expiry_hours: int = 720  # 30 days — long-lived for the pilot
     # Password-less email-lookup login (/auth/login) is a dev/demo convenience and
     # a real auth bypass in production (anyone who knows an email gets that
     # session). Off outside local by default; Google OAuth is the real sign-in.

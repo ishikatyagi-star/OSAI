@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
-import { Menu } from "lucide-react";
 import Sidebar from "./sidebar";
 import {
   Tooltip,
@@ -22,12 +21,10 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
 
   const [workspace, setWorkspace] = useState("");
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   // Real connection state, so the status pill reflects reality instead of a
   // permanent "LIVE" even when nothing is connected.
   const [connected, setConnected] = useState<boolean | null>(null);
   useEffect(() => {
-    setMobileMenuOpen(false);
     setWorkspace(brandText(localStorage.getItem("osai_org_name") || "Your workspace"));
     if (isDemo()) {
       setConnected(true);
@@ -45,26 +42,9 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="app-container">
-      <Sidebar open={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
-      {mobileMenuOpen && (
-        <button
-          type="button"
-          className="sidebar-backdrop"
-          aria-label="Close navigation menu"
-          onClick={() => setMobileMenuOpen(false)}
-        />
-      )}
+      <Sidebar />
       <div className="dashboard-layout">
         <header className="topbar">
-          <button
-            type="button"
-            className="topbar-menu-button"
-            aria-label="Open navigation menu"
-            aria-expanded={mobileMenuOpen}
-            onClick={() => setMobileMenuOpen(true)}
-          >
-            <Menu size={20} />
-          </button>
           <div className="topbar-workspace">
             <span>Workspace:</span>
             <span className="topbar-workspace-name">{workspace}</span>

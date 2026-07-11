@@ -166,7 +166,7 @@ class GoogleDriveConnector(Connector):
     def _file_to_document(self, org_id: str, file: dict[str, Any], text: str) -> SourceDocument:
         file_id = file["id"]
         return SourceDocument(
-            source_id=f"{org_id}:google_drive:file:{file_id}",
+            source_id=f"google_drive:file:{file_id}",
             source_type="google_drive",
             org_id=org_id,
             external_id=file_id,

@@ -231,65 +231,6 @@ class AuditEvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc, index=True)
 
 
-class DecisionRecord(Base):
-    __tablename__ = "decisions"
-
-    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
-    org_id: Mapped[str] = mapped_column(String, ForeignKey("orgs.id"), index=True)
-    title: Mapped[str] = mapped_column(String)
-    status: Mapped[str] = mapped_column(String, default="proposed")
-    impact: Mapped[str] = mapped_column(String, default="medium")
-    owner: Mapped[str] = mapped_column(String, default="Unassigned")
-    source: Mapped[str] = mapped_column(String, default="Manual")
-    tags: Mapped[list[str]] = mapped_column(JSON, default=list)
-    identified_by: Mapped[str] = mapped_column(String, default="source")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc, onupdate=now_utc)
-
-
-class RevokedToken(Base):
-    __tablename__ = "revoked_tokens"
-
-    jti: Mapped[str] = mapped_column(String, primary_key=True)
-    expires_at: Mapped[datetime] = mapped_column(DateTime, index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
-
-
-class Conversation(Base):
-    __tablename__ = "conversations"
-
-    id: Mapped[str] = mapped_column(String, primary_key=True)
-    org_id: Mapped[str] = mapped_column(String, ForeignKey("orgs.id"), index=True)
-    user_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc, onupdate=now_utc)
-
-
-class McpApiKey(Base):
-    """An opaque bearer key tied to one OSAI user and organization."""
-
-    __tablename__ = "mcp_api_keys"
-
-    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
-    org_id: Mapped[str] = mapped_column(String, ForeignKey("orgs.id"), index=True)
-    user_id: Mapped[str] = mapped_column(String, ForeignKey("users.id"), index=True)
-    name: Mapped[str] = mapped_column(String, nullable=False)
-    token_prefix: Mapped[str] = mapped_column(String, index=True)
-    token_hash: Mapped[str] = mapped_column(String, unique=True, index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
-    revoked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-
-
-class ConversationMessage(Base):
-    __tablename__ = "conversation_messages"
-
-    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
-    conversation_id: Mapped[str] = mapped_column(String, ForeignKey("conversations.id"), index=True)
-    role: Mapped[str] = mapped_column(String)
-    content: Mapped[str] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc, index=True)
-
-
 class ModelCall(Base):
     __tablename__ = "model_calls"
 

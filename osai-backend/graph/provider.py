@@ -21,9 +21,9 @@ from db.models import (
     User,
     WorkflowRun,
 )
-from policy import TIER_ORDER, can_access
+from memory.retriever import _visible
 
-_TIER_RANK = TIER_ORDER
+_TIER_RANK = {"normal": 0, "amber": 1, "red": 2}
 
 
 def _person_id(email: str) -> str:
@@ -40,12 +40,7 @@ def _first_line(text: str | None) -> str:
     return next((ln.strip() for ln in text.splitlines() if ln.strip()), "")
 
 
-def build_graph(
-    session: Session,
-    org_id: str,
-    requester_permissions: list[str] | None = None,
-    requester_tier: str = "red",
-) -> tuple[list[GraphEntity], list[GraphEdge]]:
+def build_graph(session: Session, org_id: str) -> tuple[list[GraphEntity], list[GraphEdge]]:
     docs = (
         session.query(SourceDocumentRecord)
         .filter(SourceDocumentRecord.org_id == org_id)
@@ -64,8 +59,6 @@ def build_graph(
 
     # Sources (documents ingested from connectors).
     for doc in docs:
-        if not can_access(doc.permissions, doc.data_tier, requester_permissions or [], requester_tier):
-            continue
         entities[f"source:{doc.id}"] = GraphEntity(
             id=f"source:{doc.id}",
             type="source",
@@ -196,7 +189,7 @@ def build_access_graph(session: Session, org_id: str) -> dict:
             visible_docs = [
                 d
                 for d in docs_by_connector.get(c["key"], [])
-                if can_access(d.permissions, d.data_tier, u.permissions, u.data_tier)
+                if _visible(d.permissions, u.permissions)
             ]
             # A user with no visible docs in a connector still has access to the
             # tool itself if it's connected and they're an admin/source:all holder.

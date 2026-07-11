@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import secrets
-from uuid import uuid4
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
 from urllib.parse import urlencode
 
 import httpx
 import jwt
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import RedirectResponse
 from jwt import PyJWKClient
 from pydantic import BaseModel
@@ -19,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from api.ratelimit import rate_limit
 from config import settings
-from db.models import Org, RevokedToken, User
+from db.models import Org, User
 from db.repositories import accept_invite_for_email, provision_org, try_db
 from db.session import get_claims, get_db
 
@@ -53,7 +52,6 @@ def _issue_token(user: User) -> str:
         "org_id": user.org_id,
         "role": user.role,
         "email": user.email,
-        "jti": str(uuid4()),
         "iat": now,
         "exp": now + timedelta(hours=settings.jwt_expiry_hours),
     }
@@ -259,27 +257,6 @@ async def google_callback(
 
 
 Claims = Annotated[dict, Depends(get_claims)]
-
-
-@router.post("/logout")
-async def logout(
-    claims: Claims,
-    db: DbSession,
-    authorization: str | None = Header(default=None),
-) -> dict[str, bool]:
-    jti = claims.get("jti")
-    exp = claims.get("exp")
-    if not jti or not exp:
-        raise HTTPException(status_code=400, detail="This session cannot be revoked.")
-    if db.get(RevokedToken, jti) is None:
-        db.add(
-            RevokedToken(
-                jti=jti,
-                expires_at=datetime.fromtimestamp(int(exp), UTC),
-            )
-        )
-        db.commit()
-    return {"revoked": True}
 
 
 @router.delete("/account")

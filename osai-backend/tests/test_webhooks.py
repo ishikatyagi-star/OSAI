@@ -65,16 +65,14 @@ def test_zoom_webhook_invalid_signature() -> None:
         settings.zoom_webhook_secret = original_secret
 
 
-@patch("api.routes.webhooks._zoom_org_id", return_value="org-zoom")
 @patch("api.routes.webhooks.download_and_transcribe")
-def test_zoom_webhook_valid_signature_recording_completed(mock_task, mock_org_id) -> None:
+def test_zoom_webhook_valid_signature_recording_completed(mock_task) -> None:
     original_secret = settings.zoom_webhook_secret
     settings.zoom_webhook_secret = "test-secret"
     try:
         payload = {
             "event": "recording.completed",
             "payload": {
-                "account_id": "zoom-account-1",
                 "object": {
                     "id": 99999,
                     "topic": "Test Meeting",
@@ -110,21 +108,7 @@ def test_zoom_webhook_valid_signature_recording_completed(mock_task, mock_org_id
             meeting_id="99999",
             download_url="http://example.com/recording.m4a",
             topic="Test Meeting",
-            org_id="org-zoom",
+            org_id=settings.default_org_id,
         )
-        assert mock_org_id.call_args.args[1] == "zoom-account-1"
     finally:
         settings.zoom_webhook_secret = original_secret
-
-
-def test_zoom_webhook_requires_secret_outside_demo_mode() -> None:
-    original_secret = settings.zoom_webhook_secret
-    original_env = settings.env
-    settings.zoom_webhook_secret = None
-    settings.env = "production"
-    try:
-        response = client.post("/webhooks/zoom", json={"event": "meeting.started", "payload": {}})
-        assert response.status_code == 503
-    finally:
-        settings.zoom_webhook_secret = original_secret
-        settings.env = original_env

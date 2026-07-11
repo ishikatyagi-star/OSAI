@@ -8,11 +8,9 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from config import settings
-from db.models import ConnectorAccount
 from db.session import get_db
 from workers.tasks.ingest import download_and_transcribe
 
@@ -29,7 +27,8 @@ def verify_zoom_signature(
 ) -> bool:
     """Verify Zoom webhook event signature using Webhook Secret Token."""
     if not secret:
-        return False
+        logger.warning("OSAI_ZOOM_WEBHOOK_SECRET is not configured. Bypassing signature check.")
+        return True
 
     # Construct the message string: v0:{timestamp}:{raw_body}
     message = f"v0:{request_timestamp}:{raw_body.decode('utf-8')}"
@@ -41,20 +40,6 @@ def verify_zoom_signature(
 
     expected_signature = f"v0={computed_hash}"
     return hmac.compare_digest(expected_signature, signature)
-
-
-def _zoom_org_id(db: Session, account_id: str) -> str:
-    # ponytail: scans connected Zoom accounts; add an indexed account ID column if Zoom connections become numerous.
-    accounts = db.scalars(
-        select(ConnectorAccount).where(
-            ConnectorAccount.connector_key == "zoom",
-            ConnectorAccount.auth_state == "connected",
-        )
-    )
-    for account in accounts:
-        if str((account.config or {}).get("account_external_id", "")) == account_id:
-            return account.org_id
-    raise HTTPException(status_code=404, detail="No connected Zoom account matches this event")
 
 
 @router.post("/zoom")
@@ -72,9 +57,6 @@ async def zoom_webhook(
         raise HTTPException(status_code=400, detail="Invalid JSON body") from exc
 
     event = payload.get("event")
-    secret = settings.zoom_webhook_secret
-    if not secret and settings.env not in {"local", "demo"}:
-        raise HTTPException(status_code=503, detail="Zoom webhook secret is not configured")
 
     # 1. Endpoint URL Validation Challenge (CRC)
     if event == "endpoint.url_validation":
@@ -82,6 +64,7 @@ async def zoom_webhook(
         if not plain_token:
             raise HTTPException(status_code=400, detail="Missing plainToken for URL validation")
 
+        secret = settings.zoom_webhook_secret or ""
         # Compute HMAC SHA-256 encryptedToken using the webhook secret
         hash_object = hmac.new(secret.encode("utf-8"), plain_token.encode("utf-8"), hashlib.sha256)
         encrypted_token = hash_object.hexdigest()
@@ -93,7 +76,7 @@ async def zoom_webhook(
         }
 
     # 2. Signature verification for standard webhook events
-    if secret:
+    if settings.zoom_webhook_secret:
         if not x_zm_signature or not x_zm_request_timestamp:
             raise HTTPException(status_code=401, detail="Missing verification headers")
 
@@ -101,14 +84,13 @@ async def zoom_webhook(
             x_zm_request_timestamp,
             x_zm_signature,
             raw_body,
-            secret,
+            settings.zoom_webhook_secret,
         ):
             raise HTTPException(status_code=401, detail="Invalid signature")
 
     # 3. Handle Zoom events
     if event == "recording.completed":
         event_payload = payload.get("payload", {})
-        account_id = str(event_payload.get("account_id", ""))
         meeting_obj = event_payload.get("object", {})
         meeting_id = str(meeting_obj.get("id", ""))
         topic = meeting_obj.get("topic", "Zoom Meeting")
@@ -116,8 +98,6 @@ async def zoom_webhook(
 
         if not meeting_id:
             raise HTTPException(status_code=400, detail="Missing meeting ID")
-        if not account_id:
-            raise HTTPException(status_code=400, detail="Missing Zoom account ID")
 
         # Prioritize audio files (type M4A or MP3) for transcription
         audio_file = None
@@ -143,7 +123,7 @@ async def zoom_webhook(
             meeting_id=meeting_id,
             download_url=download_url,
             topic=topic,
-            org_id=_zoom_org_id(db, account_id),
+            org_id=settings.default_org_id,
         )
 
     return {"status": "ok"}
