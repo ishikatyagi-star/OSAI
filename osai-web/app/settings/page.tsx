@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FlaskConical, Route, ChevronRight, Trash2, type LucideIcon } from "lucide-react";
-import { clearSession, deleteAccount, resetWorkspaceContent } from "@/lib/api";
+import { clearSession, deleteAccount, resetWorkspaceContent, mintSlackAskToken, revokeSlackAskToken } from "@/lib/api";
 import {
   Dialog,
   DialogContent,
@@ -45,6 +45,28 @@ export default function SettingsPage() {
   const [resetting, setResetting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [resetMsg, setResetMsg] = useState("");
+  const [slackToken, setSlackToken] = useState<{ token: string; path: string } | null>(null);
+  const [slackBusy, setSlackBusy] = useState(false);
+
+  async function handleMintSlack() {
+    setSlackBusy(true);
+    try {
+      const res = await mintSlackAskToken();
+      setSlackToken({ token: res.token, path: res.request_url_path });
+    } finally {
+      setSlackBusy(false);
+    }
+  }
+
+  async function handleRevokeSlack() {
+    setSlackBusy(true);
+    try {
+      await revokeSlackAskToken();
+      setSlackToken(null);
+    } finally {
+      setSlackBusy(false);
+    }
+  }
 
   async function handleReset() {
     const orgId = localStorage.getItem("osai_org_id");
@@ -117,6 +139,30 @@ export default function SettingsPage() {
           Danger Zone
         </span>
         <div style={{ flex: 1, height: 1, background: "color-mix(in srgb, var(--red) 40%, var(--border))" }} />
+      </div>
+
+      {/* Slack /ask slash command */}
+      <div className="card" style={{ marginBottom: 12 }}>
+        <h2 style={{ margin: 0 }}>Ask from Slack</h2>
+        <p className="meta" style={{ margin: "4px 0 12px", lineHeight: 1.5 }}>
+          Create a token, then add a Slack slash command (e.g. /ask) whose Request URL
+          points at your OSAI API: <code>&lt;api-base&gt;/slack/ask/&lt;token&gt;</code>.
+          Teammates get cited answers without leaving Slack.
+        </p>
+        {slackToken && (
+          <div className="card" style={{ padding: "8px 12px", marginBottom: 10, fontSize: 12 }}>
+            <p style={{ margin: 0, fontWeight: 600 }}>Request URL path (copy now — shown once):</p>
+            <code style={{ wordBreak: "break-all" }}>{slackToken.path}</code>
+          </div>
+        )}
+        <div style={{ display: "flex", gap: 8 }}>
+          <button className="btn btn-primary" disabled={slackBusy} onClick={handleMintSlack}>
+            {slackToken ? "Rotate token" : "Create token"}
+          </button>
+          <button className="btn" disabled={slackBusy} onClick={handleRevokeSlack}>
+            Revoke
+          </button>
+        </div>
       </div>
 
       {/* Danger zone - clear seeded/ingested content */}
