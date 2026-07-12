@@ -19,6 +19,7 @@ from api.routes import (
     orgs,
     search,
     settings,
+    sql,
     sync_runs,
     team,
     threads,
@@ -55,6 +56,7 @@ app.include_router(search.router)
 app.include_router(workflows.router)
 app.include_router(workflow_actions.router)
 app.include_router(settings.router)
+app.include_router(sql.router)
 app.include_router(webhooks.router)
 app.include_router(orgs.router)
 app.include_router(auth.router)

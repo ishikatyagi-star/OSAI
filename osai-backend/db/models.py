@@ -375,6 +375,20 @@ class SavedArtifact(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc, index=True)
 
 
+class SqlSource(Base):
+    """A read-only structured data source (Postgres first). OSAI answers
+    analytics questions against it with visible, editable SQL — data is
+    queried where it lives, never copied into the knowledge base."""
+
+    __tablename__ = "sql_sources"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
+    org_id: Mapped[str] = mapped_column(String, ForeignKey("orgs.id"), index=True)
+    name: Mapped[str] = mapped_column(String)
+    dsn: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
+
+
 class AnswerFeedback(Base):
     """User verdicts on Ask answers, stored with the retrieval trace.
 
