@@ -73,6 +73,16 @@ async def submit_feedback(
             )
             record_memory(db, org_id, "correction", content)
             learned = True
+
+            from api.routes.wiki import suggest_entry
+
+            suggest_entry(
+                db,
+                org_id,
+                f"Correction: {body.query.strip()[:120]}",
+                f"Q: {body.query.strip()}\n\nCorrect answer: {correction}",
+                origin="correction",
+            )
         return {"id": row.id, "recorded": True, "learned": learned}
 
     return try_db("submit_feedback", {"id": None, "recorded": False, "learned": False}, _save)

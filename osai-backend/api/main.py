@@ -22,6 +22,7 @@ from api.routes import (
     team,
     threads,
     webhooks,
+    wiki,
     workflow_actions,
     workflows,
 )
@@ -48,6 +49,7 @@ app.include_router(composio.router)
 app.include_router(integrations.router)
 app.include_router(sync_runs.router)
 app.include_router(threads.router)
+app.include_router(wiki.router)
 app.include_router(search.router)
 app.include_router(workflows.router)
 app.include_router(workflow_actions.router)
