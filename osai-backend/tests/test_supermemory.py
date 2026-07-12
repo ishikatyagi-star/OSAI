@@ -17,9 +17,10 @@ def test_disabled_without_key():
 def test_add_and_search_when_enabled():
     ok = MagicMock()
     ok.raise_for_status.return_value = None
+    # Live /v4/search shape: chunk content in "chunk", score in "similarity".
     ok.json.return_value = {
         "results": [
-            {"memory": "Deploys happen Fridays", "score": 0.9, "metadata": {"kind": "playbook"}}
+            {"chunk": "Deploys happen Fridays", "similarity": 0.9, "metadata": {"kind": "playbook"}}
         ]
     }
     with (
@@ -33,6 +34,12 @@ def test_add_and_search_when_enabled():
 
         results = sm.search_memories("org1", "when do we deploy", requester_user_id="u1")
         assert results and results[0]["source"] == "supermemory"
+        # Content and score are parsed from the real field names.
+        assert results[0]["content"] == "Deploys happen Fridays"
+        assert results[0]["score"] == 0.9
+        # Hybrid mode is required for chunk recall (see client comment).
+        search_body = post.call_args_list[1].kwargs["json"]
+        assert search_body["searchMode"] == "hybrid"
         # Org pool + personal pool are both queried.
         tags = [c.kwargs["json"]["containerTag"] for c in post.call_args_list[1:]]
         assert tags == ["org:org1", "user:u1"]

@@ -108,16 +108,27 @@ def search_memories(
             resp = httpx.post(
                 f"{_base_url()}/v4/search",
                 headers=_headers(),
-                json={"q": query, "containerTag": tag, "limit": limit},
+                # "hybrid" is required: the default and "memories" modes only
+                # return distilled memories (slow async extraction) and yield
+                # nothing for freshly-stored facts — verified against the live
+                # API. Hybrid searches chunks, so our short facts recall at once.
+                json={
+                    "q": query,
+                    "containerTag": tag,
+                    "limit": limit,
+                    "searchMode": "hybrid",
+                },
                 timeout=_TIMEOUT,
             )
             resp.raise_for_status()
             for r in resp.json().get("results", []):
+                # Live shape: chunk content in "chunk", score in "similarity"
+                # (memory-mode results use "memory" instead — support both).
                 results.append(
                     {
                         "kind": (r.get("metadata") or {}).get("kind", "fact"),
-                        "content": r.get("memory") or r.get("content") or "",
-                        "score": r.get("score", 0.0),
+                        "content": r.get("chunk") or r.get("memory") or "",
+                        "score": r.get("similarity", r.get("score", 0.0)),
                         "source": "supermemory",
                     }
                 )
