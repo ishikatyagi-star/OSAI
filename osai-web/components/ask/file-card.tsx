@@ -87,7 +87,7 @@ export function FileCard({ file }: { file: UploadedFile }) {
       setError(
         detail.includes("403")
           ? "Only the uploader or an admin can change access."
-          : "Couldn't update access — please try again."
+          : "Couldn't update access - please try again."
       );
     } finally {
       setBusy(false);
@@ -204,7 +204,7 @@ export function FileCard({ file }: { file: UploadedFile }) {
               )}
               {members?.length === 0 && (
                 <span className="text-xs text-[var(--text-muted)]">
-                  No teammates yet — invite people from the Team page.
+                  No teammates yet - invite people from the Team page.
                 </span>
               )}
               <div className="flex max-h-36 flex-col gap-1 overflow-y-auto">

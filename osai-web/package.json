@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "node --test tests/landing-page.test.mjs",
+    "test": "node --test \"tests/*.test.mjs\"",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

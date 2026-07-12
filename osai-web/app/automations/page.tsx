@@ -574,7 +574,7 @@ export default function AutomationsPage() {
                           style={{ marginTop: 8, padding: "8px 12px", fontSize: 11 }}
                         >
                           <p style={{ margin: 0, fontWeight: 600 }}>
-                            Trigger token (copy now — shown once):
+                            Trigger token (copy now - shown once):
                           </p>
                           <code style={{ wordBreak: "break-all" }}>{minted.token}</code>
                           <p className="meta" style={{ margin: "6px 0 0", fontSize: 11 }}>

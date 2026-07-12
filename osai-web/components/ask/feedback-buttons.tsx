@@ -67,7 +67,7 @@ export function FeedbackButtons({
       <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
         <Check className="size-3" />{" "}
         {learned
-          ? "Got it - OSAI will remember this for your whole team"
+          ? "Got it - Sheldon will remember this for your whole team"
           : "Thanks - feedback recorded"}
       </span>
     );
@@ -111,7 +111,7 @@ export function FeedbackButtons({
           <input
             className="search-input"
             style={{ fontSize: 11, padding: "4px 8px", width: 220 }}
-            placeholder="What's the right answer? (teaches OSAI)"
+            placeholder="What's the right answer? (teaches Sheldon)"
             value={correction}
             onChange={(e) => setCorrection(e.target.value)}
             onKeyDown={(e) => {

@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
 /** Data: ask questions of live databases with a visible, editable SQL plan.
- * The LLM proposes the query; nothing runs until you approve it — and
+ * The LLM proposes the query; nothing runs until you approve it - and
  * execution is read-only, single-statement, row-capped. */
 export default function SqlPage() {
   const [sources, setSources] = useState<SqlSourceRow[]>([]);
@@ -118,8 +118,8 @@ export default function SqlPage() {
         <div className="page-header-left">
           <h1>Data</h1>
           <p>
-            Ask questions of live databases. OSAI writes the SQL, shows it to you,
-            and only runs what you approve — read-only, where the data lives.
+            Ask questions of live databases. Sheldon writes the SQL, shows it to you,
+            and only runs what you approve - read-only, where the data lives.
           </p>
         </div>
         <Button onClick={() => setAdding((v) => !v)}>
