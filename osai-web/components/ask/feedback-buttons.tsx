@@ -26,6 +26,8 @@ export function FeedbackButtons({
   const [sent, setSent] = useState<"up" | "down" | null>(null);
   const [askComment, setAskComment] = useState(false);
   const [comment, setComment] = useState("");
+  const [correction, setCorrection] = useState("");
+  const [learned, setLearned] = useState(false);
   const [busy, setBusy] = useState(false);
 
   async function send(rating: "up" | "down", withComment?: string) {
@@ -38,6 +40,7 @@ export function FeedbackButtons({
         answer,
         rating,
         comment: withComment?.trim() || null,
+        correction: correction.trim() || null,
         retrieval_trace: {
           model_route: modelRoute ?? null,
           citations: (citations ?? []).map((c) => ({
@@ -49,6 +52,7 @@ export function FeedbackButtons({
         },
       });
       setSent(rating);
+      setLearned(!!correction.trim());
       setAskComment(false);
     } catch {
       // Feedback is best-effort; never interrupt the conversation over it.
@@ -61,7 +65,10 @@ export function FeedbackButtons({
   if (sent) {
     return (
       <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-        <Check className="size-3" /> Thanks - feedback recorded
+        <Check className="size-3" />{" "}
+        {learned
+          ? "Got it - OSAI will remember this for your whole team"
+          : "Thanks - feedback recorded"}
       </span>
     );
   }
@@ -97,6 +104,16 @@ export function FeedbackButtons({
             placeholder="What was wrong? (optional)"
             value={comment}
             onChange={(e) => setComment(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") send("down", comment);
+            }}
+          />
+          <input
+            className="search-input"
+            style={{ fontSize: 11, padding: "4px 8px", width: 220 }}
+            placeholder="What's the right answer? (teaches OSAI)"
+            value={correction}
+            onChange={(e) => setCorrection(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") send("down", comment);
             }}

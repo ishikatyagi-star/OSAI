@@ -308,6 +308,8 @@ class AnswerFeedback(Base):
     comment: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Titles the user flagged as irrelevant/wrong sources.
     wrong_sources: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    # The user's stated correct answer — becomes a team-wide correction memory.
+    correction: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Snapshot of the answer's provenance: citations (title/tool/score/tier),
     # via (osai|hermes), model_route — enough to replay the retrieval offline.
     retrieval_trace: Mapped[dict | None] = mapped_column(JSON, nullable=True)

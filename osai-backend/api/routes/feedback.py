@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from db.models import AnswerFeedback
 from db.repositories import try_db
+from memory.org_memory import record_memory
 from db.session import get_db, get_optional_claims, get_org_id, require_admin
 
 router = APIRouter(prefix="/feedback", tags=["feedback"])
@@ -27,6 +28,9 @@ class FeedbackCreate(BaseModel):
     rating: str  # up | down
     comment: str | None = Field(default=None, max_length=2_000)
     wrong_sources: list[str] | None = None
+    # "Here's the right answer" — persisted as an org-wide correction memory so
+    # every future answer (whole team) can self-correct.
+    correction: str | None = Field(default=None, max_length=4_000)
     # Provenance snapshot from the answer the client received: citations with
     # scores/tiers, via (osai|hermes), model_route.
     retrieval_trace: dict | None = None
@@ -39,6 +43,8 @@ async def submit_feedback(
     if body.rating not in ("up", "down"):
         raise HTTPException(status_code=422, detail="rating must be 'up' or 'down'")
 
+    correction = (body.correction or "").strip() or None
+
     def _save() -> dict:
         row = AnswerFeedback(
             org_id=org_id,
@@ -49,13 +55,27 @@ async def submit_feedback(
             rating=body.rating,
             comment=(body.comment or "").strip() or None,
             wrong_sources=body.wrong_sources or None,
+            correction=correction,
             retrieval_trace=body.retrieval_trace,
         )
         db.add(row)
         db.commit()
-        return {"id": row.id, "recorded": True}
 
-    return try_db("submit_feedback", {"id": None, "recorded": False}, _save)
+        learned = False
+        if correction and body.rating == "down":
+            # Team-wide correction memory (user_id=None → org pool). Recall is
+            # keyword/semantic, so include the question for future matching.
+            author = (claims.get("email") or claims.get("sub")) if claims else None
+            content = (
+                f"Correction (from {author or 'a teammate'}): "
+                f"for questions like \"{body.query.strip()}\" the correct answer is: "
+                f"{correction}"
+            )
+            record_memory(db, org_id, "correction", content)
+            learned = True
+        return {"id": row.id, "recorded": True, "learned": learned}
+
+    return try_db("submit_feedback", {"id": None, "recorded": False, "learned": False}, _save)
 
 
 @router.get("")

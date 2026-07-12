@@ -166,7 +166,14 @@ async def retrieve_answer(request: SearchRequest) -> SearchResponse:
             )
 
     # Evolving memory: surface as context + citations.
-    memory_lines = [f"- {m['content']}" for m in memories]
+    memory_lines = [
+        (
+            f"- [TEAM CORRECTION — treat as authoritative] {m['content']}"
+            if m.get("kind") == "correction"
+            else f"- {m['content']}"
+        )
+        for m in memories
+    ]
     memory_block = "\n".join(memory_lines)
     if memory_block:
         context_parts.append(f"[OSAI memory]\n{memory_block}")
