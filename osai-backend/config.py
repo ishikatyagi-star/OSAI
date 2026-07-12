@@ -98,6 +98,12 @@ class Settings(BaseSettings):
     # Google sign-in (OAuth 2.0 / OIDC). Distinct from the Drive service account
     # above — these power "Continue with Google" user authentication. Register the
     # redirect URI in the Google Cloud OAuth consent screen (dev + prod).
+    # Supermemory (supermemory.ai) memory backbone. Key absent = disabled
+    # (Postgres org-memory only). URL overrides the cloud endpoint for the
+    # self-hosted binary — required before amber/red content may be stored.
+    supermemory_api_key: str | None = None
+    supermemory_url: str | None = None
+
     google_oauth_client_id: str | None = None
     google_oauth_client_secret: str | None = None
     google_oauth_redirect_uri: str | None = None  # e.g. http://localhost:8000/auth/google/callback
