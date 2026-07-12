@@ -20,11 +20,17 @@ import type { AgentAction, AskResponse } from "@/lib/types";
 import { MessageBubble, type AskTurn } from "@/components/ask/message-bubble";
 import { ComposerAttach } from "@/components/ask/composer-attach";
 import {
+  appendThreadTurn,
+  createThread,
   getDepartments,
   getNotifications,
+  getThread,
+  listThreads,
   markNotificationRead,
+  patchThread,
   type AppNotification,
   type Department,
+  type ThreadSummary,
 } from "@/lib/api";
 import type { UploadedFile } from "@/components/ask/file-card";
 import { Button } from "@/components/ui/button";
@@ -125,6 +131,11 @@ export default function AskPage() {
   const [pending, setPending] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [busyActionId, setBusyActionId] = useState<string | null>(null);
+  // Persisted thread backing this conversation (multiplayer surface).
+  const [threadId, setThreadId] = useState<string | null>(null);
+  const [threadShared, setThreadShared] = useState(false);
+  const [threadList, setThreadList] = useState<ThreadSummary[]>([]);
+  const [threadsOpen, setThreadsOpen] = useState(false);
   // Department scope: restrict retrieval to one department's documents.
   const [departments, setDepartments] = useState<Department[]>([]);
   const [departmentId, setDepartmentId] = useState<string>("");
@@ -161,6 +172,20 @@ export default function AskPage() {
       setInput("");
       setPending(true);
 
+      // Persist to the backing thread (best-effort; never blocks the answer).
+      let tid = threadId;
+      if (!tid && !isDemo()) {
+        try {
+          const t = await createThread(q.slice(0, 200));
+          tid = t.id;
+          setThreadId(t.id);
+          setThreadShared(t.shared);
+        } catch {
+          tid = null;
+        }
+      }
+      if (tid) appendThreadTurn(tid, { role: "user", content: q }).catch(() => {});
+
       const toTurn = (res: AskResponse): AskTurn => ({
         id: uid("a"),
         role: "assistant",
@@ -181,6 +206,13 @@ export default function AskPage() {
           : await askOsai(q, { conversationId, history, departmentId: departmentId || null });
         setConversationId(res.conversation_id ?? conversationId);
         setTurns((prev) => [...prev, toTurn(res)]);
+        if (tid) {
+          appendThreadTurn(tid, {
+            role: "assistant",
+            content: res.answer,
+            payload: { citations: res.citations ?? [], model_route: res.model_route ?? null },
+          }).catch(() => {});
+        }
       } catch {
         // Live API unavailable. In demo mode, fall back to canned answers; otherwise
         // surface an honest error rather than fabricating a response.
@@ -203,16 +235,52 @@ export default function AskPage() {
         setPending(false);
       }
     },
-    [pending, turns, conversationId, departmentId]
+    [pending, turns, conversationId, departmentId, threadId]
   );
 
   // Deep links (e.g. the Automations page's "Create with Sheldon") seed the
   // composer via ?q=…; prefill only, so the user can review before sending.
   useEffect(() => {
-    const q = new URLSearchParams(window.location.search).get("q");
+    const params = new URLSearchParams(window.location.search);
+    const q = params.get("q");
     if (q) setInput(q);
+    const tid = params.get("thread");
+    if (tid) openThread(tid);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function openThread(tid: string) {
+    const t = await getThread(tid);
+    if (!t) return;
+    setThreadId(t.id);
+    setThreadShared(t.shared);
+    setConversationId(null);
+    setThreadsOpen(false);
+    setTurns(
+      t.turns.map((turn) => ({
+        id: turn.id,
+        role: turn.role,
+        content: turn.content,
+        citations: (turn.payload?.citations as AskTurn["citations"]) ?? undefined,
+      }))
+    );
+  }
+
+  async function toggleThreads() {
+    const next = !threadsOpen;
+    setThreadsOpen(next);
+    if (next) listThreads().then(setThreadList).catch(() => setThreadList([]));
+  }
+
+  async function toggleShared() {
+    if (!threadId) return;
+    try {
+      const t = await patchThread(threadId, { shared: !threadShared });
+      setThreadShared(t.shared);
+    } catch {
+      // Only the creator can share; leave state as-is.
+    }
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -246,7 +314,11 @@ export default function AskPage() {
   const [shareNotices, setShareNotices] = useState<AppNotification[]>([]);
   useEffect(() => {
     getNotifications()
-      .then((all) => setShareNotices(all.filter((n) => n.type === "document.shared")))
+      .then((all) =>
+        setShareNotices(
+          all.filter((n) => n.type === "document.shared" || n.type === "thread.mention")
+        )
+      )
       .catch(() => setShareNotices([]));
   }, []);
   const dismissNotice = useCallback((id: string) => {
@@ -348,6 +420,18 @@ export default function AskPage() {
             tickets, chase follow-ups, pull status, and check ownership.
           </p>
         </div>
+        <button className="btn" aria-label="Threads" onClick={toggleThreads}>
+          Threads
+        </button>
+        {!empty && threadId && (
+          <button
+            className="btn"
+            aria-label={threadShared ? "Make thread private" : "Share thread with your org"}
+            onClick={toggleShared}
+          >
+            {threadShared ? "Shared ✓" : "Share"}
+          </button>
+        )}
         {!empty && (
           <button
             className="btn"
@@ -355,6 +439,8 @@ export default function AskPage() {
             onClick={() => {
               setTurns([]);
               setConversationId(null);
+              setThreadId(null);
+              setThreadShared(false);
             }}
           >
             <Plus className="size-3.5" />
@@ -363,6 +449,38 @@ export default function AskPage() {
           </button>
         )}
       </div>
+
+      {threadsOpen && (
+        <div className="mx-auto w-full max-w-3xl shrink-0 px-4 pb-2">
+          <div className="card" style={{ padding: "10px 14px", maxHeight: 280, overflowY: "auto" }}>
+            <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Threads
+            </div>
+            {threadList.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No threads yet.</p>
+            ) : (
+              <ul className="space-y-1">
+                {threadList.map((t) => (
+                  <li key={t.id}>
+                    <button
+                      type="button"
+                      className="w-full rounded px-2 py-1.5 text-left text-sm hover:bg-[var(--bg-surface)]"
+                      onClick={() => openThread(t.id)}
+                    >
+                      <span className="font-medium">{t.title}</span>{" "}
+                      <span className="text-xs text-muted-foreground">
+                        {t.shared ? "· shared" : "· private"}
+                        {typeof t.turns === "number" ? ` · ${t.turns} turns` : ""}
+                        {t.shared && t.created_by_name ? ` · by ${t.created_by_name}` : ""}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
 
       {shareNotices.length > 0 && (
         <div className="mx-auto w-full max-w-3xl shrink-0 px-4 pb-2">
@@ -374,9 +492,29 @@ export default function AskPage() {
               role="status"
             >
               <span className="text-sm">
-                <strong>{n.payload.shared_by ?? "A teammate"}</strong> shared{" "}
-                <strong>{n.payload.title ?? "a file"}</strong> with you — you can ask
-                about it here.
+                {n.type === "thread.mention" ? (
+                  <>
+                    <strong>{(n.payload as { mentioned_by?: string }).mentioned_by ?? "A teammate"}</strong>{" "}
+                    mentioned you in{" "}
+                    <button
+                      type="button"
+                      className="font-semibold underline"
+                      onClick={() => {
+                        dismissNotice(n.id);
+                        const tid = (n.payload as { thread_id?: string }).thread_id;
+                        if (tid) openThread(tid);
+                      }}
+                    >
+                      {n.payload.title ?? "a thread"}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <strong>{n.payload.shared_by ?? "A teammate"}</strong> shared{" "}
+                    <strong>{n.payload.title ?? "a file"}</strong> with you — you can ask
+                    about it here.
+                  </>
+                )}
               </span>
               <button
                 type="button"

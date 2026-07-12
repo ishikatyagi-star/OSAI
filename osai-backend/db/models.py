@@ -289,6 +289,38 @@ class Notification(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc, index=True)
 
 
+class Thread(Base):
+    """A persisted Ask conversation. Private to its creator by default;
+    `shared=True` makes it visible (and continuable) org-wide — the
+    multiplayer surface for team threads."""
+
+    __tablename__ = "threads"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
+    org_id: Mapped[str] = mapped_column(String, ForeignKey("orgs.id"), index=True)
+    created_by: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    created_by_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    title: Mapped[str] = mapped_column(Text, default="Untitled thread")
+    shared: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc, index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc, onupdate=now_utc)
+
+
+class ThreadTurn(Base):
+    __tablename__ = "thread_turns"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
+    thread_id: Mapped[str] = mapped_column(String, ForeignKey("threads.id"), index=True)
+    org_id: Mapped[str] = mapped_column(String, index=True)
+    role: Mapped[str] = mapped_column(String)  # user | assistant
+    content: Mapped[str] = mapped_column(Text)
+    author_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    author_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Citations, actions, artifacts — whatever the client rendered.
+    payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc, index=True)
+
+
 class AnswerFeedback(Base):
     """User verdicts on Ask answers, stored with the retrieval trace.
 
