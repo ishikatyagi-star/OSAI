@@ -10,8 +10,8 @@ from sqlalchemy.orm import Session
 
 from db.models import AnswerFeedback
 from db.repositories import try_db
-from memory.org_memory import record_memory
 from db.session import get_db, get_optional_claims, get_org_id, require_admin
+from memory.org_memory import record_memory
 
 router = APIRouter(prefix="/feedback", tags=["feedback"])
 DbSession = Annotated[Session, Depends(get_db)]
