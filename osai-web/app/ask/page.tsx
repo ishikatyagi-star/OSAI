@@ -441,7 +441,6 @@ export default function AskPage() {
                       placeholder={activeMode.placeholder}
                       aria-label="Ask Sheldon prompt"
                       className="max-h-44 min-h-[44px] flex-1 resize-none self-center border-0 bg-transparent px-1 py-1 text-base shadow-none outline-none focus-visible:ring-0 placeholder:text-[var(--text-muted)]"
-                      autoFocus
                     />
                     <Button
                       type="submit"
@@ -587,7 +586,6 @@ export default function AskPage() {
                   placeholder="Ask a follow-up..."
                   aria-label="Ask Sheldon follow-up prompt"
                   className="max-h-40 min-h-[40px] flex-1 resize-none self-center border-0 bg-transparent px-1 py-1.5 text-sm shadow-none outline-none focus-visible:ring-0 placeholder:text-[var(--text-muted)]"
-                  autoFocus
                 />
                 <Button
                   type="submit"

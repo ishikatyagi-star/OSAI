@@ -14,7 +14,6 @@ export function GET() {
       headers: { "Content-Type": "text/html; charset=utf-8" },
     });
   } catch {
-    // Fallback if file not found
     return NextResponse.redirect("/dashboard");
   }
 }
