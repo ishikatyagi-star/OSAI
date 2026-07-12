@@ -949,3 +949,29 @@ export function listArtifacts() {
 export function deleteArtifact(id: string) {
   return apiDelete<{ deleted: boolean }>(`/artifacts/${id}`);
 }
+
+// ─── SQL answers (read-only structured data) ─────────────────────────────────
+
+export type SqlSourceRow = { id: string; name: string; dsn: string };
+export type SqlPlan = { sql: string; explanation: string };
+export type SqlResult = { sql: string; columns: string[]; rows: unknown[][]; row_count: number };
+
+export function listSqlSources() {
+  return apiGet<SqlSourceRow[]>("/sql/sources", []);
+}
+
+export function addSqlSource(input: { name: string; dsn: string }) {
+  return apiPost<typeof input, SqlSourceRow>("/sql/sources", input);
+}
+
+export function deleteSqlSource(id: string) {
+  return apiDelete<{ deleted: boolean }>(`/sql/sources/${id}`);
+}
+
+export function planSqlQuery(input: { source_id: string; question: string }) {
+  return apiPost<typeof input, SqlPlan>("/sql/plan", input);
+}
+
+export function executeSqlQuery(input: { source_id: string; sql: string }) {
+  return apiPost<typeof input, SqlResult>("/sql/execute", input);
+}
