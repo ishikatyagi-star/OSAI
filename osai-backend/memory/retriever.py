@@ -21,12 +21,24 @@ def _tier_visible(chunk_tier: str | None, requester_tier: str) -> bool:
     return _TIER_ORDER.get(chunk_tier or "normal", 0) <= _TIER_ORDER.get(requester_tier, 2)
 
 
+def _person_scoped(chunk_permissions: list[str] | None) -> bool:
+    """True when a chunk is shared only with named people ("user:<id>" grants).
+    Such chunks are private: they bypass admin/system see-all and are visible
+    strictly to the named users — an admin shouldn't read a teammate's
+    personal upload just by being admin."""
+    perms = chunk_permissions or []
+    return bool(perms) and all(p.startswith("user:") for p in perms)
+
+
 def _visible(chunk_permissions: list[str] | None, requester_permissions: list[str]) -> bool:
-    """Data-governance check. Empty/admin requester = system context (sees all);
+    """Data-governance check. Empty/admin requester = system context (sees all),
+    except person-scoped chunks, which only their named users ever see;
     otherwise a chunk is visible only if it's public or shares a permission grant."""
+    chunk_permissions = chunk_permissions or []
+    if _person_scoped(chunk_permissions):
+        return bool(set(chunk_permissions) & set(requester_permissions))
     if not requester_permissions or "role:admin" in requester_permissions:
         return True
-    chunk_permissions = chunk_permissions or []
     if not chunk_permissions or "source:all" in chunk_permissions:
         return True
     return bool(set(chunk_permissions) & set(requester_permissions))
@@ -37,14 +49,21 @@ def _access_reason(
 ) -> str:
     """Human-readable reason a visible chunk passed `_visible` — mirrors its
     branches exactly, so the explanation can never disagree with the decision."""
+    chunk_permissions = chunk_permissions or []
+    if _person_scoped(chunk_permissions):
+        if len(chunk_permissions) == 1:
+            return "Private to you"
+        return "Shared with you directly"
     if not requester_permissions:
         return "System context (no user restrictions apply)"
     if "role:admin" in requester_permissions:
         return "You're a workspace admin (see-all)"
-    chunk_permissions = chunk_permissions or []
     if not chunk_permissions or "source:all" in chunk_permissions:
         return "Shared with everyone in your workspace"
     shared = sorted(set(chunk_permissions) & set(requester_permissions))
+    dept = [g for g in shared if g.startswith("dept:")]
+    if dept:
+        return "Shared with your department"
     return f"Matches your access grant: {', '.join(shared)}"
 
 

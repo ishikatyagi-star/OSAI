@@ -44,13 +44,53 @@ def test_upload_docx_extracts_paragraphs():
     assert resp.json()["documents_indexed"] == 1
 
 
-def test_upload_respects_tier_and_permissions():
+def test_upload_respects_tier():
     resp = _upload(
         [("files", ("salary.txt", b"Compensation bands for 2026.", "text/plain"))],
-        data={"data_tier": "red", "permissions": "source:hr, role:admin"},
+        data={"data_tier": "red"},
     )
     assert resp.status_code == 200
     assert resp.json()["documents"][0]["data_tier"] == "red"
+
+
+def test_upload_default_visibility_is_personal():
+    resp = _upload([("files", ("mine.txt", b"my notes", "text/plain"))])
+    assert resp.status_code == 200
+    assert resp.json()["visibility"] == "personal"
+
+
+def test_upload_rejects_bad_visibility():
+    resp = _upload(
+        [("files", ("a.txt", b"x", "text/plain"))],
+        data={"visibility": "everyone"},
+    )
+    assert resp.status_code == 422
+
+
+def test_upload_company_visibility():
+    resp = _upload(
+        [("files", ("handbook.md", b"# Handbook", "text/markdown"))],
+        data={"visibility": "company"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["visibility"] == "company"
+
+
+def test_upload_people_visibility_requires_recipients():
+    resp = _upload(
+        [("files", ("a.txt", b"x", "text/plain"))],
+        data={"visibility": "people"},
+    )
+    assert resp.status_code == 422
+
+
+def test_upload_department_visibility_requires_department():
+    # Unauthenticated + no department_id: nothing to scope to.
+    resp = _upload(
+        [("files", ("a.txt", b"x", "text/plain"))],
+        data={"visibility": "department"},
+    )
+    assert resp.status_code == 422
 
 
 def test_upload_rejects_bad_tier():
@@ -90,3 +130,49 @@ def test_upload_requires_auth():
         files=[("files", ("a.txt", b"hello", "text/plain"))],
     )
     assert resp.status_code == 401
+
+
+def _first_doc_id(resp) -> str:
+    return resp.json()["documents"][0]["id"]
+
+
+def test_access_roundtrip_after_upload():
+    up = _upload([("files", ("plan.txt", b"Q3 plan", "text/plain"))])
+    doc_id = _first_doc_id(up)
+    # Unauthenticated upload lands workspace-wide (no user to scope to).
+    resp = client.get(f"/documents/{doc_id}/access")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["visibility"] == "company"
+    assert body["title"] == "plan.txt"
+
+
+def test_access_patch_updates_visibility():
+    up = _upload([("files", ("plan2.txt", b"Q4 plan", "text/plain"))])
+    doc_id = _first_doc_id(up)
+    with patch("api.routes.documents.get_default_qdrant_store") as mock_store:
+        mock_store.return_value.set_document_payload = AsyncMock(return_value=None)
+        resp = client.patch(
+            f"/documents/{doc_id}/access", json={"visibility": "company"}
+        )
+    assert resp.status_code == 200
+    assert resp.json()["visibility"] == "company"
+    assert resp.json()["qdrant_error"] is None
+
+
+def test_access_patch_rejects_bad_visibility_and_unknown_doc():
+    up = _upload([("files", ("plan3.txt", b"notes", "text/plain"))])
+    doc_id = _first_doc_id(up)
+    assert (
+        client.patch(f"/documents/{doc_id}/access", json={"visibility": "everyone"}).status_code
+        == 422
+    )
+    assert (
+        client.patch("/documents/upload-nope/access", json={"visibility": "company"}).status_code
+        == 404
+    )
+
+
+def test_notifications_empty_for_unauthenticated():
+    assert client.get("/notifications").status_code == 200
+    assert client.get("/notifications").json() == []

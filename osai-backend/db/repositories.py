@@ -724,7 +724,15 @@ def user_permissions(session: Session, claims: dict | None) -> list[str]:
     if not user_id:
         return []
     user = session.get(User, user_id)
-    return list(user.permissions or []) if user else []
+    if user is None:
+        return []
+    grants = list(user.permissions or [])
+    # Implicit identity grants: every signed-in member can see documents shared
+    # with them personally ("user:<id>") or with their department ("dept:<id>").
+    grants.append(f"user:{user.id}")
+    if user.department_id:
+        grants.append(f"dept:{user.department_id}")
+    return grants
 
 
 # Data-clearance tiers, ordered least→most sensitive. A member may see a document

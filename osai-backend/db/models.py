@@ -274,6 +274,21 @@ class DecisionRecord(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc, onupdate=now_utc)
 
 
+class Notification(Base):
+    """Lightweight per-user in-app notifications (e.g. "X shared a file with
+    you"). Deliberately minimal: type + JSON payload, read flag."""
+
+    __tablename__ = "notifications"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
+    org_id: Mapped[str] = mapped_column(String, ForeignKey("orgs.id"), index=True)
+    user_id: Mapped[str] = mapped_column(String, ForeignKey("users.id"), index=True)
+    type: Mapped[str] = mapped_column(String)  # e.g. "document.shared"
+    payload: Mapped[dict] = mapped_column(JSON, default=dict)
+    read: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc, index=True)
+
+
 class AnswerFeedback(Base):
     """User verdicts on Ask answers, stored with the retrieval trace.
 

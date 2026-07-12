@@ -107,6 +107,31 @@ class QdrantStore:
             ),
         )
 
+    async def set_document_payload(
+        self, org_id: str, source_document_id: str, payload: dict[str, Any]
+    ) -> None:
+        """Overwrite payload keys on every chunk of one document (org-scoped).
+        Used when a document's access changes after ingestion — permission
+        grants live in the chunk payload, so retrieval reflects the change
+        immediately without re-embedding."""
+        await self.client.set_payload(
+            collection_name=self.collection_name,
+            payload=payload,
+            points=models.FilterSelector(
+                filter=models.Filter(
+                    must=[
+                        models.FieldCondition(
+                            key="org_id", match=models.MatchValue(value=org_id)
+                        ),
+                        models.FieldCondition(
+                            key="source_document_id",
+                            match=models.MatchValue(value=source_document_id),
+                        ),
+                    ]
+                )
+            ),
+        )
+
     async def delete_source_type(self, org_id: str, source_type: str) -> None:
         """Delete all vectors for one connector within an org (e.g. every Google
         Drive chunk), used when a connector is reconnected with a different

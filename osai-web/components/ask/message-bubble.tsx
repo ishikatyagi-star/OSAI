@@ -8,6 +8,7 @@ import { CitationChip } from "./citation-chip";
 import { ActionCard } from "./action-card";
 import { OpenUiArtifacts } from "./openui-artifacts";
 import { FeedbackButtons } from "./feedback-buttons";
+import { FileCard, type UploadedFile } from "./file-card";
 import { brandText } from "@/lib/utils";
 
 export type AskTurn = {
@@ -23,6 +24,8 @@ export type AskTurn = {
   modelRoute?: string;
   latencyMs?: number;
   artifacts?: AskUiArtifact[];
+  // Files uploaded from the composer, rendered as cards with a ⋯ access menu.
+  files?: UploadedFile[];
 };
 
 export function MessageBubble({
@@ -96,6 +99,14 @@ export function MessageBubble({
         )}
 
         <OpenUiArtifacts artifacts={turn.artifacts} />
+
+        {turn.files && turn.files.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {turn.files.map((f) => (
+              <FileCard key={f.id} file={f} />
+            ))}
+          </div>
+        )}
 
         {turn.question && (
           <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
