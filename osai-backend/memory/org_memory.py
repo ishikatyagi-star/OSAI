@@ -46,6 +46,11 @@ def record_memory(
     )
     session.add(mem)
     session.commit()
+    # Dual-write to Supermemory when configured — Postgres stays the durable
+    # source of truth; Supermemory adds semantic recall across the same pool.
+    from memory import supermemory_client
+
+    supermemory_client.add_memory(org_id, content, user_id=user_id, kind=kind)
     return mem
 
 
@@ -64,6 +69,16 @@ def fetch_relevant(
     governance stance everywhere else. Memories carry no data tier — they are
     distilled facts/playbooks, not document content — so there is no tier check."""
     from db.session import SessionLocal
+    from memory import supermemory_client
+
+    # Prefer Supermemory's semantic recall when configured; its container tags
+    # (org:/user:) encode the same visibility split enforced below for the
+    # Postgres path. Empty result (disabled or failure) falls through.
+    sm = supermemory_client.search_memories(
+        org_id, query, requester_user_id=requester_user_id, limit=limit
+    )
+    if sm:
+        return sm
 
     q_tokens = _tokens(query)
     if not q_tokens:
