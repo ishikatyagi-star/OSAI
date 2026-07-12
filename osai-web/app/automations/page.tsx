@@ -24,6 +24,8 @@ import {
   getAutomations,
   getWorkflowRuns,
   postWorkflow,
+  mintAutomationToken,
+  revokeAutomationToken,
   runAutomation,
   updateAutomation,
   type Automation,
@@ -291,6 +293,20 @@ export default function AutomationsPage() {
   const [running, setRunning] = useState<string | null>(null);
   const [result, setResult] = useState<{ id: string; text: string } | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  // Freshly minted trigger token, shown once per mint (never re-fetchable).
+  const [minted, setMinted] = useState<{ id: string; token: string } | null>(null);
+
+  async function handleMintToken(id: string) {
+    const res = await mintAutomationToken(id);
+    setMinted({ id, token: res.token });
+    refresh();
+  }
+
+  async function handleRevokeToken(id: string) {
+    await revokeAutomationToken(id);
+    setMinted((m) => (m?.id === id ? null : m));
+    refresh();
+  }
 
   // Transcript extraction
   const [runs, setRuns] = useState<WorkflowRun[]>([]);
@@ -552,6 +568,20 @@ export default function AutomationsPage() {
                         )}
                       </div>
                       <p className="meta" style={{ fontSize: 12, lineHeight: 1.5, margin: 0 }}>{brandText(a.prompt)}</p>
+                      {minted?.id === a.id && (
+                        <div
+                          className="card"
+                          style={{ marginTop: 8, padding: "8px 12px", fontSize: 11 }}
+                        >
+                          <p style={{ margin: 0, fontWeight: 600 }}>
+                            Trigger token (copy now — shown once):
+                          </p>
+                          <code style={{ wordBreak: "break-all" }}>{minted.token}</code>
+                          <p className="meta" style={{ margin: "6px 0 0", fontSize: 11 }}>
+                            {`curl -X POST -H "X-Trigger-Token: ${minted.token.slice(0, 12)}…" $API/automations/${a.id}/trigger`}
+                          </p>
+                        </div>
+                      )}
                     </div>
                     <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
                       <button
@@ -570,6 +600,22 @@ export default function AutomationsPage() {
                         aria-label="Edit automation"
                       >
                         <Pencil className="size-3.5" />
+                      </button>
+                      <button
+                        className="btn"
+                        style={{ fontSize: 12, padding: "6px 10px" }}
+                        title={
+                          a.has_trigger_token
+                            ? "Rotate or revoke the API trigger token"
+                            : "Create an API trigger token"
+                        }
+                        onClick={() =>
+                          a.has_trigger_token && minted?.id !== a.id
+                            ? handleRevokeToken(a.id)
+                            : handleMintToken(a.id)
+                        }
+                      >
+                        {a.has_trigger_token ? "API ✓" : "API"}
                       </button>
                       <Link
                         href={`/ask?q=${encodeURIComponent(`Update automation ${a.id} ("${a.name}"): `)}`}

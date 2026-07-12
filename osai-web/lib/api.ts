@@ -582,6 +582,7 @@ export type Automation = {
   deliver_to: DeliveryTarget | null;
   last_delivery: DeliveryOutcome | null;
   updated_at: string | null;
+  has_trigger_token?: boolean;
 };
 
 export function getAutomations() {
@@ -611,6 +612,17 @@ export function updateAutomation(
 
 export function deleteAutomation(id: string) {
   return apiDelete<{ deleted: boolean }>(`/automations/${id}`);
+}
+
+export function mintAutomationToken(id: string) {
+  return apiPost<Record<string, never>, { token: string; trigger_url: string }>(
+    `/automations/${id}/token`,
+    {}
+  );
+}
+
+export function revokeAutomationToken(id: string) {
+  return apiDelete<{ revoked: boolean }>(`/automations/${id}/token`);
 }
 
 export function runAutomation(id: string) {
