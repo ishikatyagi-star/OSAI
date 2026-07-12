@@ -307,7 +307,9 @@ async def update_document_access(
         )
     record = _get_upload_record(db, org_id, doc_id)
     if not _can_manage(record, claims, db):
-        raise HTTPException(status_code=403, detail="Only the uploader or an admin can change access.")
+        raise HTTPException(
+            status_code=403, detail="Only the uploader or an admin can change access."
+        )
 
     uploader_id = claims.get("sub") if claims else None
     dept = (body.department_id or "").strip() or None
