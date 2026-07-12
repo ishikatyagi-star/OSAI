@@ -23,6 +23,8 @@ class Org(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
     name: Mapped[str] = mapped_column(String, nullable=False)
     data_routing: Mapped[dict] = mapped_column(JSON, default=dict)
+    # SHA-256 of the Slack /ask slash-command token (None = Slack ask off).
+    slack_ask_token_hash: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
 
 

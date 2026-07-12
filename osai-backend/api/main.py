@@ -19,6 +19,7 @@ from api.routes import (
     orgs,
     search,
     settings,
+    slack_ask,
     sql,
     sync_runs,
     team,
@@ -57,6 +58,7 @@ app.include_router(workflows.router)
 app.include_router(workflow_actions.router)
 app.include_router(settings.router)
 app.include_router(sql.router)
+app.include_router(slack_ask.router)
 app.include_router(webhooks.router)
 app.include_router(orgs.router)
 app.include_router(auth.router)

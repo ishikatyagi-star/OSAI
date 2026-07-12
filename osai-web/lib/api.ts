@@ -975,3 +975,16 @@ export function planSqlQuery(input: { source_id: string; question: string }) {
 export function executeSqlQuery(input: { source_id: string; sql: string }) {
   return apiPost<typeof input, SqlResult>("/sql/execute", input);
 }
+
+// ─── Slack /ask slash command ────────────────────────────────────────────────
+
+export function mintSlackAskToken() {
+  return apiPost<Record<string, never>, { token: string; request_url_path: string }>(
+    "/settings/slack-ask-token",
+    {}
+  );
+}
+
+export function revokeSlackAskToken() {
+  return apiDelete<{ revoked: boolean }>("/settings/slack-ask-token");
+}
