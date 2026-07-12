@@ -48,7 +48,7 @@ export default function SyncRunsPage() {
           <h1>Sync Runs</h1>
           <p>
             Ingestion activity across all connected sources. Each run fetches, chunks, and indexes
-            documents into the Sheldon AI knowledge base.
+            documents into the Sheldon knowledge base.
           </p>
         </div>
       </div>
@@ -175,7 +175,7 @@ export default function SyncRunsPage() {
                           }}
                         />
                       </div>
-                      <span className="text-[10px] font-semibold" style={{ color: "var(--green)" }}>
+                      <span className="text-xs font-semibold" style={{ color: "var(--green)" }}>
                         {Math.round((run.documents_indexed / run.documents_seen) * 100)}%
                       </span>
                     </div>

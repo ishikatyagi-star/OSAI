@@ -61,7 +61,7 @@ export function FeedbackButtons({
   if (sent) {
     return (
       <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-        <Check className="size-3" /> Thanks — feedback recorded
+        <Check className="size-3" /> Thanks - feedback recorded
       </span>
     );
   }

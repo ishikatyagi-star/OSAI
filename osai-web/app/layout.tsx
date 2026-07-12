@@ -7,7 +7,7 @@ import AuthWrapper from "../components/auth-wrapper";
 import AppShell from "../components/app-shell";
 
 export const metadata: Metadata = {
-  title: "Sheldon AI - Operating System for Company Context",
+  title: "Sheldon - Operating System for Company Context",
   description:
     "Connector-first operating layer for scattered company context and execution.",
 };

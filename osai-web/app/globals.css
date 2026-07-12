@@ -17,7 +17,7 @@
   --bg-elevated:  #f0efed;
   --bg-hover:     #e7e5e4;
   --border:       #e7e5e4;
-  --border-hover: #d6d3d1;
+  --border-hover: #a8a29e;
   --border-soft:  #f0efed;
 
   /* Ink - hierarchy is binary: ink or ink-muted */
@@ -103,7 +103,7 @@
 .onboarding-kicker,
 .onboarding-step-count {
   margin: 0;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -210,7 +210,7 @@
 
 .onboarding-progress-meta {
   margin-top: 1px;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-muted);
 }
 
@@ -335,7 +335,7 @@ body {
   background: var(--bg);
   color: var(--text-primary);
   font-family: var(--font);
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1.5;
   letter-spacing: 0;
   font-feature-settings: var(--feat);
@@ -409,7 +409,7 @@ a { color: inherit; }
 }
 
 .sidebar-logo-version {
-  font-size: 10px;
+  font-size: 12px;
   color: var(--text-muted);
   margin-left: 2px;
 }
@@ -423,7 +423,7 @@ a { color: inherit; }
 }
 
 .sidebar-group-label {
-  font-size: 10px;
+  font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.6px;
   color: var(--text-muted);
@@ -488,7 +488,7 @@ a { color: inherit; }
   margin-left: auto;
   background: var(--bg-elevated);
   color: var(--text-secondary);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   padding: 1px 7px;
   border-radius: 100px;
@@ -503,8 +503,75 @@ a { color: inherit; }
 }
 
 .sidebar-footer {
+  position: relative;
   padding: 12px 14px;
   border-top: 1px solid var(--border);
+}
+
+.sidebar-profile-menu {
+  position: relative;
+  width: 100%;
+}
+
+.sidebar-profile-menu > summary {
+  list-style: none;
+  border-radius: 10px;
+  cursor: pointer;
+  padding: 8px;
+}
+
+.sidebar-profile-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.sidebar-profile-menu > summary:hover,
+.sidebar-profile-menu[open] > summary {
+  background: var(--bg-hover);
+}
+
+.sidebar-profile-menu > summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.sidebar-profile-popover {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 100;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-surface);
+  box-shadow: 0 16px 40px -20px rgba(12, 10, 9, 0.5);
+}
+
+.sidebar-profile-menu:not([open]) .sidebar-profile-popover {
+  display: none;
+}
+
+.sidebar-profile-action {
+  display: flex;
+  width: 100%;
+  min-height: 40px;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.sidebar-profile-action:hover,
+.sidebar-profile-action:focus-visible {
+  background: var(--bg-hover);
+  outline: none;
 }
 
 .sidebar-user {
@@ -520,7 +587,7 @@ a { color: inherit; }
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   color: var(--text-primary);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   display: flex;
   align-items: center;
@@ -543,7 +610,7 @@ a { color: inherit; }
 }
 
 .sidebar-user-role {
-  font-size: 10px;
+  font-size: 12px;
   color: var(--text-muted);
 }
 
@@ -609,7 +676,7 @@ a { color: inherit; }
 
 .topbar-search-kbd {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 12px;
   color: var(--text-muted);
   background: var(--bg-hover);
   padding: 1px 5px;
@@ -628,6 +695,11 @@ a { color: inherit; }
 .topbar-workspace-name {
   color: var(--text-primary);
   font-weight: 600;
+}
+
+.topbar-workspace > a,
+.topbar-workspace > span:last-child {
+  font-size: 12px !important;
 }
 
 /* ─── Page content ──────────────────────────────────────────────────────────── */
@@ -686,6 +758,16 @@ main {
 
   .sidebar-user {
     justify-content: center;
+  }
+
+  .sidebar-profile-menu {
+    width: auto;
+  }
+
+  .sidebar-profile-popover {
+    left: 0;
+    right: auto;
+    width: 200px;
   }
 
   .dashboard-layout {
@@ -862,7 +944,7 @@ main {
 }
 
 .page-header-left p {
-  font-size: 14px;
+  font-size: 15px;
   color: var(--text-secondary);
   letter-spacing: -0.14px;
   max-width: 760px;
@@ -881,7 +963,7 @@ main {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-muted);
   flex-wrap: wrap;
   justify-content: flex-end;
@@ -900,7 +982,7 @@ h1 {
 }
 
 h2 {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--text-primary);
   letter-spacing: -0.3px;
@@ -930,32 +1012,32 @@ h2 {
 }
 
 .page-subtitle {
-  font-size: 13px;
+  font-size: 15px;
   color: var(--text-secondary);
   margin-bottom: 24px;
   font-weight: 400;
 }
 
 .meta {
-  font-size: 12px;
+  font-size: 13px !important;
   color: var(--text-muted);
 }
 
 .mono {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-secondary);
 }
 
 .empty-state {
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: 15px;
   padding: 32px 0;
   text-align: center;
 }
 
-.error-text { color: var(--red); font-size: 12px; }
-.success-text { color: var(--teal); font-size: 12px; }
+.error-text { color: var(--red); font-size: 13px; }
+.success-text { color: var(--green); font-size: 13px; }
 
 /* ─── Buttons - framer pills (white primary, charcoal secondary) ────────────── */
 .btn {
@@ -984,7 +1066,7 @@ h2 {
 
 .btn:active:not(:disabled) { transform: scale(0.97); }
 
-.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .btn-primary {
   background: var(--text-primary);
@@ -1018,13 +1100,13 @@ h2 {
 }
 
 .btn-sm {
-  font-size: 12px;
+  font-size: 13px;
   min-height: 32px;
   padding: 6px 14px;
 }
 
 .btn-xs {
-  font-size: 11px;
+  font-size: 12px;
   min-height: 30px;
   padding: 5px 12px;
 }
@@ -1073,12 +1155,12 @@ select {
   line-height: 1.3;
 }
 .text-body {
-  font-size: 15px;
+  font-size: 16px;
   letter-spacing: -0.15px;
   line-height: 1.3;
 }
 .text-body-sm {
-  font-size: 14px;
+  font-size: 15px;
   letter-spacing: -0.14px;
   line-height: 1.3;
 }
@@ -1165,7 +1247,7 @@ select {
   align-items: center;
   padding: 2px 8px;
   border-radius: 6px;
-  font-size: 11px;
+  font-size: 12px !important;
   font-weight: 600;
   letter-spacing: -0.1px;
   white-space: nowrap;
@@ -1190,7 +1272,7 @@ select {
   display: inline-block;
   padding: 2px 7px;
   border-radius: 4px;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   text-transform: lowercase;
   letter-spacing: 0.2px;
@@ -1243,7 +1325,7 @@ select {
 .stat-card:hover { border-color: var(--border-hover); }
 
 .stat-card-label {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
@@ -1262,7 +1344,7 @@ select {
 }
 
 .stat-card-sub {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-muted);
 }
 
@@ -1318,7 +1400,7 @@ select {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-muted);
   font-family: var(--font-mono);
 }
@@ -1348,7 +1430,7 @@ select {
 }
 
 .attention-card-meta {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-muted);
   display: flex;
   align-items: center;
@@ -1398,7 +1480,7 @@ select {
 .data-table th {
   padding: 10px 14px;
   text-align: left;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--text-muted);
   background: var(--bg-elevated);
@@ -1474,7 +1556,7 @@ select {
 
 /* Small uppercase caption that labels a group of filter chips. */
 .filter-group-label {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.6px;
@@ -1559,7 +1641,7 @@ select {
 /* ─── Run link (monospace ID) ─────────────────────────────────────────────────── */
 .run-link {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   color: var(--teal);
   text-decoration: none;
 }
@@ -1601,7 +1683,7 @@ select {
 }
 
 .mini-stat-label {
-  font-size: 10px;
+  font-size: 12px;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.4px;
@@ -1659,7 +1741,7 @@ select {
 }
 
 .connector-stat-label {
-  font-size: 9px;
+  font-size: 12px;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.3px;
@@ -1692,7 +1774,7 @@ select {
 }
 
 .integration-summary-label {
-  font-size: 10px;
+  font-size: 12px;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.4px;
@@ -1837,7 +1919,7 @@ select {
 }
 
 .form-group label {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--text-secondary);
   letter-spacing: 0.5px;
@@ -1935,7 +2017,7 @@ select {
   margin-bottom: 14px;
 }
 
-.section-header h2 { font-size: 14px; font-weight: 600; }
+.section-header h2 { font-size: 16px; font-weight: 600; }
 
 .section-header a {
   font-size: 12px;
@@ -2153,7 +2235,7 @@ select {
   background: var(--border);
 }
 .login-divider span {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-muted);
   white-space: nowrap;
 }
@@ -2206,12 +2288,13 @@ select {
   border-radius: 100px;
   cursor: pointer;
   background: transparent;
-  color: var(--text-secondary);
+  color: var(--text-primary) !important;
+  background: transparent !important;
   transition: background 0.15s, color 0.15s;
 }
 .tabs-pill-trigger[data-state="active"] {
-  background: var(--text-primary);
-  color: #fff;
+  background: var(--text-primary) !important;
+  color: #fff !important;
 }
 
 /* ─── Status Dot ───────────────────────────────────────────────────────────── */
@@ -2235,7 +2318,7 @@ select {
 
 /* ─── Spotlight Eyebrow ────────────────────────────────────────────────────── */
 .spotlight-eyebrow {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 1.2px;
   text-transform: uppercase;
@@ -2420,7 +2503,7 @@ select {
 }
 
 .login-footer {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-muted);
   margin-top: 24px;
   text-align: center;
@@ -2430,7 +2513,7 @@ select {
 
 
 /* ───────────────────────────────────────────────────────────────────────────
-   Ask Sheldon AI - framer "command-center" poster (monochrome).
+   Ask Sheldon - framer "command-center" poster (monochrome).
 
    Follows DESIGN.md: near-black canvas, poster-grade white display type with
    aggressive negative tracking, charcoal surfaces, and a SINGLE blue accent
@@ -2502,7 +2585,7 @@ select {
   background: color-mix(in srgb, var(--warning) 7%, var(--bg-surface));
   padding: 9px 11px;
   color: color-mix(in srgb, var(--warning) 76%, var(--text-primary));
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.45;
 }
 
@@ -3073,7 +3156,7 @@ select {
 .ask-source-badge {
   display: inline-flex;
   align-items: center;
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.2px;
   color: var(--text-primary);

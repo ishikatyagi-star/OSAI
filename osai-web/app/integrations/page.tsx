@@ -164,7 +164,7 @@ export default function IntegrationsPage() {
             uploaded file is managed on the file itself, from Ask.
           </p>
         </div>
-        <Button onClick={() => setCatalogOpen(true)}>
+        <Button size="lg" className="min-w-[152px] shadow-sm" onClick={() => setCatalogOpen(true)}>
           <Plus size={14} /> Add connector
         </Button>
       </div>

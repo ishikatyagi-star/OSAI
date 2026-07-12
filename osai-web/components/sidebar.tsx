@@ -15,11 +15,10 @@ import {
   Settings,
   Share2,
   Sparkles,
-  Trash2,
   Users,
   type LucideIcon,
 } from "lucide-react";
-import { clearSession, deleteAccount } from "@/lib/api";
+import { clearSession } from "@/lib/api";
 import { brandText } from "@/lib/utils";
 
 type NavItem = {
@@ -34,7 +33,7 @@ type NavGroup = {
   items: NavItem[];
 };
 
-// Decluttered IA: Search folds into Ask Sheldon AI, Team Board folds into Decision Log,
+// Decluttered IA: Search folds into Ask Sheldon, Team Board folds into Decision Log,
 // and Evals + Data Routing move into Settings / Integrations. One consistent icon
 // set (lucide, outline, uniform stroke) so no item reads heavier than the others.
 const NAV_GROUPS: NavGroup[] = [
@@ -42,7 +41,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Workspace",
     items: [
       { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-      { href: "/ask", icon: Sparkles, label: "Ask Sheldon AI" },
+      { href: "/ask", icon: Sparkles, label: "Ask Sheldon" },
       { href: "/dashboards", icon: BarChart3, label: "Analytics" },
     ],
   },
@@ -70,7 +69,6 @@ export default function Sidebar() {
   const router = useRouter();
   const [userName, setUserName] = useState("");
   const [orgName, setOrgName] = useState("");
-  const [deleting, setDeleting] = useState(false);
   useEffect(() => {
     setUserName(brandText(localStorage.getItem("osai_user_name") || "You"));
     setOrgName(brandText(localStorage.getItem("osai_org_name") || "Your workspace"));
@@ -82,33 +80,13 @@ export default function Sidebar() {
     router.replace("/login");
   }
 
-  async function handleDeleteAccount() {
-    if (
-      !window.confirm(
-        "Permanently delete your account? This cannot be undone. You'll be signed out."
-      )
-    ) {
-      return;
-    }
-    setDeleting(true);
-    try {
-      await deleteAccount();
-    } catch {
-      // Even if the server call fails (e.g. demo token), clear the local session
-      // so the user isn't stuck in a half-signed-in state.
-      clearSession();
-    } finally {
-      router.replace("/login");
-    }
-  }
-
   return (
     <aside className="sidebar">
       {/* Logo */}
       <Link href="/dashboard" className="sidebar-logo">
         <div className="sidebar-logo-mark">O</div>
         <div>
-          <span className="sidebar-logo-text">Sheldon AI</span>
+          <span className="sidebar-logo-text">Sheldon</span>
           <span className="sidebar-logo-version"> v1</span>
         </div>
       </Link>
@@ -145,51 +123,25 @@ export default function Sidebar() {
 
       {/* Footer */}
       <div className="sidebar-footer">
-        <Link
-          href="/settings"
-          className={`sidebar-nav-item${pathname.startsWith("/settings") ? " active" : ""}`}
-        >
-          <span className="nav-icon">
-            <Settings size={16} strokeWidth={1.75} />
-          </span>
-          <span>Settings</span>
-        </Link>
-        <div className="sidebar-user">
-          <div className="sidebar-avatar">{initial}</div>
-          <div className="sidebar-user-info">
-            <div className="sidebar-user-name">{userName}</div>
-            <div className="sidebar-user-role">{orgName}</div>
+        <details className="sidebar-profile-menu">
+          <summary className="sidebar-user" aria-label="Open profile menu">
+            <div className="sidebar-avatar">{initial}</div>
+            <div className="sidebar-user-info">
+              <div className="sidebar-user-name">{userName}</div>
+              <div className="sidebar-user-role">{orgName}</div>
+            </div>
+          </summary>
+          <div className="sidebar-profile-popover">
+            <Link href="/settings" className="sidebar-profile-action">
+              <Settings size={16} strokeWidth={1.75} />
+              <span>Settings</span>
+            </Link>
+            <button type="button" onClick={handleSignOut} className="sidebar-profile-action">
+              <LogOut size={16} strokeWidth={1.75} />
+              <span>Sign out</span>
+            </button>
           </div>
-        </div>
-        <button
-          type="button"
-          onClick={handleSignOut}
-          className="sidebar-nav-item"
-          style={{ width: "100%", background: "none", border: "none", cursor: "pointer" }}
-        >
-          <span className="nav-icon">
-            <LogOut size={16} strokeWidth={1.75} />
-          </span>
-          <span>Sign out</span>
-        </button>
-        <button
-          type="button"
-          onClick={handleDeleteAccount}
-          disabled={deleting}
-          className="sidebar-nav-item"
-          style={{
-            width: "100%",
-            background: "none",
-            border: "none",
-            cursor: deleting ? "default" : "pointer",
-            color: "var(--red)",
-          }}
-        >
-          <span className="nav-icon">
-            <Trash2 size={16} strokeWidth={1.75} />
-          </span>
-          <span>{deleting ? "Deleting…" : "Delete account"}</span>
-        </button>
+        </details>
       </div>
     </aside>
   );

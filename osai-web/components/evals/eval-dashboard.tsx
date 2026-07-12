@@ -236,7 +236,7 @@ export function EvalDashboard() {
       <div className="page-header">
         <div className="page-header-left">
           <h1>Evals</h1>
-          <p>Quality and regression tracking for Sheldon AI&apos;s answers and routing.</p>
+          <p>Quality and regression tracking for Sheldon&apos;s answers and routing.</p>
         </div>
         {hasData && run && (
           <div className="page-header-meta">

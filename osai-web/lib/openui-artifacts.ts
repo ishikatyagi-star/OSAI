@@ -10,7 +10,7 @@ import type {
 export const OSAI_OPENUI_PROMPT = openuiLibrary.prompt({
   ...openuiPromptOptions,
   preamble: [
-    "You generate compact, trustworthy Sheldon AI workspace artifacts.",
+    "You generate compact, trustworthy Sheldon workspace artifacts.",
     "Every artifact must preserve citations, confidence, and action approval state.",
     openuiPromptOptions.preamble,
   ]

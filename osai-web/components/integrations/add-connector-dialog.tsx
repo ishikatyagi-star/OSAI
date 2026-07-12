@@ -21,7 +21,7 @@ import {
 /**
  * Browse-and-connect dialog over the full Composio app catalog.
  *
- * The Integrations page's cards only cover Sheldon AI's native connectors; this
+ * The Integrations page's cards only cover Sheldon's native connectors; this
  * dialog exposes everything Composio supports (hundreds of apps) with search
  * and "load more" pagination, so users aren't limited to the default five.
  */
@@ -109,7 +109,7 @@ export function AddConnectorDialog({
           <DialogTitle className="text-xl">Add a connector</DialogTitle>
           <DialogDescription className="max-w-2xl leading-relaxed">
             Search the full app catalog and connect any tool your team uses.
-            Sheldon AI indexes and searches its content; write actions always require
+            Sheldon indexes and searches its content; write actions always require
             your approval.
           </DialogDescription>
         </DialogHeader>

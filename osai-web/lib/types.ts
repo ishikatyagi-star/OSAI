@@ -111,7 +111,7 @@ export type ApproveResult = {
 };
 
 
-// ─── Ask Sheldon AI agent (Phase 1 - POST /ask) ───────────────────────────────────
+// ─── Ask Sheldon agent (Phase 1 - POST /ask) ──────────────────────────────────────
 
 export type ChatRole = "user" | "assistant";
 

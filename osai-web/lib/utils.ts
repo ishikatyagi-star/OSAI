@@ -14,7 +14,7 @@ export function brandText(value: string | null | undefined) {
   const escapedEmDash = `\\u${2014}`;
   return (value ?? "")
     .replace(legacySetting, "the required integration setting")
-    .replace(new RegExp(`\\b${legacyBrand}\\b`, "gi"), "Sheldon AI")
+    .replace(new RegExp(`\\b${legacyBrand}\\b`, "gi"), "Sheldon")
     .replaceAll(emDash, "-")
     .replace(/&(?:mdash|#8212|#x2014);/g, "-")
     .replaceAll(escapedEmDash, "-");

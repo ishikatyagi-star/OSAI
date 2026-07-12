@@ -88,7 +88,7 @@ export function GraphCanvas({
                     y={my}
                     dy={-4}
                     textAnchor="middle"
-                    className="fill-[#888] text-[9px]"
+                    className="fill-[var(--text-muted)] text-xs"
                     style={{ fontFamily: "var(--font-mono)" }}
                   >
                     {edge.label}
@@ -134,7 +134,7 @@ export function GraphCanvas({
                 <text
                   y={r + 13}
                   textAnchor="middle"
-                  className="fill-[#f0f0f0] text-[11px]"
+                  className="fill-white text-xs"
                   style={{ fontFamily: "var(--font-sans)", pointerEvents: "none" }}
                 >
                   {ent.label}

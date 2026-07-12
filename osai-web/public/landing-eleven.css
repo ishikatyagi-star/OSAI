@@ -4,8 +4,8 @@
   --el-ink: #0c0a09;
   --el-primary: #292524;
   --el-body: #4e4e4e;
-  --el-muted: #777169;
-  --el-muted-soft: #a8a29e;
+  --el-muted: #6b655e;
+  --el-muted-soft: #6b655e;
   --el-canvas: #f5f5f5;
   --el-canvas-soft: #fafafa;
   --el-surface: #ffffff;
@@ -280,6 +280,13 @@ section {
   filter: saturate(0.65) contrast(0.85) blur(0.2px) !important;
 }
 
+/* The university source image contains interface copy; fading that copy turns
+   it into unreadable pseudo-content. Keep the atmospheric gradient, not text
+   users cannot actually read. */
+.landing-university .hero-pixel-img {
+  display: none !important;
+}
+
 .hero-overlay {
   background: linear-gradient(90deg, rgba(245, 245, 245, 0.98), rgba(245, 245, 245, 0.86) 42%, rgba(245, 245, 245, 0.34)) !important;
 }
@@ -439,6 +446,11 @@ h2 em {
   padding: 22px !important;
 }
 
+.hero-widget {
+  animation: none !important;
+  opacity: 1 !important;
+}
+
 .wf-panel::before,
 .hero-widget::before,
 .spotlight::before,
@@ -509,6 +521,16 @@ footer {
   font-size: 14px !important;
 }
 
+.wf-live {
+  color: var(--el-body) !important;
+}
+
+.wf-meta,
+footer,
+footer span {
+  font-size: 12px !important;
+}
+
 .wf-meta,
 .wf-status,
 .wf-badge,
@@ -543,7 +565,18 @@ footer {
 .wf-badge.done,
 .wf-status.done {
   background: rgba(22, 163, 74, 0.1) !important;
-  color: #15803d !important;
+  color: #166534 !important;
+}
+
+.wf-badge,
+.wf-status,
+.focus-tag,
+.footer-bottom {
+  font-size: 12px !important;
+}
+
+.final-note {
+  color: var(--el-body) !important;
 }
 
 .wf-badge.run,
