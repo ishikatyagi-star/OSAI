@@ -816,3 +816,51 @@ export function getNotifications() {
 export function markNotificationRead(id: string) {
   return apiPost<Record<string, never>, AppNotification>(`/notifications/${id}/read`, {});
 }
+
+// ─── Threads (persisted Ask conversations) ───────────────────────────────────
+
+export type ThreadSummary = {
+  id: string;
+  title: string;
+  shared: boolean;
+  created_by: string | null;
+  created_by_name: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  turns?: number;
+};
+
+export type ThreadTurnRow = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  author_name: string | null;
+  payload: Record<string, unknown> | null;
+  created_at: string | null;
+};
+
+export function createThread(title: string) {
+  return apiPost<{ title: string }, ThreadSummary>("/threads", { title });
+}
+
+export function listThreads() {
+  return apiGet<ThreadSummary[]>("/threads", []);
+}
+
+export function getThread(id: string) {
+  return apiGet<(ThreadSummary & { turns: ThreadTurnRow[] }) | null>(`/threads/${id}`, null);
+}
+
+export function appendThreadTurn(
+  id: string,
+  turn: { role: "user" | "assistant"; content: string; payload?: Record<string, unknown> }
+) {
+  return apiPost<typeof turn, { id: string; recorded: boolean; mentioned: number }>(
+    `/threads/${id}/turns`,
+    turn
+  );
+}
+
+export function patchThread(id: string, patch: { shared?: boolean; title?: string }) {
+  return apiPatch<typeof patch, ThreadSummary>(`/threads/${id}`, patch);
+}
