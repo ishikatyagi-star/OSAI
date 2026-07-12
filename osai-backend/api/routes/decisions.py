@@ -91,6 +91,19 @@ async def create_decision(body: DecisionCreate, db: DbSession, org_id: OrgId) ->
     )
     db.add(row)
     db.commit()
+
+    # Real work feeds the wiki: a logged decision drafts a context entry for
+    # someone to approve (never blocks decision creation).
+    from api.routes.wiki import suggest_entry
+
+    suggest_entry(
+        db,
+        org_id,
+        f"Decision: {row.title}",
+        f"{row.title}\n\nStatus: {row.status} · Impact: {row.impact}"
+        + (f" · Owner: {row.owner}" if row.owner else ""),
+        origin="decision",
+    )
     return _serialize(row)
 
 

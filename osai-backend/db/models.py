@@ -321,6 +321,40 @@ class ThreadTurn(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc, index=True)
 
 
+class WikiEntry(Base):
+    """Curated org knowledge — the editable, versioned context layer.
+
+    status: published (live, cited by Ask) | suggested (draft awaiting
+    approval — auto-created from decisions and corrections so the wiki
+    grows from real work, not scheduled documentation)."""
+
+    __tablename__ = "wiki_entries"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
+    org_id: Mapped[str] = mapped_column(String, ForeignKey("orgs.id"), index=True)
+    title: Mapped[str] = mapped_column(Text)
+    content: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String, default="published", index=True)
+    origin: Mapped[str] = mapped_column(String, default="manual")  # manual|decision|correction
+    updated_by: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc, onupdate=now_utc)
+
+
+class WikiRevision(Base):
+    """Snapshot of a wiki entry before each edit — the audit/rollback trail."""
+
+    __tablename__ = "wiki_revisions"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
+    entry_id: Mapped[str] = mapped_column(String, ForeignKey("wiki_entries.id"), index=True)
+    org_id: Mapped[str] = mapped_column(String, index=True)
+    title: Mapped[str] = mapped_column(Text)
+    content: Mapped[str] = mapped_column(Text)
+    author: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc, index=True)
+
+
 class AnswerFeedback(Base):
     """User verdicts on Ask answers, stored with the retrieval trace.
 

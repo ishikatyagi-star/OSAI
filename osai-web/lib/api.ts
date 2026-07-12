@@ -864,3 +864,47 @@ export function appendThreadTurn(
 export function patchThread(id: string, patch: { shared?: boolean; title?: string }) {
   return apiPatch<typeof patch, ThreadSummary>(`/threads/${id}`, patch);
 }
+
+// ─── Org wiki (curated context) ──────────────────────────────────────────────
+
+export type WikiEntry = {
+  id: string;
+  title: string;
+  content: string;
+  status: "published" | "suggested";
+  origin: "manual" | "decision" | "correction";
+  updated_by: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+export type WikiRevisionRow = {
+  id: string;
+  title: string;
+  content: string;
+  author: string | null;
+  created_at: string | null;
+};
+
+export function getWikiEntries() {
+  return apiGet<WikiEntry[]>("/wiki", []);
+}
+
+export function createWikiEntry(input: { title: string; content: string }) {
+  return apiPost<typeof input, WikiEntry>("/wiki", input);
+}
+
+export function updateWikiEntry(
+  id: string,
+  patch: { title?: string; content?: string; status?: "published" }
+) {
+  return apiPatch<typeof patch, WikiEntry>(`/wiki/${id}`, patch);
+}
+
+export function deleteWikiEntry(id: string) {
+  return apiDelete<{ deleted: boolean }>(`/wiki/${id}`);
+}
+
+export function getWikiRevisions(id: string) {
+  return apiGet<WikiRevisionRow[]>(`/wiki/${id}/revisions`, []);
+}
