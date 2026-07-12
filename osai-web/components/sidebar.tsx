@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import {
   BarChart3,
   BookOpen,
+  Bookmark,
   Clock,
   Inbox,
   LayoutDashboard,
@@ -52,6 +53,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/inbox", icon: Inbox, label: "Context Inbox" },
       { href: "/decisions", icon: ScrollText, label: "Decision Log" },
       { href: "/wiki", icon: BookOpen, label: "Wiki" },
+      { href: "/artifacts", icon: Bookmark, label: "Artifacts" },
       { href: "/graph", icon: Share2, label: "Org Graph" },
       { href: "/team", icon: Users, label: "Team" },
       { href: "/automations", icon: Clock, label: "Automations" },

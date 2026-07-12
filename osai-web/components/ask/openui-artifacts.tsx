@@ -1,13 +1,18 @@
 "use client";
 
+import { useState } from "react";
 import {
   BarChart3,
+  Bookmark,
+  BookmarkCheck,
   CheckCircle2,
   ExternalLink,
   FileText,
   ShieldAlert,
   Sparkles,
 } from "lucide-react";
+import { saveArtifact } from "@/lib/api";
+import { isDemo } from "@/lib/demo";
 import {
   Callout,
   Card,
@@ -109,6 +114,36 @@ function ArtifactRows({ rows }: { rows: AskUiArtifactRow[] }) {
   );
 }
 
+function PinButton({ artifact }: { artifact: AskUiArtifact }) {
+  const [pinned, setPinned] = useState(false);
+  const [busy, setBusy] = useState(false);
+  if (isDemo()) return null;
+  return (
+    <button
+      type="button"
+      className="ask-openui-pin inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+      aria-label={pinned ? "Saved to Artifacts" : `Save "${artifact.title}" to Artifacts`}
+      disabled={pinned || busy}
+      onClick={async () => {
+        setBusy(true);
+        try {
+          await saveArtifact({
+            title: artifact.title,
+            kind: artifact.kind,
+            data: artifact as unknown as Record<string, unknown>,
+          });
+          setPinned(true);
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
+      {pinned ? <BookmarkCheck className="size-3.5" /> : <Bookmark className="size-3.5" />}
+      {pinned ? "Saved" : "Save"}
+    </button>
+  );
+}
+
 export function OpenUiArtifacts({ artifacts }: { artifacts?: AskUiArtifact[] }) {
   if (!artifacts?.length) return null;
 
@@ -137,6 +172,9 @@ export function OpenUiArtifacts({ artifacts }: { artifacts?: AskUiArtifact[] }) 
               />
               {artifact.metrics?.length ? <MetricTags metrics={artifact.metrics} /> : null}
               {artifact.rows?.length ? <ArtifactRows rows={artifact.rows} /> : null}
+              <div className="flex justify-end pt-1">
+                <PinButton artifact={artifact} />
+              </div>
             </Card>
           )
         )}

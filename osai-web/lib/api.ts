@@ -908,3 +908,32 @@ export function deleteWikiEntry(id: string) {
 export function getWikiRevisions(id: string) {
   return apiGet<WikiRevisionRow[]>(`/wiki/${id}/revisions`, []);
 }
+
+// ─── Saved artifacts ─────────────────────────────────────────────────────────
+
+export type SavedArtifactRow = {
+  id: string;
+  thread_id: string | null;
+  title: string;
+  kind: string;
+  data: Record<string, unknown>;
+  created_by_name: string | null;
+  created_at: string | null;
+};
+
+export function saveArtifact(input: {
+  title: string;
+  kind: string;
+  data: Record<string, unknown>;
+  thread_id?: string | null;
+}) {
+  return apiPost<typeof input, SavedArtifactRow>("/artifacts", input);
+}
+
+export function listArtifacts() {
+  return apiGet<SavedArtifactRow[]>("/artifacts", []);
+}
+
+export function deleteArtifact(id: string) {
+  return apiDelete<{ deleted: boolean }>(`/artifacts/${id}`);
+}

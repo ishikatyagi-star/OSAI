@@ -355,6 +355,24 @@ class WikiRevision(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc, index=True)
 
 
+class SavedArtifact(Base):
+    """A pinned answer artifact (table, brief, action plan) — reusable output
+    that outlives its conversation. PromptQL-style 'artifacts as memory'."""
+
+    __tablename__ = "saved_artifacts"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
+    org_id: Mapped[str] = mapped_column(String, ForeignKey("orgs.id"), index=True)
+    thread_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    title: Mapped[str] = mapped_column(Text)
+    kind: Mapped[str] = mapped_column(String, default="answer_summary")
+    # The full artifact payload as rendered by the client (openui shape).
+    data: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_by: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_by_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc, index=True)
+
+
 class AnswerFeedback(Base):
     """User verdicts on Ask answers, stored with the retrieval trace.
 
