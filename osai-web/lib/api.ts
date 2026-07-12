@@ -678,6 +678,7 @@ export function submitFeedback(input: {
   rating: "up" | "down";
   comment?: string | null;
   wrong_sources?: string[] | null;
+  correction?: string | null;
   retrieval_trace?: Record<string, unknown> | null;
 }) {
   return apiPost<typeof input, { id: string | null; recorded: boolean }>(

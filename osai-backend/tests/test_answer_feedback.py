@@ -68,3 +68,43 @@ def test_list_requires_admin():
     app.dependency_overrides.pop(require_admin, None)
     resp = TestClient(app).get("/feedback")
     assert resp.status_code == 401
+
+
+def test_correction_becomes_team_memory():
+    from unittest.mock import patch
+
+    with patch("api.routes.feedback.record_memory") as rec:
+        resp = client.post(
+            "/feedback",
+            json={
+                "query": "when do we deploy?",
+                "answer": "Deploys happen on Mondays.",
+                "rating": "down",
+                "correction": "Deploys happen on Fridays after standup.",
+            },
+        )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["recorded"] is True
+    assert body["learned"] is True
+    args = rec.call_args.args
+    assert args[2] == "correction"
+    assert "Fridays after standup" in args[3]
+
+
+def test_up_vote_with_correction_does_not_learn():
+    from unittest.mock import patch
+
+    with patch("api.routes.feedback.record_memory") as rec:
+        resp = client.post(
+            "/feedback",
+            json={
+                "query": "q",
+                "answer": "a",
+                "rating": "up",
+                "correction": "irrelevant",
+            },
+        )
+    assert resp.status_code == 200
+    assert resp.json()["learned"] is False
+    rec.assert_not_called()
