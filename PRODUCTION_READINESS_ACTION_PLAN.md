@@ -301,6 +301,7 @@ OSAI is an ambitious, genuinely functional product: a RAG-over-connected-tools "
 | D14 | **Submodules** | Check | `services/gbrain` and `services/hermes` are git submodules. Ensure the prod OSAI-API build doesn't require them and `git submodule update --init` is documented (README covers gbrain). |
 | D16 | **Hermes sidecar (launch-critical)** | ❌ | SEV-401 — confirmed in scope for launch. Must be deployed (paid Render Docker service + persistent disk at `/data/hermes`), pass the `services/hermes-sidecar/DEPLOY.md` step-4 gate, be wired via `OSAI_HERMES_SIDECAR_URL`, and have monitoring on the `via` field so a silent fallback to the in-house agent is caught. Depends on SEV-001. Not yet run end-to-end. |
 | D15 | **Zoom webhook secret** | ❌ | SEV-308 — require in prod. |
+| D17 | **Database (Supabase)** | Partial | Postgres migrated from Render to Supabase. `OSAI_DATABASE_URL` is now a dashboard secret (URL-encode the password: `@`→`%40`, `!`→`%21`; append `?sslmode=require`). Alembic DSN `%`-escape fix is in `db/migrations/env.py`. **Free-tier Supabase pauses after ~7 days idle** — before launch, upgrade to a paid plan or add a keep-alive ping (e.g. a scheduled hit to `/health` that runs a trivial query) so the pilot API doesn't silently go down. Retire the old Render Postgres (delete the `databases:` block in `render.yaml`) once the deployed app is verified against Supabase and pilot data is confirmed migrated. |
 
 ---
 
