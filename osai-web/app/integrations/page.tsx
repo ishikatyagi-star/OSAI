@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Check, Plus } from "lucide-react";
+import { AlertTriangle, Check, Info, Loader2, Plus } from "lucide-react";
 import { COMPOSIO_TOOLKIT, composioConnect, composioDisconnect, getDashboardMetrics, getIntegrations, getSyncRuns, triggerSync } from "@/lib/api";
 import { DEMO_INTEGRATIONS, DEMO_STATS, DEMO_SYNC_RUNS } from "@/lib/demo-data";
 import { isDemo } from "@/lib/demo";
@@ -14,28 +14,81 @@ import { StatusDot } from "@/components/ui/status-dot";
 import { brandText, timeAgo } from "@/lib/utils";
 import { SheldonMascot } from "@/components/sheldon-mascot";
 
+type ConnectorFeedbackTone = "pending" | "success" | "error" | "info";
+
+function ConnectorFeedback({ message, tone }: { message: string; tone: ConnectorFeedbackTone }) {
+  const error = tone === "error";
+  const pending = tone === "pending";
+  const info = tone === "info";
+  return (
+    <span
+      className="inline-flex items-center gap-1.5"
+      role={error ? "alert" : "status"}
+      aria-live="polite"
+      style={{ color: error ? "var(--red)" : pending || info ? "var(--blue)" : "var(--green)", fontSize: 12 }}
+    >
+      {error ? (
+        <AlertTriangle className="size-3.5" strokeWidth={2} />
+      ) : info ? (
+        <Info className="size-3.5" strokeWidth={2} />
+      ) : pending ? (
+        <Loader2 className="size-3.5 animate-spin" strokeWidth={2} />
+      ) : (
+        <Check className="size-3.5" strokeWidth={2} />
+      )}
+      {message}
+    </span>
+  );
+}
+
 
 
 export default function IntegrationsPage() {
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [syncing, setSyncing] = useState<Record<string, boolean>>({});
+  const [connecting, setConnecting] = useState<Record<string, boolean>>({});
   const [syncMsg, setSyncMsg] = useState<Record<string, string>>({});
+  const [syncTone, setSyncTone] = useState<Record<string, "pending" | "success" | "error" | "info">>({});
   const [syncRuns, setSyncRuns] = useState<SyncRun[]>([]);
+  const [syncRunsLoading, setSyncRunsLoading] = useState(true);
+  const [syncRunsError, setSyncRunsError] = useState("");
   const [managedKey, setManagedKey] = useState<string | null>(null);
   const [justConnected, setJustConnected] = useState(false);
   const [catalogOpen, setCatalogOpen] = useState(false);
   // Real per-connector indexed-doc counts so the cards match Analytics/Sync Runs
   // instead of always showing "-" for signed-in users.
   const [docsByConnector, setDocsByConnector] = useState<Record<string, number>>({});
+  const [metricsAvailable, setMetricsAvailable] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
 
-  function loadIntegrations() {
-    getIntegrations().then((data) => {
-      const hasConnected = data.some((i) => i.auth_state === "connected");
-      // Show real connectors; only substitute the demo set in demo mode.
-      setIntegrations(!hasConnected && isDemo() && !data.length ? DEMO_INTEGRATIONS : data);
-    });
-    if (!isDemo()) {
-      getDashboardMetrics().then((m) => setDocsByConnector(m.documents_by_connector ?? {}));
+  async function loadIntegrations() {
+    setLoading(true);
+    setLoadError("");
+    if (isDemo()) {
+      setIntegrations(DEMO_INTEGRATIONS);
+      setDocsByConnector(DEMO_STATS.docsPerConnector);
+      setLoading(false);
+      return;
+    }
+    try {
+      const [integrationResult, metricsResult] = await Promise.allSettled([
+        getIntegrations(true),
+        getDashboardMetrics(true),
+      ]);
+      if (integrationResult.status === "rejected") throw integrationResult.reason;
+      setIntegrations(integrationResult.value);
+      if (metricsResult.status === "fulfilled") {
+        setDocsByConnector(metricsResult.value.documents_by_connector ?? {});
+        setMetricsAvailable(true);
+      } else {
+        setDocsByConnector({});
+        setMetricsAvailable(false);
+      }
+    } catch {
+      setLoadError("Integrations could not be loaded. Check your connection and retry.");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -47,7 +100,7 @@ export default function IntegrationsPage() {
       setJustConnected(true);
       setTimeout(() => setJustConnected(false), 6000);
     }
-    if (params.get("catalog") === "1") {
+    if (params.get("catalog") === "1" && !isDemo()) {
       setCatalogOpen(true);
     }
     if (params.get("connected") === "1" || params.get("catalog") === "1") {
@@ -58,15 +111,34 @@ export default function IntegrationsPage() {
 
   useEffect(() => {
     loadIntegrations();
-    getSyncRuns().then((runs) => {
-      setSyncRuns(runs.length ? runs : isDemo() ? DEMO_SYNC_RUNS : []);
-    });
+    async function loadSyncRuns() {
+      setSyncRunsLoading(true);
+      setSyncRunsError("");
+      if (isDemo()) {
+        setSyncRuns(DEMO_SYNC_RUNS);
+        setSyncRunsLoading(false);
+        return;
+      }
+      try {
+        setSyncRuns(await getSyncRuns(true));
+      } catch {
+        setSyncRunsError("Recent sync history is unavailable.");
+      } finally {
+        setSyncRunsLoading(false);
+      }
+    }
+    void loadSyncRuns();
   }, []);
 
   async function handleSync(key: string) {
     setSyncing((s) => ({ ...s, [key]: true }));
     setSyncMsg((m) => ({ ...m, [key]: "" }));
     try {
+      if (isDemo()) {
+        setSyncMsg((messages) => ({ ...messages, [key]: "Demo preview only - no external source was changed." }));
+        setSyncTone((tones) => ({ ...tones, [key]: "info" }));
+        return;
+      }
       const res = (await triggerSync(key)) as {
         documents_indexed?: number;
         status?: string;
@@ -88,6 +160,10 @@ export default function IntegrationsPage() {
                 ? `Indexed ${indexed} file${indexed > 1 ? "s" : ""}`
                 : "Sync complete - no new documents.",
       }));
+      setSyncTone((tones) => ({
+        ...tones,
+        [key]: res.status === "failed" ? "error" : res.status === "started" ? "info" : "success",
+      }));
       loadIntegrations();
     } catch {
       setSyncMsg((m) => ({
@@ -96,6 +172,7 @@ export default function IntegrationsPage() {
           ? "Sync triggered (demo mode)"
           : "Sync failed - please try again.",
       }));
+      setSyncTone((tones) => ({ ...tones, [key]: "error" }));
     } finally {
       setSyncing((s) => ({ ...s, [key]: false }));
       setTimeout(() => setSyncMsg((m) => ({ ...m, [key]: "" })), 6000);
@@ -103,8 +180,16 @@ export default function IntegrationsPage() {
   }
 
   async function handleConnectStart(key: string) {
+    if (isDemo()) {
+      setSyncMsg((messages) => ({ ...messages, [key]: "External connections are disabled in the shared demo workspace." }));
+      setSyncTone((tones) => ({ ...tones, [key]: "error" }));
+      return;
+    }
+    if (connecting[key]) return;
+    setConnecting((current) => ({ ...current, [key]: true }));
     setSyncMsg((m) => ({ ...m, [key]: "Opening authorization…" }));
     try {
+      setSyncTone((tones) => ({ ...tones, [key]: "pending" }));
       const res = await composioConnect(key);
       if (res.redirect_url) {
         // Full-page navigation to Composio's OAuth consent screen.
@@ -116,25 +201,37 @@ export default function IntegrationsPage() {
           ...m,
           [key]: res.error || "Couldn't start authorization - please try again.",
         }));
+        setSyncTone((tones) => ({ ...tones, [key]: "error" }));
       }
     } catch {
       setSyncMsg((m) => ({
         ...m,
         [key]: "Couldn't reach the server to start authorization. Try again in a moment.",
       }));
+      setSyncTone((tones) => ({ ...tones, [key]: "error" }));
+    } finally {
+      setConnecting((current) => ({ ...current, [key]: false }));
     }
   }
 
   async function handleToggleConnection(key: string, connect: boolean) {
+    if (isDemo()) {
+      setSyncMsg((messages) => ({ ...messages, [key]: "Connection changes are disabled in the shared demo workspace." }));
+      setSyncTone((tones) => ({ ...tones, [key]: "error" }));
+      return;
+    }
     if (connect) {
       // Real connect = OAuth handshake via Composio (redirects the browser).
       await handleConnectStart(key);
       return;
     }
+    if (connecting[key]) return;
+    setConnecting((current) => ({ ...current, [key]: true }));
     // Real disconnect = revoke the Composio connection so a later Connect
     // starts a fresh handshake. Only reflect it in the UI once it succeeds.
     setSyncMsg((m) => ({ ...m, [key]: "Disconnecting…" }));
     try {
+      setSyncTone((tones) => ({ ...tones, [key]: "pending" }));
       await composioDisconnect(key);
       setIntegrations((prev) =>
         prev.map((i) =>
@@ -144,8 +241,12 @@ export default function IntegrationsPage() {
         )
       );
       setSyncMsg((m) => ({ ...m, [key]: "Disconnected" }));
+      setSyncTone((tones) => ({ ...tones, [key]: "success" }));
     } catch {
       setSyncMsg((m) => ({ ...m, [key]: "Couldn't disconnect - try again" }));
+      setSyncTone((tones) => ({ ...tones, [key]: "error" }));
+    } finally {
+      setConnecting((current) => ({ ...current, [key]: false }));
     }
   }
 
@@ -171,7 +272,13 @@ export default function IntegrationsPage() {
             uploaded file is managed on the file itself, from Ask.
           </p>
         </div>
-        <Button size="lg" className="min-w-[152px] shadow-sm" onClick={() => setCatalogOpen(true)}>
+        <Button
+          size="lg"
+          className="min-w-[152px] shadow-sm"
+          onClick={() => setCatalogOpen(true)}
+          disabled={demo}
+          title={demo ? "External connections are disabled in the shared demo workspace." : undefined}
+        >
           <Plus size={14} /> Add connector
         </Button>
       </div>
@@ -186,7 +293,19 @@ export default function IntegrationsPage() {
           .map((i) => COMPOSIO_TOOLKIT[i.key] ?? i.key)}
       />
 
-      <div>
+      {loadError && (
+        <div className="card async-state" role="alert">
+          <div>
+            <p className="error-text" style={{ marginBottom: 12 }}>{loadError}</p>
+            <button type="button" className="btn btn-primary" onClick={loadIntegrations}>Retry</button>
+          </div>
+        </div>
+      )}
+      {loading && !loadError && (
+        <div className="card async-state" role="status" aria-live="polite">Loading integrations…</div>
+      )}
+
+      <div hidden={loading || !!loadError}>
           {justConnected && (
             <div
               className="card text-caption"
@@ -217,10 +336,11 @@ export default function IntegrationsPage() {
             <div className="stat-card">
               <div className="stat-card-label">Documents Indexed</div>
               <div className="stat-card-value">
-                {(demo
-                  ? Object.values(DEMO_STATS.docsPerConnector).reduce((a, b) => a + b, 0)
-                  : Object.values(docsByConnector).reduce((a, b) => a + b, 0)
-                ).toLocaleString()}
+                {demo
+                  ? Object.values(DEMO_STATS.docsPerConnector).reduce((a, b) => a + b, 0).toLocaleString()
+                  : metricsAvailable
+                    ? Object.values(docsByConnector).reduce((a, b) => a + b, 0).toLocaleString()
+                    : "Unavailable"}
               </div>
             </div>
             <div className="stat-card">
@@ -239,8 +359,7 @@ export default function IntegrationsPage() {
               <SheldonMascot state="syncing" size={96} className="empty-state-mascot" />
               <p className="text-body font-semibold" style={{ marginBottom: 6 }}>No connectors yet</p>
               <p className="meta" style={{ maxWidth: 420, margin: "0 auto" }}>
-                The backend didn&apos;t return any connectors. Once available, connect Notion, Google
-                Drive, Slack and more to start indexing your context.
+                Add a connector to start indexing context from Notion, Google Drive, Slack, and more.
               </p>
             </div>
           )}
@@ -324,39 +443,35 @@ export default function IntegrationsPage() {
                   {/* Actions */}
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}>
                     {item.auth_state === "connected" ? (
-                      <button
-                        className="btn btn-primary btn-sm"
+                       <button
+                         type="button"
+                         className="btn btn-primary btn-sm"
                         disabled={syncing[item.key]}
                         onClick={() => handleSync(item.key)}
                       >
                         {syncing[item.key] ? "Syncing…" : "Sync now"}
                       </button>
                     ) : (
-                      <button
-                        className="btn btn-primary btn-sm"
-                        onClick={() => handleConnectStart(item.key)}
-                      >
-                        Connect
+                       <button
+                         type="button"
+                         className="btn btn-primary btn-sm"
+                         disabled={!!connecting[item.key]}
+                         onClick={() => handleConnectStart(item.key)}
+                         aria-busy={!!connecting[item.key]}
+                       >
+                         {connecting[item.key] ? "Opening…" : "Connect"}
                       </button>
                     )}
-                    <button
-                      className="btn btn-sm"
+                     <button
+                       type="button"
+                       className="btn btn-sm"
                       onClick={() => setManagedKey(item.key)}
                     >
                       Manage
                     </button>
-                    {syncMsg[item.key] &&
-                      (/failed/i.test(syncMsg[item.key]) ? (
-                        <span className="inline-flex items-center gap-1.5" style={{ color: "var(--red)", fontSize: 12 }}>
-                          <AlertTriangle className="size-3.5" strokeWidth={2} />
-                          {syncMsg[item.key]}
-                        </span>
-                      ) : (
-                        <span className="success-text inline-flex items-center gap-1.5">
-                          <Check className="size-3.5" strokeWidth={2} />
-                          {syncMsg[item.key]}
-                        </span>
-                      ))}
+                    {syncMsg[item.key] && (
+                      <ConnectorFeedback message={syncMsg[item.key]} tone={syncTone[item.key] ?? "info"} />
+                    )}
                   </div>
                 </div>
               );
@@ -366,11 +481,16 @@ export default function IntegrationsPage() {
 
           <ConnectorManager
             integration={managed}
+            demo={demo}
             open={managedKey !== null}
             onOpenChange={(o) => setManagedKey(o ? managedKey : null)}
             recentRuns={managedRuns}
+            recentRunsLoading={syncRunsLoading}
+            recentRunsError={syncRunsError}
             syncing={managedKey ? !!syncing[managedKey] : false}
+            connectionBusy={managedKey ? !!connecting[managedKey] : false}
             syncMessage={managedKey ? syncMsg[managedKey] ?? "" : ""}
+            syncTone={managedKey ? syncTone[managedKey] ?? "info" : "info"}
             onSync={handleSync}
             onToggleConnection={handleToggleConnection}
           />

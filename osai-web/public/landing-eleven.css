@@ -289,18 +289,6 @@ section {
   opacity: 0.28 !important;
 }
 
-.hero-pixel-img {
-  opacity: 0.24 !important;
-  filter: saturate(0.65) contrast(0.85) blur(0.2px) !important;
-}
-
-/* The university source image contains interface copy; fading that copy turns
-   it into unreadable pseudo-content. Keep the atmospheric gradient, not text
-   users cannot actually read. */
-.landing-university .hero-pixel-img {
-  display: none !important;
-}
-
 .hero-overlay {
   background: linear-gradient(90deg, rgba(245, 245, 245, 0.98), rgba(245, 245, 245, 0.86) 42%, rgba(245, 245, 245, 0.34)) !important;
 }
@@ -682,9 +670,11 @@ footer span {
 
 .landing-saas .loop-card {
   position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 96px;
+  column-gap: 16px;
   min-height: 210px;
   padding: 28px 24px !important;
-  padding-right: 132px !important;
   background: transparent !important;
   border: 0 !important;
   border-bottom: 1px solid var(--el-hairline-strong) !important;
@@ -693,11 +683,17 @@ footer span {
 }
 
 .loop-mascot {
-  position: absolute;
-  right: 18px;
-  bottom: 14px;
-  width: 104px;
+  position: static;
+  grid-column: 2;
+  grid-row: 1 / span 3;
+  align-self: end;
+  justify-self: end;
+  width: 96px;
   height: auto;
+}
+
+.landing-saas .loop-card > :not(.loop-mascot) {
+  grid-column: 1;
 }
 
 .landing-saas .loop-card:nth-child(odd):not(.repeat) {
@@ -710,6 +706,7 @@ footer span {
 }
 
 .loop-card.repeat {
+  grid-template-columns: 1fr;
   background: var(--el-surface-strong) !important;
 }
 
@@ -819,6 +816,8 @@ footer .footer-logo,
 
   nav {
     min-height: 64px !important;
+    justify-content: flex-start !important;
+    gap: 8px !important;
   }
 
   .nav-links,
@@ -828,9 +827,15 @@ footer .footer-logo,
 
   .nav-mobile-menu {
     display: block;
+    margin-left: auto;
   }
 
-  .landing-saas .nav-mobile-menu[open]::before {
+  .landing-university .nav-logo span {
+    display: none !important;
+  }
+
+  .landing-saas .nav-mobile-menu[open]::before,
+  .landing-university .nav-mobile-menu[open]::before {
     content: "";
     position: fixed;
     inset: 64px 0 0;
@@ -841,6 +846,7 @@ footer .footer-logo,
   .nav-right,
   nav > div {
     gap: 8px !important;
+    flex: 0 0 auto;
   }
 
   .nav-signin,
@@ -853,6 +859,12 @@ footer .footer-logo,
   .btn-secondary,
   .nav-demo-btn {
     max-width: 100%;
+  }
+
+  .nav-demo-btn {
+    padding-inline: 14px !important;
+    font-size: 14px !important;
+    white-space: nowrap;
   }
 
   h1 {
@@ -873,9 +885,10 @@ footer .footer-logo,
   .hero-tag,
   .eyebrow.dot {
     overflow-wrap: anywhere;
+  }
 
   h2 {
-    font-size: clamp(32px, 11vw, 46px) !important;
+    font-size: clamp(28px, 8vw, 30px) !important;
   }
 
   .hero-actions,
@@ -947,12 +960,41 @@ footer .footer-logo,
 
   .landing-saas .loop-card {
     min-height: 180px;
-    padding-right: 104px !important;
+    grid-template-columns: minmax(0, 1fr) 72px;
+    column-gap: 12px;
+    padding: 20px !important;
   }
 
   .loop-mascot {
-    width: 80px;
+    width: 72px;
   }
+
+  .landing-saas .loop-card.repeat {
+    grid-template-columns: 1fr;
+  }
+}
+
+.contact-form-unavailable {
+  display: grid;
+  align-content: center;
+  gap: 16px;
+  min-height: 320px;
+  padding: 32px !important;
+}
+
+.contact-form-unavailable h3 {
+  max-width: 20ch;
+  color: var(--el-ink) !important;
+  font-family: var(--el-serif) !important;
+  font-size: clamp(24px, 3vw, 34px) !important;
+  line-height: 1.15 !important;
+}
+
+.contact-form-unavailable p {
+  max-width: 52ch;
+  color: var(--el-body) !important;
+  font-family: var(--el-sans) !important;
+  line-height: 1.65 !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

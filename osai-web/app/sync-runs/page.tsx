@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, Check, Download, Info } from "lucide-react";
+import { AlertTriangle, Check, Download, Info, RotateCw } from "lucide-react";
 import { getSyncRuns, getDashboardMetrics } from "@/lib/api";
 import { DEMO_SYNC_RUNS, DEMO_STATS } from "@/lib/demo-data";
 import { isDemo } from "@/lib/demo";
@@ -24,18 +24,40 @@ export default function SyncRunsPage() {
   // Active searchable index size - the single source of truth shared with the
   // dashboard/analytics/integration cards. NOT the sum of historical runs (which
   // double-counts re-syncs and old, since-removed accounts).
-  const [activeDocs, setActiveDocs] = useState(0);
+  const [activeDocs, setActiveDocs] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
 
-  useEffect(() => {
-    getSyncRuns().then((data) => {
-      if (data.length) setRuns(data);
-      else if (isDemo()) setRuns(DEMO_SYNC_RUNS);
-    });
-    if (!isDemo()) getDashboardMetrics().then((m) => setActiveDocs(m.total_documents));
+  const load = useCallback(async () => {
+    setLoading(true);
+    setLoadError("");
+    if (isDemo()) {
+      setRuns(DEMO_SYNC_RUNS);
+      setActiveDocs(DEMO_STATS.documentsIndexed);
+      setLoading(false);
+      return;
+    }
+    try {
+      const [runsResult, metricsResult] = await Promise.allSettled([
+        getSyncRuns(true),
+        getDashboardMetrics(true),
+      ]);
+      if (runsResult.status === "rejected") throw runsResult.reason;
+      setRuns(runsResult.value);
+      setActiveDocs(metricsResult.status === "fulfilled" ? metricsResult.value.total_documents : null);
+    } catch {
+      setLoadError("Sync activity could not be loaded. Check your connection and retry.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
+  useEffect(() => { load(); }, [load]);
+
   const demo = isDemo();
-  const display = runs.length ? runs : demo ? DEMO_SYNC_RUNS : [];
+  const display = (runs.length ? runs : demo ? DEMO_SYNC_RUNS : [])
+    .slice()
+    .sort((a, b) => Date.parse(b.started_at) - Date.parse(a.started_at));
 
   const totalDocs = display.reduce((sum, r) => sum + (r.documents_indexed ?? 0), 0);
   const knowledgeBaseDocs = demo ? DEMO_STATS.documentsIndexed : activeDocs;
@@ -52,7 +74,22 @@ export default function SyncRunsPage() {
             documents into the Sheldon knowledge base.
           </p>
         </div>
+        <button type="button" className="btn" onClick={load} disabled={loading} aria-busy={loading}>
+          <RotateCw className={`size-3.5${loading ? " animate-spin" : ""}`} aria-hidden="true" /> Refresh
+        </button>
       </div>
+
+      {loadError ? (
+        <div className="card async-state" role="alert">
+          <div>
+            <p className="error-text" style={{ marginBottom: 12 }}>{loadError}</p>
+            <button type="button" className="btn btn-primary" onClick={load}>Retry</button>
+          </div>
+        </div>
+      ) : loading ? (
+        <div className="card async-state" role="status" aria-live="polite">Loading sync activity…</div>
+      ) : (
+        <>
 
       {/* Summary stats - dashboard stat-card styling; color reserved for status */}
       <div className="stats-grid stats-grid--auto">
@@ -61,7 +98,7 @@ export default function SyncRunsPage() {
           { label: "Succeeded", value: succeeded, color: "var(--green)" },
           { label: "Failed", value: failed, color: failed > 0 ? "var(--red)" : "var(--text-primary)" },
           { label: "Docs indexed (all runs)", value: totalDocs.toLocaleString(), color: "var(--text-primary)" },
-          { label: "Active in knowledge base", value: knowledgeBaseDocs.toLocaleString(), color: "var(--text-primary)" },
+          { label: "Active in knowledge base", value: knowledgeBaseDocs === null ? "Unavailable" : knowledgeBaseDocs.toLocaleString(), color: "var(--text-primary)" },
         ].map((s) => (
           <div key={s.label} className="stat-card">
             <div className="stat-card-label">{s.label}</div>
@@ -132,7 +169,7 @@ export default function SyncRunsPage() {
                 className="card timeline-card"
                 style={{ marginBottom: isLast ? 0 : undefined }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                <div className="sync-run-header">
                   <span className="connector-inline-icon" aria-hidden>
                     <Icon size={15} strokeWidth={1.8} />
                   </span>
@@ -161,6 +198,8 @@ export default function SyncRunsPage() {
                       <span
                         className="meta"
                         title="Skipped during indexing - usually empty, too short, or an unsupported format."
+                        tabIndex={0}
+                        aria-label={`${run.documents_seen - run.documents_indexed} documents skipped during indexing; usually empty, too short, or unsupported.`}
                         style={{ cursor: "help", display: "inline-flex", alignItems: "center", gap: 4 }}
                       >
                         <Info size={12} strokeWidth={1.8} /> {run.documents_seen - run.documents_indexed} skipped
@@ -169,7 +208,14 @@ export default function SyncRunsPage() {
                   )}
                   {run.documents_indexed > 0 && run.documents_seen > 0 && (
                     <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, minWidth: 120 }}>
-                      <div style={{ flex: 1, height: 3, background: "var(--bg-hover)", borderRadius: 9999 }}>
+                      <div
+                        style={{ flex: 1, height: 3, background: "var(--bg-hover)", borderRadius: 9999 }}
+                        role="progressbar"
+                        aria-label={`${meta.label} documents indexed`}
+                        aria-valuemin={0}
+                        aria-valuemax={run.documents_seen}
+                        aria-valuenow={run.documents_indexed}
+                      >
                         <div
                           style={{
                             width: `${(run.documents_indexed / run.documents_seen) * 100}%`,
@@ -206,6 +252,8 @@ export default function SyncRunsPage() {
           );
         })}
       </div>
+        </>
+      )}
     </div>
   );
 }

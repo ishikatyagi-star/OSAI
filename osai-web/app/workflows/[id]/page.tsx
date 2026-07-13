@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowRight, Calendar, Check, Loader2, User } from "lucide-react";
+import { AlertTriangle, ArrowRight, Calendar, Check, Info, Loader2, User } from "lucide-react";
 import { approveActionItem, getWorkflowRun } from "@/lib/api";
 import { DEMO_WORKFLOW_RUNS } from "@/lib/demo-data";
 import { isDemo } from "@/lib/demo";
@@ -11,6 +11,14 @@ import { CONNECTOR_META } from "@/lib/connector-meta";
 import type { ActionItem, WorkflowRun } from "@/lib/types";
 import { brandText } from "@/lib/utils";
 import { SheldonMascot } from "@/components/sheldon-mascot";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const TIER_COLORS: Record<string, string> = {
   normal: "var(--text-muted)",
@@ -33,41 +41,68 @@ export default function WorkflowDetailPage() {
   const [loading, setLoading] = useState(true);
   const [approving, setApproving] = useState<string | null>(null);
   const [msgs, setMsgs] = useState<Record<string, string>>({});
+  const [pendingApprove, setPendingApprove] = useState<ActionItem | null>(null);
+  const [approvalError, setApprovalError] = useState("");
+  const [loadError, setLoadError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (!runId) return;
-    getWorkflowRun(runId).then((data) => {
-      if (data) {
-        setRun(data);
-      } else if (isDemo()) {
-        setRun(DEMO_WORKFLOW_RUNS.find((r) => r.id === runId) ?? null);
-      } else {
-        setRun(null);
-      }
+    setLoading(true);
+    setLoadError("");
+    if (isDemo()) {
+      setRun(DEMO_WORKFLOW_RUNS.find((item) => item.id === runId) ?? null);
       setLoading(false);
-    });
-  }, [runId]);
+      return;
+    }
+    getWorkflowRun(runId, true)
+      .then(setRun)
+      .catch(() => setLoadError("This workflow run could not be loaded. Check your connection and try again."))
+      .finally(() => setLoading(false));
+  }, [reloadKey, runId]);
 
   async function handleApprove(item: ActionItem) {
     setApproving(item.id);
+    setApprovalError("");
     try {
-      const result = await approveActionItem(runId, item.id);
-      setMsgs((prev) => ({ ...prev, [item.id]: brandText(result.message) }));
-      const updated = await getWorkflowRun(runId);
-      setRun(updated);
+      let outcomeStatus = "approved";
+      let outcomeMessage = "Approved in the demo; no external tool was changed.";
+      if (isDemo()) {
+        setRun((prev) =>
+          prev
+            ? {
+                ...prev,
+                action_items: (prev.action_items ?? []).map((action) =>
+                  action.id === item.id ? { ...action, status: "approved" } : action
+                ),
+              }
+            : prev
+        );
+      } else {
+        const result = await approveActionItem(runId, item.id);
+        outcomeStatus = result.status;
+        outcomeMessage = brandText(result.message);
+        setRun((prev) =>
+          prev
+            ? {
+                ...prev,
+                action_items: (prev.action_items ?? []).map((action) =>
+                  action.id === item.id
+                    ? { ...action, status: result.status, external_url: result.external_url }
+                    : action
+                ),
+              }
+            : prev
+        );
+      }
+      setMsgs((prev) => ({ ...prev, [item.id]: outcomeMessage }));
+      if (outcomeStatus === "failed") {
+        setApprovalError(outcomeMessage || "The destination rejected the action. Review the connection and retry.");
+        return;
+      }
+      setPendingApprove(null);
     } catch {
-      // Demo mode - update locally
-      setRun((prev) =>
-        prev
-          ? {
-              ...prev,
-              action_items: (prev.action_items ?? []).map((a) =>
-                a.id === item.id ? { ...a, status: "approved" } : a
-              ),
-            }
-          : prev
-      );
-      setMsgs((prev) => ({ ...prev, [item.id]: "Approved (demo mode)" }));
+      setApprovalError("The action was not approved or executed. Check the destination and try again.");
     } finally {
       setApproving(null);
     }
@@ -75,14 +110,23 @@ export default function WorkflowDetailPage() {
 
   if (loading) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: 200, gap: 10 }}>
-        <Loader2 className="animate-spin" size={20} />
+      <div className="card async-state" role="status" aria-live="polite">
+        <Loader2 className="animate-spin" size={20} aria-hidden="true" />
         <p className="meta">Loading workflow run…</p>
       </div>
     );
   }
 
   if (!run) {
+    if (loadError) {
+      return (
+        <div className="card mascot-error-state" role="alert">
+          <SheldonMascot state="recovering" size={104} />
+          <p className="error-text">{loadError}</p>
+          <button type="button" className="btn btn-primary" onClick={() => setReloadKey((key) => key + 1)}>Retry</button>
+        </div>
+      );
+    }
     return (
       <div className="card mascot-error-state">
         <SheldonMascot state="recovering" size={104} />
@@ -147,6 +191,12 @@ export default function WorkflowDetailPage() {
         <span className="meta">({items.length})</span>
       </div>
 
+      {approvalError && (
+        <div className="card" role="alert" style={{ marginBottom: 16, padding: "10px 14px", color: "var(--red)" }}>
+          {approvalError}
+        </div>
+      )}
+
       {items.length === 0 && (
         <p className="empty-state">No action items extracted from this run.</p>
       )}
@@ -156,8 +206,8 @@ export default function WorkflowDetailPage() {
           const destMeta = CONNECTOR_META[item.destination];
           const DestinationIcon = destMeta?.icon;
           return (
-            <div className="card" key={item.id} style={{ padding: "18px 22px" }}>
-              <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 12 }}>
+            <div className="card workflow-action-card" key={item.id}>
+              <div className="workflow-action-header">
                 {destMeta && (
                   <span className="connector-inline-icon" style={{ marginTop: 1 }} aria-hidden>
                     {DestinationIcon && <DestinationIcon size={16} strokeWidth={1.8} />}
@@ -193,26 +243,35 @@ export default function WorkflowDetailPage() {
                 </a>
               )}
 
-              {item.status === "needs_review" && (
+              {["needs_review", "failed"].includes(item.status) && (
                 <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 10 }}>
                   <button
+                    type="button"
                     className="btn btn-primary btn-sm"
-                    onClick={() => handleApprove(item)}
+                    onClick={() => { setApprovalError(""); setPendingApprove(item); }}
                     disabled={approving === item.id}
+                    aria-label={`Approve and execute: ${brandText(item.title)}`}
                   >
-                    {approving === item.id ? "Approving…" : "Approve & Execute →"}
+                    {approving === item.id ? "Approving…" : item.status === "failed" ? "Retry execution →" : "Approve & Execute →"}
                   </button>
-                  {msgs[item.id] && (
-                    <span className="success-text inline-flex items-center gap-1.5">
-                      <Check className="size-3.5" strokeWidth={2} />
-                      {msgs[item.id]}
-                    </span>
-                  )}
                 </div>
               )}
-              {item.status !== "needs_review" && msgs[item.id] && (
-                <p className="success-text inline-flex items-center gap-1.5" style={{ marginTop: 8 }}>
-                  <Check className="size-3.5" strokeWidth={2} />
+              {msgs[item.id] && (
+                <p
+                  className="inline-flex items-center gap-1.5"
+                  role={item.status === "failed" ? "alert" : "status"}
+                  style={{
+                    marginTop: 8,
+                    color: item.status === "failed" ? "var(--red)" : item.status === "skipped" ? "var(--blue)" : "var(--green)",
+                  }}
+                >
+                  {item.status === "failed" ? (
+                    <AlertTriangle className="size-3.5" strokeWidth={2} />
+                  ) : item.status === "skipped" ? (
+                    <Info className="size-3.5" strokeWidth={2} />
+                  ) : (
+                    <Check className="size-3.5" strokeWidth={2} />
+                  )}
                   {msgs[item.id]}
                 </p>
               )}
@@ -220,6 +279,26 @@ export default function WorkflowDetailPage() {
           );
         })}
       </div>
+
+      {pendingApprove && (
+        <Dialog open onOpenChange={(open) => !open && !approving && setPendingApprove(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Approve and execute this action?</DialogTitle>
+              <DialogDescription>
+                “{brandText(pendingApprove.title)}” will be sent to {brandText(CONNECTOR_META[pendingApprove.destination]?.label ?? pendingApprove.destination)}. This may change an external tool.
+              </DialogDescription>
+            </DialogHeader>
+            {approvalError && <p className="error-text" role="alert">{approvalError}</p>}
+            <DialogFooter>
+              <button type="button" className="btn" onClick={() => setPendingApprove(null)} disabled={!!approving}>Cancel</button>
+              <button type="button" className="btn btn-primary" onClick={() => handleApprove(pendingApprove)} disabled={!!approving}>
+                {approving ? "Approving…" : "Approve action"}
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

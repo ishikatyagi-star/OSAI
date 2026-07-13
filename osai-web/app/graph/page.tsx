@@ -50,19 +50,32 @@ export default function GraphPage() {
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [deptFilter, setDeptFilter] = useState<string>("all");
   const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
-    getAccessMap().then((res) => {
-      if (cancelled) return;
-      const empty = res.users.length === 0;
-      setData(empty && isDemo() ? DEMO_ACCESS : res);
+    setLoaded(false);
+    setLoadError("");
+    if (isDemo()) {
+      setData(DEMO_ACCESS);
       setLoaded(true);
-    });
+      return () => { cancelled = true; };
+    }
+    getAccessMap(true)
+      .then((res) => {
+        if (!cancelled) setData(res);
+      })
+      .catch(() => {
+        if (!cancelled) setLoadError("The access map could not be loaded. Check the team and graph services, then retry.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoaded(true);
+      });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadKey]);
 
   const roles = useMemo(
     () => Array.from(new Set(data.users.map((u) => u.role))).sort(),
@@ -156,7 +169,18 @@ export default function GraphPage() {
         </div>
       </div>
 
-      {loaded && data.users.length === 0 ? (
+      {!loaded ? (
+        <div className="card async-state" role="status" aria-live="polite">
+          Building access map…
+        </div>
+      ) : loadError ? (
+        <div className="card async-state" role="alert">
+          <div>
+            <p className="error-text" style={{ marginBottom: 12 }}>{loadError}</p>
+            <button type="button" className="btn btn-primary" onClick={() => setReloadKey((key) => key + 1)}>Retry</button>
+          </div>
+        </div>
+      ) : data.users.length === 0 ? (
         <div className="card" style={{ textAlign: "center", padding: "48px 24px" }}>
           <SheldonMascot state="mapping" size={104} className="empty-state-mascot" />
           <p className="text-body font-semibold" style={{ marginBottom: 6 }}>No access map yet</p>
@@ -166,14 +190,19 @@ export default function GraphPage() {
           </p>
           <Link href="/integrations" className="btn btn-primary">Go to Integrations →</Link>
         </div>
+      ) : visibleUsers.length === 0 ? (
+        <div className="card async-state" role="status">
+          No people match the selected filters.
+        </div>
       ) : (
-        <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+        <div className="table-scroll" tabIndex={0} role="region" aria-label="Organization access map">
           <table className="data-table" style={{ margin: 0 }}>
+            <caption className="sr-only">People grouped by department and their access tier for each connected tool</caption>
             <thead>
               <tr>
-                <th style={{ width: 220 }}>Person</th>
+                <th scope="col" style={{ width: 220 }}>Person</th>
                 {data.connectors.map((c) => (
-                  <th key={c.key} style={{ textAlign: "center" }}>
+                  <th scope="col" key={c.key} style={{ textAlign: "center" }}>
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                       {React.createElement(getConnectorIcon(c.key), { size: 14, strokeWidth: 1.8 })}
                       {CONNECTOR_META[c.key]?.label ?? c.label}
@@ -186,7 +215,8 @@ export default function GraphPage() {
               {grouped.map(([dept, deptUsers]) => (
                 <React.Fragment key={dept}>
                   <tr>
-                    <td
+                    <th
+                      scope="rowgroup"
                       colSpan={data.connectors.length + 1}
                       style={{
                         background: "var(--bg-elevated)",
@@ -198,16 +228,16 @@ export default function GraphPage() {
                       }}
                     >
                       {dept} · {deptUsers.length}
-                    </td>
+                    </th>
                   </tr>
                   {deptUsers.map((u) => {
                     const row = accessByUser.get(u.id);
                     return (
                       <tr key={u.id}>
-                        <td>
+                        <th scope="row">
                           <div className="text-caption" style={{ color: "var(--text-primary)", fontWeight: 600 }}>{u.label}</div>
                           <span className="badge badge-grey" style={{ fontSize: 10 }}>{u.role}</span>
-                        </td>
+                        </th>
                         {data.connectors.map((c) => {
                           const a = row?.get(c.key);
                           if (!a) {
@@ -217,14 +247,16 @@ export default function GraphPage() {
                               </td>
                             );
                           }
-                          const meta = TIER_META[a.tier];
+                          const meta = TIER_META[a.tier] ?? TIER_META.normal;
+                          const tierClass = TIER_META[a.tier] ? a.tier : "normal";
                           return (
                             <td key={c.key} style={{ textAlign: "center" }}>
                               <span
                                 title={`${meta.label} tier · ${a.doc_count} docs`}
-                                className={`tier-badge tier-badge--${a.tier}`}
+                                className={`tier-badge tier-badge--${tierClass}`}
+                                aria-label={`${meta.label} tier, ${a.doc_count} documents`}
                               >
-                                <span className="tier-badge-dot" />
+                                <span className="tier-badge-dot" aria-hidden="true" />
                                 {meta.label}
                               </span>
                             </td>

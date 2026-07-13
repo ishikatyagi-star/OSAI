@@ -4,7 +4,7 @@ import { join } from "path";
 
 export const dynamic = "force-static";
 
-export function GET(request: Request) {
+export function GET() {
   try {
     const html = readFileSync(
       join(process.cwd(), "public", "saas.html"),
@@ -14,6 +14,6 @@ export function GET(request: Request) {
       headers: { "Content-Type": "text/html; charset=utf-8" },
     });
   } catch {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    return new NextResponse("Marketing page unavailable", { status: 500 });
   }
 }

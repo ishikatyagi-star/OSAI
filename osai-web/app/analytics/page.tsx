@@ -5,6 +5,13 @@ import { RotateCw } from "lucide-react";
 import { getDashboardMetrics, type DashboardMetrics } from "@/lib/api";
 import { isDemo } from "@/lib/demo";
 import { CONNECTOR_META } from "@/lib/connector-meta";
+import {
+  DEMO_DEPARTMENTS,
+  DEMO_INTEGRATIONS,
+  DEMO_STATS,
+  DEMO_SYNC_RUNS,
+  DEMO_TEAM_MEMBERS,
+} from "@/lib/demo-data";
 import { timeAgo } from "@/lib/utils";
 
 const TIER_COLOR: Record<string, string> = {
@@ -14,15 +21,15 @@ const TIER_COLOR: Record<string, string> = {
 };
 
 const DEMO_METRICS: DashboardMetrics = {
-  total_documents: 312,
-  documents_by_connector: { notion: 84, google_drive: 142, slack: 63, freshdesk: 23 },
-  documents_by_tier: { normal: 240, amber: 56, red: 16 },
-  connectors_connected: 3,
-  sync_runs_total: 28,
-  sync_runs_succeeded: 26,
-  last_sync_at: new Date(Date.now() - 3600_000).toISOString(),
-  members: 5,
-  departments: 5,
+  total_documents: DEMO_STATS.documentsIndexed,
+  documents_by_connector: DEMO_STATS.docsPerConnector,
+  documents_by_tier: { normal: 1024, amber: 230, red: 52 },
+  connectors_connected: DEMO_INTEGRATIONS.filter((item) => item.auth_state === "connected").length,
+  sync_runs_total: DEMO_SYNC_RUNS.length,
+  sync_runs_succeeded: DEMO_SYNC_RUNS.filter((run) => run.status === "succeeded").length,
+  last_sync_at: DEMO_SYNC_RUNS.map((run) => run.started_at).sort().at(-1) ?? null,
+  members: DEMO_TEAM_MEMBERS.length,
+  departments: DEMO_DEPARTMENTS.length,
   automations: 3,
 };
 
@@ -60,15 +67,26 @@ function BarChart({ data, colorFor }: { data: Record<string, number>; colorFor: 
   );
 }
 
-export default function DashboardsPage() {
+export default function AnalyticsPage() {
   const [m, setM] = useState<DashboardMetrics | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
-    const res = await getDashboardMetrics();
-    setM(res.total_documents === 0 && isDemo() ? DEMO_METRICS : res);
-    setLoading(false);
+    setError("");
+    if (isDemo()) {
+      setM(DEMO_METRICS);
+      setLoading(false);
+      return;
+    }
+    try {
+      setM(await getDashboardMetrics(true));
+    } catch {
+      setError("Metrics could not be loaded. The previous values, if any, have been kept.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
   useEffect(() => {
     load();
@@ -92,20 +110,45 @@ export default function DashboardsPage() {
     <div>
       <div className="page-header">
         <div className="page-header-left">
-          <h1>Dashboards</h1>
+          <h1>Analytics</h1>
           <p>Live metrics aggregated from your connected data sources and workspace.</p>
         </div>
-        <button className="btn" onClick={load} style={{ display: "inline-flex" }}>
-          <RotateCw className="size-3.5" /> Refresh
+        <button
+          type="button"
+          className="btn"
+          onClick={load}
+          style={{ display: "inline-flex" }}
+          disabled={loading}
+          aria-busy={loading}
+        >
+          <RotateCw className={`size-3.5${loading ? " animate-spin" : ""}`} /> Refresh
         </button>
       </div>
 
-      {loading && !m ? (
-        <div className="card" style={{ textAlign: "center", padding: "44px 24px" }}>
+      {error && !m ? (
+        <div className="card async-state" role="alert">
+          <div>
+            <p className="error-text" style={{ marginBottom: 12 }}>{error}</p>
+            <button type="button" className="btn btn-primary" onClick={load}>Retry</button>
+          </div>
+        </div>
+      ) : loading && !m ? (
+        <div className="card async-state" role="status" aria-live="polite">
+          <RotateCw className="size-5 animate-spin" aria-hidden="true" />
           <p className="meta">Loading metrics…</p>
         </div>
       ) : (
         <>
+          {error && m && (
+            <div className="card" role="status" aria-live="polite" style={{ marginBottom: 16, padding: "10px 14px" }}>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="error-text">{error}</p>
+                <button type="button" className="btn" onClick={load} disabled={loading}>
+                  {loading ? "Retryingâ€¦" : "Retry"}
+                </button>
+              </div>
+            </div>
+          )}
           <div className="stats-grid stats-grid--auto" style={{ marginBottom: 24 }}>
             {STATS.map((s) => (
               <div key={s.label} className="stat-card">
