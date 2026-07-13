@@ -197,3 +197,57 @@ def test_logout_all_revokes_outstanding_tokens():
         with pytest.raises(Exception) as exc:
             assert_token_current(s, claims)  # same token now stale
         assert getattr(exc.value, "status_code", None) == 401
+
+
+# ── SEC-009 (depth): httpOnly session cookie auth ─────────────────────────────
+def test_session_cookie_carries_auth_and_is_httponly():
+    """A valid JWT in the osai_session cookie authenticates a request (no
+    Authorization header), and the login response sets it httpOnly + Lax."""
+    import uuid
+
+    from api.routes.auth import _issue_token
+    from db.models import Org, User
+    from db.session import SESSION_COOKIE, SessionLocal, get_claims
+
+    uid = f"user-{uuid.uuid4()}"
+    with SessionLocal() as s:
+        if s.get(Org, "demo-org") is None:
+            s.add(Org(id="demo-org", name="demo"))
+        s.add(
+            User(
+                id=uid,
+                org_id="demo-org",
+                email=f"{uid}@t.test",
+                display_name="t",
+                role="member",
+                token_version=0,
+            )
+        )
+        s.commit()
+        token = _issue_token(s.get(User, uid))
+
+    # get_claims resolves the principal from the cookie alone (no header). Drop
+    # any conftest override so the real dependency runs.
+    app.dependency_overrides.pop(get_claims, None)
+    client = TestClient(app)
+    client.cookies.set(SESSION_COOKIE, token)
+    resp = client.post("/auth/logout-all")
+    assert resp.status_code == 200  # cookie authenticated the request
+
+    # No cookie, no header → rejected.
+    assert TestClient(app).post("/auth/logout-all").status_code == 401
+
+
+def test_logout_clears_the_session_cookie():
+    from db.session import SESSION_COOKIE
+
+    resp = TestClient(app).post("/auth/logout")
+    assert resp.status_code == 200
+    # The delete is expressed as a Set-Cookie that expires the cookie.
+    set_cookie = resp.headers.get("set-cookie", "")
+    assert SESSION_COOKIE in set_cookie
+
+
+def test_session_exchange_rejects_bad_token():
+    resp = TestClient(app).post("/auth/session", json={"token": "not-a-jwt"})
+    assert resp.status_code == 401

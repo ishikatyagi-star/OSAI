@@ -2,11 +2,17 @@ from collections.abc import Generator
 from typing import Annotated
 
 import jwt
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Cookie, Depends, Header, HTTPException, status
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from config import settings
+
+# Name of the httpOnly session cookie. The browser sends the JWT here so it never
+# needs to live in JS-readable storage (localStorage), shrinking the XSS
+# token-theft blast radius (SEC-009). The Authorization header path is retained
+# for API clients and tests.
+SESSION_COOKIE = "osai_session"
 
 engine = create_engine(settings.database_url, pool_pre_ping=True)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
@@ -17,26 +23,45 @@ def get_db() -> Generator[Session]:
         yield session
 
 
-def _decode_token(authorization: str | None) -> dict | None:
-    """Verify a Bearer session JWT; return its claims, or None if missing/invalid."""
-    if not authorization or not authorization.lower().startswith("bearer "):
+def _decode_jwt(token: str | None) -> dict | None:
+    """Verify a bare session JWT; return its claims, or None if missing/invalid."""
+    if not token:
         return None
-    token = authorization.split(" ", 1)[1].strip()
     try:
         return jwt.decode(token, settings.jwt_secret, algorithms=["HS256"])
     except Exception:  # noqa: BLE001 — any decode/verify failure = unauthenticated
         return None
 
 
-async def get_optional_claims(authorization: str | None = Header(default=None)) -> dict | None:
+def _decode_token(authorization: str | None) -> dict | None:
+    """Verify a Bearer session JWT from an Authorization header."""
+    if not authorization or not authorization.lower().startswith("bearer "):
+        return None
+    return _decode_jwt(authorization.split(" ", 1)[1].strip())
+
+
+def _claims_from(authorization: str | None, session_cookie: str | None) -> dict | None:
+    """Resolve JWT claims from the Authorization header, falling back to the
+    httpOnly session cookie. Header wins so an explicit API token overrides a
+    stale browser cookie."""
+    return _decode_token(authorization) or _decode_jwt(session_cookie)
+
+
+async def get_optional_claims(
+    authorization: str | None = Header(default=None),
+    session_cookie: str | None = Cookie(default=None, alias=SESSION_COOKIE),
+) -> dict | None:
     """Return JWT claims if a valid token is present, else None (no 401). For
     endpoints that work in demo mode but want per-user context when available."""
-    return _decode_token(authorization)
+    return _claims_from(authorization, session_cookie)
 
 
-async def get_claims(authorization: str | None = Header(default=None)) -> dict:
+async def get_claims(
+    authorization: str | None = Header(default=None),
+    session_cookie: str | None = Cookie(default=None, alias=SESSION_COOKIE),
+) -> dict:
     """Require a valid session JWT and return its claims (sub, org_id, role, …)."""
-    claims = _decode_token(authorization)
+    claims = _claims_from(authorization, session_cookie)
     if not claims:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required."
@@ -66,11 +91,12 @@ async def require_admin(
 async def get_org_id(
     authorization: str | None = Header(default=None),
     x_org_id: str | None = Header(default=None),
+    session_cookie: str | None = Cookie(default=None, alias=SESSION_COOKIE),
 ) -> str:
     """Resolve the caller's org. The org is taken from the verified JWT — never
     from a client-supplied header — so a user cannot read another org's data by
     spoofing X-Org-Id. The public demo workspace is the only header-trusted case."""
-    claims = _decode_token(authorization)
+    claims = _claims_from(authorization, session_cookie)
     if claims and claims.get("org_id"):
         return claims["org_id"]
     if x_org_id == settings.default_org_id:  # public demo sample data only
@@ -83,6 +109,7 @@ async def get_org_id(
 async def require_writable_org(
     authorization: str | None = Header(default=None),
     x_org_id: str | None = Header(default=None),
+    session_cookie: str | None = Cookie(default=None, alias=SESSION_COOKIE),
 ) -> str:
     """Resolve the org for a *state-changing* request, refusing the public demo
     workspace.
@@ -92,7 +119,7 @@ async def require_writable_org(
     drive writes or side effects there: mutating settings, running workflows,
     triggering syncs, executing SQL, or confirming connector actions (SEC-003).
     A genuinely authenticated member (valid JWT) is always allowed."""
-    claims = _decode_token(authorization)
+    claims = _claims_from(authorization, session_cookie)
     if claims and claims.get("org_id"):
         return claims["org_id"]
     if x_org_id == settings.default_org_id:

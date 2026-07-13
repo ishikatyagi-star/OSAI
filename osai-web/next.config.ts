@@ -53,7 +53,16 @@ const nextConfig: NextConfig = {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
   async rewrites() {
-    return [{ source: "/", destination: "/landing" }];
+    return [
+      { source: "/", destination: "/landing" },
+      // Same-origin API proxy: the browser calls /api/* on this origin so the
+      // httpOnly session cookie is first-party. Prod uses the equivalent Vercel
+      // rewrite (vercel.json); this covers `next dev`.
+      {
+        source: "/api/:path*",
+        destination: `${apiOrigin}/:path*`,
+      },
+    ];
   },
   // Deep-link aliases so URLs matching the sidebar labels resolve to the real
   // routes instead of 404-ing (e.g. /context-inbox → /inbox).

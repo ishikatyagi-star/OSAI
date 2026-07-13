@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { AlertTriangle, ArrowRight, Check, Sparkles } from "lucide-react";
-import { getAuthConfig, googleSignInUrl } from "@/lib/api";
+import { getAuthConfig, googleSignInUrl, markSignedIn } from "@/lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -40,11 +40,15 @@ export default function LoginPage() {
   // Google only - the passwordless email login accepted any address without
   // verification, so it was removed.
   function enterDemo() {
-    localStorage.setItem("osai_token", "demo-token");
-    localStorage.setItem("osai_org_id", "demo-org");
-    localStorage.setItem("osai_org_name", "Intellact AI");
-    localStorage.setItem("osai_user_email", "admin@intellactai.com");
-    localStorage.setItem("osai_user_name", "Admin");
+    // Demo has no real session/cookie - it's the public demo-org reached via the
+    // X-Org-Id header. Mark authed locally so the app shell renders; server-side
+    // writes still 401 by design.
+    markSignedIn({
+      orgId: "demo-org",
+      orgName: "Intellact AI",
+      email: "admin@intellactai.com",
+      name: "Admin",
+    });
     router.replace("/demo");
   }
 

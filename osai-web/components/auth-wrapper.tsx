@@ -7,17 +7,23 @@ import { usePathname, useRouter } from "next/navigation";
 const PUBLIC_PATHS = ["/", "/landing", "/login", "/demo", "/auth/callback"];
 
 export default function AuthWrapper({ children }: { children: ReactNode }) {
-  const [token, setToken] = useState<string | null>(null);
+  const [authed, setAuthed] = useState(false);
   const [ready, setReady] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
 
   useEffect(() => {
-    const savedToken = localStorage.getItem("osai_token");
-    setToken(savedToken);
+    // The session JWT lives in an httpOnly cookie (not readable here), so the
+    // client-side gate uses a non-sensitive "authed" flag set at sign-in; the
+    // demo workspace counts as authed for rendering. A forged flag only renders
+    // the shell - every API call is still authorized server-side by the cookie.
+    const isAuthed =
+      localStorage.getItem("osai_authed") === "1" ||
+      localStorage.getItem("osai_org_id") === "demo-org";
+    setAuthed(isAuthed);
     setReady(true);
 
-    if (!savedToken && !PUBLIC_PATHS.includes(pathname)) {
+    if (!isAuthed && !PUBLIC_PATHS.includes(pathname)) {
       router.replace("/login");
     }
   }, [pathname, router]);
@@ -31,7 +37,7 @@ export default function AuthWrapper({ children }: { children: ReactNode }) {
   }
 
   // Not authenticated - blank while redirect fires
-  if (!token) return null;
+  if (!authed) return null;
 
   // Authenticated - render full app
   return <>{children}</>;

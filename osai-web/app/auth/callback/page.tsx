@@ -3,10 +3,12 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import { markSignedIn, setSessionCookie } from "@/lib/api";
 
 // Landing page for the Google OAuth round-trip. The backend redirects here with
-// the session details in the URL fragment (kept out of server logs). We persist
-// them the same way the email login does, then route into the app.
+// the session details in the URL fragment (kept out of server logs). We exchange
+// the token for an httpOnly session cookie (so it never lives in localStorage),
+// persist only the non-sensitive identity fields, then route into the app.
 export default function AuthCallbackPage() {
   const router = useRouter();
   const [error, setError] = useState("");
@@ -25,16 +27,26 @@ export default function AuthCallbackPage() {
       return;
     }
 
-    localStorage.setItem("osai_token", token);
-    localStorage.setItem("osai_org_id", orgId);
-    if (params.get("org_name")) localStorage.setItem("osai_org_name", params.get("org_name")!);
-    if (params.get("user_id")) localStorage.setItem("osai_user_id", params.get("user_id")!);
-    if (params.get("email")) localStorage.setItem("osai_user_email", params.get("email")!);
-    if (params.get("name")) localStorage.setItem("osai_user_name", params.get("name")!);
-
-    // First-ever sign-in → start onboarding (integrations first); else dashboard.
-    const isNew = params.get("new") === "1";
-    router.replace(isNew ? "/onboarding" : "/dashboard");
+    (async () => {
+      try {
+        // Land the session cookie first-party on this origin (via the /api proxy).
+        await setSessionCookie(token);
+      } catch {
+        setError("Sign-in did not complete. Please try again.");
+        setTimeout(() => router.replace("/login"), 2000);
+        return;
+      }
+      markSignedIn({
+        orgId,
+        orgName: params.get("org_name") ?? undefined,
+        email: params.get("email") ?? undefined,
+        name: params.get("name") ?? undefined,
+      });
+      // Drop the token from the URL so it isn't left in history.
+      window.history.replaceState(null, "", window.location.pathname);
+      // First-ever sign-in → onboarding (integrations first); else dashboard.
+      router.replace(params.get("new") === "1" ? "/onboarding" : "/dashboard");
+    })();
   }, [router]);
 
   return (

@@ -20,10 +20,30 @@ from api.ratelimit import rate_limit
 from config import settings
 from db.models import Org, User
 from db.repositories import accept_invite_for_email, provision_org, try_db
-from db.session import get_claims, get_db
+from db.session import SESSION_COOKIE, _decode_jwt, get_claims, get_db
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 DbSession = Annotated[Session, Depends(get_db)]
+
+
+def _set_session_cookie(response: Response, token: str) -> None:
+    """Store the session JWT in an httpOnly cookie. SameSite=Lax + first-party
+    (the frontend talks to the API through its own /api proxy) is CSRF-safe for
+    state-changing requests without a separate CSRF token. Secure everywhere but
+    local http."""
+    response.set_cookie(
+        SESSION_COOKIE,
+        token,
+        max_age=settings.jwt_expiry_hours * 3600,
+        httponly=True,
+        samesite="lax",
+        secure=settings.env != "local",
+        path="/",
+    )
+
+
+def _clear_session_cookie(response: Response) -> None:
+    response.delete_cookie(SESSION_COOKIE, path="/")
 
 # Google OIDC endpoints.
 GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
@@ -65,7 +85,7 @@ def _issue_token(user: User) -> str:
     response_model=LoginResponse,
     dependencies=[Depends(rate_limit(max_calls=10, window_seconds=300))],
 )
-async def login(body: LoginRequest, db: DbSession) -> LoginResponse:
+async def login(body: LoginRequest, db: DbSession, response: Response) -> LoginResponse:
     """Password-less email-lookup sign-in (dev/demo only). Disabled outside local
     unless explicitly enabled; production sign-in goes through Google OAuth."""
     if not settings.email_login_enabled:
@@ -80,12 +100,36 @@ async def login(body: LoginRequest, db: DbSession) -> LoginResponse:
             detail="Invalid credentials",
         )
 
-    return LoginResponse(
-        user_id=user.id,
-        org_id=user.org_id,
-        role=user.role,
-        token=_issue_token(user),
-    )
+    token = _issue_token(user)
+    # Set the httpOnly session cookie (primary auth). The token is also returned
+    # in the body for API clients; the browser relies on the cookie.
+    _set_session_cookie(response, token)
+    return LoginResponse(user_id=user.id, org_id=user.org_id, role=user.role, token=token)
+
+
+class SessionExchange(BaseModel):
+    token: str
+
+
+@router.post("/session")
+async def set_session(body: SessionExchange, response: Response) -> dict:
+    """Exchange a valid JWT for an httpOnly session cookie on this (frontend)
+    origin. The Google OAuth callback runs on the API domain, so the browser
+    receives the token in the redirect fragment and posts it here — through the
+    same-origin /api proxy — to land the cookie first-party where the app runs."""
+    if _decode_jwt(body.token) is None:
+        raise HTTPException(status_code=401, detail="Invalid or expired token.")
+    _set_session_cookie(response, body.token)
+    return {"ok": True}
+
+
+@router.post("/logout")
+async def logout(response: Response) -> dict:
+    """Clear this device's session cookie. (Use /auth/logout-all to revoke every
+    session.) The client cannot clear an httpOnly cookie itself, so it asks the
+    server to."""
+    _clear_session_cookie(response)
+    return {"ok": True}
 
 
 @router.get("/config")
@@ -251,9 +295,12 @@ async def google_callback(
             db.commit()
 
     org = db.get(Org, user.org_id)
-    resp = _frontend_redirect(
-        _issue_token(user), user, org.name if org else "", is_new=is_new
-    )
+    token = _issue_token(user)
+    resp = _frontend_redirect(token, user, org.name if org else "", is_new=is_new)
+    # Set the cookie on the API domain too (covers same-origin deployments). For
+    # the split frontend/API domain, the callback page re-posts the fragment
+    # token to /api/auth/session to land the cookie first-party (see set_session).
+    _set_session_cookie(resp, token)
     resp.delete_cookie(_OAUTH_STATE_COOKIE)
     return resp
 
