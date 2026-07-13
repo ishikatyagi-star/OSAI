@@ -66,10 +66,16 @@ async function apiGet<T>(
     });
     if (!res.ok) {
       handleUnauthorized(res.status);
+      // Swallowing to a fallback keeps list pages resilient, but a silent 500
+      // is indistinguishable from an empty workspace. Surface it so a broken
+      // backend is diagnosable in the console instead of looking like "no data".
+      console.warn(`GET ${path} failed (${res.status}); using fallback.`);
       return fallback;
     }
     return (await res.json()) as T;
-  } catch {
+  } catch (err) {
+    // Network error or timeout abort - same reasoning as above.
+    console.warn(`GET ${path} errored (${(err as Error)?.name ?? "error"}); using fallback.`);
     return fallback;
   } finally {
     clearTimeout(timer);

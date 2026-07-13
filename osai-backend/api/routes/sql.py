@@ -60,7 +60,16 @@ def _get_source(db: Session, org_id: str, source_id: str) -> SqlSource:
 
 def _engine(dsn: str):
     # Short timeouts: an analytics query should answer fast or be narrowed.
-    return create_engine(dsn, connect_args={"connect_timeout": 5}, pool_pre_ping=True)
+    connect_args: dict[str, object] = {"connect_timeout": 5}
+    # Defense in depth for Postgres: make the whole session read-only at the
+    # server (so even a query that slips past ensure_readonly_select can't write)
+    # and cap runtime with a real statement_timeout, not just connect_timeout.
+    # These are libpq (psycopg) options; only apply them to Postgres DSNs.
+    if dsn.startswith(("postgresql://", "postgresql+psycopg://", "postgres://")):
+        connect_args["options"] = (
+            "-c default_transaction_read_only=on -c statement_timeout=10000"
+        )
+    return create_engine(dsn, connect_args=connect_args, pool_pre_ping=True)
 
 
 def _mask(dsn: str) -> str:
