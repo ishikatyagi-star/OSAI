@@ -1059,10 +1059,9 @@ def provision_org(
             )
         )
 
-    # Seed default departments so the org chart is organized from day one. Real
-    # orgs must start clean — no demo documents/workflows are injected here.
-    for dept_name in ("Engineering", "Product", "Marketing", "Sales", "Customer Support"):
-        session.add(Department(org_id=org.id, name=dept_name))
+    # New orgs start with no departments — the admin creates their own from the
+    # Team page so the org chart reflects how they actually work, instead of five
+    # generic guesses (Engineering/Sales/…) that rarely match.
 
     # Log audit event
     session.add(

@@ -38,13 +38,19 @@ export default function IntegrationsPage() {
     }
   }
 
-  // Honour ?connected=1 (back from the Composio OAuth round-trip).
+  // Honour ?connected=1 (back from the Composio OAuth round-trip) and ?catalog=1
+  // (arriving from onboarding - open the full 1,000+ connector catalog directly).
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("connected") === "1") {
       setJustConnected(true);
       setTimeout(() => setJustConnected(false), 6000);
-      // Clean the query string so a refresh doesn't re-show the banner.
+    }
+    if (params.get("catalog") === "1") {
+      setCatalogOpen(true);
+    }
+    if (params.get("connected") === "1" || params.get("catalog") === "1") {
+      // Clean the query string so a refresh doesn't re-trigger.
       window.history.replaceState({}, "", "/integrations");
     }
   }, []);

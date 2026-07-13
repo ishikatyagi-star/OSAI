@@ -1,84 +1,24 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
-import {
-  ArrowRight,
-  Check,
-  CheckCircle2,
-  Loader2,
-  SkipForward,
-  Sparkles,
-} from "lucide-react";
-import { composioConnect, login, onboardOrg } from "@/lib/api";
-import { CONNECTOR_META, getConnectorIcon } from "@/lib/connector-meta";
+import { useState } from "react";
+import { ArrowRight, CheckCircle2, Loader2, Plug, Sparkles } from "lucide-react";
+import { login, onboardOrg } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
 
-const CONNECTOR_FLOW = ["notion", "google_drive", "slack", "freshdesk"] as const;
-
-type ConnectorKey = (typeof CONNECTOR_FLOW)[number];
-type Phase = "connect" | "org" | "done";
+type Phase = "org" | "done";
 
 export default function OnboardingPage() {
-  const [phase, setPhase] = useState<Phase>("connect");
-  const [stepIndex, setStepIndex] = useState(0);
-  const [connected, setConnected] = useState<Set<ConnectorKey>>(new Set());
-  const [busyKey, setBusyKey] = useState<ConnectorKey | null>(null);
-  const [startedKey, setStartedKey] = useState<ConnectorKey | null>(null);
-  const [connectError, setConnectError] = useState<string | null>(null);
-
   const hasOrg =
     typeof window !== "undefined" && !!localStorage.getItem("osai_org_id");
+  const [phase, setPhase] = useState<Phase>(hasOrg ? "done" : "org");
+
   const [orgName, setOrgName] = useState("");
   const [adminName, setAdminName] = useState("");
   const [adminEmail, setAdminEmail] = useState("");
   const [orgBusy, setOrgBusy] = useState(false);
   const [orgError, setOrgError] = useState<string | null>(null);
-
-  const currentKey = CONNECTOR_FLOW[stepIndex];
-  const meta = currentKey ? CONNECTOR_META[currentKey] : null;
-  const CurrentIcon = currentKey ? getConnectorIcon(currentKey) : null;
-  const progress = useMemo(
-    () =>
-      CONNECTOR_FLOW.map((key) => ({
-        key,
-        done: phase !== "connect" || stepIndex > CONNECTOR_FLOW.indexOf(key),
-      })),
-    [phase, stepIndex]
-  );
-
-  const advance = useCallback(() => {
-    setStartedKey(null);
-    setConnectError(null);
-    if (stepIndex + 1 < CONNECTOR_FLOW.length) {
-      setStepIndex((i) => i + 1);
-    } else {
-      setPhase(hasOrg ? "done" : "org");
-    }
-  }, [stepIndex, hasOrg]);
-
-  async function handleConnect(key: ConnectorKey) {
-    setBusyKey(key);
-    setConnectError(null);
-    try {
-      const res = await composioConnect(key);
-      if (res.redirect_url) {
-        window.open(res.redirect_url, "_blank", "noopener,noreferrer");
-        setConnected((prev) => new Set(prev).add(key));
-        setStartedKey(key);
-      } else {
-        setConnectError(res.error || "Couldn't start the connection. Try again.");
-      }
-    } catch {
-      setConnectError(
-        `${CONNECTOR_META[key]?.label ?? key} isn't available to connect yet. You can skip and add it later.`
-      );
-    } finally {
-      setBusyKey(null);
-    }
-  }
 
   async function handleCreateOrg() {
     if (!orgName.trim() || !adminEmail.trim() || !adminName.trim()) {
@@ -111,7 +51,14 @@ export default function OnboardingPage() {
     }
   }
 
-  function finish() {
+  // Land new users straight on the full connector catalog (1,000+ apps via
+  // Composio) rather than a fixed wizard of a handful of tools.
+  function connectTools() {
+    localStorage.setItem("osai_onboarded", "true");
+    window.location.href = "/integrations?catalog=1";
+  }
+
+  function skipToAsk() {
     localStorage.setItem("osai_onboarded", "true");
     window.location.href = "/ask";
   }
@@ -122,109 +69,16 @@ export default function OnboardingPage() {
         <aside className="onboarding-aside">
           <p className="onboarding-kicker">Workspace setup</p>
           <h1 className="onboarding-heading">
-            Start with the tools your team already uses.
+            Bring your company context into Sheldon.
           </h1>
           <p className="onboarding-copy">
-            Connect a source now, or skip and add it later from Integrations.
-            Sheldon keeps every connection optional.
+            Create your workspace, then connect any of 1,000+ tools your team
+            already uses. Every connection is optional and can be added or
+            removed anytime from Integrations.
           </p>
-
-          <div className="onboarding-progress" aria-label="Connector setup progress">
-            {progress.map((p, i) => {
-              const StepIcon = getConnectorIcon(p.key);
-              const active = phase === "connect" && i === stepIndex;
-              return (
-                <div
-                  key={p.key}
-                  className={cn(
-                    "onboarding-progress-item",
-                    active && "is-active",
-                    p.done && "is-done"
-                  )}
-                >
-                  <span className="onboarding-progress-icon">
-                    {p.done ? (
-                      <Check className="size-3.5" />
-                    ) : (
-                      <StepIcon className="size-3.5" strokeWidth={1.8} />
-                    )}
-                  </span>
-                  <span>
-                    <span className="onboarding-progress-label">
-                      {CONNECTOR_META[p.key]?.label}
-                    </span>
-                    <span className="onboarding-progress-meta">
-                      {p.done ? "Reviewed" : active ? "Current step" : "Optional"}
-                    </span>
-                  </span>
-                </div>
-              );
-            })}
-          </div>
         </aside>
 
         <Card className="onboarding-panel">
-          {phase === "connect" && meta && currentKey && (
-            <div className="onboarding-step">
-              <div className="onboarding-step-header">
-                <div className="onboarding-step-icon">
-                  {CurrentIcon && <CurrentIcon className="size-6" strokeWidth={1.8} />}
-                </div>
-                <div>
-                  <p className="onboarding-step-count">
-                    Step {stepIndex + 1} of {CONNECTOR_FLOW.length}
-                  </p>
-                  <h2 className="onboarding-title">Connect {meta.label}</h2>
-                </div>
-              </div>
-              <p className="onboarding-description">{meta.description}</p>
-
-              {startedKey === currentKey ? (
-                <div className="onboarding-actions">
-                  <div className="onboarding-success">
-                    Authorize {meta.label} in the new tab, then come back and continue.
-                  </div>
-                  <div className="onboarding-button-stack">
-                    <Button onClick={advance} className="w-full">
-                      Continue <ArrowRight className="size-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      onClick={() => handleConnect(currentKey)}
-                      className="w-full"
-                    >
-                      Re-open authorization
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="onboarding-button-stack">
-                  <Button
-                    onClick={() => handleConnect(currentKey)}
-                    disabled={busyKey === currentKey}
-                    className="w-full"
-                  >
-                    {busyKey === currentKey ? (
-                      <Loader2 className="size-4 animate-spin" />
-                    ) : (
-                      <>
-                        Connect {meta.label} <ArrowRight className="size-4" />
-                      </>
-                    )}
-                  </Button>
-                  <Button variant="ghost" onClick={advance} className="w-full">
-                    <SkipForward className="size-3.5" /> Skip for now
-                  </Button>
-                </div>
-              )}
-
-              {connectError && <p className="text-xs text-destructive">{connectError}</p>}
-              <p className="onboarding-footnote">
-                You can connect or disconnect any source later from Integrations.
-              </p>
-            </div>
-          )}
-
           {phase === "org" && (
             <div className="onboarding-step">
               <div>
@@ -252,16 +106,20 @@ export default function OnboardingPage() {
                 <CheckCircle2 className="size-8" />
               </div>
               <div>
-                <h2 className="onboarding-title">You're all set</h2>
+                <h2 className="onboarding-title">Your workspace is ready</h2>
                 <p className="onboarding-description">
-                  {connected.size > 0
-                    ? `Connected ${connected.size} source${connected.size > 1 ? "s" : ""}. Sheldon is indexing your context now. Ask it anything.`
-                    : "You can connect your tools anytime from Integrations. Ask Sheldon is ready when you are."}
+                  Connect the tools your team uses so Sheldon can index your
+                  context, or jump straight into asking.
                 </p>
               </div>
-              <Button onClick={finish} className="w-full">
-                <Sparkles className="size-4" /> Ask Sheldon your first question
-              </Button>
+              <div className="onboarding-button-stack">
+                <Button onClick={connectTools} className="w-full">
+                  <Plug className="size-4" /> Connect your tools
+                </Button>
+                <Button variant="ghost" onClick={skipToAsk} className="w-full">
+                  <Sparkles className="size-4" /> Skip for now, go to Ask Sheldon
+                </Button>
+              </div>
             </div>
           )}
         </Card>
