@@ -243,10 +243,6 @@
   .hero-inner {
     position: relative;
     z-index: 1;
-    display: grid;
-    grid-template-columns: 1.05fr 0.95fr;
-    gap: 64px;
-    align-items: center;
   }
 
   .hero h1 { margin-bottom: 26px; }
@@ -273,93 +269,6 @@
     max-width: 460px;
     line-height: 1.4;
   }
-
-  /* hero workflow widget */
-  .wf-panel {
-    background: var(--surface-1);
-    border: 1px solid var(--hairline);
-    border-radius: var(--r-xl);
-    padding: 18px;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.45);
-  }
-
-  .wf-panel-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 4px 6px 14px;
-    border-bottom: 1px solid var(--hairline-soft);
-    margin-bottom: 12px;
-  }
-
-  .wf-panel-title {
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--ink-muted);
-    letter-spacing: -0.13px;
-  }
-
-  .wf-live {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    font-size: 12px;
-    color: var(--ink-muted);
-  }
-  .wf-live::before {
-    content: '';
-    width: 6px; height: 6px; border-radius: 50%;
-    background: var(--success);
-    animation: pulse 1.8s ease-in-out infinite;
-  }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.4; transform: scale(0.7); }
-  }
-
-  .wf-list { display: flex; flex-direction: column; gap: 8px; }
-
-  .wf-card {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    background: var(--surface-2);
-    border: 1px solid var(--hairline-soft);
-    border-radius: var(--r-md);
-    padding: 12px 14px;
-    transition: transform 0.18s ease, border-color 0.18s ease;
-  }
-  .wf-card:hover { transform: translateX(-3px); border-color: var(--hairline); }
-
-  .wf-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-  .wf-dot.done { background: var(--success); }
-  .wf-dot.run { background: var(--amber); animation: pulse 1.5s ease-in-out infinite; }
-  .wf-dot.prog { background: var(--accent-blue); }
-  .wf-dot.queue { background: transparent; border: 1.5px solid var(--ink-muted); }
-
-  .wf-info { flex: 1; min-width: 0; }
-  .wf-label {
-    font-size: 13.5px;
-    font-weight: 500;
-    color: var(--ink);
-    letter-spacing: -0.14px;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-  .wf-meta { font-size: 11.5px; color: var(--ink-muted); margin-top: 3px; }
-
-  .wf-badge {
-    font-size: 11px;
-    font-weight: 500;
-    padding: 4px 9px;
-    border-radius: var(--r-pill);
-    white-space: nowrap;
-    letter-spacing: -0.12px;
-  }
-  .wf-badge.done { background: rgba(34,197,94,0.14); color: #4ade80; }
-  .wf-badge.run { background: rgba(245,158,11,0.14); color: #fbbf24; }
-  .wf-badge.prog { background: rgba(0,153,255,0.14); color: #38bdf8; }
-  .wf-badge.queue { background: var(--surface-1); color: var(--ink-muted); }
 
   /* ---------- PROBLEM ---------- */
   .two-col {
@@ -732,64 +641,6 @@
       <p class="hero-micro">Built for fast-moving teams that want to scale execution without scaling coordination overhead.</p>
     </div>
 
-    <div class="hero-right">
-      <div class="wf-panel">
-        <div class="wf-panel-head">
-          <span class="wf-panel-title">Live workflow status</span>
-          <span class="wf-live">Live</span>
-        </div>
-        <div class="wf-list">
-          <div class="wf-card">
-            <span class="wf-dot done"></span>
-            <div class="wf-info">
-              <div class="wf-label">Customer renewal exception</div>
-              <div class="wf-meta">RevOps &amp; Finance · 2 approvals</div>
-            </div>
-            <span class="wf-badge done">Completed</span>
-          </div>
-          <div class="wf-card">
-            <span class="wf-dot prog"></span>
-            <div class="wf-info">
-              <div class="wf-label">Enterprise security review</div>
-              <div class="wf-meta">Sales &amp; Legal · awaiting compliance input</div>
-            </div>
-            <span class="wf-badge prog">In progress</span>
-          </div>
-          <div class="wf-card">
-            <span class="wf-dot done"></span>
-            <div class="wf-info">
-              <div class="wf-label">Vendor onboarding</div>
-              <div class="wf-meta">Procurement · 3 documents verified</div>
-            </div>
-            <span class="wf-badge done">Completed</span>
-          </div>
-          <div class="wf-card">
-            <span class="wf-dot run"></span>
-            <div class="wf-info">
-              <div class="wf-label">Support escalation batch</div>
-              <div class="wf-meta">Customer Success · 18 requests routed</div>
-            </div>
-            <span class="wf-badge run">Running</span>
-          </div>
-          <div class="wf-card">
-            <span class="wf-dot queue"></span>
-            <div class="wf-info">
-              <div class="wf-label">New hire setup</div>
-              <div class="wf-meta">People Ops &amp; IT · pending device approval</div>
-            </div>
-            <span class="wf-badge queue">Queued</span>
-          </div>
-          <div class="wf-card">
-            <span class="wf-dot prog"></span>
-            <div class="wf-info">
-              <div class="wf-label">Contract redline review</div>
-              <div class="wf-meta">Sales Ops &amp; Legal · owner assigned</div>
-            </div>
-            <span class="wf-badge prog">In progress</span>
-          </div>
-        </div>
-      </div>
-    </div>
   </div>
 </section>
 
@@ -1114,18 +965,6 @@
     fadeEls.forEach((el) => observer.observe(el));
   }
 
-  // Stagger the hero workflow cards on load
-  if (!reduceMotion) {
-    document.querySelectorAll('.wf-card').forEach((card, i) => {
-      card.style.opacity = '0';
-      card.style.animation = `floatIn 0.5s ease-out ${0.25 + i * 0.08}s both`;
-    });
-  }
-
-  // floatIn keyframes (injected so we can stagger cleanly)
-  const style = document.createElement('style');
-  style.textContent = '@keyframes floatIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }';
-  document.head.appendChild(style);
 </script>
 </body>
 </html>
