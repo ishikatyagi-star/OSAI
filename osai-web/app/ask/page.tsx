@@ -637,31 +637,37 @@ export default function AskPage() {
                 </span>
               </div>
 
-              {/* Recommended workflows */}
-              <div className="flex flex-col gap-3">
-                <span className="ask-section-label">Recommended workflows</span>
-                <div className="grid gap-2">
-                  {ASK_MODES.map((m) => {
-                    const Icon = m.icon;
-                    return (
-                      <button
-                        key={m.id}
-                        type="button"
-                        onClick={() => send(m.example)}
-                        className={cn("ask-mode-card", m.gradient)}
-                      >
-                        <span className="ask-mode-card-icon">
-                          <Icon className="size-4" />
-                        </span>
-                        <span className="ask-mode-card-title">{m.label}</span>
-                        <span className="ask-mode-card-desc">{m.desc}</span>
-                        <span className="ask-example">“{m.example}”</span>
-                        <span className="ask-source-badge">{m.sources.join(" + ")}</span>
-                      </button>
-                    );
-                  })}
+              {/* Recommended workflows: curated examples that name specific tools
+                  (Notion/Slack/Freshdesk). Shown only in the demo, where those
+                  tools are connected - a real org shouldn't see hardcoded prompts
+                  for apps it hasn't connected. (Future: generate these live from
+                  the org's connected tools.) */}
+              {isDemo() && (
+                <div className="flex flex-col gap-3">
+                  <span className="ask-section-label">Recommended workflows</span>
+                  <div className="grid gap-2">
+                    {ASK_MODES.map((m) => {
+                      const Icon = m.icon;
+                      return (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => send(m.example)}
+                          className={cn("ask-mode-card", m.gradient)}
+                        >
+                          <span className="ask-mode-card-icon">
+                            <Icon className="size-4" />
+                          </span>
+                          <span className="ask-mode-card-title">{m.label}</span>
+                          <span className="ask-mode-card-desc">{m.desc}</span>
+                          <span className="ask-example">“{m.example}”</span>
+                          <span className="ask-source-badge">{m.sources.join(" + ")}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Disclaimer */}
               <p className="ask-disclaimer">
