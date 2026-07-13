@@ -17,7 +17,6 @@
      - canvas #090909, surface-1 #141414, surface-2 #1c1c1c
      - white display type, aggressive negative tracking
      - single accent blue #0099ff (links/focus only)
-     - gradient spotlight cards as scarce atmosphere tiles
      - every CTA is a pill
      Display face GT Walsheim is substituted with Inter 600 + tight
      tracking per DESIGN.md "Font Substitutes" guidance.
@@ -326,29 +325,6 @@
   }
   .not-chip::before { content: '✕'; color: #6b6b6b; }
 
-  /* gradient spotlight card (signature, scarce) */
-  .spotlight {
-    border-radius: var(--r-xxl);
-    padding: 36px;
-    color: #fff;
-    position: relative;
-    overflow: hidden;
-  }
-  .spotlight.violet { background: linear-gradient(150deg, #6a4cf5 0%, #8b4cf0 50%, #d44df0 100%); }
-  .spotlight.orange { background: linear-gradient(150deg, #ff7a3d 0%, #ff5577 100%); }
-  .spotlight-kicker {
-    font-size: 13px;
-    font-weight: 500;
-    opacity: 0.85;
-    margin-bottom: 14px;
-  }
-  .spotlight-quote {
-    font-size: 24px;
-    line-height: 1.3;
-    letter-spacing: -0.4px;
-    font-weight: 500;
-  }
-
   /* ---------- AGENTIC LOOP ---------- */
   .loop-grid {
     display: grid;
@@ -468,14 +444,6 @@
   }
   .out-cell p { font-size: 17px; line-height: 1.35; letter-spacing: -0.3px; color: var(--ink); }
 
-  /* ---------- EARLY PARTNERS ---------- */
-  .partners-inner {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 72px;
-    align-items: center;
-  }
-
   /* ---------- TEAM ---------- */
   .team-grid {
     display: grid;
@@ -579,7 +547,7 @@
     section { padding: 72px 20px; }
     .hero { padding-top: 120px; }
     .hero-inner { grid-template-columns: 1fr; gap: 44px; }
-    .two-col, .partners-inner { grid-template-columns: 1fr; gap: 36px; }
+    .two-col { grid-template-columns: 1fr; gap: 36px; }
     .loop-grid, .feat-grid, .out-grid { grid-template-columns: 1fr 1fr; }
     .grid-4 { grid-template-columns: 1fr 1fr; }
     .feat-card.span2 { grid-column: span 2; }
@@ -605,7 +573,6 @@
     <a href="#loop">The Agentic Loop</a>
     <a href="#use-cases">Use Cases</a>
     <a href="#outcomes">Outcomes</a>
-    <a href="#why-now">Why Now</a>
     <a href="#team">Team</a>
   </div>
   <details class="nav-mobile-menu">
@@ -614,7 +581,6 @@
       <a href="#loop">The Agentic Loop</a>
       <a href="#use-cases">Use Cases</a>
       <a href="#outcomes">Outcomes</a>
-      <a href="#why-now">Why Now</a>
       <a href="#team">Team</a>
       <a href="/login">Sign in</a>
     </div>
@@ -805,26 +771,6 @@
   </div>
 </section>
 
-<!-- WHY NOW -->
-<section class="why-now" id="why-now">
-  <div class="wrap">
-    <div class="two-col" style="margin-top:0; align-items:center;">
-      <div class="section-head fade-up">
-        <span class="eyebrow">Why now</span>
-        <h2>AI can finally operate the layer people have been patching manually.</h2>
-      </div>
-      <div class="prose fade-up">
-        <p>For years, companies solved operational complexity by hiring coordinators, adding new tools, or creating process overhead around the gaps. That approach does not scale well, and it breaks faster as the business grows.</p>
-        <p>AI changes the equation because software can now understand requests, retain context, reason across systems, and drive work forward. That makes it possible to build an AI-native operating system that does more than record what happened - <strong>it helps make the work happen.</strong></p>
-      </div>
-    </div>
-    <div class="spotlight violet fade-up" style="margin-top:56px;">
-      <div class="spotlight-kicker">The shift</div>
-      <div class="spotlight-quote">From systems that store what happened - to a system responsible for making the work happen.</div>
-    </div>
-  </div>
-</section>
-
 <!-- OUTCOMES -->
 <section class="outcomes" id="outcomes">
   <div class="wrap">
@@ -840,26 +786,6 @@
       <div class="out-cell fade-up"><div class="out-num">05</div><p>Better visibility into where work stalls and why.</p></div>
       <div class="out-cell fade-up"><div class="out-num">06</div><p>More operator time spent on decisions, not reminders.</p></div>
     </div>
-  </div>
-</section>
-
-<!-- EARLY PARTNERS -->
-<section class="partners">
-  <div class="wrap partners-inner">
-    <div class="section-head fade-up" style="max-width:none;">
-      <span class="eyebrow">Early partners</span>
-      <h2>We're building this with a small group of ambitious teams.</h2>
-      <div class="prose" style="margin-top:24px;">
-        <p>We're early by design. Sheldon is being shaped in close collaboration with operators who want to rethink how their company actually runs.</p>
-        <p>If you are dealing with repetitive cross-functional workflows, unclear ownership, or execution that depends too much on follow-ups, we want to work with you on the right starting point.</p>
-      </div>
-    </div>
-    <ul class="line-list fade-up">
-      <li>Hands-on workflow design and implementation.</li>
-      <li>Direct access to the founding team.</li>
-      <li>Focus on one high-friction workflow first.</li>
-      <li>Built with your stack, your constraints, and your operating reality.</li>
-    </ul>
   </div>
 </section>
 
@@ -925,7 +851,6 @@
         <a href="#loop">The Agentic Loop</a>
         <a href="#use-cases">Use Cases</a>
         <a href="#outcomes">Outcomes</a>
-        <a href="#why-now">Why Now</a>
         <a href="#team">Team</a>
       </div>
       <div class="footer-col">
