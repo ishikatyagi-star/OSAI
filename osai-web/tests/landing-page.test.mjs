@@ -37,6 +37,8 @@ test("homepage keeps its audit fixes", () => {
   assert.equal((html.match(/<main\b/g) ?? []).length, 1);
   assert.equal((html.match(/<\/main>/g) ?? []).length, 1);
   assert.match(html, /<details class="nav-mobile-menu">/);
+  assert.match(html, /<summary role="button" aria-label="Navigation menu" aria-controls="mobile-navigation" aria-expanded="false">/);
+  assert.match(html, /mobileMenuTrigger\.setAttribute\('aria-expanded', String\(mobileMenu\.open\)\)/);
   assert.match(html, /mobileMenu\.removeAttribute\('open'\)/);
   assert.equal((html.match(/>Book a Call<\/a>/g) ?? []).length, 3);
   assert.equal((html.match(/>Try a Demo<\/a>/g) ?? []).length, 3);
@@ -46,6 +48,8 @@ test("homepage keeps its audit fixes", () => {
   assert.doesNotMatch(html, /<section class="positioning">/);
   assert.match(css, /\.landing-saas \.hero\s*{[^}]*min-height: auto !important;/s);
   assert.match(css, /\.landing-saas \.nav-mobile-menu\[open\]::before\s*{/);
+  assert.match(css, /@media \(max-width: 980px\)\s*{[\s\S]*?\.nav-mobile-menu\s*{\s*display: block;/);
+  assert.match(css, /\.landing-saas \.loop-card\s*{[\s\S]*?min-width: 0;[\s\S]*?width: 100%;/);
   assert.match(html, /landing-eleven\.css\?v=20260713/);
   assert.doesNotMatch(html, /Explore live workflow/);
   assert.match(html, /matchMedia\('\(prefers-reduced-motion: reduce\)'\)/);
