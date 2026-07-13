@@ -505,6 +505,12 @@ export default function AutomationsPage() {
                 }))}
               />
             </div>
+            {cadence !== "manual" && (
+              <p className="meta" style={{ marginBottom: 10, fontSize: 11, color: "var(--amber, var(--text-secondary))" }}>
+                Recurring cadences are not firing automatically in this deployment yet - they need the
+                background scheduler. Until then, run this automation with &quot;Run now&quot;.
+              </p>
+            )}
             <textarea
               className="search-input"
               placeholder="What should Sheldon do? e.g. Summarise open blockers across Notion and Slack and list owners."
