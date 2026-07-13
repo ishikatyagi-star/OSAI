@@ -9,6 +9,7 @@ import { isDemo } from "@/lib/demo";
 import { CONNECTOR_META, getConnectorIcon } from "@/lib/connector-meta";
 import type { SyncRun } from "@/lib/types";
 import { brandText, timeAgo } from "@/lib/utils";
+import { SheldonMascot } from "@/components/sheldon-mascot";
 
 
 const STATUS_BADGE: Record<string, string> = {
@@ -93,7 +94,10 @@ export default function SyncRunsPage() {
       {/* Timeline */}
       <h2 style={{ marginBottom: 16 }}>Activity Timeline</h2>
       {display.length === 0 && (
-        <p className="empty-state">No sync runs yet. Trigger a sync from Integrations.</p>
+        <div className="empty-state mascot-empty-state">
+          <SheldonMascot state="syncing" size={88} />
+          <p>No sync runs yet. Trigger a sync from Integrations.</p>
+        </div>
       )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>

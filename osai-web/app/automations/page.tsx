@@ -36,6 +36,7 @@ import { getConnectorIcon } from "@/lib/connector-meta";
 import type { ActionItem, WorkflowRun } from "@/lib/types";
 import { Select } from "@/components/ui/select";
 import { brandText, timeAgo } from "@/lib/utils";
+import { SheldonMascot } from "@/components/sheldon-mascot";
 
 const CADENCES = ["manual", "hourly", "daily", "weekly"] as const;
 
@@ -537,6 +538,7 @@ export default function AutomationsPage() {
 
           {items.length === 0 ? (
             <div className="card" style={{ textAlign: "center", padding: "40px 24px" }}>
+              <SheldonMascot state="orchestrating" size={96} className="empty-state-mascot" />
               <p className="meta">No automations yet. Create one above.</p>
             </div>
           ) : (

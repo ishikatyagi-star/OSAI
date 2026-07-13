@@ -10,6 +10,7 @@ import { isDemo } from "@/lib/demo";
 import { CONNECTOR_META } from "@/lib/connector-meta";
 import type { ActionItem, WorkflowRun } from "@/lib/types";
 import { brandText } from "@/lib/utils";
+import { SheldonMascot } from "@/components/sheldon-mascot";
 
 const TIER_COLORS: Record<string, string> = {
   normal: "var(--text-muted)",
@@ -83,7 +84,8 @@ export default function WorkflowDetailPage() {
 
   if (!run) {
     return (
-      <div>
+      <div className="card mascot-error-state">
+        <SheldonMascot state="recovering" size={104} />
         <p className="error-text">Workflow run not found.</p>
         <Link href="/automations" className="text-caption" style={{ color: "var(--accent)" }}>← Back to Automations</Link>
       </div>

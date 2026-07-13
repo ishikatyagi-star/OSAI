@@ -317,8 +317,22 @@ section {
 }
 
 .hero-inner {
+  display: grid !important;
   grid-template-columns: minmax(0, 1fr) minmax(320px, 440px) !important;
+  align-items: center;
   gap: clamp(42px, 7vw, 96px) !important;
+}
+
+.hero-mascot-stage {
+  display: grid;
+  place-items: center;
+  align-self: center;
+}
+
+.hero-mascot-stage img {
+  width: min(100%, 440px);
+  height: auto;
+  filter: drop-shadow(0 28px 28px rgba(41, 37, 36, 0.12));
 }
 
 .hero-tag,
@@ -667,12 +681,23 @@ footer span {
 }
 
 .landing-saas .loop-card {
+  position: relative;
+  min-height: 210px;
   padding: 28px 24px !important;
+  padding-right: 132px !important;
   background: transparent !important;
   border: 0 !important;
   border-bottom: 1px solid var(--el-hairline-strong) !important;
   border-radius: 0 !important;
   box-shadow: none !important;
+}
+
+.loop-mascot {
+  position: absolute;
+  right: 18px;
+  bottom: 14px;
+  width: 104px;
+  height: auto;
 }
 
 .landing-saas .loop-card:nth-child(odd):not(.repeat) {
@@ -772,6 +797,10 @@ footer .footer-logo,
   .hero-right,
   .hero-widget {
     max-width: 520px;
+  }
+
+  .hero-mascot-stage {
+    margin-inline: auto;
   }
 
   .hero::before {
@@ -906,6 +935,23 @@ footer .footer-logo,
 
   .landing-saas .loop-card:nth-child(odd):not(.repeat) {
     border-right: 0 !important;
+  }
+
+  .landing-saas .hero-inner {
+    gap: 16px !important;
+  }
+
+  .landing-saas .hero-mascot-stage img {
+    width: 180px;
+  }
+
+  .landing-saas .loop-card {
+    min-height: 180px;
+    padding-right: 104px !important;
+  }
+
+  .loop-mascot {
+    width: 80px;
   }
 }
 

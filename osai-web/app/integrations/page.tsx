@@ -12,6 +12,7 @@ import { ConnectorManager } from "@/components/integrations/connector-manager";
 import { Button } from "@/components/ui/button";
 import { StatusDot } from "@/components/ui/status-dot";
 import { brandText, timeAgo } from "@/lib/utils";
+import { SheldonMascot } from "@/components/sheldon-mascot";
 
 
 
@@ -235,6 +236,7 @@ export default function IntegrationsPage() {
 
           {display.length === 0 && (
             <div className="card" style={{ textAlign: "center", padding: "44px 24px", marginBottom: 16 }}>
+              <SheldonMascot state="syncing" size={96} className="empty-state-mascot" />
               <p className="text-body font-semibold" style={{ marginBottom: 6 }}>No connectors yet</p>
               <p className="meta" style={{ maxWidth: 420, margin: "0 auto" }}>
                 The backend didn&apos;t return any connectors. Once available, connect Notion, Google

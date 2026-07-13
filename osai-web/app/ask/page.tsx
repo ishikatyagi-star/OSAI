@@ -36,6 +36,7 @@ import type { UploadedFile } from "@/components/ask/file-card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { SheldonMascot } from "@/components/sheldon-mascot";
 
 function normaliseKey(q: string) {
   return q.toLowerCase().replace(/[^a-z0-9 ]/g, "").trim();
@@ -535,7 +536,8 @@ export default function AskPage() {
           <div className="flex min-h-full items-center justify-center px-4 py-8">
             <div className="ask-column flex w-full max-w-[760px] flex-col gap-8 text-left">
               {/* Heading */}
-              <div className="flex flex-col gap-4">
+              <div className="ask-empty-heading">
+                <SheldonMascot state="thinking" size={112} priority />
                 <h2 className="ask-title">What would you like to know?</h2>
               </div>
 
@@ -696,9 +698,7 @@ export default function AskPage() {
               ))}
               {pending && (
                 <div className="ask-loading-row" role="status" aria-live="polite">
-                  <div className="ask-turn-avatar flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-extrabold text-primary-foreground">
-                    O
-                  </div>
+                  <SheldonMascot state="searching" size={48} className="ask-loading-mascot" />
                   <div className="ask-loading-copy">
                     <span className="ask-loading-title">
                       <Loader2 className="size-4 animate-spin" />

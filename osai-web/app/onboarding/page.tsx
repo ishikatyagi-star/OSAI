@@ -6,6 +6,7 @@ import { login, onboardOrg } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
+import { SheldonMascot } from "@/components/sheldon-mascot";
 
 type Phase = "org" | "done";
 
@@ -76,6 +77,12 @@ export default function OnboardingPage() {
             already uses. Every connection is optional and can be added or
             removed anytime from Integrations.
           </p>
+          <SheldonMascot
+            state={phase === "done" ? "happy" : "orchestrating"}
+            size={132}
+            className="onboarding-mascot"
+            priority
+          />
         </aside>
 
         <Card className="onboarding-panel">

@@ -6,6 +6,7 @@ import { getAccessMap, type AccessMap } from "@/lib/api";
 import { isDemo } from "@/lib/demo";
 import { CONNECTOR_META, getConnectorIcon } from "@/lib/connector-meta";
 import { Select } from "@/components/ui/select";
+import { SheldonMascot } from "@/components/sheldon-mascot";
 
 type Tier = "normal" | "amber" | "red";
 
@@ -157,6 +158,7 @@ export default function GraphPage() {
 
       {loaded && data.users.length === 0 ? (
         <div className="card" style={{ textAlign: "center", padding: "48px 24px" }}>
+          <SheldonMascot state="mapping" size={104} className="empty-state-mascot" />
           <p className="text-body font-semibold" style={{ marginBottom: 6 }}>No access map yet</p>
           <p className="meta" style={{ maxWidth: 460, margin: "0 auto 16px" }}>
             The access map is built from your team members and the tools they can reach. Connect a
