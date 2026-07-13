@@ -112,10 +112,6 @@ export default function LoginPage() {
         </button>
       </div>
 
-      {/* Footer */}
-      <p className="login-footer">
-        By continuing you agree to our <a href="#" style={{ color: "var(--text-secondary)", textDecoration: "underline" }}>Terms of Service</a> and <a href="#" style={{ color: "var(--text-secondary)", textDecoration: "underline" }}>Privacy Policy</a>.
-      </p>
     </div>
   );
 }

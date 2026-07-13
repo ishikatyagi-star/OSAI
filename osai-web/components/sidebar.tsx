@@ -9,7 +9,6 @@ import {
   Bookmark,
   Database,
   Clock,
-  Inbox,
   LayoutDashboard,
   LogOut,
   Plug,
@@ -45,13 +44,12 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
       { href: "/ask", icon: Sparkles, label: "Ask Sheldon" },
-      { href: "/dashboards", icon: BarChart3, label: "Analytics" },
+      { href: "/analytics", icon: BarChart3, label: "Analytics" },
     ],
   },
   {
     label: "Manage",
     items: [
-      { href: "/inbox", icon: Inbox, label: "Context Inbox" },
       { href: "/decisions", icon: ScrollText, label: "Decision Log" },
       { href: "/wiki", icon: BookOpen, label: "Wiki" },
       { href: "/artifacts", icon: Bookmark, label: "Artifacts" },

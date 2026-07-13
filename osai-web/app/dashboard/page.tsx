@@ -2,44 +2,13 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, User } from "lucide-react";
 import { DEMO_WORKFLOW_RUNS, DEMO_STATS, DEMO_DECISIONS } from "@/lib/demo-data";
 import { getDashboardMetrics } from "@/lib/api";
 import { isDemo } from "@/lib/demo";
 import { CONNECTOR_META, getConnectorIcon } from "@/lib/connector-meta";
 import { StatusDot } from "@/components/ui/status-dot";
 
-const DEMO_ATTENTION_ITEMS = [
-  {
-    id: "a1",
-    tag: "blocker",
-    title: "Q3 roadmap document not accessible to engineering team",
-    source: "Notion · Product Workspace",
-    owner: "Priya Sharma",
-    time: "2h ago",
-  },
-  {
-    id: "a2",
-    tag: "blocker",
-    title: "Customer escalation ticket #FD-2891 unassigned for 48h",
-    source: "Freshdesk · Support Queue",
-    owner: "Unassigned",
-    time: "48h ago",
-  },
-  {
-    id: "a3",
-    tag: "follow-up",
-    title: "Partnership meeting notes not distributed to stakeholders",
-    source: "Zoom · Recordings",
-    owner: "Anish Mehta",
-    time: "1d ago",
-  },
-];
-
 export default function DashboardPage() {
-  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
-  const [snoozed, setSnoozed] = useState<Set<string>>(new Set());
-
   // Time-of-day greeting, resolved on the client to match the viewer's clock
   // (avoids a server/client hydration mismatch).
   const [greeting, setGreeting] = useState("Welcome");
@@ -55,11 +24,6 @@ export default function DashboardPage() {
         (a) => a.status === "needs_review"
       ).length
     : 0;
-
-  const attentionItems = demo ? DEMO_ATTENTION_ITEMS : [];
-  const active = attentionItems.filter(
-    (i) => !dismissed.has(i.id) && !snoozed.has(i.id)
-  );
 
   const pendingDecisions = demo
     ? DEMO_DECISIONS.filter((d) => d.status === "proposed").length
@@ -102,7 +66,7 @@ export default function DashboardPage() {
           <h1>Dashboard</h1>
           <p>{greeting} - here&apos;s what needs your attention today.</p>
         </div>
-        <Link href="/inbox" className="btn btn-primary">
+        <Link href="/integrations" className="btn btn-primary">
           + Add Context
         </Link>
       </div>
@@ -144,10 +108,10 @@ export default function DashboardPage() {
       {/* Stat cards */}
       <div className="stats-grid">
         {[
-          { label: "Active Blockers", value: active.filter(i => i.tag === "blocker").length, color: "var(--red)", link: "/inbox" },
+          { label: "Sources Indexed", value: documentsIndexed, color: "var(--teal)", link: "/analytics" },
           { label: "Pending Decisions", value: pendingDecisions, color: "var(--text-primary)", link: "/decisions" },
-          { label: "Overdue Follow-ups", value: active.filter(i => i.tag === "follow-up").length, color: "var(--text-primary)", link: "/decisions?source=osai" },
-          { label: "Context This Week", value: documentsIndexed, color: "var(--teal)", link: "/inbox" },
+          { label: "Pending Actions", value: pendingActions, color: "var(--text-primary)", link: "/automations" },
+          { label: "Active Connectors", value: connectorHealth.length, color: "var(--text-primary)", link: "/integrations" },
         ].map((s) => (
           <Link key={s.label} href={s.link} className="stat-card" style={{ textDecoration: "none" }}>
             <div className="stat-card-label">{s.label}</div>
@@ -158,48 +122,8 @@ export default function DashboardPage() {
 
       {/* Two-column layout */}
       <div className="dashboard-two-col" style={{ gap: 24 }}>
-        {/* Needs Attention */}
+        {/* Recent decisions */}
         <div>
-          <div className="section-header">
-            <h2>Needs Attention</h2>
-            <Link href="/inbox">View all →</Link>
-          </div>
-
-          {active.length === 0 && (
-            <div className="card" style={{ textAlign: "center", padding: "32px 20px" }}>
-              <CheckCircle2 className="mx-auto mb-2 size-6 text-success" strokeWidth={1.8} />
-              <p className="text-caption" style={{ color: "var(--green)", fontWeight: 600 }}>All clear!</p>
-              <p className="meta" style={{ marginTop: 4 }}>No blockers or follow-ups right now.</p>
-            </div>
-          )}
-
-          {active.map((item) => (
-            <div key={item.id} className="attention-card">
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                <span className={`tag tag-${item.tag}`}>{item.tag}</span>
-                <span className="meta" style={{ marginLeft: "auto" }}>{item.time}</span>
-              </div>
-              <div className="attention-card-title">{item.title}</div>
-              <div className="attention-card-meta">
-                <span>{item.source}</span>
-                <span>·</span>
-                <span><User size={12} style={{ display: "inline", verticalAlign: "middle", marginRight: 3 }} />{item.owner}</span>
-              </div>
-              <div className="attention-card-actions">
-                <Link href={`/inbox?item=${item.id}`} className="attention-card-action" style={{ textDecoration: "none" }}>View Task</Link>
-                <span style={{ color: "var(--text-secondary)" }}>|</span>
-                <button className="attention-card-action" onClick={() => setSnoozed(p => new Set([...p, item.id]))}>Snooze</button>
-                <span style={{ color: "var(--text-secondary)" }}>|</span>
-                <button className="attention-card-action dismiss" onClick={() => setDismissed(p => new Set([...p, item.id]))}>Dismiss</button>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Right column */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          {/* Recent decisions */}
-          <div>
             <div className="section-header">
               <h2>Recent Decisions</h2>
               <Link href="/decisions">View all →</Link>
@@ -270,7 +194,6 @@ export default function DashboardPage() {
               )})}
             </div>
           </div>
-        </div>
       </div>
 
       {/* Pending workflow actions */}

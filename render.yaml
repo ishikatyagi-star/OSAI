@@ -73,7 +73,7 @@ services:
       - key: OSAI_PUBLIC_BASE_URL      # this API's public URL (Composio auto-ingest callback)
         value: https://osai-api-ema6.onrender.com
       - key: OSAI_FRONTEND_URL         # where to send users after OAuth sign-in
-        value: https://osai-five.vercel.app
+        value: https://trysheldon.vercel.app
       # Google sign-in (OAuth 2.0). Redirect URI is non-secret; the client
       # id/secret are set in the dashboard (never committed to git).
       - key: OSAI_GOOGLE_OAUTH_REDIRECT_URI

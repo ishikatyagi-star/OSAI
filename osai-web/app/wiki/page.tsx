@@ -101,8 +101,8 @@ export default function WikiPage() {
         <div className="page-header-left">
           <h1>Wiki</h1>
           <p>
-            Curated context OSAI cites in answers. Suggestions appear here from real
-            work — approve them to make them part of your org&apos;s knowledge.
+            Curated context Sheldon cites in answers. Suggestions appear here from real
+            work - approve them to make them part of your org&apos;s knowledge.
           </p>
         </div>
         <Button onClick={() => startEdit(null)}>
@@ -128,7 +128,7 @@ export default function WikiPage() {
             />
             <Textarea
               rows={6}
-              placeholder="What should the team (and OSAI) know?"
+              placeholder="What should the team (and Sheldon) know?"
               value={draftContent}
               onChange={(e) => setDraftContent(e.target.value)}
             />
@@ -179,7 +179,7 @@ export default function WikiPage() {
         <div className="card" style={{ padding: 24, textAlign: "center" }}>
           <BookOpen className="mx-auto mb-2 size-6 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">
-            No entries yet. Add your first piece of curated context — deploy policies,
+            No entries yet. Add your first piece of curated context - deploy policies,
             team conventions, product definitions.
           </p>
         </div>

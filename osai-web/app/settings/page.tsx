@@ -146,12 +146,12 @@ export default function SettingsPage() {
         <h2 style={{ margin: 0 }}>Ask from Slack</h2>
         <p className="meta" style={{ margin: "4px 0 12px", lineHeight: 1.5 }}>
           Create a token, then add a Slack slash command (e.g. /ask) whose Request URL
-          points at your OSAI API: <code>&lt;api-base&gt;/slack/ask/&lt;token&gt;</code>.
+          points at your Sheldon API: <code>&lt;api-base&gt;/slack/ask/&lt;token&gt;</code>.
           Teammates get cited answers without leaving Slack.
         </p>
         {slackToken && (
           <div className="card" style={{ padding: "8px 12px", marginBottom: 10, fontSize: 12 }}>
-            <p style={{ margin: 0, fontWeight: 600 }}>Request URL path (copy now — shown once):</p>
+            <p style={{ margin: 0, fontWeight: 600 }}>Request URL path (copy now - shown once):</p>
             <code style={{ wordBreak: "break-all" }}>{slackToken.path}</code>
           </div>
         )}

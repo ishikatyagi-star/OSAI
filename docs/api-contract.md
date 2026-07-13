@@ -1,22 +1,21 @@
 # OSAI API Contract
 
-> **Status:** Living document. Per `OSAI_PARALLEL_PLAN.md` §3, the API contract is
-> the single shared interface between the backend (Ishika) and frontend (co-founder)
-> lanes. Sections marked **✅ Implemented** reflect endpoints already live in
-> `osai-backend/`. Sections marked **🟡 Proposed (frontend draft)** were drafted from
-> the frontend lane to unblock UI work and **must be ratified/owned by the backend
-> lane** before they are considered final — the request/response shapes are what the
-> `osai-web/` UI builds against (with mock data shaped identically) until the live
-> endpoint lands.
+> **Status:** Living document — the shared interface between the backend (Ishika)
+> and frontend (co-founder) lanes. Sections marked **✅ Implemented** reflect
+> endpoints live in `osai-backend/`. The `/ask`, `/graph/*`, and `/evals` endpoints
+> that were originally frontend drafts have since shipped and are now implemented.
 
 ---
 
 ## Conventions
 
 - **Base URL:** `NEXT_PUBLIC_API_BASE_URL` (defaults to `http://localhost:8000`).
-- **Auth / tenancy:** the frontend sends the current org via the `X-Org-Id` header
-  (read from `localStorage.osai_org_id`). Endpoints that also accept `org_id` in the
-  body do so for explicitness; the header is authoritative.
+- **Auth / tenancy:** authenticated requests send a JWT as `Authorization: Bearer
+  <token>`, and **the org is derived from the verified JWT — it is authoritative**.
+  Any `org_id` supplied in a request body is overwritten server-side, so it cannot
+  be used to reach another tenant. The `X-Org-Id` header is honored **only** for the
+  public `demo-org` workspace (whose token is not a real JWT); it is ignored for
+  signed-in users.
 - **Content type:** `application/json` for all request bodies.
 - **Errors:** non-2xx responses return a text/JSON `detail`. The frontend treats any
   network error or non-2xx on a `GET` as "fall back to demo data."
@@ -137,9 +136,9 @@ PATCH request: `{ "routing": DataRouting }`.
 
 ---
 
-## 🟡 Proposed (frontend draft — backend to ratify)
+## ✅ Implemented — agent, graph & evals (were frontend drafts, now shipped)
 
-### `POST /ask` — the "Ask OSAI" agent  *(Phase 1, P1-T3)*
+### `POST /ask` — the "Ask Sheldon" agent  *(Phase 1, P1-T3)*
 
 The conversational agent endpoint. Maps to `agent/orchestrator.py`:
 retrieve → tool-calling loop → answer + citations + actions taken.
@@ -318,8 +317,38 @@ user confirms through `/ask/actions/{id}/confirm`.
 
 ---
 
+## Other live routers (shipped after the initial contract)
+
+These are registered in `osai-backend/api/main.py` and exercised by the test
+suite; see the route modules for exact request/response shapes.
+
+- **Threads** (`/threads`) — persisted Ask conversations (list, fetch, delete).
+- **Wiki** (`/wiki`) — curated org context entries and suggestions the agent cites.
+- **SQL** (`/sql`) — register read-only DB sources and answer questions over live
+  databases; the LLM proposes SQL, nothing runs until approved, and execution is
+  hard-capped read-only (`ensure_readonly_select` + `SET TRANSACTION READ ONLY` +
+  Postgres `default_transaction_read_only`/`statement_timeout`).
+- **Slack Ask** (`/slack/ask/{token}`) — tokened slash-command endpoint for asking
+  Sheldon from Slack.
+- **Artifacts** (`/artifacts`) — outputs pinned from Ask answers, reusable as context.
+- **Decisions** (`/decisions`), **Notifications** (`/notifications`),
+  **Feedback** (`/feedback`), **Team** (`/team/*`), **Composio** (`/integrations/composio/*`),
+  **Documents** (`/documents/*`, incl. upload + per-doc access grants),
+  **Dashboard** (`/dashboard/metrics`).
+
+> Note: the per-connector tier-rules HTTP endpoints (`GET/PUT
+> /integrations/{key}/tier-rules`) were removed once the tiering UI was retired in
+> the visibility-model change. Tier-rule storage and ingest-time enforcement remain.
+
+---
+
 ## Changelog
 
+- **2026-07-13** — Audit cleanup: corrected the auth/tenancy note (JWT is
+  authoritative; `X-Org-Id` is demo-only); reclassified `/ask`, `/graph/*`,
+  `/evals` as implemented; indexed the shipped threads/wiki/sql/slack-ask/artifacts
+  routers; removed the reference to the deleted parallel-plan doc; noted the removed
+  tier-rules endpoints.
 - **2026-07-10** — Automations: added `PATCH /automations/{id}`, `status` +
   `updated_at` fields, run-context injection, and conversational create/update
   via `/ask` proposed actions.

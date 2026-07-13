@@ -9,7 +9,7 @@ import type { UploadedFile } from "./file-card";
 const ACCEPT = ".txt,.md,.markdown,.csv,.log,.pdf,.docx";
 
 /** Paperclip attach for the Ask composer. Files upload immediately with the
- * safe default (visible only to you) — no upfront dialog. Sharing happens
+ * safe default (visible only to you) - no upfront dialog. Sharing happens
  * afterwards from the file's ⋯ menu (Drive-style "Manage access"). */
 export function ComposerAttach({
   onUploaded,
@@ -43,8 +43,8 @@ export function ComposerAttach({
       const detail = err instanceof Error ? err.message : "";
       onError(
         detail.includes("415") || detail.includes("422")
-          ? "Those files couldn't be ingested — supported types: txt, md, csv, log, pdf, docx."
-          : "Upload failed — please try again."
+          ? "Those files couldn't be ingested - supported types: txt, md, csv, log, pdf, docx."
+          : "Upload failed - please try again."
       );
     } finally {
       setBusy(false);

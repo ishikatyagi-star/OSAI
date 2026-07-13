@@ -60,48 +60,6 @@ class NotionConnector(Connector):
                 error=auth.error or "Not connected. Use Connect to authorize this source.",
             )
 
-            # Dev demo fallback data (unreachable; kept for local reference)
-            documents = [
-                SourceDocument(
-                    source_id="doc-linear-integration",
-                    source_type=self.key,
-                    org_id=org_id,
-                    external_id="notion-linear-1",
-                    title="Linear Sync Integration Guidelines",
-                    text=(
-                        "OSAI integrates with Linear to automatically create developer issues. "
-                        "The mapping connects extracted assignee emails to active Linear user IDs. "
-                        "To enable auto-push, make sure to grant read/write scope. "
-                        "The default destination project is defined in the connector "
-                        "configuration payload. If the assignee does not match any team email, "
-                        "the ticket is created unassigned."
-                    ),
-                    metadata={"title": "Linear Sync Integration Guidelines"},
-                    permissions=["source:all"],
-                    data_tier="normal",
-                    created_at=datetime.now(),
-                ),
-                SourceDocument(
-                    source_id="doc-vpc-configuration",
-                    source_type=self.key,
-                    org_id=org_id,
-                    external_id="notion-vpc-sec",
-                    title="VPC and Ollama Security Setup",
-                    text=(
-                        "To protect company secrets, all Red-tier processing happens strictly "
-                        "within private VPC subnets. The Ollama service runs llama3 or mistral "
-                        "locally. Any external APIs or network calls are blocked. Qdrant is "
-                        "hosted on a private endpoint. The database uses SSL client certificates "
-                        "to authenticate inbound requests from the Celery worker."
-                    ),
-                    metadata={"title": "VPC and Ollama Security Setup"},
-                    permissions=["source:all"],
-                    data_tier="normal",
-                    created_at=datetime.now(),
-                ),
-            ]
-            return SyncResult(connector_key=self.key, status="succeeded", documents=documents)
-
         try:
             objects = (
                 [await self._request("GET", f"/pages/{self.root_page_id}")]

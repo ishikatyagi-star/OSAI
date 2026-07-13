@@ -8,7 +8,7 @@ import type { AskUiArtifact } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 
 /** Saved artifacts: pinned answer outputs (tables, briefs, plans) that
- * outlive their conversation — exportable and reusable as Ask context. */
+ * outlive their conversation - exportable and reusable as Ask context. */
 export default function ArtifactsPage() {
   const [rows, setRows] = useState<SavedArtifactRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,7 +61,7 @@ export default function ArtifactsPage() {
         <div className="page-header-left">
           <h1>Artifacts</h1>
           <p>
-            Outputs you pinned from Ask answers — tables, briefs, and plans that stay
+            Outputs you pinned from Ask answers - tables, briefs, and plans that stay
             useful after the conversation ends.
           </p>
         </div>

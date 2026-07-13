@@ -294,7 +294,7 @@ export default function AskPage() {
       const notes = skipped.map((s) => `${s.filename}: ${s.reason}`);
       const content =
         files.length > 0
-          ? `Added to your knowledge base — private to you until you share ${
+          ? `Added to your knowledge base - private to you until you share ${
               files.length > 1 ? "them" : "it"
             } (⋯ → Manage access).${notes.length ? ` ${notes.join(" ")}` : ""}`
           : notes.join(" ");
@@ -310,7 +310,7 @@ export default function AskPage() {
     setTurns((prev) => [...prev, { id: uid("a"), role: "assistant", content: message }]);
   }, []);
 
-  // "X shared a file with you" — unread share notifications, dismissible.
+  // "X shared a file with you" - unread share notifications, dismissible.
   const [shareNotices, setShareNotices] = useState<AppNotification[]>([]);
   useEffect(() => {
     getNotifications()
@@ -511,7 +511,7 @@ export default function AskPage() {
                 ) : (
                   <>
                     <strong>{n.payload.shared_by ?? "A teammate"}</strong> shared{" "}
-                    <strong>{n.payload.title ?? "a file"}</strong> with you — you can ask
+                    <strong>{n.payload.title ?? "a file"}</strong> with you - you can ask
                     about it here.
                   </>
                 )}
