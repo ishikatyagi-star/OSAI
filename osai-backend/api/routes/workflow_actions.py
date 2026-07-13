@@ -16,11 +16,13 @@ from db.repositories import (
     try_db,
     update_action_item_execution,
 )
-from db.session import get_db, get_org_id
+from db.session import get_db, require_writable_org
 
 router = APIRouter(prefix="/workflows", tags=["workflow-actions"])
 DbSession = Annotated[Session, Depends(get_db)]
-OrgId = Annotated[str, Depends(get_org_id)]
+# Approving an action item executes it against a connector — never from the
+# anonymous demo workspace (SEC-003).
+OrgId = Annotated[str, Depends(require_writable_org)]
 
 
 @router.post("/{run_id}/action-items/{item_id}/approve")

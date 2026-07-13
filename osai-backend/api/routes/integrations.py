@@ -12,11 +12,12 @@ from connectors.toolkit_map import NATIVE_TO_COMPOSIO, to_native_key
 from db.models import SourceDocumentRecord
 from db.repositories import list_integrations as list_db_integrations
 from db.repositories import try_db
-from db.session import SessionLocal, get_db, get_org_id
+from db.session import SessionLocal, get_db, get_org_id, require_admin
 
 router = APIRouter(prefix="/integrations", tags=["integrations"])
 DbSession = Annotated[Session, Depends(get_db)]
 OrgId = Annotated[str, Depends(get_org_id)]
+AdminOnly = Annotated[dict, Depends(require_admin)]
 
 
 @router.get("")
@@ -124,6 +125,7 @@ async def trigger_sync(
     db: DbSession,
     org_id: OrgId,
     background_tasks: BackgroundTasks,
+    _admin: AdminOnly,
 ) -> dict[str, object]:
     if connector_key not in {connector.key for connector in connector_registry.all()}:
         raise HTTPException(status_code=404, detail="Unknown connector")

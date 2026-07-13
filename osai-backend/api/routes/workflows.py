@@ -17,12 +17,14 @@ from db.repositories import (
     user_clearance,
     user_permissions,
 )
-from db.session import get_db, get_optional_claims, get_org_id
+from db.session import get_db, get_optional_claims, get_org_id, require_writable_org
 from workflows.runner import run_action_item_workflow
 
 router = APIRouter(prefix="/workflows", tags=["workflows"])
 DbSession = Annotated[Session, Depends(get_db)]
 OrgId = Annotated[str, Depends(get_org_id)]
+# Creating a run spends LLM budget and persists org data — not from demo (SEC-003).
+WriteOrgId = Annotated[str, Depends(require_writable_org)]
 OptionalClaims = Annotated[dict | None, Depends(get_optional_claims)]
 
 
@@ -67,7 +69,7 @@ async def get_workflow(workflow_id: str, db: DbSession, org_id: OrgId) -> dict:
 
 @router.post("", response_model=WorkflowRunResponse)
 async def create_workflow(
-    request: WorkflowRunCreate, db: DbSession, org_id: OrgId, claims: OptionalClaims
+    request: WorkflowRunCreate, db: DbSession, org_id: WriteOrgId, claims: OptionalClaims
 ) -> WorkflowRunResponse:
     """Run Gemini action-item extraction and persist the result."""
     # Bind the run to the caller's session org, ignoring any body-supplied org_id.

@@ -68,3 +68,28 @@ async def get_org_id(
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required."
     )
+
+
+async def require_writable_org(
+    authorization: str | None = Header(default=None),
+    x_org_id: str | None = Header(default=None),
+) -> str:
+    """Resolve the org for a *state-changing* request, refusing the public demo
+    workspace.
+
+    The demo workspace is reached without a real session — it is trusted only via
+    the X-Org-Id header (see get_org_id). Anonymous callers must therefore never
+    drive writes or side effects there: mutating settings, running workflows,
+    triggering syncs, executing SQL, or confirming connector actions (SEC-003).
+    A genuinely authenticated member (valid JWT) is always allowed."""
+    claims = _decode_token(authorization)
+    if claims and claims.get("org_id"):
+        return claims["org_id"]
+    if x_org_id == settings.default_org_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="The demo workspace is read-only.",
+        )
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required."
+    )

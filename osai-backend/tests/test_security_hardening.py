@@ -1,0 +1,138 @@
+"""Regression tests for the security-hardening pass (SEC-002 .. SEC-008).
+
+Each test pins a specific fix so a future refactor can't silently reopen the
+hole. The autouse auth override in conftest resolves write dependencies to the
+demo org; tests that assert the *denial* path drop the relevant override so the
+real dependency runs.
+"""
+
+from __future__ import annotations
+
+import pytest
+from fastapi.testclient import TestClient
+
+from api.main import app
+from db.session import get_org_id, require_admin, require_writable_org
+
+
+# ── SEC-002: a valid token whose user no longer exists must be rejected ────────
+def test_deleted_user_token_does_not_fail_open_to_red(monkeypatch):
+    """user_clearance/user_permissions must reject a stale principal (deleted
+    account, live JWT) rather than fall through to 'red'/[] see-all."""
+    import db.repositories as repo
+
+    class _FakeSession:
+        def get(self, _model, _pk):
+            return None  # user row is gone
+
+    claims = {"sub": "deleted-user", "org_id": "demo-org", "role": "member"}
+    with pytest.raises(Exception) as exc_clear:
+        repo.user_clearance(_FakeSession(), claims)
+    with pytest.raises(Exception) as exc_perm:
+        repo.user_permissions(_FakeSession(), claims)
+    # 401 on both paths (HTTPException carries status_code).
+    assert getattr(exc_clear.value, "status_code", None) == 401
+    assert getattr(exc_perm.value, "status_code", None) == 401
+
+
+def test_system_context_still_sees_all():
+    """No sub (public demo / system context) is unchanged: red clearance, []."""
+    import db.repositories as repo
+
+    assert repo.user_clearance(object(), None) == "red"
+    assert repo.user_permissions(object(), None) == []
+
+
+# ── SEC-003: the anonymous demo workspace is read-only ─────────────────────────
+@pytest.fixture
+def demo_client():
+    """Exercise the real require_writable_org against the public demo header."""
+    app.dependency_overrides.pop(require_writable_org, None)
+    app.dependency_overrides.pop(get_org_id, None)
+    yield TestClient(app)
+    app.dependency_overrides[require_writable_org] = lambda: "demo-org"
+    app.dependency_overrides[get_org_id] = lambda: "demo-org"
+
+
+@pytest.mark.parametrize(
+    "method,path,body",
+    [
+        ("post", "/workflows", {"input_text": "hi"}),
+        ("post", "/automations", {"name": "n", "prompt": "p", "cadence": "manual"}),
+        ("post", "/sql/execute", {"source_id": "x", "sql": "select 1"}),
+        ("post", "/ask/actions/act-1/confirm", {"conversation_id": "c1"}),
+    ],
+)
+def test_demo_workspace_rejects_writes(demo_client, method, path, body):
+    resp = getattr(demo_client, method)(
+        path, json=body, headers={"X-Org-Id": "demo-org"}
+    )
+    assert resp.status_code == 403, (path, resp.status_code)
+
+
+# ── SEC-008: connector state changes are admin-only ────────────────────────────
+@pytest.fixture
+def member_client():
+    """A non-admin member: require_admin runs for real, get_org_id resolved."""
+    app.dependency_overrides.pop(require_admin, None)
+    app.dependency_overrides[get_org_id] = lambda: "demo-org"
+    app.dependency_overrides[require_writable_org] = lambda: "demo-org"
+    yield TestClient(app)
+    app.dependency_overrides[require_admin] = lambda: {
+        "org_id": "demo-org",
+        "role": "admin",
+        "sub": "test-admin",
+    }
+
+
+def test_member_cannot_trigger_sync(member_client):
+    # No Authorization header → require_admin → 401 (not silently allowed).
+    resp = member_client.post("/integrations/notion/sync")
+    assert resp.status_code in (401, 403)
+
+
+# ── SEC-004: SSRF host allowlist on webhook download URLs ───────────────────────
+@pytest.mark.parametrize(
+    "url,allowed",
+    [
+        ("https://us02web.zoom.us/rec/download/abc", True),
+        ("https://zoom.us/rec/x", True),
+        ("http://us02web.zoom.us/rec/x", False),  # not https
+        ("https://zoom.us.evil.com/rec/x", False),  # suffix trick
+        ("https://169.254.169.254/latest/meta-data/", False),  # cloud metadata
+        ("file:///etc/passwd", False),
+    ],
+)
+def test_zoom_download_url_allowlist(url, allowed):
+    from workers.tasks.ingest import _is_allowed_download_url
+
+    assert _is_allowed_download_url(url) is allowed
+
+
+def test_zoom_signature_fails_closed_without_secret():
+    from api.routes.webhooks import verify_zoom_signature
+
+    assert verify_zoom_signature("ts", "v0=deadbeef", b"{}", None) is False
+
+
+# ── SEC-007: concurrent confirms consume the action exactly once ───────────────
+def test_claim_proposed_action_is_single_shot():
+    """The DB claim returns 'claimed' once, then 'taken' — the guard that stops
+    two confirms double-executing the same connector side effect."""
+    import uuid
+
+    from db.repositories import claim_proposed_action, save_proposed_action
+
+    action_id = f"act-{uuid.uuid4()}"
+    save_proposed_action(
+        action_id,
+        {"org_id": "demo-org", "tool": "freshdesk", "action": "create_ticket"},
+    )
+    assert claim_proposed_action(action_id) == "claimed"
+    assert claim_proposed_action(action_id) == "taken"
+
+
+def test_claim_absent_action_reports_absent():
+    from db.repositories import claim_proposed_action
+
+    assert claim_proposed_action("nope-does-not-exist") == "absent"

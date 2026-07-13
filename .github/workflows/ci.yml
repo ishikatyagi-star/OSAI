@@ -66,3 +66,11 @@ jobs:
 
       - name: Test
         run: uv run pytest
+
+      # Surface known CVEs in Python dependencies. Non-blocking for now so a new
+      # upstream advisory can't wedge deploys, but visible on every run.
+      - name: Dependency audit (pip-audit)
+        continue-on-error: true
+        run: |
+          uv export --no-dev --format requirements-txt > /tmp/requirements.txt
+          uvx pip-audit -r /tmp/requirements.txt

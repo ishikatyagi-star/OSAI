@@ -11,11 +11,15 @@ from sqlalchemy.orm import Session
 from config import settings
 from connectors.composio_ingest import ingest_composio_toolkit, sync_all_connections
 from connectors.composio_tool import get_default_composio_client
-from db.session import SessionLocal, get_db, get_org_id
+from db.session import SessionLocal, get_db, get_org_id, require_admin
 
 router = APIRouter(prefix="/integrations/composio", tags=["composio"])
 OrgId = Annotated[str, Depends(get_org_id)]
 DbSession = Annotated[Session, Depends(get_db)]
+# Connecting, disconnecting, and syncing apps change org-wide connector state and
+# spend embedding budget — admin-only, which also keeps the anonymous demo
+# workspace read-only (SEC-003, SEC-008).
+AdminOnly = Annotated[dict, Depends(require_admin)]
 
 
 def _client_or_404():
@@ -45,7 +49,7 @@ async def list_tools(toolkit: str | None = None) -> list[dict]:
 
 
 @router.post("/connect/{toolkit}")
-async def connect(toolkit: str, org_id: OrgId) -> dict:
+async def connect(toolkit: str, org_id: OrgId, _admin: AdminOnly) -> dict:
     """Begin an OAuth connection for a toolkit. Returns a redirect_url for the user.
 
     Passes a callback so that, after the user authorizes, OSAI auto-ingests the
@@ -94,7 +98,7 @@ async def callback(
 
 
 @router.post("/sync")
-async def sync(org_id: OrgId, db: DbSession) -> dict:
+async def sync(org_id: OrgId, db: DbSession, _admin: AdminOnly) -> dict:
     """Auto-detect all connected apps for the org and ingest them (idempotent)."""
     return await sync_all_connections(org_id, db)
 
@@ -106,14 +110,14 @@ async def list_connections(org_id: OrgId) -> list[dict]:
 
 
 @router.post("/disconnect/{toolkit}")
-async def disconnect(toolkit: str, org_id: OrgId) -> dict:
+async def disconnect(toolkit: str, org_id: OrgId, _admin: AdminOnly) -> dict:
     """Revoke the org's connected account(s) for a toolkit at Composio, so a
     subsequent Connect goes through a fresh OAuth handshake."""
     return await _client_or_404().disconnect(toolkit, org_id)
 
 
 @router.post("/{toolkit}/ingest")
-async def ingest(toolkit: str, org_id: OrgId, db: DbSession) -> dict:
+async def ingest(toolkit: str, org_id: OrgId, db: DbSession, _admin: AdminOnly) -> dict:
     """Pull documents from a Composio-connected app into OSAI's searchable brain.
 
     Requires the toolkit to be connected first (POST /connect/{toolkit}). Notion

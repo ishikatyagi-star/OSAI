@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from urllib.parse import urlparse
 from uuid import uuid4
 
 import httpx
@@ -34,6 +35,19 @@ MOCK_TRANSCRIPT = (
 )
 
 
+# Zoom recording downloads live on Zoom's own hosts. The download URL arrives in
+# a webhook payload, so restrict fetches to https on a *.zoom.us host — otherwise
+# a forged event could point the worker at internal metadata endpoints or private
+# services (SSRF, SEC-004).
+def _is_allowed_download_url(url: str) -> bool:
+    try:
+        parsed = urlparse(url)
+    except ValueError:
+        return False
+    host = (parsed.hostname or "").lower()
+    return parsed.scheme == "https" and (host == "zoom.us" or host.endswith(".zoom.us"))
+
+
 @celery_app.task
 def sync_connector(connector_key: str, org_id: str) -> dict[str, str]:
     return {"connector_key": connector_key, "org_id": org_id, "status": "queued"}
@@ -60,10 +74,13 @@ def download_and_transcribe(
     audio_content = None
 
     # 1. Download file if URL is provided and we have a transcription key
+    if download_url and not _is_allowed_download_url(download_url):
+        logger.error("Refusing to download from non-Zoom URL: %s", download_url)
+        download_url = None
     if download_url and settings.transcribe_key:
         try:
             logger.info(f"Downloading audio from Zoom URL: {download_url}")
-            with httpx.Client(timeout=60) as client:
+            with httpx.Client(timeout=60, follow_redirects=False) as client:
                 resp = client.get(download_url)
                 if resp.status_code == 200:
                     audio_content = resp.content

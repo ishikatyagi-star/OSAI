@@ -122,9 +122,10 @@ def test_mixed_batch_ingests_good_and_reports_skipped():
 
 
 def test_upload_requires_auth():
-    from db.session import get_org_id
+    from db.session import get_org_id, require_writable_org
 
     app.dependency_overrides.pop(get_org_id, None)
+    app.dependency_overrides.pop(require_writable_org, None)
     resp = TestClient(app).post(
         "/documents/upload",
         files=[("files", ("a.txt", b"hello", "text/plain"))],

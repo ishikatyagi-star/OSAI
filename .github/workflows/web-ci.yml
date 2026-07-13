@@ -35,3 +35,9 @@ jobs:
 
       - name: Test
         run: npm test
+
+      # Surface known CVEs in npm dependencies. Non-blocking for now so a new
+      # upstream advisory can't wedge deploys, but visible on every run.
+      - name: Dependency audit (npm)
+        continue-on-error: true
+        run: npm audit --audit-level=high

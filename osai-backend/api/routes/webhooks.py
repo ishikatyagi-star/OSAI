@@ -25,10 +25,15 @@ def verify_zoom_signature(
     raw_body: bytes,
     secret: str | None,
 ) -> bool:
-    """Verify Zoom webhook event signature using Webhook Secret Token."""
+    """Verify Zoom webhook event signature using Webhook Secret Token.
+
+    Fail closed: with no configured secret we cannot authenticate the caller, so
+    the event is rejected rather than trusted (SEC-004). The route additionally
+    requires a secret whenever the webhook is enabled (see config validator), so
+    in a correctly configured deployment this branch is never reached."""
     if not secret:
-        logger.warning("OSAI_ZOOM_WEBHOOK_SECRET is not configured. Bypassing signature check.")
-        return True
+        logger.error("OSAI_ZOOM_WEBHOOK_SECRET is not configured; rejecting webhook event.")
+        return False
 
     # Construct the message string: v0:{timestamp}:{raw_body}
     message = f"v0:{request_timestamp}:{raw_body.decode('utf-8')}"

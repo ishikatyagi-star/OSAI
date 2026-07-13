@@ -23,6 +23,7 @@ from api.schemas.search import SearchRequest
 from config import settings
 from connectors.registry import connector_registry
 from db.repositories import (
+    claim_proposed_action,
     discard_proposed_action,
     load_proposed_action,
     save_proposed_action,
@@ -162,6 +163,20 @@ async def confirm_action(
             message="Only the requesting user or a workspace admin can approve this action.",
             error="not_approver",
         )
+
+    # Single-consume guard: atomically claim the action before any execution so
+    # two concurrent confirms can't both drive the same real side effect (SEC-007).
+    # The loser gets "already handled"; a failed execution has still consumed the
+    # proposal, so the user re-asks rather than risking a duplicate send.
+    if claim_proposed_action(action_id) == "taken":
+        _PROPOSED.pop(action_id, None)
+        return ConfirmActionResult(
+            id=action_id,
+            status="failed",
+            message="Action not found or already handled.",
+            error="already_handled",
+        )
+
     if proposed.get("provider") == "internal":
         return _execute_internal(action_id, proposed)
     if proposed.get("provider") == "composio":

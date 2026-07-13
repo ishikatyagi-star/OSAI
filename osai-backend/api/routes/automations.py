@@ -24,7 +24,7 @@ from db.repositories import (
     list_automations,
     update_automation,
 )
-from db.session import get_db, get_optional_claims, get_org_id
+from db.session import get_db, get_optional_claims, get_org_id, require_writable_org
 
 router = APIRouter(prefix="/automations", tags=["automations"])
 # Separate router for the tokened external trigger — mounted without the
@@ -32,6 +32,9 @@ router = APIRouter(prefix="/automations", tags=["automations"])
 trigger_router = APIRouter(prefix="/automations", tags=["automations"])
 DbSession = Annotated[Session, Depends(get_db)]
 OrgId = Annotated[str, Depends(get_org_id)]
+# Automation writes schedule LLM runs, external delivery, and trigger tokens —
+# not from the anonymous demo workspace (SEC-003).
+WriteOrgId = Annotated[str, Depends(require_writable_org)]
 OptionalClaims = Annotated[dict | None, Depends(get_optional_claims)]
 
 VALID_CADENCES = ("manual", "hourly", "daily", "weekly")
@@ -98,7 +101,7 @@ async def list_(db: DbSession, org_id: OrgId) -> list[dict[str, object]]:
 
 
 @router.post("")
-async def create_(body: AutomationCreate, db: DbSession, org_id: OrgId) -> dict[str, object]:
+async def create_(body: AutomationCreate, db: DbSession, org_id: WriteOrgId) -> dict[str, object]:
     if not body.name.strip() or not body.prompt.strip():
         raise HTTPException(status_code=400, detail="Name and prompt are required.")
     cadence = body.cadence if body.cadence in VALID_CADENCES else "manual"
@@ -113,7 +116,7 @@ async def create_(body: AutomationCreate, db: DbSession, org_id: OrgId) -> dict[
 
 @router.patch("/{automation_id}")
 async def update_(
-    automation_id: str, body: AutomationUpdate, db: DbSession, org_id: OrgId
+    automation_id: str, body: AutomationUpdate, db: DbSession, org_id: WriteOrgId
 ) -> dict[str, object]:
     if body.cadence is not None and body.cadence not in VALID_CADENCES:
         raise HTTPException(status_code=400, detail=f"cadence must be one of {VALID_CADENCES}.")
@@ -139,7 +142,7 @@ async def update_(
 
 
 @router.delete("/{automation_id}")
-async def delete_(automation_id: str, db: DbSession, org_id: OrgId) -> dict[str, object]:
+async def delete_(automation_id: str, db: DbSession, org_id: WriteOrgId) -> dict[str, object]:
     if not delete_automation(db, org_id, automation_id):
         raise HTTPException(status_code=404, detail="Automation not found.")
     return {"deleted": True}
@@ -147,7 +150,7 @@ async def delete_(automation_id: str, db: DbSession, org_id: OrgId) -> dict[str,
 
 @router.post("/{automation_id}/run")
 async def run_(
-    automation_id: str, db: DbSession, org_id: OrgId, claims: OptionalClaims
+    automation_id: str, db: DbSession, org_id: WriteOrgId, claims: OptionalClaims
 ) -> dict[str, object]:
     """Run an automation now through the shared runner (the Celery beat scheduler
     uses the same runner, so manual and scheduled runs behave identically)."""
@@ -173,7 +176,7 @@ def _hash_token(token: str) -> str:
 
 @router.post("/{automation_id}/token")
 async def mint_trigger_token(
-    automation_id: str, db: DbSession, org_id: OrgId
+    automation_id: str, db: DbSession, org_id: WriteOrgId
 ) -> dict[str, object]:
     """Mint (or rotate) the external trigger token for one automation. The
     plaintext is returned exactly once; only its hash is stored."""
@@ -192,7 +195,7 @@ async def mint_trigger_token(
 
 @router.delete("/{automation_id}/token")
 async def revoke_trigger_token(
-    automation_id: str, db: DbSession, org_id: OrgId
+    automation_id: str, db: DbSession, org_id: WriteOrgId
 ) -> dict[str, object]:
     auto = db.get(Automation, automation_id)
     if auto is None or auto.org_id != org_id:
