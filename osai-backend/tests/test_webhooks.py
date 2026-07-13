@@ -15,9 +15,26 @@ from config import settings
 client = TestClient(app)
 
 
+def test_zoom_webhook_disabled_by_default() -> None:
+    """With the feature flag off (the default), the endpoint must not exist —
+    it returns 404 rather than accepting or validating any event."""
+    original_enabled = settings.zoom_webhook_enabled
+    settings.zoom_webhook_enabled = False
+    try:
+        response = client.post(
+            "/webhooks/zoom",
+            json={"event": "endpoint.url_validation", "payload": {"plainToken": "x"}},
+        )
+        assert response.status_code == 404
+    finally:
+        settings.zoom_webhook_enabled = original_enabled
+
+
 def test_zoom_crc_validation() -> None:
     original_secret = settings.zoom_webhook_secret
+    original_enabled = settings.zoom_webhook_enabled
     settings.zoom_webhook_secret = "test-secret"
+    settings.zoom_webhook_enabled = True
     try:
         payload = {
             "event": "endpoint.url_validation",
@@ -36,11 +53,14 @@ def test_zoom_crc_validation() -> None:
         assert res_json["encryptedToken"] == expected_hash
     finally:
         settings.zoom_webhook_secret = original_secret
+        settings.zoom_webhook_enabled = original_enabled
 
 
 def test_zoom_webhook_invalid_signature() -> None:
     original_secret = settings.zoom_webhook_secret
+    original_enabled = settings.zoom_webhook_enabled
     settings.zoom_webhook_secret = "test-secret"
+    settings.zoom_webhook_enabled = True
     try:
         payload = {
             "event": "recording.completed",
@@ -63,12 +83,15 @@ def test_zoom_webhook_invalid_signature() -> None:
         assert response.json()["detail"] == "Invalid signature"
     finally:
         settings.zoom_webhook_secret = original_secret
+        settings.zoom_webhook_enabled = original_enabled
 
 
 @patch("api.routes.webhooks.download_and_transcribe")
 def test_zoom_webhook_valid_signature_recording_completed(mock_task) -> None:
     original_secret = settings.zoom_webhook_secret
+    original_enabled = settings.zoom_webhook_enabled
     settings.zoom_webhook_secret = "test-secret"
+    settings.zoom_webhook_enabled = True
     try:
         payload = {
             "event": "recording.completed",
@@ -112,3 +135,4 @@ def test_zoom_webhook_valid_signature_recording_completed(mock_task) -> None:
         )
     finally:
         settings.zoom_webhook_secret = original_secret
+        settings.zoom_webhook_enabled = original_enabled

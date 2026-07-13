@@ -50,6 +50,13 @@ async def zoom_webhook(
     x_zm_request_timestamp: Annotated[str | None, Header()] = None,
 ) -> dict[str, object]:
     """Handle incoming Zoom webhooks (endpoint validation & events)."""
+    # Feature-flagged off by default. While disabled the endpoint does not exist
+    # (404) rather than accepting events — ingestion is still demo-org-only and
+    # the transcription task has no worker in prod, so exposing it is all risk,
+    # no delivery. Flip OSAI_ZOOM_WEBHOOK_ENABLED (with a secret) to turn it on.
+    if not settings.zoom_webhook_enabled:
+        raise HTTPException(status_code=404, detail="Not found")
+
     raw_body = await request.body()
     try:
         payload = await request.json()

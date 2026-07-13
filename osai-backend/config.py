@@ -50,6 +50,19 @@ class Settings(BaseSettings):
                 f"is configured and OSAI_ENV is {self.env!r} — the sidecar is a "
                 "public endpoint and must not accept unauthenticated /run calls."
             )
+        # The Zoom webhook is public; an enabled-but-secretless webhook accepts
+        # forged recording events. Require the secret whenever it's enabled in a
+        # non-local deployment (mirrors the sidecar guard above).
+        if (
+            self.env != "local"
+            and self.zoom_webhook_enabled
+            and not self.zoom_webhook_secret
+        ):
+            raise ValueError(
+                "OSAI_ZOOM_WEBHOOK_SECRET must be set when OSAI_ZOOM_WEBHOOK_ENABLED "
+                f"is true and OSAI_ENV is {self.env!r} — the webhook is public and "
+                "must verify Zoom's signature, not accept unauthenticated events."
+            )
         return self
 
     qdrant_url: str = "http://localhost:6333"
@@ -161,11 +174,12 @@ class Settings(BaseSettings):
     # Redis (for Celery)
     redis_url: str = "redis://localhost:6379/0"
 
-    # Zoom webhooks
+    # Zoom webhooks. Disabled by default: the ingestion path is still hardcoded to
+    # the demo org and its transcription task needs a Celery worker (not deployed
+    # on the free tier), so the endpoint stays off — and 404s — until explicitly
+    # enabled with a configured secret.
+    zoom_webhook_enabled: bool = False
     zoom_webhook_secret: str | None = None
-
-    # OpenAI API Key (legacy; Whisper now defaults to Groq below)
-    openai_api_key: str | None = None
 
     # Media transcription (Whisper). Defaults to Groq's free whisper-large-v3 and
     # reuses the existing LLM (Groq) key — no separate paid OpenAI account needed.

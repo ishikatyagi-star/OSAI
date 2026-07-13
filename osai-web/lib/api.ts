@@ -3,12 +3,8 @@ import type {
   AskRequest,
   AskResponse,
   ConfirmActionResult,
-  DataRouting,
   EvalRun,
-  GraphEdge,
-  GraphEntity,
   Integration,
-  SearchResponse,
   SyncRun,
   WorkflowRun,
 } from "./types";
@@ -126,24 +122,6 @@ async function apiPatch<TBody, TResult>(
     handleUnauthorized(res.status);
     const detail = await res.text();
     throw new Error(`PATCH ${path} failed (${res.status}): ${detail}`);
-  }
-  return (await res.json()) as TResult;
-}
-
-async function apiPut<TBody, TResult>(
-  path: string,
-  body: TBody
-): Promise<TResult> {
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    method: "PUT",
-    headers: getHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify(body),
-    cache: "no-store",
-  });
-  if (!res.ok) {
-    handleUnauthorized(res.status);
-    const detail = await res.text();
-    throw new Error(`PUT ${path} failed (${res.status}): ${detail}`);
   }
   return (await res.json()) as TResult;
 }
@@ -413,38 +391,10 @@ export function getHealthcheck(connectorKey: string) {
   );
 }
 
-// ─── Per-info data-tier rules ─────────────────────────────────────────────────
-
-export type TierRule = { pattern: string; tier: "normal" | "amber" | "red" };
-
-export function getTierRules(connectorKey: string) {
-  return apiGet<{ connector_key: string; rules: TierRule[] }>(
-    `/integrations/${connectorKey}/tier-rules`,
-    { connector_key: connectorKey, rules: [] }
-  );
-}
-
-export function putTierRules(connectorKey: string, rules: TierRule[]) {
-  return apiPut<{ rules: TierRule[] }, { connector_key: string; rules: TierRule[] }>(
-    `/integrations/${connectorKey}/tier-rules`,
-    { rules }
-  );
-}
-
 // ─── Sync Runs ───────────────────────────────────────────────────────────────
 
 export function getSyncRuns() {
   return apiGet<SyncRun[]>("/sync-runs", []);
-}
-
-// ─── Search ──────────────────────────────────────────────────────────────────
-
-export function postSearch(query: string, orgId?: string) {
-  const currentOrgId = orgId ?? (typeof window !== "undefined" ? localStorage.getItem("osai_org_id") ?? "demo-org" : "demo-org");
-  return apiPost<{ query: string; org_id: string }, SearchResponse>(
-    "/search",
-    { query, org_id: currentOrgId }
-  );
 }
 
 // ─── Workflows ───────────────────────────────────────────────────────────────
@@ -473,19 +423,6 @@ export function approveActionItem(runId: string, itemId: string) {
   return apiPost<Record<string, never>, ApproveResult>(
     `/workflows/${runId}/action-items/${itemId}/approve`,
     {}
-  );
-}
-
-// ─── Settings ────────────────────────────────────────────────────────────────
-
-export function getDataRouting() {
-  return apiGet<DataRouting | null>("/settings/data-routing", null);
-}
-
-export function patchDataRouting(routing: DataRouting) {
-  return apiPatch<{ routing: DataRouting }, DataRouting>(
-    "/settings/data-routing",
-    { routing }
   );
 }
 
@@ -699,23 +636,6 @@ export function submitFeedback(input: {
   );
 }
 
-// ─── Org knowledge graph (Phase 4 - GET /graph/*) ────────────────────────────
-
-export function getGraphEntities(params: { type?: string; q?: string } = {}) {
-  const qs = new URLSearchParams();
-  if (params.type) qs.set("type", params.type);
-  if (params.q) qs.set("q", params.q);
-  const suffix = qs.toString() ? `?${qs.toString()}` : "";
-  return apiGet<GraphEntity[]>(`/graph/entities${suffix}`, []);
-}
-
-export function getGraphEdges(params: { entityId?: string } = {}) {
-  const suffix = params.entityId
-    ? `?entity_id=${encodeURIComponent(params.entityId)}`
-    : "";
-  return apiGet<GraphEdge[]>(`/graph/edges${suffix}`, []);
-}
-
 // ─── Access map (who can access which tools, and at what data tier) ───────────
 
 export type AccessMap = {
@@ -794,14 +714,6 @@ export type DocumentAccess = {
   people?: { id: string; name: string; email: string }[];
   title?: string;
 };
-
-export function getDocumentAccess(docId: string) {
-  return apiGet<DocumentAccess>(`/documents/${docId}/access`, {
-    visibility: "personal",
-    shared_with: [],
-    department_id: null,
-  });
-}
 
 export function updateDocumentAccess(
   docId: string,
