@@ -235,6 +235,20 @@ section {
   border-top: 0 !important;
 }
 
+.landing-saas section {
+  padding: clamp(64px, 7vw, 88px) clamp(20px, 4vw, 48px) !important;
+}
+
+.landing-saas .hero {
+  min-height: auto !important;
+  padding-top: clamp(104px, 10vw, 128px) !important;
+  padding-bottom: clamp(56px, 6vw, 72px) !important;
+}
+
+.landing-saas .nav-mobile-links {
+  z-index: 1;
+}
+
 .hero::before,
 .hero-glow,
 .final-glow {
@@ -785,6 +799,14 @@ footer .footer-logo,
 
   .nav-mobile-menu {
     display: block;
+  }
+
+  .landing-saas .nav-mobile-menu[open]::before {
+    content: "";
+    position: fixed;
+    inset: 64px 0 0;
+    background: rgba(20, 20, 20, 0.34);
+    backdrop-filter: blur(2px);
   }
 
   .nav-right,

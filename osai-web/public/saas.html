@@ -291,39 +291,14 @@
     line-height: 1.45;
   }
   .line-list li:first-child { border-top: 1px solid var(--hairline-soft); }
-  .line-list li::before { content: '-'; color: var(--ink); flex-shrink: 0; }
-
-  /* ---------- POSITIONING ---------- */
-  .cap-list { list-style: none; }
-  .cap-list li {
-    display: flex;
-    gap: 12px;
-    padding: 13px 0;
-    border-bottom: 1px solid var(--hairline-soft);
-    font-size: 15px;
-    color: var(--ink-muted);
+  .line-list li::before {
+    content: '';
+    width: 8px;
+    height: 1px;
+    margin-top: 0.65em;
+    background: var(--ink);
+    flex-shrink: 0;
   }
-  .cap-list li:first-child { border-top: 1px solid var(--hairline-soft); }
-  .cap-list li::before { content: '↳'; color: var(--accent-blue); flex-shrink: 0; }
-
-  .not-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    margin-top: 40px;
-  }
-  .not-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 13px;
-    color: var(--ink-muted);
-    background: var(--surface-1);
-    border: 1px solid var(--hairline-soft);
-    border-radius: var(--r-pill);
-    padding: 8px 14px;
-  }
-  .not-chip::before { content: '✕'; color: #6b6b6b; }
 
   /* ---------- AGENTIC LOOP ---------- */
   .loop-grid {
@@ -562,7 +537,7 @@
     h1 { font-size: 44px; }
   }
 </style>
-<link rel="stylesheet" href="/landing-eleven.css?v=20260708" />
+<link rel="stylesheet" href="/landing-eleven.css?v=20260713" />
 </head>
 <body class="landing-saas">
 
@@ -587,7 +562,7 @@
   </details>
   <div class="nav-right">
     <a href="/login" class="nav-signin">Sign in</a>
-    <a href="/demo" class="btn btn-primary">Try a Demo</a>
+    <a href="/demo" class="btn btn-secondary">Try a Demo</a>
   </div>
 </nav>
 
@@ -601,8 +576,8 @@
       <h1>Your company, <br>on autopilot.</h1>
       <p class="hero-sub">Turn scattered context, requests, and institutional knowledge into self-improving workflows that execute automatically across your tools and teams.</p>
       <div class="hero-actions">
-        <a href="https://calendar.google.com/calendar/u/0/appointments/schedules/AcZssZ3qwSMjKMhXKW7-NFO0ZqHthdvO6MUio_sAy1UUk1qHU4jbXD6AZhcx5zOzlLeyxFFBdP923DBN" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-lg">Book a call</a>
-        <a href="#loop" class="btn btn-secondary btn-lg">See how Sheldon works →</a>
+        <a href="https://calendar.google.com/calendar/u/0/appointments/schedules/AcZssZ3qwSMjKMhXKW7-NFO0ZqHthdvO6MUio_sAy1UUk1qHU4jbXD6AZhcx5zOzlLeyxFFBdP923DBN" target="_blank" rel="noopener noreferrer" aria-label="Book a Call (opens in a new tab)" class="btn btn-primary btn-lg">Book a Call</a>
+        <a href="/demo" class="btn btn-secondary btn-lg">Try a Demo</a>
       </div>
       <p class="hero-micro">Built for fast-moving teams that want to scale execution without losing context.</p>
     </div>
@@ -627,34 +602,6 @@
         <li>Work gets stuck between functions, not inside them.</li>
         <li>Teams spend too much time moving work and not enough time finishing it.</li>
         <li>Systems store information, but they do not execute the workflow.</li>
-      </ul>
-    </div>
-  </div>
-</section>
-
-<!-- POSITIONING -->
-<section class="positioning">
-  <div class="wrap">
-    <div class="section-head fade-up">
-      <span class="eyebrow">What we're building</span>
-      <h2>A system of execution, not just record.</h2>
-    </div>
-    <div class="two-col">
-      <div class="prose fade-up">
-        <p>Most business software captures data or displays status. <strong>Sheldon acts on that information</strong> by maintaining context, deciding what happens next, and pushing each workflow toward completion.</p>
-        <div class="not-row">
-          <span class="not-chip">Not another dashboard</span>
-          <span class="not-chip">Not another ticketing tool</span>
-          <span class="not-chip">Not another place to update status manually</span>
-        </div>
-      </div>
-      <ul class="cap-list fade-up">
-        <li>Understands requests across teams and systems.</li>
-        <li>Maintains context across the full lifecycle of a workflow.</li>
-        <li>Routes tasks dynamically to the right owners and tools.</li>
-        <li>Automates approvals, follow-ups, and escalations.</li>
-        <li>Tracks workflow state in real time.</li>
-        <li>Improves from historical workflow data over time.</li>
       </ul>
     </div>
   </div>
@@ -694,12 +641,12 @@
         <p>Full transparency ensures that humans can verify the steps and trust the outcome.</p>
       </div>
       <div class="loop-card fade-up">
-        <div class="loop-step"><span class="loop-num">∞</span>Loop</div>
+        <div class="loop-step"><span class="loop-num" aria-hidden="true">∞</span>Loop</div>
         <h3>The loop improves</h3>
         <p>Every completed workflow becomes context for the next one.</p>
       </div>
       <div class="loop-card repeat fade-up">
-        <div class="loop-step"><span class="loop-num">↻</span>The loop repeats</div>
+        <div class="loop-step"><span class="loop-num" aria-hidden="true">↻</span>The loop repeats</div>
         <p>Every completed workflow becomes context for the next one. Every day, the system gets smarter and your company runs faster.</p>
       </div>
     </div>
@@ -830,8 +777,8 @@
     <h2>Bring autopilot to one workflow first.</h2>
     <p class="lead">Pick one workflow that is slowing your team down. We'll help map it, redesign it, and show how Sheldon can run it end to end.</p>
     <div class="final-actions">
-      <a href="/demo" class="btn btn-primary btn-lg">Get a demo</a>
-      <a href="#demo" class="btn btn-secondary btn-lg">Share your workflow →</a>
+      <a href="https://calendar.google.com/calendar/u/0/appointments/schedules/AcZssZ3qwSMjKMhXKW7-NFO0ZqHthdvO6MUio_sAy1UUk1qHU4jbXD6AZhcx5zOzlLeyxFFBdP923DBN" target="_blank" rel="noopener noreferrer" aria-label="Book a Call (opens in a new tab)" class="btn btn-primary btn-lg">Book a Call</a>
+      <a href="/demo" class="btn btn-secondary btn-lg">Try a Demo</a>
     </div>
     <p class="final-note">We respond within 24 hours.</p>
   </div>
@@ -855,7 +802,7 @@
       </div>
       <div class="footer-col">
         <div class="footer-col-title">Company</div>
-        <a href="#demo">Contact</a>
+        <a href="https://calendar.google.com/calendar/u/0/appointments/schedules/AcZssZ3qwSMjKMhXKW7-NFO0ZqHthdvO6MUio_sAy1UUk1qHU4jbXD6AZhcx5zOzlLeyxFFBdP923DBN" target="_blank" rel="noopener noreferrer" aria-label="Book a Call (opens in a new tab)">Book a Call</a>
         <a href="/login">Sign in</a>
       </div>
     </div>
