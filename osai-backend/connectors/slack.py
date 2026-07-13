@@ -80,29 +80,6 @@ class SlackConnector(Connector):
                 error=auth.error or "Not connected. Use Connect to authorize this source.",
             )
 
-            # Dev demo fallback data (unreachable; kept for local reference)
-            documents = [
-                SourceDocument(
-                    source_id="doc-slack-onboarding",
-                    source_type=self.key,
-                    org_id=org_id,
-                    external_id="slack-channel-onboarding",
-                    title="OSAI Team Onboarding Guidelines",
-                    text=(
-                        "Welcome to the OSAI team! Read the onboarding guide in Notion "
-                        "and hook up your Linear accounts. The developer environment "
-                        "runs in Docker over the internal bridge network. Ensure your "
-                        "local .env is populated. The API is on port 8000 and Qdrant is "
-                        "on port 6333."
-                    ),
-                    metadata={"title": "OSAI Team Onboarding Guidelines"},
-                    permissions=["source:all"],
-                    data_tier="normal",
-                    created_at=datetime.now(),
-                )
-            ]
-            return SyncResult(connector_key=self.key, status="succeeded", documents=documents)
-
         try:
             channels = await self._list_channels(cursor)
             documents: list[SourceDocument] = []

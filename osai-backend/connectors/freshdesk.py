@@ -85,29 +85,6 @@ class FreshdeskConnector(Connector):
                 error=auth.error or "Not connected. Use Connect to authorize this source.",
             )
 
-            # Dev demo fallback data (unreachable; kept for local reference)
-            documents = [
-                SourceDocument(
-                    source_id="doc-freshdesk-sla",
-                    source_type=self.key,
-                    org_id=org_id,
-                    external_id="freshdesk-ticket-102",
-                    title="Freshdesk Integration & SLA Escalation Rules",
-                    text=(
-                        "OSAI maps support tickets to developer actions. Under normal "
-                        "conditions, tickets sync every 30 minutes. If a ticket becomes "
-                        "urgent, an alert is triggered in the Slack #operations channel. "
-                        "If the customer is on Enterprise, the ticket must be resolved "
-                        "within 4 hours and actions pushed automatically."
-                    ),
-                    metadata={"title": "Freshdesk Integration & SLA Escalation Rules"},
-                    permissions=["source:all"],
-                    data_tier="normal",
-                    created_at=datetime.now(),
-                )
-            ]
-            return SyncResult(connector_key=self.key, status="succeeded", documents=documents)
-
         try:
             page = int(cursor) if cursor else 1
             tickets = await self._get(

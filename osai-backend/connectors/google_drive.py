@@ -88,30 +88,6 @@ class GoogleDriveConnector(Connector):
                 error=auth.error or "Not connected. Use Connect to authorize this source.",
             )
 
-            # Dev demo fallback data (unreachable; kept for local reference)
-            documents = [
-                SourceDocument(
-                    source_id="doc-data-tiering",
-                    source_type=self.key,
-                    org_id=org_id,
-                    external_id="drive-data-1",
-                    title="Data Tiering and Classification Rules",
-                    text=(
-                        "Data in OSAI is classified into three tiers: Normal, Amber, and Red. "
-                        "Normal tier allows all cloud API routing. Amber tier restricts certain "
-                        "third-party connectors and disables cloud LLMs (only runs search). "
-                        "Red tier strictly enforces local execution via Ollama (Llama3/Mistral) "
-                        "and private VPC Qdrant storage. No external requests are allowed under "
-                        "Red tier configurations."
-                    ),
-                    metadata={"title": "Data Tiering and Classification Rules"},
-                    permissions=["source:all"],
-                    data_tier="normal",
-                    created_at=datetime.now(),
-                )
-            ]
-            return SyncResult(connector_key=self.key, status="succeeded", documents=documents)
-
         try:
             files = await self._list_files(page_token=cursor)
             documents: list[SourceDocument] = []

@@ -1,7 +1,0 @@
-{
-  "task_id": "task-ux-improvements-batch",
-  "task_description": "Implement 5 UX improvements: Ask page active tab styling + send tooltip, sidebar group labels, settings danger zone separator + modal, LIVE badge tooltip, workflows rename Run Log to History + contrast fix",
-  "status": "in_progress",
-  "feature_order": ["FEAT-001"],
-  "blocked_reason": null
-}

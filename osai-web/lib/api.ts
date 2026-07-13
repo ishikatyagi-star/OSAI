@@ -412,11 +412,10 @@ export function postWorkflow(
   destination = "manual",
   orgId?: string
 ) {
-  const currentOrgId = orgId ?? (typeof window !== "undefined" ? localStorage.getItem("osai_org_id") ?? "demo-org" : "demo-org");
   return apiPost<
     { org_id: string; input_text: string; destination: string },
     WorkflowRun
-  >("/workflows", { org_id: currentOrgId, input_text: inputText, destination });
+  >("/workflows", { org_id: currentOrgId(orgId), input_text: inputText, destination });
 }
 
 export function approveActionItem(runId: string, itemId: string) {
