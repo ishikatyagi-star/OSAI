@@ -3546,7 +3546,7 @@ select:not([aria-hidden="true"]) {
 }
 
 .tier-badge--amber {
-  color: var(--orange);
+  color: var(--yellow);
   background: color-mix(in srgb, var(--orange) 14%, transparent);
   border: 1px solid color-mix(in srgb, var(--orange) 35%, transparent);
 }

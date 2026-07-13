@@ -113,6 +113,20 @@ nav {
   display: none;
 }
 
+@media (max-width: 980px) {
+  .nav-mobile-menu {
+    display: block;
+  }
+
+  .landing-saas .nav-mobile-menu[open]::before {
+    content: "";
+    position: fixed;
+    inset: 64px 0 0;
+    background: rgba(20, 20, 20, 0.34);
+    backdrop-filter: blur(2px);
+  }
+}
+
 .nav-mobile-links {
   position: fixed;
   top: 72px;
@@ -842,7 +856,6 @@ footer .footer-logo,
     background: rgba(20, 20, 20, 0.34);
     backdrop-filter: blur(2px);
   }
-
   .nav-right,
   nav > div {
     gap: 8px !important;
@@ -960,9 +973,16 @@ footer .footer-logo,
 
   .landing-saas .loop-card {
     min-height: 180px;
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
     grid-template-columns: minmax(0, 1fr) 72px;
     column-gap: 12px;
     padding: 20px !important;
+  }
+
+  .landing-saas .loop-card.repeat p {
+    min-width: 0;
   }
 
   .loop-mascot {
