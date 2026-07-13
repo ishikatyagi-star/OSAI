@@ -750,7 +750,21 @@ def _require_active_principal(session: Session, claims: dict | None) -> User | N
         raise HTTPException(
             status_code=401, detail="Session is no longer valid; sign in again."
         )
+    # Token revocation: a token minted before the user's current generation
+    # (deleted account, sign-out-everywhere, forced rotation) carries a stale
+    # `tv` and is rejected even though the signature is still valid (SEC-002).
+    if claims.get("tv", 0) != (user.token_version or 0):
+        raise HTTPException(
+            status_code=401, detail="Session has been revoked; sign in again."
+        )
     return user
+
+
+def assert_token_current(session: Session, claims: dict | None) -> None:
+    """Raise 401 if the token is for a deleted or revoked principal. For auth
+    paths (e.g. require_admin) that verify a session without needing the user's
+    permission grants. No-op for system/demo context (a token with no `sub`)."""
+    _require_active_principal(session, claims)
 
 
 def user_permissions(session: Session, claims: dict | None) -> list[str]:

@@ -208,6 +208,14 @@ export async function deleteAccount(): Promise<void> {
   clearSession();
 }
 
+// Revoke every outstanding session for this user (sign out everywhere): bumps the
+// server-side token generation so all previously issued tokens stop working, then
+// clears this device's session.
+export async function logoutAllSessions(): Promise<void> {
+  await apiPost<Record<string, never>, { revoked: boolean }>("/auth/logout-all", {});
+  clearSession();
+}
+
 // Full URL to kick off the Google OAuth flow (browser navigates here).
 export function googleSignInUrl(): string {
   return `${API_BASE_URL}/auth/google/start`;
