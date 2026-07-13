@@ -7,7 +7,9 @@ from config import settings
 from db.models import Base
 
 config = context.config
-config.set_main_option("sqlalchemy.url", settings.database_url)
+# configparser treats % as interpolation syntax; escape it so DSNs with
+# URL-encoded credentials (e.g. %40 for @) survive the round-trip.
+config.set_main_option("sqlalchemy.url", settings.database_url.replace("%", "%%"))
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
