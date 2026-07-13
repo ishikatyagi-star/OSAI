@@ -144,7 +144,7 @@ export default function AnalyticsPage() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="error-text">{error}</p>
                 <button type="button" className="btn" onClick={load} disabled={loading}>
-                  {loading ? "Retryingâ€¦" : "Retry"}
+                  {loading ? "Retrying..." : "Retry"}
                 </button>
               </div>
             </div>

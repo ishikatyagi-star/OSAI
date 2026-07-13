@@ -101,7 +101,7 @@ export default function DashboardPage() {
           ) : (
             <>
               <RotateCw className="size-5 animate-spin" aria-hidden="true" />
-              <p className="meta">Loading workspace metricsâ€¦</p>
+              <p className="meta">Loading workspace metrics...</p>
             </>
           )}
         </div>
@@ -112,7 +112,7 @@ export default function DashboardPage() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="error-text">{metricsError}</p>
             <button type="button" className="btn" onClick={loadMetrics} disabled={metricsLoading}>
-              {metricsLoading ? "Retryingâ€¦" : "Retry"}
+              {metricsLoading ? "Retrying..." : "Retry"}
             </button>
           </div>
         </div>

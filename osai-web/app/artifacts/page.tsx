@@ -164,7 +164,7 @@ export default function ArtifactsPage() {
             <DialogFooter>
               <button type="button" className="btn" onClick={() => setPendingDelete(null)} disabled={deleteBusy}>Cancel</button>
               <button type="button" className="btn btn-danger" onClick={() => remove(pendingDelete.id)} disabled={deleteBusy}>
-                {deleteBusy ? "Deletingâ€¦" : "Delete artifact"}
+                {deleteBusy ? "Deleting..." : "Delete artifact"}
               </button>
             </DialogFooter>
           </DialogContent>

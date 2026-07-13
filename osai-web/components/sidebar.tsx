@@ -188,7 +188,6 @@ export default function Sidebar() {
         />
         <div>
           <span className="sidebar-logo-text">Sheldon</span>
-          <span className="sidebar-logo-version"> v1</span>
         </div>
       </Link>
 

@@ -282,7 +282,7 @@ export function ConnectorManager({
               Recent syncs
             </p>
             {recentRunsLoading ? (
-              <p className="text-xs text-muted-foreground" role="status">Loading sync historyâ€¦</p>
+              <p className="text-xs text-muted-foreground" role="status">Loading sync history...</p>
             ) : recentRunsError ? (
               <p className="text-xs text-destructive" role="alert">{recentRunsError}</p>
             ) : recentRuns.length === 0 ? (
@@ -319,7 +319,7 @@ export function ConnectorManager({
                 File-level examples are hidden in the shared demo. The sample indexed total is shown on the connector card.
               </p>
             ) : docsLoading ? (
-              <p className="text-xs text-muted-foreground" role="status">Loading synced filesâ€¦</p>
+              <p className="text-xs text-muted-foreground" role="status">Loading synced files...</p>
             ) : docsError ? (
               <p className="text-xs text-destructive" role="alert">{docsError}</p>
             ) : docs.length === 0 ? (
@@ -363,7 +363,7 @@ export function ConnectorManager({
               onClick={() => onToggleConnection(integration.key, false)}
             >
               {connectionBusy ? <Loader2 className="size-3.5 animate-spin" /> : <Plug className="size-3.5" />}
-              {connectionBusy ? "Disconnectingâ€¦" : "Disconnect"}
+              {connectionBusy ? "Disconnecting..." : "Disconnect"}
             </Button>
           ) : (
             <span className="text-xs text-muted-foreground">
@@ -395,7 +395,7 @@ export function ConnectorManager({
               onClick={() => onToggleConnection(integration.key, true)}
             >
               {connectionBusy ? <Loader2 className="size-3.5 animate-spin" /> : <PlugZap className="size-3.5" />}
-              {connectionBusy ? "Openingâ€¦" : "Connect"}
+              {connectionBusy ? "Opening..." : "Connect"}
             </Button>
           )}
         </div>

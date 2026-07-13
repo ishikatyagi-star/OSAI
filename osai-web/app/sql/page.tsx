@@ -334,7 +334,7 @@ export default function SqlPage() {
                 </span>
                 <Button size="sm" variant="ghost" onClick={handleSaveArtifact} disabled={saved || savingArtifact}>
                   {savingArtifact ? <Loader2 className="size-3.5 animate-spin" /> : <Bookmark className="size-3.5" />}
-                  {savingArtifact ? "Savingâ€¦" : saved ? "Saved" : "Save as artifact"}
+                  {savingArtifact ? "Saving..." : saved ? "Saved" : "Save as artifact"}
                 </Button>
               </div>
               <div className="table-scroll" tabIndex={0} role="region" aria-label="SQL query results">
@@ -382,7 +382,7 @@ export default function SqlPage() {
                 onClick={handleDeleteSource}
                 disabled={deleteBusy}
               >
-                {deleteBusy ? "Removingâ€¦" : "Remove source"}
+                {deleteBusy ? "Removing..." : "Remove source"}
               </button>
             </DialogFooter>
           </DialogContent>

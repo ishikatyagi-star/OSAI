@@ -347,7 +347,7 @@ export default function WikiPage() {
             <DialogFooter>
               <button type="button" className="btn" onClick={() => setPendingDelete(null)} disabled={deleteBusy}>Cancel</button>
               <button type="button" className="btn btn-danger" onClick={() => remove(pendingDelete.id)} disabled={deleteBusy}>
-                {deleteBusy ? "Removingâ€¦" : pendingDelete.status === "suggested" ? "Dismiss suggestion" : "Delete entry"}
+                {deleteBusy ? "Removing..." : pendingDelete.status === "suggested" ? "Dismiss suggestion" : "Delete entry"}
               </button>
             </DialogFooter>
           </DialogContent>

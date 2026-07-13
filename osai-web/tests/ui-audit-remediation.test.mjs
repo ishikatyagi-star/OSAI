@@ -56,6 +56,7 @@ test("shared shell identifies demo state and exposes mobile navigation", () => {
   assert.match(appShell, /if \(!cancelled\) setConnected/);
   assert.match(sidebar, /DialogContent className="mobile-nav-panel"/);
   assert.match(sidebar, /aria-label="Primary navigation"/);
+  assert.doesNotMatch(sidebar, /sidebar-logo-version/);
   assert.match(globalCss, /@media \(max-width: 900px\)[\s\S]*\.mobile-nav-trigger/);
   assert.match(globalCss, /\.workspace-status--empty,[\s\S]*\.workspace-status--unavailable\s*\{[^}]*min-height: 44px/s);
 });
@@ -77,8 +78,14 @@ test("frontend distinguishes live failures from legitimate empty states", () => 
   assert.match(dashboard, /getDashboardMetrics\(true\)/);
   assert.match(dashboard, /Dashboard metrics could not be loaded/);
   assert.match(dashboard, /dashboardReady/);
+  assert.match(dashboard, /Loading workspace metrics\.\.\./);
   assert.match(analytics, /error && m/);
   assert.match(analytics, /Retrying/);
+});
+
+test("frontend copy contains no mojibake", () => {
+  const mojibake = /[\u00c2\u00c3\ufffd]|\u00e2[\u0080-\u00bf\u20ac]|\u00f0[\u0080-\u00bf\u0178]/u;
+  assert.doesNotMatch([appShell, sidebar, dashboard, analytics, artifacts, connectorManager, sql, team, wiki].join("\n"), mojibake);
 });
 
 test("legacy routes preserve user intent", () => {

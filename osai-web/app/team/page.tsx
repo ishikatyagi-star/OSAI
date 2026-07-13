@@ -343,7 +343,7 @@ export default function TeamPage() {
             <label className="sr-only" htmlFor="new-department-name">New department name</label>
             <input id="new-department-name" name="department" className="search-input" placeholder="New department name…" required value={deptName} onChange={(e) => setDeptName(e.target.value)} disabled={addingDepartment} />
             <button type="submit" className="btn btn-primary" style={{ whiteSpace: "nowrap" }} disabled={addingDepartment || !deptName.trim()}>
-              <Plus className="size-3.5" /> {addingDepartment ? "Addingâ€¦" : "Add"}
+              <Plus className="size-3.5" /> {addingDepartment ? "Adding..." : "Add"}
             </button>
           </form>
           <div className="card-grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" }}>
