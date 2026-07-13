@@ -108,7 +108,7 @@ export default function DashboardPage() {
       {/* Stat cards */}
       <div className="stats-grid">
         {[
-          { label: "Sources Indexed", value: documentsIndexed, color: "var(--teal)", link: "/dashboards" },
+          { label: "Sources Indexed", value: documentsIndexed, color: "var(--teal)", link: "/analytics" },
           { label: "Pending Decisions", value: pendingDecisions, color: "var(--text-primary)", link: "/decisions" },
           { label: "Pending Actions", value: pendingActions, color: "var(--text-primary)", link: "/automations" },
           { label: "Active Connectors", value: connectorHealth.length, color: "var(--text-primary)", link: "/integrations" },
