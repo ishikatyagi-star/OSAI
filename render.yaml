@@ -10,6 +10,10 @@
 # fully synchronously in the API; add a `type: worker` service later if you need
 # async ingestion at scale.
 
+# Postgres has been migrated to Supabase; OSAI_DATABASE_URL is now a
+# dashboard-managed secret (see below), NOT wired fromDatabase. This block is
+# kept only so a blueprint sync doesn't delete the old free Postgres. Delete it
+# once Supabase is verified in prod and any pilot data is handled.
 databases:
   - name: osai-postgres
     plan: free
@@ -38,10 +42,12 @@ services:
       # To re-enable email login for a pilot, set OSAI_EMAIL_LOGIN_ENABLED=true.
       - key: OSAI_ENV
         value: production
+      # Supabase connection string, set in the dashboard (secret): URL-encode the
+      # password (@ -> %40, ! -> %21) and append ?sslmode=require. Must NOT be
+      # wired fromDatabase, or a blueprint sync would clobber it with the expired
+      # Render Postgres and crash-loop boot.
       - key: OSAI_DATABASE_URL
-        fromDatabase:
-          name: osai-postgres
-          property: connectionString
+        sync: false
       - key: OSAI_REDIS_URL
         fromService:
           type: keyvalue
