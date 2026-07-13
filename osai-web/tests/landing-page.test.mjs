@@ -11,12 +11,15 @@ const css = await readFile(new URL("../public/landing-eleven.css", import.meta.u
 const nextConfig = await readFile(new URL("../next.config.ts", import.meta.url), "utf8");
 const landingRoute = await readFile(new URL("../app/landing/route.ts", import.meta.url), "utf8");
 const root = fileURLToPath(new URL("..", import.meta.url));
+const sourceExtensions = new Set([".css", ".html", ".js", ".jsx", ".json", ".mjs", ".svg", ".ts", ".tsx"]);
 
 async function frontendSourceFiles(dir) {
   const entries = await readdir(dir, { withFileTypes: true });
   const files = await Promise.all(entries.map(async (entry) => {
     const target = path.join(dir, entry.name);
-    return entry.isDirectory() ? frontendSourceFiles(target) : [target];
+    return entry.isDirectory()
+      ? frontendSourceFiles(target)
+      : sourceExtensions.has(path.extname(entry.name)) ? [target] : [];
   }));
   return files.flat();
 }

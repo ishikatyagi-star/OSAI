@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import Image from "next/image";
 
 export default function DemoPage() {
   const router = useRouter();
@@ -22,7 +23,7 @@ export default function DemoPage() {
   return (
     <div className="demo-loading-page">
       {/* Logo mark */}
-      <div className="demo-logo-mark">O</div>
+      <Image src="/brand/sheldon-ai-logo.png" alt="Sheldon" width={52} height={52} className="demo-logo-mark" priority />
 
       <div className="demo-text-group">
         <p className="demo-label">Entering Demo</p>

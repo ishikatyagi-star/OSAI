@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { AlertTriangle, ArrowRight, Check, Sparkles } from "lucide-react";
 import { getAuthConfig, googleSignInUrl } from "@/lib/api";
 
@@ -55,7 +56,7 @@ export default function LoginPage() {
       {/* Nav */}
       <nav className="login-nav">
         <Link href="/" className="login-nav-logo">
-          <span className="login-nav-logo-mark">O</span>
+          <Image src="/brand/sheldon-ai-logo.png" alt="" width={28} height={28} className="login-nav-logo-mark" priority />
           <span>Sheldon</span>
         </Link>
         <Link href="/" className="login-nav-back">← Back to site</Link>
@@ -65,7 +66,7 @@ export default function LoginPage() {
       <div className="login-card">
         {/* Header */}
         <div className="login-card-header">
-          <div className="login-logo-mark">O</div>
+          <Image src="/brand/sheldon-ai-logo.png" alt="Sheldon" width={52} height={52} className="login-logo-mark" priority />
           <h1 className="login-title">Welcome to Sheldon</h1>
           <p className="login-subtitle">The operating layer for your company&apos;s knowledge</p>
         </div>

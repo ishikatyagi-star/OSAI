@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
@@ -88,7 +89,14 @@ export default function Sidebar() {
     <aside className="sidebar">
       {/* Logo */}
       <Link href="/dashboard" className="sidebar-logo">
-        <div className="sidebar-logo-mark">O</div>
+        <Image
+          src="/brand/sheldon-ai-logo.png"
+          alt=""
+          width={28}
+          height={28}
+          className="sidebar-logo-mark"
+          priority
+        />
         <div>
           <span className="sidebar-logo-text">Sheldon</span>
           <span className="sidebar-logo-version"> v1</span>
