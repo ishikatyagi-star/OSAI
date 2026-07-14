@@ -26,7 +26,7 @@ export function ComposerAttach({
 
   async function handleFiles(list: FileList | null) {
     const files = list ? Array.from(list) : [];
-    if (!files.length || busy) return;
+    if (!files.length || busy || disabled) return;
     setBusy(true);
     try {
       const res: UploadResult = await uploadDocuments(files, { visibility: "personal" });
@@ -66,7 +66,7 @@ export function ComposerAttach({
         type="button"
         size="icon"
         variant="ghost"
-        className="size-9 shrink-0 self-center rounded-full text-[var(--text-muted)]"
+        className="size-11 shrink-0 self-center rounded-full text-[var(--text-muted)]"
         aria-label="Attach files"
         title="Add files to your knowledge base (private to you until shared)"
         disabled={disabled || busy}

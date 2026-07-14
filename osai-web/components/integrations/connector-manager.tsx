@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Activity,
   AlertTriangle,
   CheckCircle2,
   FileText,
+  Info,
   Loader2,
   Plug,
   PlugZap,
@@ -45,28 +46,43 @@ const RUN_TONE: Record<SyncRun["status"], string> = {
 
 export function ConnectorManager({
   integration,
+  demo,
   open,
   onOpenChange,
   recentRuns,
+  recentRunsLoading,
+  recentRunsError,
   syncing,
+  connectionBusy,
   syncMessage = "",
+  syncTone = "info",
   onSync,
   onToggleConnection,
 }: {
   integration: Integration | null;
+  demo: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   recentRuns: SyncRun[];
+  recentRunsLoading: boolean;
+  recentRunsError?: string;
   syncing: boolean;
+  connectionBusy: boolean;
   syncMessage?: string;
+  syncTone?: "pending" | "success" | "error" | "info";
   onSync: (key: string) => void;
   onToggleConnection: (key: string, connect: boolean) => void;
 }) {
   const [health, setHealth] = useState<Health>(null);
   const [checking, setChecking] = useState(false);
+  const [healthError, setHealthError] = useState("");
 
   // Recently synced files for this connector.
   const [docs, setDocs] = useState<ConnectorDocument[]>([]);
+  const [docsLoading, setDocsLoading] = useState(false);
+  const [docsError, setDocsError] = useState("");
+  const healthRequestRef = useRef(0);
+  const docsRequestRef = useRef(0);
 
   const meta =
     integration && CONNECTOR_META[integration.key]
@@ -76,29 +92,74 @@ export function ConnectorManager({
   const connected = integration?.auth_state === "connected";
 
   async function runHealthcheck(key: string) {
+    const requestId = ++healthRequestRef.current;
     setChecking(true);
+    setHealthError("");
     try {
-      setHealth(await getHealthcheck(key));
+      const nextHealth = await getHealthcheck(key, true);
+      if (requestId !== healthRequestRef.current) return;
+      setHealth(nextHealth);
+    } catch {
+      if (requestId !== healthRequestRef.current) return;
+      setHealth(null);
+      setHealthError("Connection health could not be checked.");
     } finally {
-      setChecking(false);
+      if (requestId === healthRequestRef.current) setChecking(false);
+    }
+  }
+
+  async function loadDocuments(key: string) {
+    const requestId = ++docsRequestRef.current;
+    setDocsLoading(true);
+    setDocsError("");
+    try {
+      const nextDocs = await getConnectorDocuments(key, true);
+      if (requestId !== docsRequestRef.current) return;
+      setDocs(nextDocs);
+    } catch {
+      if (requestId !== docsRequestRef.current) return;
+      setDocs([]);
+      setDocsError("Synced files could not be loaded.");
+    } finally {
+      if (requestId === docsRequestRef.current) setDocsLoading(false);
     }
   }
 
   // Auto health-check + load synced files whenever a connected connector opens.
   useEffect(() => {
     if (open && integration && integration.auth_state === "connected") {
-      runHealthcheck(integration.key);
-      getConnectorDocuments(integration.key).then(setDocs);
+      if (demo) {
+        healthRequestRef.current += 1;
+        docsRequestRef.current += 1;
+        setChecking(false);
+        setHealthError("");
+        setHealth({ healthy: true, message: "Sample status for this demo." });
+        setDocs([]);
+        setDocsError("");
+        setDocsLoading(false);
+      } else {
+        void runHealthcheck(integration.key);
+        void loadDocuments(integration.key);
+      }
     } else {
+      healthRequestRef.current += 1;
+      docsRequestRef.current += 1;
       setHealth(null);
+      setHealthError("");
       setDocs([]);
+      setDocsError("");
+      setDocsLoading(false);
     }
-  }, [open, integration]);
+    return () => {
+      healthRequestRef.current += 1;
+      docsRequestRef.current += 1;
+    };
+  }, [open, integration, demo]);
 
   if (!integration) return null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(nextOpen) => !connectionBusy && onOpenChange(nextOpen)}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <div className="flex items-center gap-3">
@@ -171,7 +232,8 @@ export function ConnectorManager({
                 variant="ghost"
                 size="sm"
                 className="h-10"
-                disabled={checking}
+                disabled={checking || demo}
+                title={demo ? "Health checks are disabled for sample connectors." : undefined}
                 onClick={() => runHealthcheck(integration.key)}
               >
                 {checking ? (
@@ -185,6 +247,8 @@ export function ConnectorManager({
             <div className="mt-2 flex items-center gap-2 text-sm">
               {checking ? (
                 <span className="text-muted-foreground">Checking…</span>
+              ) : healthError ? (
+                <span className="text-destructive" role="alert">{healthError}</span>
               ) : health ? (
                 <>
                   {health.healthy ? (
@@ -217,7 +281,11 @@ export function ConnectorManager({
             <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               Recent syncs
             </p>
-            {recentRuns.length === 0 ? (
+            {recentRunsLoading ? (
+              <p className="text-xs text-muted-foreground" role="status">Loading sync history...</p>
+            ) : recentRunsError ? (
+              <p className="text-xs text-destructive" role="alert">{recentRunsError}</p>
+            ) : recentRuns.length === 0 ? (
               <p className="text-xs text-muted-foreground">No sync runs yet.</p>
             ) : (
               <ul className="space-y-1">
@@ -244,9 +312,17 @@ export function ConnectorManager({
         {connected && (
           <section className="rounded-lg border border-border bg-background/40 p-3">
             <p className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              <FileText className="size-3.5" /> Synced files ({docs.length})
+              <FileText className="size-3.5" /> Synced files{demo || docsLoading || docsError ? "" : ` (${docs.length})`}
             </p>
-            {docs.length === 0 ? (
+            {demo ? (
+              <p className="text-xs text-muted-foreground">
+                File-level examples are hidden in the shared demo. The sample indexed total is shown on the connector card.
+              </p>
+            ) : docsLoading ? (
+              <p className="text-xs text-muted-foreground" role="status">Loading synced files...</p>
+            ) : docsError ? (
+              <p className="text-xs text-destructive" role="alert">{docsError}</p>
+            ) : docs.length === 0 ? (
               <p className="text-xs text-muted-foreground">
                 Nothing indexed yet - click “Sync now” to pull in this source.
               </p>
@@ -282,9 +358,12 @@ export function ConnectorManager({
               variant="ghost"
               size="sm"
               className="text-destructive hover:text-destructive"
+              disabled={demo || connectionBusy}
+              title={demo ? "Connection changes are disabled in the shared demo workspace." : undefined}
               onClick={() => onToggleConnection(integration.key, false)}
             >
-              <Plug className="size-3.5" /> Disconnect
+              {connectionBusy ? <Loader2 className="size-3.5 animate-spin" /> : <Plug className="size-3.5" />}
+              {connectionBusy ? "Disconnecting..." : "Disconnect"}
             </Button>
           ) : (
             <span className="text-xs text-muted-foreground">
@@ -311,22 +390,37 @@ export function ConnectorManager({
           ) : (
             <Button
               size="sm"
+              disabled={demo || connectionBusy}
+              title={demo ? "External connections are disabled in the shared demo workspace." : undefined}
               onClick={() => onToggleConnection(integration.key, true)}
             >
-              <PlugZap className="size-3.5" /> Connect
+              {connectionBusy ? <Loader2 className="size-3.5 animate-spin" /> : <PlugZap className="size-3.5" />}
+              {connectionBusy ? "Opening..." : "Connect"}
             </Button>
           )}
         </div>
         {syncMessage && (
           <p
             className="-mt-2 text-[12px] inline-flex items-center gap-1.5"
-            role="status"
+            role={syncTone === "error" ? "alert" : "status"}
+            aria-live="polite"
             style={{
-              color: /failed/i.test(syncMessage) ? "var(--red)" : "var(--green)",
+              color:
+                syncTone === "error"
+                  ? "var(--red)"
+                  : syncTone === "pending"
+                    ? "var(--blue)"
+                    : syncTone === "info"
+                      ? "var(--blue)"
+                      : "var(--green)",
             }}
           >
-            {/failed/i.test(syncMessage) ? (
+            {syncTone === "error" ? (
               <XCircle className="size-3.5" />
+            ) : syncTone === "info" ? (
+              <Info className="size-3.5" />
+            ) : syncTone === "pending" ? (
+              <Loader2 className="size-3.5 animate-spin" />
             ) : (
               <CheckCircle2 className="size-3.5" />
             )}

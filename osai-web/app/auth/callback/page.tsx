@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
+import Link from "next/link";
 import { Loader2 } from "lucide-react";
 
 // Landing page for the Google OAuth round-trip. The backend redirects here with
@@ -21,7 +23,6 @@ export default function AuthCallbackPage() {
 
     if (!token || !orgId) {
       setError("Sign-in did not complete. Please try again.");
-      setTimeout(() => router.replace("/login"), 2000);
       return;
     }
 
@@ -39,25 +40,31 @@ export default function AuthCallbackPage() {
 
   return (
     <div className="auth-callback-wrapper">
-      <div
-        style={{
-          width: 44,
-          height: 44,
-          borderRadius: 14,
-          background:
-            "radial-gradient(120% 120% at 25% 15%, var(--grad-mint) 0%, var(--grad-orange) 48%, var(--grad-violet) 100%)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: 20,
-          fontWeight: 800,
-          color: "var(--text-primary)",
-        }}
-      >
-        O
+      <div className="auth-callback-card">
+        <Image
+          src="/brand/sheldon-ai-logo.png"
+          alt="Sheldon"
+          width={52}
+          height={52}
+          className="auth-callback-logo"
+          priority
+        />
+        <h1>{error ? "We couldn’t sign you in" : "Completing sign-in"}</h1>
+        {error ? (
+          <>
+            <p className="text-caption" role="alert">{error}</p>
+            <div className="auth-callback-actions">
+              <Link href="/login" className="btn btn-primary">Try again</Link>
+              <Link href="/" className="btn">Back to site</Link>
+            </div>
+          </>
+        ) : (
+          <div className="auth-callback-status" role="status" aria-live="polite">
+            <Loader2 className="animate-spin" size={20} aria-hidden="true" />
+            <p className="text-caption">Signing you in…</p>
+          </div>
+        )}
       </div>
-      <Loader2 className="animate-spin" size={20} />
-      <p className="text-caption">{error || "Signing you in…"}</p>
     </div>
   );
 }
