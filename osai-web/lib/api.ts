@@ -9,18 +9,24 @@ import type {
   WorkflowRun,
 } from "./types";
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+// The API origin (Render in prod, localhost in dev). Used only for full-URL
+// browser navigations that must hit the API domain directly - the Google OAuth
+// handshake, whose state cookie must be first-party to the API domain.
+const API_ORIGIN = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+
+// XHR/data calls go through the same-origin /api proxy (Vercel rewrite in prod,
+// next.config rewrite in dev) so the httpOnly session cookie is first-party and
+// SameSite=Lax protects writes. SSR (no window) calls the API origin directly.
+const API_BASE_URL = typeof window === "undefined" ? API_ORIGIN : "/api";
 
 // ─── Generic helpers ─────────────────────────────────────────────────────────
 
 function getHeaders(extraHeaders: Record<string, string> = {}): Record<string, string> {
   const headers: Record<string, string> = { ...extraHeaders };
   if (typeof window !== "undefined") {
-    // The backend derives the org from the signed JWT (Bearer); X-Org-Id is only
-    // honoured for the public demo workspace.
-    const token = localStorage.getItem("osai_token");
-    if (token) headers["Authorization"] = `Bearer ${token}`;
+    // Auth travels in the httpOnly session cookie (sent automatically with
+    // credentials:"include"); X-Org-Id is only honoured server-side for the
+    // public demo workspace.
     const orgId = localStorage.getItem("osai_org_id");
     if (orgId) headers["X-Org-Id"] = orgId;
   }
@@ -32,20 +38,20 @@ function getHeaders(extraHeaders: Record<string, string> = {}): Record<string, s
 // the provided fallback (typically demo data or null).
 const DEFAULT_TIMEOUT_MS = 8000;
 
-// A 401 means the session token is missing/expired/invalid (e.g. an old
-// pre-JWT token). Clear it and send the user back to sign in.
+// A 401 means the session cookie is missing/expired/revoked. Drop the local
+// auth flag and send the user back to sign in.
 //
-// Exception: the demo workspace. Its "demo-token" is not a real JWT, so any
-// admin-gated write 401s by design - that must surface as an inline "not
-// available in demo" message, not eject the whole session (QA ISSUE-002).
+// Exception: the demo workspace has no real session, so any admin-gated write
+// 401s by design - that must surface as an inline "not available in demo"
+// message, not eject the whole session (QA ISSUE-002).
 function handleUnauthorized(status: number) {
   if (status === 401 && typeof window !== "undefined") {
-    if (localStorage.getItem("osai_token") === "demo-token") return;
+    if (localStorage.getItem("osai_org_id") === "demo-org") return;
     const onPublic = ["/login", "/demo", "/auth/callback"].some((p) =>
       window.location.pathname.startsWith(p)
     );
     if (!onPublic) {
-      localStorage.removeItem("osai_token");
+      localStorage.removeItem("osai_authed");
       window.location.href = "/login";
     }
   }
@@ -62,6 +68,7 @@ async function apiGet<T>(
   try {
     const res = await fetch(`${API_BASE_URL}${path}`, {
       cache: "no-store",
+      credentials: "include",
       headers: getHeaders(),
       signal: controller.signal,
     });
@@ -104,6 +111,7 @@ async function apiPost<TBody, TResult>(
       headers: getHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify(body),
       cache: "no-store",
+      credentials: "include",
       signal: controller.signal,
     });
     if (!res.ok) {
@@ -130,6 +138,7 @@ async function apiPatch<TBody, TResult>(
       headers: getHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify(body),
       cache: "no-store",
+      credentials: "include",
       signal: controller.signal,
     });
     if (!res.ok) {
@@ -154,6 +163,7 @@ async function apiDelete<TResult>(
       method: "DELETE",
       headers: getHeaders(),
       cache: "no-store",
+      credentials: "include",
       signal: controller.signal,
     });
     if (!res.ok) {
@@ -208,12 +218,14 @@ export function getAuthConfig() {
   );
 }
 
-// Clear the local session (token + cached org/user). Used by sign-out and after
-// account deletion. Does not call the backend - JWTs are stateless.
+// Clear local, non-sensitive session state (cached org/user + the "authed"
+// flag). The session JWT lives in an httpOnly cookie the browser can't touch, so
+// callers that need the cookie gone must go through logout()/logoutAllSessions().
 export function clearSession() {
   if (typeof window === "undefined") return;
   for (const k of [
-    "osai_token",
+    "osai_authed",
+    "osai_token", // legacy: remove any JWT left by a pre-cookie session
     "osai_org_id",
     "osai_org_name",
     "osai_user_id",
@@ -222,6 +234,44 @@ export function clearSession() {
     "osai_demo",
   ]) {
     localStorage.removeItem(k);
+  }
+}
+
+// Persist the identity fields the UI reads (org/user), plus a non-sensitive flag
+// marking that a session cookie exists. The JWT itself is never stored in JS.
+export function markSignedIn(fields: {
+  orgId: string;
+  orgName?: string;
+  email?: string;
+  name?: string;
+}) {
+  if (typeof window === "undefined") return;
+  if (fields.orgId !== "demo-org") {
+    // Signing into a real org ends any demo session: stale demo flags (or a
+    // legacy token key) must not leak DEMO_* fixtures into a customer
+    // workspace (SHE-5) or keep a pre-cookie JWT around (QA E-03).
+    localStorage.removeItem("osai_demo");
+    localStorage.removeItem("osai_token");
+  }
+  localStorage.setItem("osai_authed", "1");
+  localStorage.setItem("osai_org_id", fields.orgId);
+  if (fields.orgName) localStorage.setItem("osai_org_name", fields.orgName);
+  if (fields.email) localStorage.setItem("osai_user_email", fields.email);
+  if (fields.name) localStorage.setItem("osai_user_name", fields.name);
+}
+
+// Exchange a JWT (from the OAuth redirect fragment) for an httpOnly session
+// cookie on this origin, so the token never has to live in localStorage.
+export function setSessionCookie(token: string) {
+  return apiPost<{ token: string }, { ok: boolean }>("/auth/session", { token });
+}
+
+// Sign out of this device: clear the server cookie, then local state.
+export async function logout(): Promise<void> {
+  try {
+    await apiPost<Record<string, never>, { ok: boolean }>("/auth/logout", {});
+  } finally {
+    clearSession();
   }
 }
 
@@ -239,9 +289,11 @@ export async function logoutAllSessions(): Promise<void> {
   clearSession();
 }
 
-// Full URL to kick off the Google OAuth flow (browser navigates here).
+// Full URL to kick off the Google OAuth flow. Must hit the API origin directly
+// (not the /api proxy): the OAuth state cookie set here has to be first-party to
+// the API domain, which is where Google redirects the callback.
 export function googleSignInUrl(): string {
-  return `${API_BASE_URL}/auth/google/start`;
+  return `${API_ORIGIN}/auth/google/start`;
 }
 
 export function onboardOrg(payload: OrgOnboardPayload): Promise<OrgOnboardResponse> {
@@ -736,6 +788,7 @@ export async function uploadDocuments(
     headers: getHeaders(),
     body: form,
     cache: "no-store",
+    credentials: "include",
   });
   if (!res.ok) {
     handleUnauthorized(res.status);
