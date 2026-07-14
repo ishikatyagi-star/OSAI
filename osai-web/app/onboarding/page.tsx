@@ -1,18 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import { ArrowRight, CheckCircle2, Loader2, Plug, Sparkles } from "lucide-react";
 import { login, onboardOrg } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
+import { SheldonMascot } from "@/components/sheldon-mascot";
 
 type Phase = "org" | "done";
 
 export default function OnboardingPage() {
-  const hasOrg =
-    typeof window !== "undefined" && !!localStorage.getItem("osai_org_id");
-  const [phase, setPhase] = useState<Phase>(hasOrg ? "done" : "org");
+  const router = useRouter();
+  const [phase, setPhase] = useState<Phase>("org");
+  const [ready, setReady] = useState(false);
 
   const [orgName, setOrgName] = useState("");
   const [adminName, setAdminName] = useState("");
@@ -20,7 +22,13 @@ export default function OnboardingPage() {
   const [orgBusy, setOrgBusy] = useState(false);
   const [orgError, setOrgError] = useState<string | null>(null);
 
-  async function handleCreateOrg() {
+  useEffect(() => {
+    setPhase(localStorage.getItem("osai_org_id") ? "done" : "org");
+    setReady(true);
+  }, []);
+
+  async function handleCreateOrg(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     if (!orgName.trim() || !adminEmail.trim() || !adminName.trim()) {
       setOrgError("Please fill in all fields.");
       return;
@@ -55,12 +63,23 @@ export default function OnboardingPage() {
   // Composio) rather than a fixed wizard of a handful of tools.
   function connectTools() {
     localStorage.setItem("osai_onboarded", "true");
-    window.location.href = "/integrations?catalog=1";
+    router.push("/integrations?catalog=1");
   }
 
   function skipToAsk() {
     localStorage.setItem("osai_onboarded", "true");
-    window.location.href = "/ask";
+    router.push("/ask");
+  }
+
+  if (!ready) {
+    return (
+      <div className="onboarding-root">
+        <div className="async-state" role="status" aria-live="polite">
+          <Loader2 className="size-5 animate-spin" aria-hidden="true" />
+          Preparing your workspace…
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -76,11 +95,17 @@ export default function OnboardingPage() {
             already uses. Every connection is optional and can be added or
             removed anytime from Integrations.
           </p>
+          <SheldonMascot
+            state={phase === "done" ? "happy" : "orchestrating"}
+            size={132}
+            className="onboarding-mascot"
+            priority
+          />
         </aside>
 
         <Card className="onboarding-panel">
           {phase === "org" && (
-            <div className="onboarding-step">
+            <form className="onboarding-step" onSubmit={handleCreateOrg}>
               <div>
                 <p className="onboarding-step-count">Workspace details</p>
                 <h2 className="onboarding-title">Name your workspace</h2>
@@ -89,15 +114,24 @@ export default function OnboardingPage() {
                 </p>
               </div>
               <div className="space-y-3">
-                <Input value={orgName} onChange={(e) => setOrgName(e.target.value)} placeholder="Organization name" />
-                <Input value={adminName} onChange={(e) => setAdminName(e.target.value)} placeholder="Your name" />
-                <Input type="email" value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} placeholder="Your work email" />
+                <label className="onboarding-field" htmlFor="organization-name">
+                  <span>Organization name</span>
+                  <Input id="organization-name" name="organization" autoComplete="organization" required value={orgName} onChange={(e) => setOrgName(e.target.value)} />
+                </label>
+                <label className="onboarding-field" htmlFor="admin-name">
+                  <span>Your name</span>
+                  <Input id="admin-name" name="name" autoComplete="name" required value={adminName} onChange={(e) => setAdminName(e.target.value)} />
+                </label>
+                <label className="onboarding-field" htmlFor="admin-email">
+                  <span>Your work email</span>
+                  <Input id="admin-email" name="email" type="email" autoComplete="email" required value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} />
+                </label>
               </div>
-              {orgError && <p className="text-xs text-destructive">{orgError}</p>}
-              <Button onClick={handleCreateOrg} disabled={orgBusy} className="w-full">
+              {orgError && <p className="text-xs text-destructive" role="alert">{orgError}</p>}
+              <Button type="submit" disabled={orgBusy} className="w-full">
                 {orgBusy ? <Loader2 className="size-4 animate-spin" /> : <>Continue <ArrowRight className="size-4" /></>}
               </Button>
-            </div>
+            </form>
           )}
 
           {phase === "done" && (

@@ -12,7 +12,7 @@ import {
   Zap,
 } from "lucide-react";
 import { askOsai, confirmAgentAction } from "@/lib/api";
-import { DEMO_ASK_ANSWERS } from "@/lib/demo-data";
+import { DEMO_ASK_ANSWERS, DEMO_DEPARTMENTS } from "@/lib/demo-data";
 import { isDemo } from "@/lib/demo";
 import { buildOpenUiArtifacts } from "@/lib/openui-artifacts";
 import { cn } from "@/lib/utils";
@@ -36,6 +36,7 @@ import type { UploadedFile } from "@/components/ask/file-card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { SheldonMascot } from "@/components/sheldon-mascot";
 
 function normaliseKey(q: string) {
   return q.toLowerCase().replace(/[^a-z0-9 ]/g, "").trim();
@@ -125,6 +126,7 @@ const ASK_MODES: {
 ];
 
 export default function AskPage() {
+  const demo = isDemo();
   const [turns, setTurns] = useState<AskTurn[]>([]);
   const [input, setInput] = useState("");
   const [mode, setMode] = useState<ComposerMode>("ask");
@@ -136,11 +138,20 @@ export default function AskPage() {
   const [threadShared, setThreadShared] = useState(false);
   const [threadList, setThreadList] = useState<ThreadSummary[]>([]);
   const [threadsOpen, setThreadsOpen] = useState(false);
+  const [threadListLoading, setThreadListLoading] = useState(false);
+  const [threadListError, setThreadListError] = useState("");
+  const [threadActionError, setThreadActionError] = useState("");
+  const [openingThreadId, setOpeningThreadId] = useState<string | null>(null);
+  const [sharingThread, setSharingThread] = useState(false);
   // Department scope: restrict retrieval to one department's documents.
   const [departments, setDepartments] = useState<Department[]>([]);
   const [departmentId, setDepartmentId] = useState<string>("");
 
   useEffect(() => {
+    if (isDemo()) {
+      setDepartments(DEMO_DEPARTMENTS);
+      return;
+    }
     getDepartments().then(setDepartments).catch(() => setDepartments([]));
   }, []);
   const threadRef = useRef<HTMLDivElement>(null);
@@ -244,41 +255,78 @@ export default function AskPage() {
     const params = new URLSearchParams(window.location.search);
     const q = params.get("q");
     if (q) setInput(q);
+    const requestedMode = params.get("mode");
+    if (requestedMode && COMPOSER_MODES.some((item) => item.id === requestedMode)) {
+      setMode(requestedMode as ComposerMode);
+    }
     const tid = params.get("thread");
-    if (tid) openThread(tid);
+    if (tid && !isDemo()) void openThread(tid);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function openThread(tid: string) {
-    const t = await getThread(tid);
-    if (!t) return;
-    setThreadId(t.id);
-    setThreadShared(t.shared);
-    setConversationId(null);
-    setThreadsOpen(false);
-    setTurns(
-      t.turns.map((turn) => ({
-        id: turn.id,
-        role: turn.role,
-        content: turn.content,
-        citations: (turn.payload?.citations as AskTurn["citations"]) ?? undefined,
-      }))
-    );
+    if (openingThreadId) return false;
+    setOpeningThreadId(tid);
+    setThreadActionError("");
+    try {
+      const t = await getThread(tid, true);
+      if (!t) throw new Error("Thread not found");
+      setThreadId(t.id);
+      setThreadShared(t.shared);
+      setConversationId(null);
+      setThreadsOpen(false);
+      setTurns(
+        t.turns.map((turn) => ({
+          id: turn.id,
+          role: turn.role,
+          content: turn.content,
+          citations: (turn.payload?.citations as AskTurn["citations"]) ?? undefined,
+        }))
+      );
+      return true;
+    } catch {
+      setThreadActionError("That thread could not be loaded. Check your connection and try again.");
+      return false;
+    } finally {
+      setOpeningThreadId(null);
+    }
+  }
+
+  async function loadThreads() {
+    setThreadListLoading(true);
+    setThreadListError("");
+    if (isDemo()) {
+      setThreadList([]);
+      setThreadListLoading(false);
+      return;
+    }
+    try {
+      setThreadList(await listThreads(true));
+    } catch {
+      setThreadListError("Saved threads could not be loaded. Check your connection and retry.");
+    } finally {
+      setThreadListLoading(false);
+    }
   }
 
   async function toggleThreads() {
     const next = !threadsOpen;
     setThreadsOpen(next);
-    if (next) listThreads().then(setThreadList).catch(() => setThreadList([]));
+    if (!next) return;
+    await loadThreads();
   }
 
   async function toggleShared() {
-    if (!threadId) return;
+    if (!threadId || sharingThread) return;
+    setSharingThread(true);
+    setThreadActionError("");
     try {
       const t = await patchThread(threadId, { shared: !threadShared });
       setThreadShared(t.shared);
     } catch {
-      // Only the creator can share; leave state as-is.
+      setThreadActionError("Thread sharing could not be updated. Only the creator can change access.");
+    } finally {
+      setSharingThread(false);
     }
   }
 
@@ -313,6 +361,10 @@ export default function AskPage() {
   // "X shared a file with you" - unread share notifications, dismissible.
   const [shareNotices, setShareNotices] = useState<AppNotification[]>([]);
   useEffect(() => {
+    if (isDemo()) {
+      setShareNotices([]);
+      return;
+    }
     getNotifications()
       .then((all) =>
         setShareNotices(
@@ -420,7 +472,13 @@ export default function AskPage() {
             tickets, chase follow-ups, pull status, and check ownership.
           </p>
         </div>
-        <button className="btn" aria-label="Threads" onClick={toggleThreads}>
+        <button
+          className="btn"
+          aria-label="Threads"
+          aria-expanded={threadsOpen}
+          aria-controls="ask-thread-list"
+          onClick={toggleThreads}
+        >
           Threads
         </button>
         {!empty && threadId && (
@@ -428,8 +486,9 @@ export default function AskPage() {
             className="btn"
             aria-label={threadShared ? "Make thread private" : "Share thread with your org"}
             onClick={toggleShared}
+            disabled={sharingThread}
           >
-            {threadShared ? "Shared ✓" : "Share"}
+            {sharingThread ? "Updating…" : threadShared ? "Shared ✓" : "Share"}
           </button>
         )}
         {!empty && (
@@ -450,14 +509,31 @@ export default function AskPage() {
         )}
       </div>
 
-      {threadsOpen && (
+      {threadActionError && (
         <div className="mx-auto w-full max-w-3xl shrink-0 px-4 pb-2">
+          <div className="card error-text" role="alert" style={{ padding: "10px 14px" }}>
+            {threadActionError}
+          </div>
+        </div>
+      )}
+
+      {threadsOpen && (
+        <div id="ask-thread-list" className="mx-auto w-full max-w-3xl shrink-0 px-4 pb-2">
           <div className="card" style={{ padding: "10px 14px", maxHeight: 280, overflowY: "auto" }}>
             <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Threads
             </div>
-            {threadList.length === 0 ? (
-              <p className="text-xs text-muted-foreground">No threads yet.</p>
+            {threadListLoading ? (
+              <p className="text-xs text-muted-foreground" role="status">Loading threads…</p>
+            ) : threadListError ? (
+              <div role="alert">
+                <p className="error-text mb-2">{threadListError}</p>
+                <button type="button" className="btn btn-sm" onClick={loadThreads}>Retry</button>
+              </div>
+            ) : threadList.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                {isDemo() ? "Demo conversations stay in this browser session." : "No threads yet."}
+              </p>
             ) : (
               <ul className="space-y-1">
                 {threadList.map((t) => (
@@ -465,9 +541,10 @@ export default function AskPage() {
                     <button
                       type="button"
                       className="w-full rounded px-2 py-1.5 text-left text-sm hover:bg-[var(--bg-surface)]"
-                      onClick={() => openThread(t.id)}
+                      onClick={() => void openThread(t.id)}
+                      disabled={openingThreadId !== null}
                     >
-                      <span className="font-medium">{t.title}</span>{" "}
+                      <span className="font-medium">{openingThreadId === t.id ? "Loading…" : t.title}</span>{" "}
                       <span className="text-xs text-muted-foreground">
                         {t.shared ? "· shared" : "· private"}
                         {typeof t.turns === "number" ? ` · ${t.turns} turns` : ""}
@@ -499,10 +576,13 @@ export default function AskPage() {
                     <button
                       type="button"
                       className="font-semibold underline"
-                      onClick={() => {
-                        dismissNotice(n.id);
+                      onClick={async () => {
                         const tid = (n.payload as { thread_id?: string }).thread_id;
-                        if (tid) openThread(tid);
+                        if (!tid) {
+                          setThreadActionError("This mention does not include a valid thread link.");
+                          return;
+                        }
+                        if (await openThread(tid)) dismissNotice(n.id);
                       }}
                     >
                       {n.payload.title ?? "a thread"}
@@ -535,7 +615,8 @@ export default function AskPage() {
           <div className="flex min-h-full items-center justify-center px-4 py-8">
             <div className="ask-column flex w-full max-w-[760px] flex-col gap-8 text-left">
               {/* Heading */}
-              <div className="flex flex-col gap-4">
+              <div className="ask-empty-heading">
+                <SheldonMascot state="thinking" size={112} priority />
                 <h2 className="ask-title">What would you like to know?</h2>
               </div>
 
@@ -569,7 +650,7 @@ export default function AskPage() {
               <form onSubmit={handleSubmit} className="w-full">
                 <div className="ask-composer ask-composer-hero" style={{ position: "relative" }}>
                   <div className="flex items-center gap-3 px-4 py-3">
-                    <ComposerAttach onUploaded={handleUploaded} onError={handleUploadError} disabled={pending} />
+                    <ComposerAttach onUploaded={handleUploaded} onError={handleUploadError} disabled={pending || demo} />
                     <Textarea
                       ref={inputRef}
                       value={input}
@@ -596,6 +677,11 @@ export default function AskPage() {
                     </Button>
                   </div>
                 </div>
+                {demo && (
+                  <p className="mt-2 text-center text-xs text-muted-foreground">
+                    File uploads are disabled in the shared demo.
+                  </p>
+                )}
                 {/* Mode pills below the input bar */}
                 <Tabs
                   value={mode}
@@ -696,9 +782,7 @@ export default function AskPage() {
               ))}
               {pending && (
                 <div className="ask-loading-row" role="status" aria-live="polite">
-                  <div className="ask-turn-avatar flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-extrabold text-primary-foreground">
-                    O
-                  </div>
+                  <SheldonMascot state="searching" size={48} className="ask-loading-mascot" />
                   <div className="ask-loading-copy">
                     <span className="ask-loading-title">
                       <Loader2 className="size-4 animate-spin" />
@@ -720,7 +804,7 @@ export default function AskPage() {
                 className="ask-composer flex items-center gap-2 px-4 py-3"
                 style={{ position: "relative" }}
               >
-                <ComposerAttach onUploaded={handleUploaded} onError={handleUploadError} disabled={pending} />
+                <ComposerAttach onUploaded={handleUploaded} onError={handleUploadError} disabled={pending || demo} />
                 <Textarea
                   ref={inputRef}
                   value={input}
@@ -746,6 +830,11 @@ export default function AskPage() {
                   )}
                 </Button>
               </div>
+              {demo && (
+                <p className="mt-2 text-center text-xs text-muted-foreground">
+                  File uploads are disabled in the shared demo.
+                </p>
+              )}
               <p className="ask-disclaimer mt-2 text-center">
                 Sheldon can make mistakes. Actions that change your tools always
                 require approval.

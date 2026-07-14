@@ -43,7 +43,14 @@ def test_fetch_relevant_scopes_private_memories_to_owner(monkeypatch):
     org-wide memories (user_id None) are visible to everyone; system context
     (no requester) keeps see-all."""
     import db.session as db_session
+    import memory.supermemory_client as sm
     from memory.org_memory import fetch_relevant
+
+    # fetch_relevant consults Supermemory first and only falls through to the
+    # Postgres path when it returns nothing. Stub it so this test deterministically
+    # exercises the SQL visibility filter regardless of whether a live
+    # OSAI_SUPERMEMORY_API_KEY is configured in the environment.
+    monkeypatch.setattr(sm, "search_memories", lambda *a, **k: [])
 
     engine = create_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(engine)

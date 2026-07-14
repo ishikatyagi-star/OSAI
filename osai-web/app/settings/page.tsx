@@ -3,8 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FlaskConical, Route, ChevronRight, Trash2, type LucideIcon } from "lucide-react";
-import { clearSession, deleteAccount, resetWorkspaceContent, mintSlackAskToken, revokeSlackAskToken } from "@/lib/api";
+import { FlaskConical, Users, ChevronRight, Trash2, type LucideIcon } from "lucide-react";
+import { deleteAccount, resetWorkspaceContent, mintSlackAskToken, revokeSlackAskToken } from "@/lib/api";
+import { isDemo } from "@/lib/demo";
 import {
   Dialog,
   DialogContent,
@@ -23,16 +24,16 @@ type SettingsLink = {
 
 const LINKS: SettingsLink[] = [
   {
-    href: "/integrations?tab=routing",
-    icon: Route,
-    title: "Data Routing",
+    href: "/team",
+    icon: Users,
+    title: "Team access",
     description:
-      "Classify information into Normal / Amber / Red tiers and control which connectors and LLMs each tier may use. Now lives with Integrations.",
+      "Manage roles, departments, and Normal / Amber / Red access tiers for your team.",
   },
   {
-    href: "/settings/advanced",
+    href: "/evals",
     icon: FlaskConical,
-    title: "Advanced · Evals",
+    title: "Evals",
     description:
       "Quality and regression tracking for Sheldon's answers and routing. Moved out of the main nav to keep things simple.",
   },
@@ -45,54 +46,85 @@ export default function SettingsPage() {
   const [resetting, setResetting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [resetMsg, setResetMsg] = useState("");
+  const [resetError, setResetError] = useState("");
+  const [resetConfirm, setResetConfirm] = useState("");
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleteError, setDeleteError] = useState("");
   const [slackToken, setSlackToken] = useState<{ token: string; path: string } | null>(null);
   const [slackBusy, setSlackBusy] = useState(false);
+  const [slackError, setSlackError] = useState("");
 
   async function handleMintSlack() {
+    if (isDemo()) {
+      setSlackError("Slack token changes are disabled in the shared demo workspace.");
+      return;
+    }
     setSlackBusy(true);
+    setSlackError("");
     try {
       const res = await mintSlackAskToken();
       setSlackToken({ token: res.token, path: res.request_url_path });
+    } catch {
+      setSlackError("The Slack token could not be created. Please try again.");
     } finally {
       setSlackBusy(false);
     }
   }
 
   async function handleRevokeSlack() {
+    if (isDemo()) {
+      setSlackError("Slack token changes are disabled in the shared demo workspace.");
+      return;
+    }
     setSlackBusy(true);
+    setSlackError("");
     try {
       await revokeSlackAskToken();
       setSlackToken(null);
+    } catch {
+      setSlackError("The Slack token could not be revoked. Please try again.");
     } finally {
       setSlackBusy(false);
     }
   }
 
   async function handleReset() {
+    if (isDemo()) {
+      setResetError("Workspace resets are disabled in the shared demo workspace.");
+      return;
+    }
     const orgId = localStorage.getItem("osai_org_id");
     if (!orgId) return;
     setResetting(true);
     setResetMsg("");
+    setResetError("");
     try {
       const res = await resetWorkspaceContent(orgId);
       const total = Object.values(res.deleted).reduce((a, b) => a + b, 0);
       setResetMsg(`Cleared ${total} records. Re-sync your connectors to pull real data.`);
       setDialogOpen(false);
+      setResetConfirm("");
     } catch {
-      setResetMsg("Couldn't reset - please try again.");
+      setResetError("The server did not confirm that the reset completed. Refresh before retrying.");
     } finally {
       setResetting(false);
     }
   }
 
   async function handleDeleteAccount() {
+    if (isDemo()) {
+      setDeleteError("Account deletion is disabled in the shared demo workspace.");
+      return;
+    }
     setDeleting(true);
+    setDeleteError("");
     try {
       await deleteAccount();
-    } catch {
-      clearSession();
-    } finally {
       router.replace("/login");
+    } catch {
+      setDeleteError("Your account was not deleted. Please try again or contact support.");
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -132,17 +164,8 @@ export default function SettingsPage() {
         })}
       </div>
 
-      {/* Danger Zone separator */}
-      <div style={{ position: "relative", margin: "36px 0 18px", display: "flex", alignItems: "center", gap: 12 }}>
-        <div style={{ flex: 1, height: 1, background: "color-mix(in srgb, var(--red) 40%, var(--border))" }} />
-        <span style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px", color: "var(--red)", whiteSpace: "nowrap" }}>
-          Danger Zone
-        </span>
-        <div style={{ flex: 1, height: 1, background: "color-mix(in srgb, var(--red) 40%, var(--border))" }} />
-      </div>
-
       {/* Slack /ask slash command */}
-      <div className="card" style={{ marginBottom: 12 }}>
+      <div className="card" style={{ marginTop: 24, marginBottom: 12 }}>
         <h2 style={{ margin: 0 }}>Ask from Slack</h2>
         <p className="meta" style={{ margin: "4px 0 12px", lineHeight: 1.5 }}>
           Create a token, then add a Slack slash command (e.g. /ask) whose Request URL
@@ -155,14 +178,24 @@ export default function SettingsPage() {
             <code style={{ wordBreak: "break-all" }}>{slackToken.path}</code>
           </div>
         )}
+        {slackError && <p className="error-text" role="alert" style={{ marginBottom: 10 }}>{slackError}</p>}
         <div style={{ display: "flex", gap: 8 }}>
-          <button className="btn btn-primary" disabled={slackBusy} onClick={handleMintSlack}>
+          <button type="button" className="btn btn-primary" disabled={slackBusy} onClick={handleMintSlack}>
             {slackToken ? "Rotate token" : "Create token"}
           </button>
-          <button className="btn" disabled={slackBusy} onClick={handleRevokeSlack}>
+          <button type="button" className="btn" disabled={slackBusy} onClick={handleRevokeSlack}>
             Revoke
           </button>
         </div>
+      </div>
+
+      {/* Danger Zone separator */}
+      <div style={{ position: "relative", margin: "36px 0 18px", display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ flex: 1, height: 1, background: "color-mix(in srgb, var(--red) 40%, var(--border))" }} />
+        <span style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px", color: "var(--red)", whiteSpace: "nowrap" }}>
+          Danger Zone
+        </span>
+        <div style={{ flex: 1, height: 1, background: "color-mix(in srgb, var(--red) 40%, var(--border))" }} />
       </div>
 
       {/* Danger zone - clear seeded/ingested content */}
@@ -186,7 +219,8 @@ export default function SettingsPage() {
             {resetMsg && (
               <p className="success-text" style={{ marginBottom: 10 }}>{resetMsg}</p>
             )}
-            <button className="btn btn-danger" onClick={() => { setResetMsg(""); setDialogOpen(true); }}>
+            {resetError && <p className="error-text" role="alert" style={{ marginBottom: 10 }}>{resetError}</p>}
+            <button type="button" className="btn btn-danger" onClick={() => { setResetMsg(""); setResetError(""); setResetConfirm(""); setDialogOpen(true); }}>
               Clear workspace data
             </button>
           </div>
@@ -209,7 +243,7 @@ export default function SettingsPage() {
             <p className="meta" style={{ margin: "4px 0 12px", lineHeight: 1.5 }}>
               Permanently delete your account and sign out. This cannot be undone.
             </p>
-            <button className="btn btn-danger" onClick={() => setDeleteDialogOpen(true)}>
+            <button type="button" className="btn btn-danger" onClick={() => { setDeleteError(""); setDeleteConfirm(""); setDeleteDialogOpen(true); }}>
               Delete account
             </button>
           </div>
@@ -217,27 +251,32 @@ export default function SettingsPage() {
       </div>
 
       {/* Confirmation modal */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={(open) => { if (!resetting) { setDialogOpen(open); if (!open) setResetConfirm(""); } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Clear workspace data</DialogTitle>
             <DialogDescription>
-              Are you sure? This will permanently delete all indexed documents, decisions,
-              workflows and sample data. This cannot be undone.
+              Clear the indexed content and workflow data currently supported by the server.
+              Account configuration remains. This cannot be undone.
             </DialogDescription>
           </DialogHeader>
+          <label className="text-caption" style={{ display: "grid", gap: 6 }}>
+            Type <strong>CLEAR</strong> to confirm
+            <input className="search-input" value={resetConfirm} onChange={(event) => setResetConfirm(event.target.value)} autoComplete="off" />
+          </label>
+          {resetError && <p className="error-text" role="alert">{resetError}</p>}
           <DialogFooter>
-            <button className="btn" onClick={() => setDialogOpen(false)} disabled={resetting}>
+            <button type="button" className="btn" onClick={() => setDialogOpen(false)} disabled={resetting}>
               Cancel
             </button>
-            <button className="btn btn-danger" onClick={handleReset} disabled={resetting}>
+            <button type="button" className="btn btn-danger" onClick={handleReset} disabled={resetting || resetConfirm !== "CLEAR"}>
               {resetting ? "Clearing\u2026" : "Yes, clear data"}
             </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <Dialog open={deleteDialogOpen} onOpenChange={(open) => { if (!deleting) { setDeleteDialogOpen(open); if (!open) setDeleteConfirm(""); } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete account</DialogTitle>
@@ -245,11 +284,16 @@ export default function SettingsPage() {
               Permanently delete your account? This cannot be undone, and you will be signed out.
             </DialogDescription>
           </DialogHeader>
+          <label className="text-caption" style={{ display: "grid", gap: 6 }}>
+            Type <strong>DELETE</strong> to confirm
+            <input className="search-input" value={deleteConfirm} onChange={(event) => setDeleteConfirm(event.target.value)} autoComplete="off" />
+          </label>
+          {deleteError && <p className="error-text" role="alert">{deleteError}</p>}
           <DialogFooter>
-            <button className="btn" onClick={() => setDeleteDialogOpen(false)} disabled={deleting}>
+            <button type="button" className="btn" onClick={() => setDeleteDialogOpen(false)} disabled={deleting}>
               Cancel
             </button>
-            <button className="btn btn-danger" onClick={handleDeleteAccount} disabled={deleting}>
+            <button type="button" className="btn btn-danger" onClick={handleDeleteAccount} disabled={deleting || deleteConfirm !== "DELETE"}>
               {deleting ? "Deleting…" : "Yes, delete account"}
             </button>
           </DialogFooter>

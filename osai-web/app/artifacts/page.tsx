@@ -1,22 +1,46 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Bookmark, Download, MessageSquarePlus, Trash2 } from "lucide-react";
 import { deleteArtifact, listArtifacts, type SavedArtifactRow } from "@/lib/api";
 import { OpenUiArtifacts } from "@/components/ask/openui-artifacts";
 import type { AskUiArtifact } from "@/lib/types";
 import { Button } from "@/components/ui/button";
+import { isDemo } from "@/lib/demo";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 /** Saved artifacts: pinned answer outputs (tables, briefs, plans) that
  * outlive their conversation - exportable and reusable as Ask context. */
 export default function ArtifactsPage() {
+  const router = useRouter();
   const [rows, setRows] = useState<SavedArtifactRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [mutationError, setMutationError] = useState("");
+  const [pendingDelete, setPendingDelete] = useState<SavedArtifactRow | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
   async function reload() {
     setLoading(true);
+    setLoadError("");
+    if (isDemo()) {
+      setRows([]);
+      setLoading(false);
+      return;
+    }
     try {
-      setRows(await listArtifacts());
+      setRows(await listArtifacts(true));
+    } catch {
+      setLoadError("Saved artifacts could not be loaded. Check your connection and retry.");
     } finally {
       setLoading(false);
     }
@@ -45,14 +69,24 @@ export default function ArtifactsPage() {
   }
 
   function askAbout(a: SavedArtifactRow) {
-    window.location.href = `/ask?q=${encodeURIComponent(
+    router.push(`/ask?q=${encodeURIComponent(
       `Using the saved artifact "${a.title}", `
-    )}`;
+    )}`);
   }
 
   async function remove(id: string) {
-    await deleteArtifact(id);
-    reload();
+    if (deleteBusy) return;
+    setDeleteBusy(true);
+    setMutationError("");
+    try {
+      await deleteArtifact(id);
+      setRows((current) => current.filter((row) => row.id !== id));
+      setPendingDelete(null);
+    } catch {
+      setMutationError("The artifact could not be deleted. Please try again.");
+    } finally {
+      setDeleteBusy(false);
+    }
   }
 
   return (
@@ -67,25 +101,35 @@ export default function ArtifactsPage() {
         </div>
       </div>
 
-      {loading ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+      {mutationError && <div className="card" role="alert" style={{ marginBottom: 16, padding: "10px 14px", color: "var(--red)" }}>{mutationError}</div>}
+
+      {loadError ? (
+        <div className="card async-state" role="alert">
+          <div>
+            <p className="error-text" style={{ marginBottom: 12 }}>{loadError}</p>
+            <button type="button" className="btn btn-primary" onClick={reload}>Retry</button>
+          </div>
+        </div>
+      ) : loading ? (
+        <div className="card async-state" role="status" aria-live="polite">Loading artifacts…</div>
       ) : rows.length === 0 ? (
         <div className="card" style={{ padding: 24, textAlign: "center" }}>
           <Bookmark className="mx-auto mb-2 size-6 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">
             Nothing pinned yet. Click “Save” on any table or brief in an Ask answer.
           </p>
+          <Link href="/ask" className="btn btn-primary" style={{ marginTop: 14 }}>Go to Ask Sheldon</Link>
         </div>
       ) : (
         <div className="grid gap-4">
           {rows.map((a) => (
             <div key={a.id} className="card" style={{ padding: "12px 16px" }}>
-              <div className="mb-1 flex items-center justify-between gap-3">
+              <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
                 <span className="text-xs text-muted-foreground">
                   {a.created_at ? new Date(a.created_at).toLocaleString() : ""}
                   {a.created_by_name ? ` · pinned by ${a.created_by_name}` : ""}
                 </span>
-                <div className="flex gap-1.5">
+                <div className="flex flex-wrap gap-1.5">
                   <Button size="sm" variant="ghost" onClick={() => askAbout(a)}>
                     <MessageSquarePlus className="size-3.5" /> Ask about this
                   </Button>
@@ -97,7 +141,7 @@ export default function ArtifactsPage() {
                     variant="ghost"
                     className="text-destructive"
                     aria-label={`Delete ${a.title}`}
-                    onClick={() => remove(a.id)}
+                    onClick={() => { setMutationError(""); setPendingDelete(a); }}
                   >
                     <Trash2 className="size-3.5" />
                   </Button>
@@ -107,6 +151,24 @@ export default function ArtifactsPage() {
             </div>
           ))}
         </div>
+      )}
+
+      {pendingDelete && (
+        <Dialog open onOpenChange={(open) => !open && !deleteBusy && setPendingDelete(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete this artifact?</DialogTitle>
+              <DialogDescription>“{pendingDelete.title}” will be permanently removed from saved artifacts.</DialogDescription>
+            </DialogHeader>
+            {mutationError && <p className="error-text" role="alert">{mutationError}</p>}
+            <DialogFooter>
+              <button type="button" className="btn" onClick={() => setPendingDelete(null)} disabled={deleteBusy}>Cancel</button>
+              <button type="button" className="btn btn-danger" onClick={() => remove(pendingDelete.id)} disabled={deleteBusy}>
+                {deleteBusy ? "Deleting..." : "Delete artifact"}
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

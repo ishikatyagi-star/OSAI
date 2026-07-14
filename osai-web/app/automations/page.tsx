@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -36,8 +36,67 @@ import { getConnectorIcon } from "@/lib/connector-meta";
 import type { ActionItem, WorkflowRun } from "@/lib/types";
 import { Select } from "@/components/ui/select";
 import { brandText, timeAgo } from "@/lib/utils";
+import { SheldonMascot } from "@/components/sheldon-mascot";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const CADENCES = ["manual", "hourly", "daily", "weekly"] as const;
+const CADENCE_OPTIONS = CADENCES.map((value) => ({
+  value,
+  label: value === "manual" ? "On demand" : `${value} (scheduler required)`,
+  disabled: value !== "manual",
+}));
+
+const DEMO_AUTOMATIONS: Automation[] = [
+  {
+    id: "automation-support-digest",
+    name: "Support blocker digest",
+    prompt: "Summarize unresolved Freshdesk tickets and name the owner of each blocker.",
+    cadence: "manual",
+    enabled: true,
+    status: "active",
+    last_run_at: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+    last_result: "3 blockers found across onboarding, billing, and SSO. Owners are listed in the latest run.",
+    deliver_to: null,
+    last_delivery: null,
+    updated_at: new Date().toISOString(),
+    has_trigger_token: false,
+  },
+  {
+    id: "automation-roadmap-risks",
+    name: "Roadmap risk check",
+    prompt: "Compare Notion roadmap commitments with current Slack status updates and flag drift.",
+    cadence: "manual",
+    enabled: true,
+    status: "active",
+    last_run_at: new Date(Date.now() - 22 * 60 * 60 * 1000).toISOString(),
+    last_result: "Two roadmap items have no matching status update this week.",
+    deliver_to: null,
+    last_delivery: null,
+    updated_at: new Date().toISOString(),
+    has_trigger_token: false,
+  },
+  {
+    id: "automation-meeting-followup",
+    name: "Meeting follow-up review",
+    prompt: "Collect unassigned meeting actions and prepare a review list.",
+    cadence: "manual",
+    enabled: true,
+    status: "paused",
+    last_run_at: null,
+    last_result: null,
+    deliver_to: null,
+    last_delivery: null,
+    updated_at: new Date().toISOString(),
+    has_trigger_token: false,
+  },
+];
 
 
 const TIER_COLORS: Record<string, string> = {
@@ -63,16 +122,22 @@ function ActionItemRow({
 }: {
   item: ActionItem;
   runId: string;
-  onApprove: (runId: string, itemId: string) => void;
+  onApprove: (runId: string, itemId: string) => Promise<boolean>;
 }) {
   const [approving, setApproving] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [approvalError, setApprovalError] = useState("");
   const DestinationIcon =
     item.destination === "manual" ? User : getConnectorIcon(item.destination);
 
   async function handleApprove() {
+    if (approving) return;
     setApproving(true);
-    await onApprove(runId, item.id);
+    setApprovalError("");
+    const approved = await onApprove(runId, item.id);
     setApproving(false);
+    if (approved) setConfirming(false);
+    else setApprovalError("The action was not approved or executed. Check the destination and try again.");
   }
 
   return (
@@ -99,9 +164,15 @@ function ActionItemRow({
       </div>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, flexShrink: 0 }}>
         <span className={`badge ${STATUS_BADGE[item.status] ?? "badge-grey"}`}>{item.status}</span>
-        {item.status === "needs_review" && (
-          <button className="btn btn-primary btn-xs" disabled={approving} onClick={handleApprove}>
-            {approving ? "…" : "Approve →"}
+        {["needs_review", "failed"].includes(item.status) && (
+          <button
+            type="button"
+            className="btn btn-primary btn-xs"
+            disabled={approving}
+            onClick={() => setConfirming(true)}
+            aria-label={`Approve and execute: ${brandText(item.title)}`}
+          >
+            {approving ? "…" : item.status === "failed" ? "Retry →" : "Approve →"}
           </button>
         )}
         {item.external_url && (
@@ -110,6 +181,23 @@ function ActionItemRow({
           </a>
         )}
       </div>
+      <Dialog open={confirming} onOpenChange={(open) => !approving && setConfirming(open)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Approve this action?</DialogTitle>
+            <DialogDescription>
+              “{brandText(item.title)}” will be sent to {brandText(item.destination)}. Review the owner and destination before continuing.
+            </DialogDescription>
+          </DialogHeader>
+          {approvalError && <p className="error-text" role="alert">{approvalError}</p>}
+          <DialogFooter>
+            <button type="button" className="btn" onClick={() => setConfirming(false)} disabled={approving}>Cancel</button>
+            <button type="button" className="btn btn-primary" onClick={handleApprove} disabled={approving}>
+              {approving ? "Approving…" : "Approve action"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -123,7 +211,7 @@ function RunCard({
   run: WorkflowRun & { data_tier?: string };
   expanded: boolean;
   onToggle: () => void;
-  onApprove: (runId: string, itemId: string) => void;
+  onApprove: (runId: string, itemId: string) => Promise<boolean>;
 }) {
   const items = run.action_items ?? [];
   const pendingCount = items.filter((a) => a.status === "needs_review").length;
@@ -131,7 +219,13 @@ function RunCard({
 
   return (
     <div className="card workflow-run-card" style={{ padding: 0, overflow: "hidden" }}>
-      <button onClick={onToggle} className="workflow-run-header">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="workflow-run-header"
+        aria-expanded={expanded}
+        aria-controls={`automation-run-${run.id}`}
+      >
         <div style={{ width: 3, height: 36, borderRadius: 9999, background: TIER_COLORS[tier] ?? TIER_COLORS.normal, flexShrink: 0 }} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
@@ -154,17 +248,18 @@ function RunCard({
       </button>
 
       {expanded && items.length > 0 && (
-        <div style={{ borderTop: "1px solid var(--border)", padding: "0 22px 18px" }}>
+        <div id={`automation-run-${run.id}`} style={{ borderTop: "1px solid var(--border)", padding: "0 22px 18px" }}>
           {items.map((item) => (
             <ActionItemRow key={item.id} item={item} runId={run.id} onApprove={onApprove} />
           ))}
         </div>
       )}
       {expanded && items.length === 0 && (
-        <div style={{ padding: "12px 22px 18px", borderTop: "1px solid var(--border)" }}>
+        <div id={`automation-run-${run.id}`} style={{ padding: "12px 22px 18px", borderTop: "1px solid var(--border)" }}>
           <p className="meta">No action items extracted from this run.</p>
         </div>
       )}
+
     </div>
   );
 }
@@ -177,7 +272,7 @@ function EditAutomationForm({
   onCancel,
 }: {
   automation: Automation;
-  onSaved: () => void;
+  onSaved: (updated?: Automation) => void;
   onCancel: () => void;
 }) {
   const [name, setName] = useState(automation.name);
@@ -196,7 +291,7 @@ function EditAutomationForm({
     setSaving(true);
     setError(null);
     try {
-      await updateAutomation(automation.id, {
+      const patch: Parameters<typeof updateAutomation>[1] = {
         name: name.trim(),
         prompt: prompt.trim(),
         cadence: cadence as Automation["cadence"],
@@ -205,8 +300,20 @@ function EditAutomationForm({
         deliver_to: slackTarget.trim()
           ? { channel: "slack", target: slackTarget.trim() }
           : {},
-      });
-      onSaved();
+      };
+      if (isDemo()) {
+        onSaved({
+          ...automation,
+          ...patch,
+          deliver_to: slackTarget.trim()
+            ? { channel: "slack", target: slackTarget.trim() }
+            : null,
+          updated_at: new Date().toISOString(),
+        });
+      } else {
+        await updateAutomation(automation.id, patch);
+        onSaved();
+      }
     } catch {
       setError("Couldn't save changes. Please try again.");
     } finally {
@@ -215,23 +322,20 @@ function EditAutomationForm({
   }
 
   return (
-    <form onSubmit={handleSave} style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+    <form className="automation-edit-form" onSubmit={handleSave} style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
+      <div className="automation-form-row">
         <input
           className="search-input"
           aria-label="Automation name"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          style={{ flex: 1, minWidth: 200 }}
+          style={{ flex: 1, minWidth: 0 }}
         />
         <Select
           aria-label="Automation cadence"
           value={cadence}
           onValueChange={setCadence}
-          options={CADENCES.map((value) => ({
-            value,
-            label: value === "manual" ? "On demand" : value,
-          }))}
+          options={CADENCE_OPTIONS}
         />
         <Select
           aria-label="Automation status"
@@ -252,7 +356,7 @@ function EditAutomationForm({
         rows={3}
         style={{ width: "100%", resize: "vertical", marginBottom: 10 }}
       />
-      <label className="meta" style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+      <label className="meta automation-delivery-field">
         Deliver results to Slack channel
         <input
           className="search-input"
@@ -260,7 +364,7 @@ function EditAutomationForm({
           placeholder="#general (empty = dashboard only)"
           value={slackTarget}
           onChange={(e) => setSlackTarget(e.target.value)}
-          style={{ flex: 1, minWidth: 180 }}
+          style={{ flex: 1, minWidth: 0 }}
         />
       </label>
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -268,7 +372,7 @@ function EditAutomationForm({
           {saving ? <Loader2 className="size-3.5 animate-spin" /> : null}
           Save changes
         </button>
-        <button type="button" className="btn" style={{ fontSize: 12 }} onClick={onCancel}>
+        <button type="button" className="btn" style={{ fontSize: 12 }} onClick={onCancel} disabled={saving}>
           Cancel
         </button>
         {error && <span className="meta" style={{ color: "var(--red)" }}>{error}</span>}
@@ -280,6 +384,7 @@ function EditAutomationForm({
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 type Mode = "task" | "transcript";
+type OperationKind = "run" | "mint" | "revoke" | "delete";
 
 export default function AutomationsPage() {
   const [mode, setMode] = useState<Mode>("task");
@@ -288,75 +393,198 @@ export default function AutomationsPage() {
   const [items, setItems] = useState<Automation[]>([]);
   const [name, setName] = useState("");
   const [prompt, setPrompt] = useState("");
-  const [cadence, setCadence] = useState<string>("daily");
+  const [cadence, setCadence] = useState<string>("manual");
+  const [automationLoading, setAutomationLoading] = useState(true);
+  const [automationLoadError, setAutomationLoadError] = useState("");
   const [creating, setCreating] = useState(false);
-  const [running, setRunning] = useState<string | null>(null);
+  const pendingOpsRef = useRef(new Set<string>());
+  const [pendingOps, setPendingOps] = useState<Record<string, true>>({});
   const [result, setResult] = useState<{ id: string; text: string } | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   // Freshly minted trigger token, shown once per mint (never re-fetchable).
   const [minted, setMinted] = useState<{ id: string; token: string } | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Automation | null>(null);
+  const [pendingRevoke, setPendingRevoke] = useState<Automation | null>(null);
+  const [mutationError, setMutationError] = useState("");
+
+  function operationKey(kind: OperationKind, id: string) {
+    return `${kind}:${id}`;
+  }
+
+  function beginOperation(kind: OperationKind, id: string) {
+    const key = operationKey(kind, id);
+    if (Array.from(pendingOpsRef.current).some((pendingKey) => pendingKey.endsWith(`:${id}`))) return false;
+    pendingOpsRef.current.add(key);
+    setPendingOps((current) => ({ ...current, [key]: true }));
+    return true;
+  }
+
+  function finishOperation(kind: OperationKind, id: string) {
+    const key = operationKey(kind, id);
+    pendingOpsRef.current.delete(key);
+    setPendingOps((current) => {
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
+  }
+
+  function isOperationPending(kind: OperationKind, id: string) {
+    return Boolean(pendingOps[operationKey(kind, id)]);
+  }
+
+  function isAutomationBusy(id: string) {
+    return Object.keys(pendingOps).some((key) => key.endsWith(`:${id}`));
+  }
+
+  function hasPendingKind(kind: OperationKind) {
+    return Array.from(pendingOpsRef.current).some((key) => key.startsWith(`${kind}:`));
+  }
+
+  const anyRunPending = Object.keys(pendingOps).some((key) => key.startsWith("run:"));
 
   async function handleMintToken(id: string) {
-    const res = await mintAutomationToken(id);
-    setMinted({ id, token: res.token });
-    refresh();
+    setMutationError("");
+    if (isDemo()) {
+      setMutationError("API trigger tokens are disabled in the shared demo workspace.");
+      return;
+    }
+    if (!beginOperation("mint", id)) return;
+    try {
+      const res = await mintAutomationToken(id);
+      setMinted({ id, token: res.token });
+      setItems((current) => current.map((item) => item.id === id ? { ...item, has_trigger_token: true } : item));
+    } catch {
+      setMutationError("The API trigger token could not be created. Please try again.");
+    } finally {
+      finishOperation("mint", id);
+    }
   }
 
   async function handleRevokeToken(id: string) {
-    await revokeAutomationToken(id);
-    setMinted((m) => (m?.id === id ? null : m));
-    refresh();
+    if (!beginOperation("revoke", id)) return;
+    setMutationError("");
+    try {
+      await revokeAutomationToken(id);
+      setMinted((m) => (m?.id === id ? null : m));
+      setPendingRevoke(null);
+      refresh();
+    } catch {
+      setMutationError("The API trigger token could not be revoked. Please try again.");
+    } finally {
+      finishOperation("revoke", id);
+    }
   }
 
   // Transcript extraction
   const [runs, setRuns] = useState<WorkflowRun[]>([]);
+  const [runsLoading, setRunsLoading] = useState(true);
+  const [runsLoadError, setRunsLoadError] = useState("");
   const [inputText, setInputText] = useState("");
   const [destination, setDestination] = useState("manual");
   const [extracting, setExtracting] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
   function refresh() {
-    getAutomations().then(setItems);
+    if (isDemo()) {
+      setItems(DEMO_AUTOMATIONS);
+      setAutomationLoading(false);
+      return;
+    }
+    setAutomationLoading(true);
+    setAutomationLoadError("");
+    getAutomations(true)
+      .then(setItems)
+      .catch(() => setAutomationLoadError("Automations could not be loaded. Check your connection and retry."))
+      .finally(() => setAutomationLoading(false));
   }
   useEffect(refresh, []);
   useEffect(() => {
-    getWorkflowRuns().then((data) => {
+    if (isDemo()) {
+      setRuns(DEMO_WORKFLOW_RUNS);
+      setExpandedIds(new Set([DEMO_WORKFLOW_RUNS[0].id]));
+      setRunsLoading(false);
+      return;
+    }
+    setRunsLoading(true);
+    setRunsLoadError("");
+    getWorkflowRuns(true).then((data) => {
       const hasReal = data.some((w) => (w.action_items ?? []).length > 0);
       const display = hasReal ? data : isDemo() ? DEMO_WORKFLOW_RUNS : data;
       setRuns(display);
       if (display[0]) setExpandedIds(new Set([display[0].id]));
-    });
+    }).catch(() => setRunsLoadError("Workflow history could not be loaded. Check your connection and retry."))
+      .finally(() => setRunsLoading(false));
   }, []);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim() || !prompt.trim()) return;
     setCreating(true);
+    setMutationError("");
     try {
-      await createAutomation({ name: name.trim(), prompt: prompt.trim(), cadence });
+      if (isDemo()) {
+        const created: Automation = {
+          id: `automation-demo-${Date.now()}`,
+          name: name.trim(),
+          prompt: prompt.trim(),
+          cadence: "manual",
+          enabled: true,
+          status: "active",
+          last_run_at: null,
+          last_result: null,
+          deliver_to: null,
+          last_delivery: null,
+          updated_at: new Date().toISOString(),
+          has_trigger_token: false,
+        };
+        setItems((prev) => [created, ...prev]);
+      } else {
+        await createAutomation({ name: name.trim(), prompt: prompt.trim(), cadence });
+        refresh();
+      }
       setName("");
       setPrompt("");
-      refresh();
+    } catch {
+      setMutationError("The automation could not be created. Please try again.");
     } finally {
       setCreating(false);
     }
   }
 
   async function handleRun(id: string) {
-    setRunning(id);
+    if (hasPendingKind("run") || !beginOperation("run", id)) return;
     setResult(null);
+    setMutationError("");
     try {
-      const res = await runAutomation(id);
-      setResult({ id, text: res.result });
-      refresh();
+      if (isDemo()) {
+        const text = "Demo run complete. Sheldon found two items that need an owner and one status update that is overdue.";
+        setResult({ id, text });
+        setItems((prev) => prev.map((item) => item.id === id ? { ...item, last_run_at: new Date().toISOString(), last_result: text } : item));
+      } else {
+        const res = await runAutomation(id);
+        setResult({ id, text: res.result });
+        refresh();
+      }
+    } catch {
+      setMutationError("The automation did not run. No result was saved; please try again.");
     } finally {
-      setRunning(null);
+      finishOperation("run", id);
     }
   }
 
   async function handleDelete(id: string) {
-    await deleteAutomation(id);
-    refresh();
+    if (!beginOperation("delete", id)) return;
+    setMutationError("");
+    try {
+      if (!isDemo()) await deleteAutomation(id);
+      setItems((prev) => prev.filter((item) => item.id !== id));
+      setPendingDelete(null);
+    } catch {
+      setMutationError("The automation could not be deleted. Please try again.");
+    } finally {
+      finishOperation("delete", id);
+    }
   }
 
   function toggleExpand(id: string) {
@@ -367,52 +595,77 @@ export default function AutomationsPage() {
     });
   }
 
+  function handleModeKeyDown(event: React.KeyboardEvent<HTMLButtonElement>, current: Mode) {
+    const modes: Mode[] = ["task", "transcript"];
+    const index = modes.indexOf(current);
+    let next = index;
+    if (event.key === "ArrowRight") next = (index + 1) % modes.length;
+    else if (event.key === "ArrowLeft") next = (index - 1 + modes.length) % modes.length;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = modes.length - 1;
+    else return;
+    event.preventDefault();
+    const nextMode = modes[next];
+    setMode(nextMode);
+    requestAnimationFrame(() => document.getElementById(`automation-tab-${nextMode}`)?.focus());
+  }
+
   async function handleExtract(e: React.FormEvent) {
     e.preventDefault();
     if (!inputText.trim()) return;
     setExtracting(true);
     try {
+      if (isDemo()) {
+        const fakeRun: WorkflowRun = {
+          id: `workflow-demo-${Date.now()}`,
+          kind: "meeting_action_items",
+          status: "needs_review",
+          destination,
+          model_route: "gemini-2.0-flash",
+          created_at: new Date().toISOString(),
+          action_items: [
+            {
+              id: `item-fake-${Date.now()}`,
+              title: inputText.trim().split(".")[0].replace(/^[A-Z][^:]*:\s*/, "").slice(0, 80),
+              owner: null,
+              due_date: null,
+              source_quote: inputText.trim().slice(0, 120),
+              destination,
+              confidence: 0.88,
+              status: "needs_review",
+              external_url: null,
+              executed_at: null,
+            },
+          ],
+        };
+        setRuns((prev) => [fakeRun, ...prev]);
+        setExpandedIds((prev) => new Set([fakeRun.id, ...prev]));
+        setInputText("");
+        return;
+      }
       const run = await postWorkflow(inputText.trim(), destination);
       setRuns((prev) => [run, ...prev]);
       setExpandedIds((prev) => new Set([run.id, ...prev]));
       setInputText("");
     } catch {
-      // Demo fallback: synthesise a run so the flow is demonstrable offline.
-      const fakeRun: WorkflowRun = {
-        id: `workflow-demo-${Date.now()}`,
-        kind: "meeting_action_items",
-        status: "needs_review",
-        destination,
-        model_route: "gemini-2.0-flash",
-        created_at: new Date().toISOString(),
-        action_items: [
-          {
-            id: `item-fake-${Date.now()}`,
-            title: inputText.trim().split(".")[0].replace(/^[A-Z][^:]*:\s*/, "").slice(0, 80),
-            owner: null,
-            due_date: null,
-            source_quote: inputText.trim().slice(0, 120),
-            destination,
-            confidence: 0.88,
-            status: "needs_review",
-            external_url: null,
-            executed_at: null,
-          },
-        ],
-      };
-      setRuns((prev) => [fakeRun, ...prev]);
-      setExpandedIds((prev) => new Set([fakeRun.id, ...prev]));
-      setInputText("");
+      setMutationError("Action items could not be extracted. No run was created; please try again.");
     } finally {
       setExtracting(false);
     }
   }
 
   async function handleApprove(runId: string, itemId: string) {
+    let nextStatus = "approved";
+    let externalUrl: string | null = null;
     try {
-      await approveActionItem(runId, itemId);
+      if (!isDemo()) {
+        const approval = await approveActionItem(runId, itemId);
+        nextStatus = approval.status;
+        externalUrl = approval.external_url;
+      }
     } catch {
-      // Demo mode - update local state only.
+      setMutationError("The action was not approved or executed. Please try again.");
+      return false;
     }
     setRuns((prev) =>
       prev.map((r) =>
@@ -421,11 +674,16 @@ export default function AutomationsPage() {
           : {
               ...r,
               action_items: (r.action_items ?? []).map((a) =>
-                a.id === itemId ? { ...a, status: "approved" } : a
+                a.id === itemId ? { ...a, status: nextStatus, external_url: externalUrl ?? a.external_url } : a
               ),
             }
       )
     );
+    if (nextStatus === "failed") {
+      setMutationError("The destination rejected the action. Review the connection and retry execution.");
+      return false;
+    }
+    return true;
   }
 
   return (
@@ -441,15 +699,22 @@ export default function AutomationsPage() {
       </div>
 
       {/* Mode toggle */}
-      <div className="segmented" style={{ display: "inline-flex", gap: 4, marginBottom: 20, padding: 4, background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 10 }}>
+      <div className="segmented" role="tablist" aria-label="Automation modes" style={{ display: "inline-flex", gap: 4, marginBottom: 20, padding: 4, background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 10 }}>
         {([
           { id: "task", label: "Run a task" },
           { id: "transcript", label: "From transcript" },
         ] as { id: Mode; label: string }[]).map((m) => (
           <button
             key={m.id}
+            type="button"
             onClick={() => setMode(m.id)}
+            onKeyDown={(event) => handleModeKeyDown(event, m.id)}
             className="btn"
+            role="tab"
+            id={`automation-tab-${m.id}`}
+            aria-selected={mode === m.id}
+            aria-controls={`automation-panel-${m.id}`}
+            tabIndex={mode === m.id ? 0 : -1}
             style={{
               fontSize: 13,
               padding: "6px 14px",
@@ -463,8 +728,14 @@ export default function AutomationsPage() {
         ))}
       </div>
 
+      {mutationError && (
+        <div className="card" role="alert" style={{ marginBottom: 16, padding: "10px 14px", color: "var(--red)" }}>
+          {mutationError}
+        </div>
+      )}
+
       {mode === "task" ? (
-        <>
+        <div role="tabpanel" id="automation-panel-task" aria-labelledby="automation-tab-task">
           {/* Create conversationally: Sheldon asks clarifying questions in chat and
               creates the automation itself once the goal, sources and cadence are clear. */}
           <div className="card" style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
@@ -486,23 +757,20 @@ export default function AutomationsPage() {
 
           {/* Create automation (manual form) */}
           <form className="card" onSubmit={handleCreate} style={{ marginBottom: 24 }}>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+            <div className="automation-form-row">
               <input
                 className="search-input"
                 placeholder="Automation name (e.g. Weekly support digest)"
                 aria-label="Automation name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                style={{ flex: 1, minWidth: 240 }}
+                style={{ flex: 1, minWidth: 0 }}
               />
               <Select
                 aria-label="Automation cadence"
                 value={cadence}
                 onValueChange={setCadence}
-                options={CADENCES.map((value) => ({
-                  value,
-                  label: value === "manual" ? "On demand" : value,
-                }))}
+                options={CADENCE_OPTIONS}
               />
             </div>
             {cadence !== "manual" && (
@@ -535,15 +803,27 @@ export default function AutomationsPage() {
             )}
           </form>
 
-          {items.length === 0 ? (
+          {automationLoadError ? (
+            <div className="card async-state" role="alert">
+              <div>
+                <p className="error-text" style={{ marginBottom: 12 }}>{automationLoadError}</p>
+                <button type="button" className="btn btn-primary" onClick={refresh}>Retry</button>
+              </div>
+            </div>
+          ) : automationLoading ? (
+            <div className="card async-state" role="status" aria-live="polite">
+              <Loader2 className="size-5 animate-spin" aria-hidden="true" /> Loading automations…
+            </div>
+          ) : items.length === 0 ? (
             <div className="card" style={{ textAlign: "center", padding: "40px 24px" }}>
+              <SheldonMascot state="orchestrating" size={96} className="empty-state-mascot" />
               <p className="meta">No automations yet. Create one above.</p>
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {items.map((a) => (
+                  {items.map((a) => (
                 <div key={a.id} className="card">
-                  <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+                  <div className="automation-card-header">
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
                         <span style={{ fontWeight: 600, fontSize: 14 }}>{brandText(a.name)}</span>
@@ -589,21 +869,23 @@ export default function AutomationsPage() {
                         </div>
                       )}
                     </div>
-                    <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                    <div className="automation-card-actions">
                       <button
                         className="btn btn-primary"
                         style={{ fontSize: 12, padding: "6px 12px" }}
-                        disabled={running === a.id}
+                        disabled={anyRunPending || isAutomationBusy(a.id) || editingId === a.id}
                         onClick={() => handleRun(a.id)}
+                        aria-label={`Run automation now: ${brandText(a.name)}`}
                       >
-                        {running === a.id ? <Loader2 className="size-3.5 animate-spin" /> : <Play className="size-3.5" />}
+                        {isOperationPending("run", a.id) ? <Loader2 className="size-3.5 animate-spin" /> : <Play className="size-3.5" />}
                         Run now
                       </button>
                       <button
                         className="btn"
                         style={{ fontSize: 12, padding: "6px 10px" }}
+                        disabled={isAutomationBusy(a.id) || editingId === a.id}
                         onClick={() => setEditingId(editingId === a.id ? null : a.id)}
-                        aria-label="Edit automation"
+                        aria-label={`Edit automation: ${brandText(a.name)}`}
                       >
                         <Pencil className="size-3.5" />
                       </button>
@@ -615,28 +897,35 @@ export default function AutomationsPage() {
                             ? "Rotate or revoke the API trigger token"
                             : "Create an API trigger token"
                         }
-                        onClick={() =>
-                          a.has_trigger_token && minted?.id !== a.id
-                            ? handleRevokeToken(a.id)
-                            : handleMintToken(a.id)
-                        }
+                        disabled={isAutomationBusy(a.id) || editingId === a.id}
+                        onClick={() => {
+                          setMutationError("");
+                          if (a.has_trigger_token) setPendingRevoke(a);
+                          else void handleMintToken(a.id);
+                        }}
+                        aria-label={a.has_trigger_token ? `Revoke API trigger token for ${brandText(a.name)}` : `Create API trigger token for ${brandText(a.name)}`}
                       >
-                        {a.has_trigger_token ? "API ✓" : "API"}
+                        {isOperationPending("mint", a.id) ? <Loader2 className="size-3.5 animate-spin" /> : a.has_trigger_token ? "API ✓" : "API"}
                       </button>
                       <Link
                         href={`/ask?q=${encodeURIComponent(`Update automation ${a.id} ("${a.name}"): `)}`}
                         className="btn"
                         style={{ fontSize: 12, padding: "6px 10px" }}
-                        aria-label="Refine with Sheldon"
+                        aria-label={`Refine automation with Sheldon: ${brandText(a.name)}`}
                         title="Refine with Sheldon"
+                        aria-disabled={isAutomationBusy(a.id) || editingId === a.id}
+                        onClick={(event) => {
+                          if (isAutomationBusy(a.id) || editingId === a.id) event.preventDefault();
+                        }}
                       >
                         <Sparkles className="size-3.5" />
                       </Link>
                       <button
                         className="btn btn-danger"
                         style={{ fontSize: 12, padding: "6px 10px" }}
-                        onClick={() => handleDelete(a.id)}
-                        aria-label="Delete automation"
+                        disabled={isAutomationBusy(a.id) || editingId === a.id}
+                        onClick={() => { setMutationError(""); setPendingDelete(a); }}
+                        aria-label={`Delete automation: ${brandText(a.name)}`}
                       >
                         <Trash2 className="size-3.5" />
                       </button>
@@ -646,9 +935,10 @@ export default function AutomationsPage() {
                   {editingId === a.id && (
                     <EditAutomationForm
                       automation={a}
-                      onSaved={() => {
+                      onSaved={(updated) => {
+                        if (updated) setItems((prev) => prev.map((item) => item.id === updated.id ? updated : item));
                         setEditingId(null);
-                        refresh();
+                        if (!isDemo()) refresh();
                       }}
                       onCancel={() => setEditingId(null)}
                     />
@@ -680,9 +970,9 @@ export default function AutomationsPage() {
             Recurring runs on the chosen cadence require the background scheduler (Celery worker) to be
             enabled in deployment. &quot;Run now&quot; works today.
           </p>
-        </>
+        </div>
       ) : (
-        <>
+        <div role="tabpanel" id="automation-panel-transcript" aria-labelledby="automation-tab-transcript">
           {/* Extract action items from a transcript */}
           <div className="card" style={{ marginBottom: 24 }}>
             <h2 style={{ marginBottom: 16 }}>Extract Action Items</h2>
@@ -725,7 +1015,15 @@ export default function AutomationsPage() {
             <span className="meta">({runs.length} runs)</span>
           </div>
 
-          {runs.length === 0 ? (
+          {runsLoadError ? (
+            <div className="card async-state" role="alert">
+              <p className="error-text">{runsLoadError}</p>
+            </div>
+          ) : runsLoading ? (
+            <div className="card async-state" role="status" aria-live="polite">
+              <Loader2 className="size-5 animate-spin" aria-hidden="true" /> Loading workflow history…
+            </div>
+          ) : runs.length === 0 ? (
             <div className="card" style={{ textAlign: "center", padding: "40px 24px" }}>
               <p className="text-body font-semibold" style={{ marginBottom: 6 }}>No extractions yet</p>
               <p className="meta leading-normal" style={{ maxWidth: 460, margin: "0 auto 8px" }}>
@@ -746,7 +1044,47 @@ export default function AutomationsPage() {
               ))}
             </div>
           )}
-        </>
+        </div>
+      )}
+
+      {pendingDelete && (
+        <Dialog open onOpenChange={(open) => !open && !isOperationPending("delete", pendingDelete.id) && setPendingDelete(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete this automation?</DialogTitle>
+              <DialogDescription>
+                “{brandText(pendingDelete.name)}” will be permanently removed. Existing run history will not be recreated.
+              </DialogDescription>
+            </DialogHeader>
+            {mutationError && <p className="error-text" role="alert">{mutationError}</p>}
+            <DialogFooter>
+              <button type="button" className="btn" onClick={() => setPendingDelete(null)} disabled={isOperationPending("delete", pendingDelete.id)}>Cancel</button>
+              <button type="button" className="btn btn-danger" onClick={() => handleDelete(pendingDelete.id)} disabled={isOperationPending("delete", pendingDelete.id)}>
+                {isOperationPending("delete", pendingDelete.id) ? "Deleting…" : "Delete automation"}
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {pendingRevoke && (
+        <Dialog open onOpenChange={(open) => !open && !isOperationPending("revoke", pendingRevoke.id) && setPendingRevoke(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Revoke the API trigger token?</DialogTitle>
+              <DialogDescription>
+                API calls using the current token for “{brandText(pendingRevoke.name)}” will stop working immediately.
+              </DialogDescription>
+            </DialogHeader>
+            {mutationError && <p className="error-text" role="alert">{mutationError}</p>}
+            <DialogFooter>
+              <button type="button" className="btn" onClick={() => setPendingRevoke(null)} disabled={isOperationPending("revoke", pendingRevoke.id)}>Cancel</button>
+              <button type="button" className="btn btn-danger" onClick={() => handleRevokeToken(pendingRevoke.id)} disabled={isOperationPending("revoke", pendingRevoke.id)}>
+                {isOperationPending("revoke", pendingRevoke.id) ? "Revoking…" : "Revoke token"}
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

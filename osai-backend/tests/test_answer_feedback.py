@@ -52,14 +52,18 @@ def test_rating_filter_and_validation():
 
 
 def test_feedback_requires_auth():
-    from db.session import get_org_id
+    # Feedback is a persisted write, so it resolves its org via
+    # require_writable_org (SEC-003): anonymous → 401, demo header → 403.
+    from db.session import require_writable_org
 
-    app.dependency_overrides.pop(get_org_id, None)
-    resp = TestClient(app).post(
-        "/feedback",
-        json={"query": "q", "answer": "a", "rating": "up"},
+    app.dependency_overrides.pop(require_writable_org, None)
+    client = TestClient(app)
+    body = {"query": "q", "answer": "a", "rating": "up"}
+    assert client.post("/feedback", json=body).status_code == 401
+    assert (
+        client.post("/feedback", json=body, headers={"X-Org-Id": "demo-org"}).status_code
+        == 403
     )
-    assert resp.status_code == 401
 
 
 def test_list_requires_admin():
