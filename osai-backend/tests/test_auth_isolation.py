@@ -32,9 +32,38 @@ def client_without_org_override():
 
 
 def _token(org_id: str, sub: str = "user-1", role: str = "admin") -> str:
+    """Mint a valid session JWT, seeding its principal so the token passes the
+    deleted/revoked-principal check the real auth dependencies now enforce on
+    reads too (SEC-002). token_version defaults to 0, matching the claim."""
+    from db.models import Org, User
+    from db.session import SessionLocal
+
+    with SessionLocal() as s:
+        if s.get(Org, org_id) is None:
+            s.add(Org(id=org_id, name=org_id))
+        if s.get(User, sub) is None:
+            s.add(
+                User(
+                    id=sub,
+                    org_id=org_id,
+                    email=f"{sub}@t.test",
+                    display_name="t",
+                    role=role,
+                    token_version=0,
+                )
+            )
+        s.commit()
+
     now = datetime.now(UTC)
     return jwt.encode(
-        {"sub": sub, "org_id": org_id, "role": role, "iat": now, "exp": now + timedelta(hours=1)},
+        {
+            "sub": sub,
+            "org_id": org_id,
+            "role": role,
+            "tv": 0,
+            "iat": now,
+            "exp": now + timedelta(hours=1),
+        },
         settings.jwt_secret,
         algorithm="HS256",
     )

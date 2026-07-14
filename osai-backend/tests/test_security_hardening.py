@@ -258,6 +258,59 @@ def test_logout_all_revokes_outstanding_tokens():
         assert getattr(exc.value, "status_code", None) == 401
 
 
+@pytest.fixture
+def _real_auth():
+    """Drop the autouse auth stubs so the real get_org_id/require_writable_org
+    dependencies run — needed to exercise route-level token revocation, which the
+    constant-lambda overrides would otherwise mask."""
+    from db.session import get_org_id, require_writable_org
+
+    saved = {
+        k: app.dependency_overrides.pop(k, None)
+        for k in (get_org_id, require_writable_org)
+    }
+    yield
+    for k, v in saved.items():
+        if v is not None:
+            app.dependency_overrides[k] = v
+
+
+def test_revoked_token_fails_closed_on_data_routes(_real_auth):
+    """Revocation must bite on every authenticated route, not only admin gates.
+    Regression: get_org_id/get_claims checked only the JWT signature, so a
+    logout-all'd (or deleted-user) token kept reading org data for 30 days."""
+    client = TestClient(app)
+    token = _seed_member_with_token()
+    headers = {"Authorization": f"Bearer {token}"}
+
+    assert client.get("/team/members", headers=headers).status_code == 200
+
+    assert client.post("/auth/logout-all", headers=headers).status_code == 200
+
+    # Same token on plain data routes (get_org_id) → 401, not data.
+    assert client.get("/team/members", headers=headers).status_code == 401
+    # get_claims routes too: the token that performed the revocation can't
+    # revoke again — it died with the rest of its generation.
+    assert client.post("/auth/logout-all", headers=headers).status_code == 401
+    # And via the session cookie, not just the bearer header.
+    client.cookies.set("osai_session", token)
+    assert client.get("/team/members").status_code == 401
+
+
+def test_revoked_token_refused_on_demo_capable_route(_real_auth):
+    """A revoked JWT on a demo-capable endpoint is refused (get_org_id sees the
+    dead credential first); anonymous demo access still works via X-Org-Id once
+    the credential is actually dropped."""
+    client = TestClient(app)
+    token = _seed_member_with_token()
+    headers = {"Authorization": f"Bearer {token}"}
+    client.post("/auth/logout-all", headers=headers)
+
+    resp = client.get("/integrations", headers={**headers, "X-Org-Id": "demo-org"})
+    assert resp.status_code == 401
+    assert client.get("/integrations", headers={"X-Org-Id": "demo-org"}).status_code == 200
+
+
 # ── SEC-009 (depth): httpOnly session cookie auth ─────────────────────────────
 def test_session_cookie_carries_auth_and_is_httponly():
     """A valid JWT in the osai_session cookie authenticates a request (no

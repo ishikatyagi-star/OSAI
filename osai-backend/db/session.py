@@ -47,40 +47,56 @@ def _claims_from(authorization: str | None, session_cookie: str | None) -> dict 
     return _decode_token(authorization) or _decode_jwt(session_cookie)
 
 
+def _assert_current(db: Session, claims: dict) -> None:
+    """Reject a token whose principal is deleted or whose generation (`tv`) was
+    revoked. Every dependency that turns a JWT into access must call this, not
+    just admin gates — a signature check alone keeps a revoked token alive for
+    its full 30-day lifetime (SEC-002)."""
+    # Lazy import avoids a module-load cycle (repositories imports SessionLocal).
+    from db.repositories import assert_token_current
+
+    assert_token_current(db, claims)
+
+
 async def get_optional_claims(
+    db: Annotated[Session, Depends(get_db)],
     authorization: str | None = Header(default=None),
     session_cookie: str | None = Cookie(default=None, alias=SESSION_COOKIE),
 ) -> dict | None:
     """Return JWT claims if a valid token is present, else None (no 401). For
-    endpoints that work in demo mode but want per-user context when available."""
-    return _claims_from(authorization, session_cookie)
+    endpoints that work in demo mode but want per-user context when available.
+    A revoked/deleted-principal token yields None — anonymous, never a partial
+    identity — matching how an expired token behaves."""
+    claims = _claims_from(authorization, session_cookie)
+    if not claims:
+        return None
+    try:
+        _assert_current(db, claims)
+    except HTTPException:
+        return None
+    return claims
 
 
 async def get_claims(
+    db: Annotated[Session, Depends(get_db)],
     authorization: str | None = Header(default=None),
     session_cookie: str | None = Cookie(default=None, alias=SESSION_COOKIE),
 ) -> dict:
-    """Require a valid session JWT and return its claims (sub, org_id, role, …)."""
+    """Require a valid, unrevoked session JWT and return its claims."""
     claims = _claims_from(authorization, session_cookie)
     if not claims:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required."
         )
+    _assert_current(db, claims)
     return claims
 
 
 async def require_admin(
     claims: Annotated[dict, Depends(get_claims)],
-    db: Annotated[Session, Depends(get_db)],
 ) -> dict:
-    """Gate an endpoint to org admins, rejecting revoked/deleted-user tokens.
-
-    Admin routes change org-wide state, so they must honour token revocation too
-    (SEC-002) — not just verify the signature and the role claim."""
-    # Lazy import avoids a module-load cycle (repositories imports SessionLocal).
-    from db.repositories import assert_token_current
-
-    assert_token_current(db, claims)
+    """Gate an endpoint to org admins. Revocation is already enforced by
+    get_claims; this adds the role check."""
     if claims.get("role") != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Admin role required."
@@ -89,6 +105,7 @@ async def require_admin(
 
 
 async def get_org_id(
+    db: Annotated[Session, Depends(get_db)],
     authorization: str | None = Header(default=None),
     x_org_id: str | None = Header(default=None),
     session_cookie: str | None = Cookie(default=None, alias=SESSION_COOKIE),
@@ -98,6 +115,7 @@ async def get_org_id(
     spoofing X-Org-Id. The public demo workspace is the only header-trusted case."""
     claims = _claims_from(authorization, session_cookie)
     if claims and claims.get("org_id"):
+        _assert_current(db, claims)
         return claims["org_id"]
     if x_org_id == settings.default_org_id:  # public demo sample data only
         return settings.default_org_id
@@ -107,6 +125,7 @@ async def get_org_id(
 
 
 async def require_writable_org(
+    db: Annotated[Session, Depends(get_db)],
     authorization: str | None = Header(default=None),
     x_org_id: str | None = Header(default=None),
     session_cookie: str | None = Cookie(default=None, alias=SESSION_COOKIE),
@@ -126,6 +145,7 @@ async def require_writable_org(
     claims = _claims_from(authorization, session_cookie)
     org_id = claims.get("org_id") if claims else None
     if org_id and (org_id != settings.default_org_id or settings.env == "local"):
+        _assert_current(db, claims)
         return org_id
     if org_id == settings.default_org_id or x_org_id == settings.default_org_id:
         raise HTTPException(
