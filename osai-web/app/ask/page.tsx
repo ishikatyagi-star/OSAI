@@ -213,9 +213,12 @@ export default function AskPage() {
       });
 
       try {
-        const res = isDemo()
-          ? getDemoAnswer(q)
-          : await askOsai(q, { conversationId, history, departmentId: departmentId || null });
+        // The demo workspace answers with the live LLM over the seeded demo-org
+        // data (X-Org-Id: demo-org travels in the request), so demo questions get
+        // real, varied answers instead of a single canned reply. If the backend
+        // is slow or unreachable, the catch below falls back to the canned demo
+        // answers so the demo never hangs or errors.
+        const res = await askOsai(q, { conversationId, history, departmentId: departmentId || null });
         setConversationId(res.conversation_id ?? conversationId);
         setTurns((prev) => [...prev, toTurn(res)]);
         if (tid) {
