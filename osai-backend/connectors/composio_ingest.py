@@ -161,6 +161,43 @@ async def _handle_account_change(
     session.flush()
 
 
+async def purge_connector_data(
+    session: Session,
+    org_id: str,
+    toolkit: str,
+    *,
+    qdrant_store: QdrantStore | None = None,
+) -> int:
+    """Remove every document a connector ingested into this org, from Postgres
+    (source_documents + chunks) and Qdrant (vectors), and mark the account
+    disconnected with its identity cleared.
+
+    Called on disconnect so a Google (or any) account that is no longer in sync
+    leaves nothing behind: switching the connected account = disconnect (this
+    purge) then connect + sync the new account, which cannot then mix the two.
+    Returns the number of source documents removed."""
+    qdrant_store = qdrant_store or get_default_qdrant_store()
+    native_key = to_native_key(toolkit)
+
+    removed = purge_source_type(session, org_id, native_key)
+    try:
+        await qdrant_store.delete_source_type(org_id, native_key)
+    except Exception:  # noqa: BLE001 — vector cleanup is best-effort
+        logger.warning("Qdrant purge failed on disconnect for %s/%s", org_id, native_key)
+
+    # Reset the account so a later reconnect starts clean (no stale identity that
+    # would make the reconnect path think the account is unchanged).
+    account = ensure_connector_account(session, org_id, native_key)
+    config = dict(account.config or {})
+    for k in ("account_external_id", "account_email", "previous_account_email"):
+        config.pop(k, None)
+    account.config = config
+    account.auth_state = "disconnected"
+    account.last_sync_at = None
+    session.flush()
+    return removed
+
+
 async def ingest_composio_toolkit(
     org_id: str,
     toolkit: str,
