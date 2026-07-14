@@ -33,8 +33,8 @@ def test_user_clearance_admin_is_red(monkeypatch):
 
     import db.repositories as repo
 
-    admin = SimpleNamespace(role="admin", data_tier="normal")
-    member = SimpleNamespace(role="member", data_tier="amber")
+    admin = SimpleNamespace(role="admin", data_tier="normal", token_version=0)
+    member = SimpleNamespace(role="member", data_tier="amber", token_version=0)
 
     class _Session:
         def __init__(self, user):

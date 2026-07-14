@@ -41,6 +41,11 @@ class User(Base):
     # Data-clearance tier (normal|amber|red): the highest data sensitivity this
     # member may see. Admins see everything regardless of this.
     data_tier: Mapped[str] = mapped_column(String, default="normal")
+    # Session-token generation. Every issued JWT carries this value as `tv`; the
+    # auth layer rejects a token whose `tv` is stale. Bumping it invalidates all
+    # of the user's outstanding tokens at once (sign-out-everywhere, and on
+    # account deletion) without a server-side session store (SEC-002).
+    token_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
 
 

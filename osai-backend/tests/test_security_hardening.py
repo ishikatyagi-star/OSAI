@@ -187,3 +187,64 @@ def test_claim_absent_action_reports_absent():
     from db.repositories import claim_proposed_action
 
     assert claim_proposed_action("nope-does-not-exist") == "absent"
+
+
+# ── SEC-002 (depth): token_version revocation ─────────────────────────────────
+def test_stale_token_version_is_rejected():
+    """A token whose `tv` predates the user's current generation is refused even
+    though the user still exists and the signature is valid."""
+    import db.repositories as repo
+
+    class _Session:
+        def get(self, _model, _pk):
+            return type("U", (), {"token_version": 3, "role": "member", "data_tier": "normal"})()
+
+    # Matching generation → fine.
+    repo.assert_token_current(_Session(), {"sub": "u1", "tv": 3})
+    # Stale generation → 401.
+    with pytest.raises(Exception) as exc:
+        repo.assert_token_current(_Session(), {"sub": "u1", "tv": 2})
+    assert getattr(exc.value, "status_code", None) == 401
+
+
+def test_logout_all_revokes_outstanding_tokens():
+    """POST /auth/logout-all bumps the generation so previously issued tokens
+    (carrying the old tv) stop being accepted."""
+    import uuid
+
+    from api.routes.auth import _issue_token
+    from db.models import Org, User
+    from db.repositories import assert_token_current
+    from db.session import SessionLocal, _decode_token
+
+    uid = f"user-{uuid.uuid4()}"
+    with SessionLocal() as s:
+        if s.get(Org, "demo-org") is None:
+            s.add(Org(id="demo-org", name="demo"))
+        s.add(
+            User(
+                id=uid,
+                org_id="demo-org",
+                email=f"{uid}@t.test",
+                display_name="t",
+                role="member",
+                token_version=0,
+            )
+        )
+        s.commit()
+        token = _issue_token(s.get(User, uid))
+
+    claims = _decode_token(f"Bearer {token}")
+    assert claims["tv"] == 0
+    with SessionLocal() as s:
+        assert_token_current(s, claims)  # accepted before revocation
+
+    resp = TestClient(app).post(
+        "/auth/logout-all", headers={"Authorization": f"Bearer {token}"}
+    )
+    assert resp.status_code == 200 and resp.json()["revoked"] is True
+
+    with SessionLocal() as s:
+        with pytest.raises(Exception) as exc:
+            assert_token_current(s, claims)  # same token now stale
+        assert getattr(exc.value, "status_code", None) == 401

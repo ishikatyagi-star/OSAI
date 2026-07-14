@@ -52,6 +52,8 @@ def _issue_token(user: User) -> str:
         "org_id": user.org_id,
         "role": user.role,
         "email": user.email,
+        # Token generation — bumping user.token_version invalidates this token.
+        "tv": user.token_version or 0,
         "iat": now,
         "exp": now + timedelta(hours=settings.jwt_expiry_hours),
     }
@@ -272,3 +274,16 @@ async def delete_account(claims: Claims, db: DbSession) -> dict:
     db.delete(user)
     db.commit()
     return {"deleted": True}
+
+
+@router.post("/logout-all")
+async def logout_all(claims: Claims, db: DbSession) -> dict:
+    """Revoke every outstanding session for the signed-in user by bumping their
+    token generation. All previously issued JWTs (including the one making this
+    call) stop being accepted; the client should re-authenticate (SEC-002)."""
+    user = db.get(User, claims.get("sub"))
+    if user is None:
+        raise HTTPException(status_code=404, detail="Account not found.")
+    user.token_version = (user.token_version or 0) + 1
+    db.commit()
+    return {"revoked": True, "token_version": user.token_version}

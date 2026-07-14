@@ -44,8 +44,18 @@ async def get_claims(authorization: str | None = Header(default=None)) -> dict:
     return claims
 
 
-async def require_admin(claims: Annotated[dict, Depends(get_claims)]) -> dict:
-    """Gate an endpoint to org admins."""
+async def require_admin(
+    claims: Annotated[dict, Depends(get_claims)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict:
+    """Gate an endpoint to org admins, rejecting revoked/deleted-user tokens.
+
+    Admin routes change org-wide state, so they must honour token revocation too
+    (SEC-002) — not just verify the signature and the role claim."""
+    # Lazy import avoids a module-load cycle (repositories imports SessionLocal).
+    from db.repositories import assert_token_current
+
+    assert_token_current(db, claims)
     if claims.get("role") != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Admin role required."
