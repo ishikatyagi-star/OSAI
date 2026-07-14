@@ -21,9 +21,13 @@ from db.session import get_org_id
 
 @pytest.fixture
 def client_without_org_override():
-    """The suite autouse-overrides get_org_id to demo-org; drop it so these tests
-    exercise the real auth dependency, then restore it afterwards."""
+    """The suite autouse-overrides get_org_id (and require_writable_org) to
+    demo-org; drop them so these tests exercise the real auth dependency, then
+    restore afterwards."""
+    from db.session import require_writable_org
+
     app.dependency_overrides.pop(get_org_id, None)
+    app.dependency_overrides.pop(require_writable_org, None)
     yield TestClient(app)
 
 

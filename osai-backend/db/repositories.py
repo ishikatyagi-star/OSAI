@@ -1,7 +1,9 @@
+import logging
 import secrets
 from collections.abc import Sequence
 from datetime import datetime, timedelta
 
+from fastapi import HTTPException
 from sqlalchemy import desc, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -27,6 +29,8 @@ from db.models import (
 )
 from db.session import SessionLocal
 from memory.chunker import chunk_document
+
+logger = logging.getLogger("osai.repositories")
 
 
 def seed_demo_data(session: Session, org_id: str = "demo-org") -> None:
@@ -597,6 +601,19 @@ def upsert_source_documents(session: Session, documents: list[SourceDocument]) -
     indexed = 0
     for document in documents:
         record = session.get(SourceDocumentRecord, document.source_id)
+        # Cross-tenant overwrite guard: document ids are keyed by the external
+        # resource (e.g. "notion:<page_id>"), not the org. If two orgs connect the
+        # same underlying resource, a later sync must not silently reassign an
+        # existing row to a different org — that would overwrite (or hijack) the
+        # first org's document. Skip and log instead (SEC-006).
+        if record is not None and record.org_id != document.org_id:
+            logger.warning(
+                "Skipping document %s: already owned by org %s, not %s",
+                document.source_id,
+                record.org_id,
+                document.org_id,
+            )
+            continue
         values = {
             "org_id": document.org_id,
             "source_type": document.source_type,
@@ -715,15 +732,33 @@ def record_sync_result(
     return run
 
 
+def _require_active_principal(session: Session, claims: dict | None) -> User | None:
+    """Resolve the authenticated user behind a token, or None for system/demo
+    context (a token with no `sub`).
+
+    A token that carries a `sub` whose user row no longer exists is a *stale
+    principal* — e.g. the user deleted their account but kept the 30-day JWT.
+    Such a token must be rejected, not treated as system context: the governance
+    filter reads an empty permission set as "see everything" and clearance would
+    otherwise fall through to "red", so silently degrading here is a
+    privilege-escalation hole (SEC-002). Fail closed with 401 instead."""
+    user_id = claims.get("sub") if claims else None
+    if not user_id:
+        return None
+    user = session.get(User, user_id)
+    if user is None:
+        raise HTTPException(
+            status_code=401, detail="Session is no longer valid; sign in again."
+        )
+    return user
+
+
 def user_permissions(session: Session, claims: dict | None) -> list[str]:
     """Resolve the caller's permission grants from their verified JWT claims, so
     org-scoped reads can be filtered to what that user is actually allowed to see.
     Returns [] when there's no authenticated user (e.g. the public demo path),
     which the governance filter treats as system/admin context over demo data."""
-    user_id = claims.get("sub") if claims else None
-    if not user_id:
-        return []
-    user = session.get(User, user_id)
+    user = _require_active_principal(session, claims)
     if user is None:
         return []
     grants = list(user.permissions or [])
@@ -742,11 +777,10 @@ TIER_ORDER: dict[str, int] = {"normal": 0, "amber": 1, "red": 2}
 
 def user_clearance(session: Session, claims: dict | None) -> str:
     """The caller's data-clearance tier. Admins (and system/demo context with no
-    authenticated user) get 'red' = see-all; otherwise the member's own tier."""
-    user_id = claims.get("sub") if claims else None
-    if not user_id:
-        return "red"
-    user = session.get(User, user_id)
+    authenticated user) get 'red' = see-all; otherwise the member's own tier.
+    A stale principal (deleted account, live token) is rejected — see
+    _require_active_principal (SEC-002)."""
+    user = _require_active_principal(session, claims)
     if user is None:
         return "red"
     if user.role == "admin":
@@ -791,6 +825,39 @@ def load_proposed_action(action_id: str) -> dict | None:
             return dict(row.payload or {})
     except SQLAlchemyError:
         return None
+
+
+def claim_proposed_action(action_id: str) -> str:
+    """Atomically claim a proposed action so exactly one confirm can execute it.
+
+    Returns "claimed" (this caller won the race and may execute), "taken" (a
+    concurrent or prior confirm already consumed it), or "absent" (no durable
+    row — in-process-only context such as unit tests, where cross-worker races
+    don't apply).
+
+    The single `UPDATE ... WHERE status='proposed'` is the guard: under READ
+    COMMITTED two concurrent confirms serialize on the row, so the loser matches
+    zero rows. This prevents double-executed connector side effects — duplicate
+    tickets, pages, or messages (SEC-007)."""
+    try:
+        with SessionLocal() as session:
+            if session.get(ConnectorAction, action_id) is None:
+                return "absent"
+            updated = (
+                session.query(ConnectorAction)
+                .filter(
+                    ConnectorAction.id == action_id,
+                    ConnectorAction.status == "proposed",
+                )
+                .update({"status": "consumed"}, synchronize_session=False)
+            )
+            session.commit()
+            return "claimed" if updated == 1 else "taken"
+    except SQLAlchemyError:
+        # DB unavailable: we lose the durable guard rather than hard-block a
+        # legitimate confirm. The in-process fast-path dict still prevents the
+        # common same-worker double-click.
+        return "absent"
 
 
 def discard_proposed_action(action_id: str) -> None:

@@ -1,0 +1,9 @@
+# Keep VCS, secrets, and local build output out of the image/build context.
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+node_modules
+.next
+npm-debug.log*

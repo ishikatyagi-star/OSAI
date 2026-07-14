@@ -15,11 +15,14 @@ from api.schemas.agent import (
     ConfirmActionResult,
 )
 from db.repositories import user_clearance, user_permissions
-from db.session import get_db, get_optional_claims, get_org_id
+from db.session import get_db, get_optional_claims, get_org_id, require_writable_org
 
 router = APIRouter(tags=["agent"])
 DbSession = Annotated[Session, Depends(get_db)]
 OrgId = Annotated[str, Depends(get_org_id)]
+# Confirming an action drives a real connector side effect, so the anonymous
+# demo workspace must not reach it (SEC-003).
+WriteOrgId = Annotated[str, Depends(require_writable_org)]
 OptionalClaims = Annotated[dict | None, Depends(get_optional_claims)]
 
 
@@ -40,7 +43,7 @@ async def ask(
 
 @router.post("/ask/actions/{action_id}/confirm", response_model=ConfirmActionResult)
 async def confirm(
-    action_id: str, body: ConfirmActionRequest, org_id: OrgId, claims: OptionalClaims
+    action_id: str, body: ConfirmActionRequest, org_id: WriteOrgId, claims: OptionalClaims
 ) -> ConfirmActionResult:
     """Execute a previously proposed agent action against its connector.
 

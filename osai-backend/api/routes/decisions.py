@@ -10,11 +10,13 @@ from sqlalchemy.orm import Session
 
 from db.models import DecisionRecord
 from db.repositories import try_db
-from db.session import get_db, get_org_id
+from db.session import get_db, get_org_id, require_writable_org
 
 router = APIRouter(prefix="/decisions", tags=["decisions"])
 DbSession = Annotated[Session, Depends(get_db)]
 OrgId = Annotated[str, Depends(get_org_id)]
+# Writes must never come from the anonymous demo workspace (SEC-003).
+WriteOrgId = Annotated[str, Depends(require_writable_org)]
 
 _STATUSES = ("proposed", "approved", "rejected")
 _IMPACTS = ("critical", "high", "medium", "low")
@@ -77,7 +79,7 @@ async def list_decisions(db: DbSession, org_id: OrgId) -> list[dict]:
 
 
 @router.post("")
-async def create_decision(body: DecisionCreate, db: DbSession, org_id: OrgId) -> dict:
+async def create_decision(body: DecisionCreate, db: DbSession, org_id: WriteOrgId) -> dict:
     _validate(body.status, body.impact)
     row = DecisionRecord(
         org_id=org_id,
@@ -109,7 +111,7 @@ async def create_decision(body: DecisionCreate, db: DbSession, org_id: OrgId) ->
 
 @router.patch("/{decision_id}")
 async def update_decision(
-    decision_id: str, body: DecisionUpdate, db: DbSession, org_id: OrgId
+    decision_id: str, body: DecisionUpdate, db: DbSession, org_id: WriteOrgId
 ) -> dict:
     _validate(body.status, body.impact)
     row = db.get(DecisionRecord, decision_id)
@@ -134,7 +136,7 @@ async def update_decision(
 
 
 @router.delete("/{decision_id}")
-async def delete_decision(decision_id: str, db: DbSession, org_id: OrgId) -> dict:
+async def delete_decision(decision_id: str, db: DbSession, org_id: WriteOrgId) -> dict:
     row = db.get(DecisionRecord, decision_id)
     if row is None or row.org_id != org_id:
         raise HTTPException(status_code=404, detail="Decision not found.")

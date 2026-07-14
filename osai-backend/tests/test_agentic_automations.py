@@ -100,14 +100,16 @@ def test_patch_missing_automation_404():
 
 def test_patch_cross_org_rejected():
     auto = _create()
-    from db.session import get_org_id
+    # PATCH is a write route, so it resolves the org via require_writable_org;
+    # point that at another org to prove cross-org edits 404.
+    from db.session import require_writable_org
 
-    app.dependency_overrides[get_org_id] = lambda: "other-org"
+    app.dependency_overrides[require_writable_org] = lambda: "other-org"
     try:
         resp = client.patch(f"/automations/{auto['id']}", json={"cadence": "weekly"})
         assert resp.status_code == 404
     finally:
-        app.dependency_overrides[get_org_id] = lambda: "demo-org"
+        app.dependency_overrides[require_writable_org] = lambda: "demo-org"
     client.delete(f"/automations/{auto['id']}")
 
 

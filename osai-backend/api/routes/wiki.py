@@ -14,12 +14,14 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from db.models import WikiEntry, WikiRevision, now_utc
-from db.session import get_db, get_optional_claims, get_org_id
+from db.session import get_db, get_optional_claims, get_org_id, require_writable_org
 from memory.org_memory import record_memory
 
 router = APIRouter(prefix="/wiki", tags=["wiki"])
 DbSession = Annotated[Session, Depends(get_db)]
 OrgId = Annotated[str, Depends(get_org_id)]
+# Writes must never come from the anonymous demo workspace (SEC-003).
+WriteOrgId = Annotated[str, Depends(require_writable_org)]
 OptionalClaims = Annotated[dict | None, Depends(get_optional_claims)]
 
 _MAX = 40_000
@@ -69,7 +71,7 @@ class EntryCreate(BaseModel):
 
 @router.post("")
 async def create_entry(
-    body: EntryCreate, db: DbSession, org_id: OrgId, claims: OptionalClaims
+    body: EntryCreate, db: DbSession, org_id: WriteOrgId, claims: OptionalClaims
 ) -> dict:
     author = (claims.get("email") or claims.get("sub")) if claims else None
     e = WikiEntry(
@@ -95,7 +97,7 @@ class EntryPatch(BaseModel):
 
 @router.patch("/{entry_id}")
 async def update_entry(
-    body: EntryPatch, db: DbSession, org_id: OrgId, claims: OptionalClaims, entry_id: str
+    body: EntryPatch, db: DbSession, org_id: WriteOrgId, claims: OptionalClaims, entry_id: str
 ) -> dict:
     e = _get(db, org_id, entry_id)
     author = (claims.get("email") or claims.get("sub")) if claims else None
@@ -130,7 +132,7 @@ async def update_entry(
 
 
 @router.delete("/{entry_id}")
-async def delete_entry(db: DbSession, org_id: OrgId, entry_id: str) -> dict:
+async def delete_entry(db: DbSession, org_id: WriteOrgId, entry_id: str) -> dict:
     e = _get(db, org_id, entry_id)
     db.query(WikiRevision).filter(WikiRevision.entry_id == e.id).delete()
     db.delete(e)

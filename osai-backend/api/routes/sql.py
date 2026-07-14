@@ -16,11 +16,14 @@ from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import Session
 
 from db.models import SqlSource
-from db.session import get_db, get_org_id
+from db.session import get_db, get_org_id, require_writable_org
 
 router = APIRouter(prefix="/sql", tags=["sql"])
 DbSession = Annotated[Session, Depends(get_db)]
 OrgId = Annotated[str, Depends(get_org_id)]
+# Adding a source stores a DSN; plan/execute run SQL against a live external DB.
+# None of that is reachable from the anonymous demo workspace (SEC-003).
+WriteOrgId = Annotated[str, Depends(require_writable_org)]
 
 _MAX_ROWS = 500
 _FORBIDDEN = re.compile(
@@ -97,7 +100,7 @@ class SourceCreate(BaseModel):
 
 
 @router.post("/sources")
-async def add_source(body: SourceCreate, db: DbSession, org_id: OrgId) -> dict:
+async def add_source(body: SourceCreate, db: DbSession, org_id: WriteOrgId) -> dict:
     if not body.dsn.startswith(("postgresql://", "postgresql+psycopg://")):
         raise HTTPException(
             status_code=422, detail="Only PostgreSQL sources are supported (postgresql://…)."
@@ -122,7 +125,7 @@ async def list_sources(db: DbSession, org_id: OrgId) -> list[dict]:
 
 
 @router.delete("/sources/{source_id}")
-async def delete_source(db: DbSession, org_id: OrgId, source_id: str) -> dict:
+async def delete_source(db: DbSession, org_id: WriteOrgId, source_id: str) -> dict:
     s = _get_source(db, org_id, source_id)
     db.delete(s)
     db.commit()
@@ -144,7 +147,7 @@ class PlanRequest(BaseModel):
 
 
 @router.post("/plan")
-async def plan_query(body: PlanRequest, db: DbSession, org_id: OrgId) -> dict:
+async def plan_query(body: PlanRequest, db: DbSession, org_id: WriteOrgId) -> dict:
     """LLM writes the SQL from the schema. The plan is returned for the user
     to inspect/edit — nothing executes here."""
     s = _get_source(db, org_id, body.source_id)
@@ -188,7 +191,7 @@ class ExecuteRequest(BaseModel):
 
 
 @router.post("/execute")
-async def execute_query(body: ExecuteRequest, db: DbSession, org_id: OrgId) -> dict:
+async def execute_query(body: ExecuteRequest, db: DbSession, org_id: WriteOrgId) -> dict:
     """Run a user-approved SELECT deterministically. Same SQL, same answer —
     the LLM is not in this path."""
     s = _get_source(db, org_id, body.source_id)

@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 from api.schemas.connector import SourceDocument
 from db.models import Chunk, Department, Notification, SourceDocumentRecord, User
 from db.repositories import chunks_for_documents, try_db, upsert_source_documents
-from db.session import get_db, get_optional_claims, get_org_id
+from db.session import get_db, get_optional_claims, get_org_id, require_writable_org
 from memory.qdrant_store import get_default_qdrant_store
 
 logger = logging.getLogger("osai.documents")
@@ -28,6 +28,9 @@ logger = logging.getLogger("osai.documents")
 router = APIRouter(prefix="/documents", tags=["documents"])
 DbSession = Annotated[Session, Depends(get_db)]
 OrgId = Annotated[str, Depends(get_org_id)]
+# Uploading indexes data + spends embeddings; changing access rewrites grants.
+# Neither is reachable from the anonymous demo workspace (SEC-003).
+WriteOrgId = Annotated[str, Depends(require_writable_org)]
 OptionalClaims = Annotated[dict | None, Depends(get_optional_claims)]
 
 _MAX_FILE_BYTES = 15 * 1024 * 1024  # 15 MB per file
@@ -123,7 +126,7 @@ def _extract_text(filename: str, data: bytes) -> str:
 @router.post("/upload")
 async def upload_documents(
     db: DbSession,
-    org_id: OrgId,
+    org_id: WriteOrgId,
     claims: OptionalClaims,
     files: Annotated[list[UploadFile], File(...)],
     data_tier: Annotated[str, Form()] = "normal",
@@ -293,7 +296,7 @@ class AccessUpdate(BaseModel):
 @router.patch("/{doc_id}/access")
 async def update_document_access(
     db: DbSession,
-    org_id: OrgId,
+    org_id: WriteOrgId,
     claims: OptionalClaims,
     doc_id: str,
     body: AccessUpdate,
