@@ -537,8 +537,11 @@ export default function AskPage() {
         )}
         aria-hidden={!threadsOpen}
       >
-        <div
-          className="absolute inset-0 bg-black/40"
+        <button
+          type="button"
+          aria-label="Close threads"
+          tabIndex={-1}
+          className="absolute inset-0 h-full w-full cursor-default bg-black/40"
           onClick={() => setThreadsOpen(false)}
         />
         <aside
