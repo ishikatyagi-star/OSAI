@@ -65,7 +65,15 @@ function PassRateBar({ rate }: { rate: number }) {
   const color = pct >= 80 ? "var(--green)" : pct >= 60 ? "var(--blue)" : "var(--red)";
   return (
     <div className="flex items-center gap-2">
-      <div className="h-1.5 w-full overflow-hidden rounded-full" style={{ background: 'var(--bg-hover)' }}>
+      <div
+        className="h-1.5 w-full overflow-hidden rounded-full"
+        style={{ background: 'var(--bg-hover)' }}
+        role="progressbar"
+        aria-label="Pass rate"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={pct}
+      >
         <div
           className="h-full rounded-full transition-[width,background-color]"
           style={{ width: `${pct}%`, background: color }}
@@ -98,12 +106,17 @@ function CaseRow({ c }: { c: EvalCase }) {
           padding: "12px 16px",
           width: "100%",
         }}
+        aria-expanded={open}
+        aria-controls={`eval-case-${c.id}`}
       >
         {c.passed ? (
           <CheckCircle2 className="size-4 shrink-0" style={{ color: 'var(--green)' }} />
         ) : (
           <XCircle className="size-4 shrink-0" style={{ color: 'var(--red)' }} />
         )}
+        <span className={`badge ${c.passed ? "badge-green" : "badge-red"}`}>
+          {c.passed ? "Passed" : "Failed"}
+        </span>
         <span className="min-w-0 flex-1 truncate text-sm" style={{ color: 'var(--text-primary)' }}>
           {c.question}
         </span>
@@ -126,7 +139,7 @@ function CaseRow({ c }: { c: EvalCase }) {
         />
       </button>
       {open && (
-        <div className="grid gap-3 border-t border-border px-4 py-3 sm:grid-cols-2">
+        <div id={`eval-case-${c.id}`} className="grid gap-3 border-t border-border px-4 py-3 sm:grid-cols-2">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-primary)' }}>
               Expected
@@ -167,14 +180,16 @@ export function EvalDashboard() {
   const load = useCallback(async () => {
     setLoadState("loading");
     try {
-      const res = await getEvalRun();
+      if (isDemo()) {
+        setRun(DEMO_EVAL_RUN);
+        setUsingDemo(true);
+        setLoadState("ready");
+        return;
+      }
+      const res = await getEvalRun(true);
       if (res) {
         setRun(res);
         setUsingDemo(false);
-      } else if (isDemo()) {
-        // No backend reachable, demo mode on - show the bundled demo run.
-        setRun(DEMO_EVAL_RUN);
-        setUsingDemo(true);
       } else {
         setRun({
           run_id: "",
@@ -253,7 +268,7 @@ export function EvalDashboard() {
 
       {/* Loading */}
       {loadState === "loading" && (
-        <div className="card" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14, padding: "48px 24px" }}>
+        <div className="card async-state" role="status" aria-live="polite">
           <div className="search-thinking-dots">
             <span /><span /><span />
           </div>
@@ -263,12 +278,12 @@ export function EvalDashboard() {
 
       {/* Error + retry */}
       {loadState === "error" && (
-        <div className="card" style={{ textAlign: "center", padding: "44px 24px" }}>
+        <div className="card" role="alert" style={{ textAlign: "center", padding: "40px 24px" }}>
           <p className="text-[15px] font-semibold" style={{ marginBottom: 6 }}>Couldn&apos;t load eval results</p>
           <p className="meta" style={{ marginBottom: 18 }}>
             The eval service didn&apos;t respond. Check that the backend is reachable, then try again.
           </p>
-          <button className="btn btn-primary" onClick={load} style={{ display: "inline-flex" }}>
+          <button type="button" className="btn btn-primary" onClick={load} style={{ display: "inline-flex" }}>
             <RotateCw className="size-3.5" /> Retry
           </button>
         </div>

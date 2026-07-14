@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Sparkles, X } from "lucide-react";
 import { DEMO_DECISIONS, type Decision } from "@/lib/demo-data";
 import { isDemo } from "@/lib/demo";
@@ -99,15 +99,32 @@ export default function DecisionsPage() {
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [pendingDelete, setPendingDelete] = useState<Decision | null>(null);
   const [decisionForm, setDecisionForm] = useState<DecisionForm | null>(null);
+  const [writeBusy, setWriteBusy] = useState(false);
+  const [writeError, setWriteError] = useState("");
+  const [loading, setLoading] = useState(() => !isDemo());
+  const [loadError, setLoadError] = useState("");
 
   // Signed-in workspaces load the durable decision log from the API; demo mode
   // keeps its local fixtures (and local-only mutations below mirror that split).
-  useEffect(() => {
-    if (isDemo()) return;
-    getDecisions().then((rows) => {
-      if (rows.length || !isDemo()) setDecisions(rows.map(fromApi));
-    });
+  const loadDecisions = useCallback(async () => {
+    if (isDemo()) {
+      setDecisions(DEMO_DECISIONS);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setLoadError("");
+    try {
+      const rows = await getDecisions(true);
+      setDecisions(rows.map(fromApi));
+    } catch {
+      setLoadError("The decision log could not be loaded. Check your connection and retry.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => { void loadDecisions(); }, [loadDecisions]);
 
   // /board redirects here with ?source=osai - honour it as the initial filter.
   useEffect(() => {
@@ -124,25 +141,29 @@ export default function DecisionsPage() {
     }
   }
 
-  function confirmDelete() {
+  async function confirmDelete() {
     if (!pendingDelete) return;
     const id = pendingDelete.id;
-    setDecisions((prev) => prev.filter((d) => d.id !== id));
-    setPendingDelete(null);
-    if (!isDemo()) {
-      // Best-effort persistence; on failure reload the durable list so the UI
-      // never drifts from what the backend actually holds.
-      deleteDecision(id).catch(() =>
-        getDecisions().then((rows) => setDecisions(rows.map(fromApi)))
-      );
+    setWriteBusy(true);
+    setWriteError("");
+    try {
+      if (!isDemo()) await deleteDecision(id);
+      setDecisions((prev) => prev.filter((d) => d.id !== id));
+      setPendingDelete(null);
+    } catch {
+      setWriteError("The decision could not be deleted. Please try again.");
+    } finally {
+      setWriteBusy(false);
     }
   }
 
   function openAddDecision() {
+    setWriteError("");
     setDecisionForm(EMPTY_DECISION_FORM);
   }
 
   function openEditDecision(decision: Decision) {
+    setWriteError("");
     setDecisionForm({
       id: decision.id,
       title: decision.title,
@@ -154,58 +175,68 @@ export default function DecisionsPage() {
     });
   }
 
-  function saveDecision() {
+  async function saveDecision() {
     if (!decisionForm || decisionForm.title.trim() === "") return;
-    const tags = decisionForm.tags
+    const form = decisionForm;
+    const tags = form.tags
       .split(",")
       .map((tag) => tag.trim().toLowerCase())
       .filter(Boolean);
     const nextDecision: Decision = {
-      id: decisionForm.id ?? `dec-${Date.now()}`,
-      title: decisionForm.title.trim(),
+      id: form.id ?? `dec-${Date.now()}`,
+      title: form.title.trim(),
       tags,
-      status: decisionForm.status,
-      impact: decisionForm.impact,
-      owner: decisionForm.owner.trim() || "Unassigned",
+      status: form.status,
+      impact: form.impact,
+      owner: form.owner.trim() || "Unassigned",
       date: new Date().toLocaleDateString("en-US", {
         day: "numeric",
         month: "short",
         year: "numeric",
       }),
-      source: decisionForm.source.trim() || "Manual",
+      source: form.source.trim() || "Manual",
       identifiedBy: "source",
     };
 
-    setDecisions((prev) =>
-      decisionForm.id
-        ? prev.map((decision) => (decision.id === decisionForm.id ? nextDecision : decision))
-        : [nextDecision, ...prev]
-    );
-    setDecisionForm(null);
-
-    if (!isDemo()) {
-      const persist = decisionForm.id
-        ? updateDecision(decisionForm.id, {
+    setWriteBusy(true);
+    setWriteError("");
+    try {
+      if (isDemo()) {
+        setDecisions((prev) =>
+          form.id
+            ? prev.map((decision) => (decision.id === form.id ? nextDecision : decision))
+            : [nextDecision, ...prev]
+        );
+      } else {
+        const persisted = form.id
+          ? await updateDecision(form.id, {
             title: nextDecision.title,
             status: nextDecision.status,
             impact: nextDecision.impact,
             owner: nextDecision.owner,
             source: nextDecision.source,
             tags,
-          })
-        : createDecision({
+            })
+          : await createDecision({
             title: nextDecision.title,
             status: nextDecision.status,
             impact: nextDecision.impact,
             owner: nextDecision.owner,
             source: nextDecision.source,
             tags,
-          });
-      // Reload from the backend either way: creates need their server id (so a
-      // follow-up edit/delete targets a real row), failures need honest state.
-      persist
-        .catch(() => null)
-        .then(() => getDecisions().then((rows) => setDecisions(rows.map(fromApi))));
+            });
+        const saved = fromApi(persisted);
+        setDecisions((prev) =>
+          form.id
+            ? prev.map((decision) => (decision.id === form.id ? saved : decision))
+            : [saved, ...prev]
+        );
+      }
+      setDecisionForm(null);
+    } catch {
+      setWriteError("The decision could not be saved. Review your changes and try again.");
+    } finally {
+      setWriteBusy(false);
     }
   }
 
@@ -260,13 +291,14 @@ export default function DecisionsPage() {
       <th
         className="sortable"
         style={width ? { width } : undefined}
-        onClick={() => toggleSort(k)}
         aria-sort={active ? (sortDir === "asc" ? "ascending" : "descending") : "none"}
       >
-        {label}
-        <span className={`sort-caret${active ? "" : " inactive"}`}>
-          {active ? (sortDir === "asc" ? "↑" : "↓") : "↕"}
-        </span>
+        <button type="button" className="table-sort-button" onClick={() => toggleSort(k)}>
+          {label}
+          <span className={`sort-caret${active ? "" : " inactive"}`} aria-hidden="true">
+            {active ? (sortDir === "asc" ? "↑" : "↓") : "↕"}
+          </span>
+        </button>
       </th>
     );
   }
@@ -285,6 +317,21 @@ export default function DecisionsPage() {
         <button className="btn btn-primary" onClick={openAddDecision}>+ Add Decision</button>
       </div>
 
+      {loadError && !loading && (
+        <div className="card async-state" role="alert">
+          <div>
+            <p className="error-text" style={{ marginBottom: 12 }}>{loadError}</p>
+            <button type="button" className="btn btn-primary" onClick={loadDecisions}>Retry</button>
+          </div>
+        </div>
+      )}
+
+      {loading && (
+        <div className="card async-state" role="status" aria-live="polite">Loading decisions…</div>
+      )}
+
+      <div hidden={loading || !!loadError}>
+
       {/* Segmented owner / source filters (the merged Team Board lens) */}
       <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
         {([
@@ -293,15 +340,19 @@ export default function DecisionsPage() {
         ] as const).map((opt) => (
           <button
             key={opt.key}
+            type="button"
             className={`btn btn-sm${ownerFilter === opt.key ? " btn-primary" : ""}`}
             onClick={() => setOwnerFilter(opt.key)}
+            aria-pressed={ownerFilter === opt.key}
           >
             {opt.label}
           </button>
         ))}
         <button
+          type="button"
           className={`btn btn-sm${sourceFilter === "osai" ? " btn-primary" : ""}`}
           onClick={() => setSourceFilter((s) => (s === "osai" ? "all" : "osai"))}
+          aria-pressed={sourceFilter === "osai"}
         >
           <Sparkles className="size-3.5" /> Sheldon-identified{osaiCount > 0 ? ` (${osaiCount})` : ""}
         </button>
@@ -340,13 +391,16 @@ export default function DecisionsPage() {
             { value: "low", label: "Low" },
           ]}
         />
-        <span className="meta" style={{ alignSelf: "center", marginLeft: "auto" }}>
+        <span className="meta" aria-live="polite" style={{ alignSelf: "center", marginLeft: "auto" }}>
           {filtered.length} of {decisions.length} decisions
         </span>
       </div>
 
+      {writeError && <div className="card" role="alert" style={{ marginBottom: 16, padding: "10px 14px", color: "var(--red)" }}>{writeError}</div>}
+
       {/* Table */}
-      <table className="data-table">
+      <div className="table-scroll" tabIndex={0} role="region" aria-label="Decision log">
+        <table className="data-table">
         <thead>
           <tr>
             <SortableTh label="Decision" k="title" />
@@ -396,7 +450,7 @@ export default function DecisionsPage() {
                   <button className="btn-ghost btn btn-xs" onClick={() => openEditDecision(d)}>Edit</button>
                   <button
                     className="btn-ghost btn btn-danger btn-xs"
-                    onClick={() => setPendingDelete(d)}
+                    onClick={() => { setWriteError(""); setPendingDelete(d); }}
                     aria-label={`Delete decision: ${d.title}`}
                   >
                     <X className="size-3.5" />
@@ -415,11 +469,13 @@ export default function DecisionsPage() {
             </tr>
           )}
         </tbody>
-      </table>
+        </table>
+      </div>
+      </div>
 
       {/* Add / edit decision */}
       {decisionForm && (
-        <Dialog open onOpenChange={(open) => !open && setDecisionForm(null)}>
+        <Dialog open onOpenChange={(open) => !open && !writeBusy && setDecisionForm(null)}>
           <DialogContent className="modal-card max-w-[440px]">
             <DialogHeader>
               <DialogTitle>{decisionForm.id ? "Edit decision" : "Add decision"}</DialogTitle>
@@ -498,14 +554,15 @@ export default function DecisionsPage() {
                 />
               </label>
             </div>
+            {writeError && <p className="error-text" role="alert">{writeError}</p>}
             <div className="modal-actions">
-              <button className="btn" onClick={() => setDecisionForm(null)}>Cancel</button>
+              <button type="button" className="btn" onClick={() => setDecisionForm(null)} disabled={writeBusy}>Cancel</button>
               <button
                 className="btn btn-primary"
                 onClick={saveDecision}
-                disabled={decisionForm.title.trim() === ""}
+                disabled={decisionForm.title.trim() === "" || writeBusy}
               >
-                Save decision
+                {writeBusy ? "Saving…" : "Save decision"}
               </button>
             </div>
           </DialogContent>
@@ -514,7 +571,7 @@ export default function DecisionsPage() {
 
       {/* Delete confirmation */}
       {pendingDelete && (
-        <Dialog open onOpenChange={(open) => !open && setPendingDelete(null)}>
+        <Dialog open onOpenChange={(open) => !open && !writeBusy && setPendingDelete(null)}>
           <DialogContent className="modal-card max-w-[440px]">
             <DialogHeader>
               <DialogTitle>Delete this decision?</DialogTitle>
@@ -523,9 +580,12 @@ export default function DecisionsPage() {
               “{pendingDelete.title}” will be permanently removed from the decision log. This cannot
               be undone.
             </DialogDescription>
+            {writeError && <p className="error-text" role="alert">{writeError}</p>}
             <div className="modal-actions">
-              <button className="btn" onClick={() => setPendingDelete(null)}>Cancel</button>
-              <button className="btn btn-danger" onClick={confirmDelete}>Delete decision</button>
+              <button type="button" className="btn" onClick={() => setPendingDelete(null)} disabled={writeBusy}>Cancel</button>
+              <button type="button" className="btn btn-danger" onClick={confirmDelete} disabled={writeBusy}>
+                {writeBusy ? "Deleting…" : "Delete decision"}
+              </button>
             </div>
           </DialogContent>
         </Dialog>

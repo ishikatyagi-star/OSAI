@@ -3,8 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Sheldon - Your company, on autopilot.</title>
-<meta name="description" content="Sheldon is the AI-native operating system for modern companies. Turn scattered context, requests, and institutional knowledge into self-improving workflows that execute automatically across your tools and teams." />
+<title>Sheldon - Turn company context into workflows that move</title>
+<meta name="description" content="Connect company knowledge, route work to the right owner, and review every action before it reaches an external tool." />
+<link rel="canonical" href="https://trysheldon.vercel.app/" />
 <link rel="icon" href="/brand/sheldon-ai-logo.png" />
 <link rel="apple-touch-icon" href="/brand/sheldon-ai-logo.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -17,7 +18,6 @@
      - canvas #090909, surface-1 #141414, surface-2 #1c1c1c
      - white display type, aggressive negative tracking
      - single accent blue #0099ff (links/focus only)
-     - gradient spotlight cards as scarce atmosphere tiles
      - every CTA is a pill
      Display face GT Walsheim is substituted with Inter 600 + tight
      tracking per DESIGN.md "Font Substitutes" guidance.
@@ -243,10 +243,6 @@
   .hero-inner {
     position: relative;
     z-index: 1;
-    display: grid;
-    grid-template-columns: 1.05fr 0.95fr;
-    gap: 64px;
-    align-items: center;
   }
 
   .hero h1 { margin-bottom: 26px; }
@@ -274,93 +270,6 @@
     line-height: 1.4;
   }
 
-  /* hero workflow widget */
-  .wf-panel {
-    background: var(--surface-1);
-    border: 1px solid var(--hairline);
-    border-radius: var(--r-xl);
-    padding: 18px;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.45);
-  }
-
-  .wf-panel-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 4px 6px 14px;
-    border-bottom: 1px solid var(--hairline-soft);
-    margin-bottom: 12px;
-  }
-
-  .wf-panel-title {
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--ink-muted);
-    letter-spacing: -0.13px;
-  }
-
-  .wf-live {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    font-size: 12px;
-    color: var(--ink-muted);
-  }
-  .wf-live::before {
-    content: '';
-    width: 6px; height: 6px; border-radius: 50%;
-    background: var(--success);
-    animation: pulse 1.8s ease-in-out infinite;
-  }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.4; transform: scale(0.7); }
-  }
-
-  .wf-list { display: flex; flex-direction: column; gap: 8px; }
-
-  .wf-card {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    background: var(--surface-2);
-    border: 1px solid var(--hairline-soft);
-    border-radius: var(--r-md);
-    padding: 12px 14px;
-    transition: transform 0.18s ease, border-color 0.18s ease;
-  }
-  .wf-card:hover { transform: translateX(-3px); border-color: var(--hairline); }
-
-  .wf-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-  .wf-dot.done { background: var(--success); }
-  .wf-dot.run { background: var(--amber); animation: pulse 1.5s ease-in-out infinite; }
-  .wf-dot.prog { background: var(--accent-blue); }
-  .wf-dot.queue { background: transparent; border: 1.5px solid var(--ink-muted); }
-
-  .wf-info { flex: 1; min-width: 0; }
-  .wf-label {
-    font-size: 13.5px;
-    font-weight: 500;
-    color: var(--ink);
-    letter-spacing: -0.14px;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-  .wf-meta { font-size: 11.5px; color: var(--ink-muted); margin-top: 3px; }
-
-  .wf-badge {
-    font-size: 11px;
-    font-weight: 500;
-    padding: 4px 9px;
-    border-radius: var(--r-pill);
-    white-space: nowrap;
-    letter-spacing: -0.12px;
-  }
-  .wf-badge.done { background: rgba(34,197,94,0.14); color: #4ade80; }
-  .wf-badge.run { background: rgba(245,158,11,0.14); color: #fbbf24; }
-  .wf-badge.prog { background: rgba(0,153,255,0.14); color: #38bdf8; }
-  .wf-badge.queue { background: var(--surface-1); color: var(--ink-muted); }
-
   /* ---------- PROBLEM ---------- */
   .two-col {
     display: grid;
@@ -383,61 +292,13 @@
     line-height: 1.45;
   }
   .line-list li:first-child { border-top: 1px solid var(--hairline-soft); }
-  .line-list li::before { content: '-'; color: var(--ink); flex-shrink: 0; }
-
-  /* ---------- POSITIONING ---------- */
-  .cap-list { list-style: none; }
-  .cap-list li {
-    display: flex;
-    gap: 12px;
-    padding: 13px 0;
-    border-bottom: 1px solid var(--hairline-soft);
-    font-size: 15px;
-    color: var(--ink-muted);
-  }
-  .cap-list li:first-child { border-top: 1px solid var(--hairline-soft); }
-  .cap-list li::before { content: '↳'; color: var(--accent-blue); flex-shrink: 0; }
-
-  .not-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    margin-top: 40px;
-  }
-  .not-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 13px;
-    color: var(--ink-muted);
-    background: var(--surface-1);
-    border: 1px solid var(--hairline-soft);
-    border-radius: var(--r-pill);
-    padding: 8px 14px;
-  }
-  .not-chip::before { content: '✕'; color: #6b6b6b; }
-
-  /* gradient spotlight card (signature, scarce) */
-  .spotlight {
-    border-radius: var(--r-xxl);
-    padding: 36px;
-    color: #fff;
-    position: relative;
-    overflow: hidden;
-  }
-  .spotlight.violet { background: linear-gradient(150deg, #6a4cf5 0%, #8b4cf0 50%, #d44df0 100%); }
-  .spotlight.orange { background: linear-gradient(150deg, #ff7a3d 0%, #ff5577 100%); }
-  .spotlight-kicker {
-    font-size: 13px;
-    font-weight: 500;
-    opacity: 0.85;
-    margin-bottom: 14px;
-  }
-  .spotlight-quote {
-    font-size: 24px;
-    line-height: 1.3;
-    letter-spacing: -0.4px;
-    font-weight: 500;
+  .line-list li::before {
+    content: '';
+    width: 8px;
+    height: 1px;
+    margin-top: 0.65em;
+    background: var(--ink);
+    flex-shrink: 0;
   }
 
   /* ---------- AGENTIC LOOP ---------- */
@@ -559,14 +420,6 @@
   }
   .out-cell p { font-size: 17px; line-height: 1.35; letter-spacing: -0.3px; color: var(--ink); }
 
-  /* ---------- EARLY PARTNERS ---------- */
-  .partners-inner {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 72px;
-    align-items: center;
-  }
-
   /* ---------- TEAM ---------- */
   .team-grid {
     display: grid;
@@ -670,7 +523,7 @@
     section { padding: 72px 20px; }
     .hero { padding-top: 120px; }
     .hero-inner { grid-template-columns: 1fr; gap: 44px; }
-    .two-col, .partners-inner { grid-template-columns: 1fr; gap: 36px; }
+    .two-col { grid-template-columns: 1fr; gap: 36px; }
     .loop-grid, .feat-grid, .out-grid { grid-template-columns: 1fr 1fr; }
     .grid-4 { grid-template-columns: 1fr 1fr; }
     .feat-card.span2 { grid-column: span 2; }
@@ -685,7 +538,7 @@
     h1 { font-size: 44px; }
   }
 </style>
-<link rel="stylesheet" href="/landing-eleven.css?v=20260708" />
+<link rel="stylesheet" href="/landing-eleven.css?v=20260714-ui-audit" />
 </head>
 <body class="landing-saas">
 
@@ -696,23 +549,21 @@
     <a href="#loop">The Agentic Loop</a>
     <a href="#use-cases">Use Cases</a>
     <a href="#outcomes">Outcomes</a>
-    <a href="#why-now">Why Now</a>
     <a href="#team">Team</a>
   </div>
   <details class="nav-mobile-menu">
-    <summary aria-label="Navigation menu">Menu</summary>
-    <div class="nav-mobile-links">
+    <summary role="button" aria-label="Navigation menu" aria-controls="mobile-navigation" aria-expanded="false">Menu</summary>
+    <div class="nav-mobile-links" id="mobile-navigation">
       <a href="#loop">The Agentic Loop</a>
       <a href="#use-cases">Use Cases</a>
       <a href="#outcomes">Outcomes</a>
-      <a href="#why-now">Why Now</a>
       <a href="#team">Team</a>
       <a href="/login">Sign in</a>
     </div>
   </details>
   <div class="nav-right">
     <a href="/login" class="nav-signin">Sign in</a>
-    <a href="/demo" class="btn btn-primary">Get a demo</a>
+    <a href="/demo" class="btn btn-primary">Try a Demo</a>
   </div>
 </nav>
 
@@ -722,73 +573,17 @@
   <div class="hero-glow"></div>
   <div class="wrap hero-inner">
     <div class="hero-left">
-      <span class="eyebrow dot">AI-native operating system</span>
-      <h1>Your company, <br>on autopilot.</h1>
-      <p class="hero-sub">Turn scattered context, requests, and institutional knowledge into self-improving workflows that execute automatically across your tools and teams.</p>
+      <span class="eyebrow dot">AI operations workspace</span>
+      <h1>Turn company context into workflows that move.</h1>
+      <p class="hero-sub">Connect the knowledge your team already has, route work to the right owner, and review every action before it reaches an external tool.</p>
       <div class="hero-actions">
-        <a href="/demo" class="btn btn-primary btn-lg">Get a demo</a>
-        <a href="#loop" class="btn btn-secondary btn-lg">See how Sheldon works →</a>
+        <a href="/demo" class="btn btn-primary btn-lg">Try a Demo</a>
+        <a href="https://calendar.google.com/calendar/u/0/appointments/schedules/AcZssZ3qwSMjKMhXKW7-NFO0ZqHthdvO6MUio_sAy1UUk1qHU4jbXD6AZhcx5zOzlLeyxFFBdP923DBN" target="_blank" rel="noopener noreferrer" aria-label="Book a Call (opens in a new tab)" class="btn btn-secondary btn-lg">Book a Call</a>
       </div>
-      <p class="hero-micro">Built for fast-moving teams that want to scale execution without scaling coordination overhead.</p>
+      <p class="hero-micro">Built for fast-moving teams that want to scale execution without losing context.</p>
     </div>
-
-    <div class="hero-right">
-      <div class="wf-panel">
-        <div class="wf-panel-head">
-          <span class="wf-panel-title">Live workflow status</span>
-          <span class="wf-live">Live</span>
-        </div>
-        <div class="wf-list">
-          <div class="wf-card">
-            <span class="wf-dot done"></span>
-            <div class="wf-info">
-              <div class="wf-label">Customer renewal exception</div>
-              <div class="wf-meta">RevOps &amp; Finance · 2 approvals</div>
-            </div>
-            <span class="wf-badge done">Completed</span>
-          </div>
-          <div class="wf-card">
-            <span class="wf-dot prog"></span>
-            <div class="wf-info">
-              <div class="wf-label">Enterprise security review</div>
-              <div class="wf-meta">Sales &amp; Legal · awaiting compliance input</div>
-            </div>
-            <span class="wf-badge prog">In progress</span>
-          </div>
-          <div class="wf-card">
-            <span class="wf-dot done"></span>
-            <div class="wf-info">
-              <div class="wf-label">Vendor onboarding</div>
-              <div class="wf-meta">Procurement · 3 documents verified</div>
-            </div>
-            <span class="wf-badge done">Completed</span>
-          </div>
-          <div class="wf-card">
-            <span class="wf-dot run"></span>
-            <div class="wf-info">
-              <div class="wf-label">Support escalation batch</div>
-              <div class="wf-meta">Customer Success · 18 requests routed</div>
-            </div>
-            <span class="wf-badge run">Running</span>
-          </div>
-          <div class="wf-card">
-            <span class="wf-dot queue"></span>
-            <div class="wf-info">
-              <div class="wf-label">New hire setup</div>
-              <div class="wf-meta">People Ops &amp; IT · pending device approval</div>
-            </div>
-            <span class="wf-badge queue">Queued</span>
-          </div>
-          <div class="wf-card">
-            <span class="wf-dot prog"></span>
-            <div class="wf-info">
-              <div class="wf-label">Contract redline review</div>
-              <div class="wf-meta">Sales Ops &amp; Legal · owner assigned</div>
-            </div>
-            <span class="wf-badge prog">In progress</span>
-          </div>
-        </div>
-      </div>
+    <div class="hero-right hero-mascot-stage" aria-hidden="true">
+      <img src="/brand/sheldon-ai-mascot-main-web.webp" alt="" width="720" height="720" fetchpriority="high">
     </div>
   </div>
 </section>
@@ -815,34 +610,6 @@
   </div>
 </section>
 
-<!-- POSITIONING -->
-<section class="positioning">
-  <div class="wrap">
-    <div class="section-head fade-up">
-      <span class="eyebrow">What we're building</span>
-      <h2>A system of execution, not just record.</h2>
-    </div>
-    <div class="two-col">
-      <div class="prose fade-up">
-        <p>Most business software captures data or displays status. <strong>Sheldon acts on that information</strong> by maintaining context, deciding what happens next, and pushing each workflow toward completion.</p>
-        <div class="not-row">
-          <span class="not-chip">Not another dashboard</span>
-          <span class="not-chip">Not another ticketing tool</span>
-          <span class="not-chip">Not another place to update status manually</span>
-        </div>
-      </div>
-      <ul class="cap-list fade-up">
-        <li>Understands requests across teams and systems.</li>
-        <li>Maintains context across the full lifecycle of a workflow.</li>
-        <li>Routes tasks dynamically to the right owners and tools.</li>
-        <li>Automates approvals, follow-ups, and escalations.</li>
-        <li>Tracks workflow state in real time.</li>
-        <li>Improves from historical workflow data over time.</li>
-      </ul>
-    </div>
-  </div>
-</section>
-
 <!-- THE AGENTIC LOOP -->
 <section class="loop" id="loop">
   <div class="wrap">
@@ -853,36 +620,42 @@
     <div class="loop-grid">
       <div class="loop-card fade-up">
         <div class="loop-step"><span class="loop-num">1</span>Ingest</div>
+        <img class="loop-mascot" src="/brand/sheldon-ai-mascot-ingesting-web.webp" alt="" width="240" height="240" loading="lazy">
         <h3>Absorb messy context</h3>
         <p>We absorb messy context from your existing channels - forms, emails, chat, and internal tools.</p>
       </div>
       <div class="loop-card fade-up">
         <div class="loop-step"><span class="loop-num">2</span>Decide</div>
+        <img class="loop-mascot" src="/brand/sheldon-ai-mascot-orchestrating-web.webp" alt="" width="240" height="240" loading="lazy">
         <h3>Reason over workflows</h3>
         <p>Sheldon reasons over workflows rather than just following static rules, determining stakeholders and required context.</p>
       </div>
       <div class="loop-card fade-up">
         <div class="loop-step"><span class="loop-num">3</span>Act</div>
+        <img class="loop-mascot" src="/brand/sheldon-ai-mascot-handoff-web.webp" alt="" width="240" height="240" loading="lazy">
         <h3>Execute in your tools</h3>
         <p>We execute directly inside the tools your team already uses, triggering next steps and requesting approvals.</p>
       </div>
       <div class="loop-card fade-up">
         <div class="loop-step"><span class="loop-num">4</span>Update</div>
+        <img class="loop-mascot" src="/brand/sheldon-ai-mascot-syncing-web.webp" alt="" width="240" height="240" loading="lazy">
         <h3>Sync your system of record</h3>
-        <p>Every action is synced back to your system of record without manual babysitting.</p>
+        <p>Each action is seamlessly synced to your system of record, eliminating manual supervision.</p>
       </div>
       <div class="loop-card fade-up">
         <div class="loop-step"><span class="loop-num">5</span>Audit</div>
+        <img class="loop-mascot" src="/brand/sheldon-ai-mascot-approving-web.webp" alt="" width="240" height="240" loading="lazy">
         <h3>Full transparency</h3>
         <p>Full transparency ensures that humans can verify the steps and trust the outcome.</p>
       </div>
       <div class="loop-card fade-up">
-        <div class="loop-step"><span class="loop-num">∞</span>Loop</div>
+        <div class="loop-step"><span class="loop-num" aria-hidden="true">∞</span>Loop</div>
+        <img class="loop-mascot" src="/brand/sheldon-ai-mascot-learning-web.webp" alt="" width="240" height="240" loading="lazy">
         <h3>The loop improves</h3>
-        <p>Every completed workflow becomes context for the next one.</p>
+        <p>Capture outcomes, exceptions, and decisions as reusable context.</p>
       </div>
       <div class="loop-card repeat fade-up">
-        <div class="loop-step"><span class="loop-num">↻</span>The loop repeats</div>
+        <div class="loop-step"><span class="loop-num" aria-hidden="true">↻</span>The loop repeats</div>
         <p>Every completed workflow becomes context for the next one. Every day, the system gets smarter and your company runs faster.</p>
       </div>
     </div>
@@ -954,26 +727,6 @@
   </div>
 </section>
 
-<!-- WHY NOW -->
-<section class="why-now" id="why-now">
-  <div class="wrap">
-    <div class="two-col" style="margin-top:0; align-items:center;">
-      <div class="section-head fade-up">
-        <span class="eyebrow">Why now</span>
-        <h2>AI can finally operate the layer people have been patching manually.</h2>
-      </div>
-      <div class="prose fade-up">
-        <p>For years, companies solved operational complexity by hiring coordinators, adding new tools, or creating process overhead around the gaps. That approach does not scale well, and it breaks faster as the business grows.</p>
-        <p>AI changes the equation because software can now understand requests, retain context, reason across systems, and drive work forward. That makes it possible to build an AI-native operating system that does more than record what happened - <strong>it helps make the work happen.</strong></p>
-      </div>
-    </div>
-    <div class="spotlight violet fade-up" style="margin-top:56px;">
-      <div class="spotlight-kicker">The shift</div>
-      <div class="spotlight-quote">From systems that store what happened - to a system responsible for making the work happen.</div>
-    </div>
-  </div>
-</section>
-
 <!-- OUTCOMES -->
 <section class="outcomes" id="outcomes">
   <div class="wrap">
@@ -989,26 +742,6 @@
       <div class="out-cell fade-up"><div class="out-num">05</div><p>Better visibility into where work stalls and why.</p></div>
       <div class="out-cell fade-up"><div class="out-num">06</div><p>More operator time spent on decisions, not reminders.</p></div>
     </div>
-  </div>
-</section>
-
-<!-- EARLY PARTNERS -->
-<section class="partners">
-  <div class="wrap partners-inner">
-    <div class="section-head fade-up" style="max-width:none;">
-      <span class="eyebrow">Early partners</span>
-      <h2>We're building this with a small group of ambitious teams.</h2>
-      <div class="prose" style="margin-top:24px;">
-        <p>We're early by design. Sheldon is being shaped in close collaboration with operators who want to rethink how their company actually runs.</p>
-        <p>If you are dealing with repetitive cross-functional workflows, unclear ownership, or execution that depends too much on follow-ups, we want to work with you on the right starting point.</p>
-      </div>
-    </div>
-    <ul class="line-list fade-up">
-      <li>Hands-on workflow design and implementation.</li>
-      <li>Direct access to the founding team.</li>
-      <li>Focus on one high-friction workflow first.</li>
-      <li>Built with your stack, your constraints, and your operating reality.</li>
-    </ul>
   </div>
 </section>
 
@@ -1053,8 +786,8 @@
     <h2>Bring autopilot to one workflow first.</h2>
     <p class="lead">Pick one workflow that is slowing your team down. We'll help map it, redesign it, and show how Sheldon can run it end to end.</p>
     <div class="final-actions">
-      <a href="/demo" class="btn btn-primary btn-lg">Get a demo</a>
-      <a href="#demo" class="btn btn-secondary btn-lg">Share your workflow →</a>
+      <a href="/demo" class="btn btn-primary btn-lg">Try a Demo</a>
+      <a href="https://calendar.google.com/calendar/u/0/appointments/schedules/AcZssZ3qwSMjKMhXKW7-NFO0ZqHthdvO6MUio_sAy1UUk1qHU4jbXD6AZhcx5zOzlLeyxFFBdP923DBN" target="_blank" rel="noopener noreferrer" aria-label="Book a Call (opens in a new tab)" class="btn btn-secondary btn-lg">Book a Call</a>
     </div>
     <p class="final-note">We respond within 24 hours.</p>
   </div>
@@ -1074,12 +807,11 @@
         <a href="#loop">The Agentic Loop</a>
         <a href="#use-cases">Use Cases</a>
         <a href="#outcomes">Outcomes</a>
-        <a href="#why-now">Why Now</a>
         <a href="#team">Team</a>
       </div>
       <div class="footer-col">
         <div class="footer-col-title">Company</div>
-        <a href="#demo">Contact</a>
+        <a href="https://calendar.google.com/calendar/u/0/appointments/schedules/AcZssZ3qwSMjKMhXKW7-NFO0ZqHthdvO6MUio_sAy1UUk1qHU4jbXD6AZhcx5zOzlLeyxFFBdP923DBN" target="_blank" rel="noopener noreferrer" aria-label="Book a Call (opens in a new tab)">Book a Call</a>
         <a href="/login">Sign in</a>
       </div>
     </div>
@@ -1093,6 +825,11 @@
 <script>
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const mobileMenu = document.querySelector('.nav-mobile-menu');
+  const mobileMenuTrigger = mobileMenu.querySelector('summary');
+
+  mobileMenu.addEventListener('toggle', () => {
+    mobileMenuTrigger.setAttribute('aria-expanded', String(mobileMenu.open));
+  });
 
   mobileMenu.addEventListener('click', (event) => {
     if (event.target.closest('a')) mobileMenu.removeAttribute('open');
@@ -1114,18 +851,6 @@
     fadeEls.forEach((el) => observer.observe(el));
   }
 
-  // Stagger the hero workflow cards on load
-  if (!reduceMotion) {
-    document.querySelectorAll('.wf-card').forEach((card, i) => {
-      card.style.opacity = '0';
-      card.style.animation = `floatIn 0.5s ease-out ${0.25 + i * 0.08}s both`;
-    });
-  }
-
-  // floatIn keyframes (injected so we can stagger cleanly)
-  const style = document.createElement('style');
-  style.textContent = '@keyframes floatIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }';
-  document.head.appendChild(style);
 </script>
 </body>
 </html>

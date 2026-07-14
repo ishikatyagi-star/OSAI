@@ -14,20 +14,9 @@ export default function LoginPage() {
 
   useEffect(() => {
     let cancelled = false;
-    // Re-check a few times: the free-tier backend can be cold-starting on the
-    // first load, in which case Google may briefly report as unavailable and
-    // the sign-in button would otherwise stay hidden.
     (async () => {
-      for (let attempt = 0; attempt < 3; attempt++) {
-        const c = await getAuthConfig();
-        if (cancelled) return;
-        if (c.google_enabled) {
-          setGoogleEnabled(true);
-          return;
-        }
-        setGoogleEnabled(false);
-        await new Promise((r) => setTimeout(r, 2000));
-      }
+      const c = await getAuthConfig();
+      if (!cancelled) setGoogleEnabled(c.google_enabled);
     })();
     const invite = new URLSearchParams(window.location.search).get("invite");
     if (invite) setInvitedEmail(invite);
@@ -42,7 +31,7 @@ export default function LoginPage() {
   function enterDemo() {
     // Demo has no real session/cookie - it's the public demo-org reached via the
     // X-Org-Id header. Mark authed locally so the app shell renders; server-side
-    // writes still 401 by design.
+    // writes still 403 by design (the demo workspace is read-only).
     markSignedIn({
       orgId: "demo-org",
       orgName: "Intellact AI",
@@ -59,7 +48,7 @@ export default function LoginPage() {
 
       {/* Nav */}
       <nav className="login-nav">
-        <Link href="/" className="login-nav-logo">
+        <Link href="/" className="login-nav-logo" aria-label="Sheldon home">
           <Image src="/brand/sheldon-ai-logo.png" alt="" width={28} height={28} className="login-nav-logo-mark" priority />
           <span>Sheldon</span>
         </Link>
@@ -100,17 +89,25 @@ export default function LoginPage() {
           </button>
         )}
         {googleEnabled === false && (
-          <div className="login-error">
-            <AlertTriangle className="size-3.5" /> Sign-in isn&apos;t configured yet. Add Google OAuth credentials to enable login.
+          <div className="login-error" role="status">
+            <AlertTriangle className="size-3.5" /> Google sign-in is temporarily unavailable. You can still explore the demo.
           </div>
         )}
 
-        <div className="login-divider">
-          <span>or</span>
-        </div>
+        {googleEnabled === null && (
+          <div className="login-auth-check" role="status" aria-live="polite">
+            Checking sign-in options…
+          </div>
+        )}
+
+        {googleEnabled && (
+          <div className="login-divider">
+            <span>or</span>
+          </div>
+        )}
 
         {/* Demo CTA */}
-        <button onClick={enterDemo} className="login-demo-btn">
+        <button type="button" onClick={enterDemo} className="login-demo-btn">
           <Sparkles className="size-4" />
           <span>Try Demo - no account needed</span>
           <ArrowRight className="login-demo-arrow size-4" />

@@ -16,11 +16,13 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from db.models import Notification, Thread, ThreadTurn, User, now_utc
-from db.session import get_db, get_optional_claims, get_org_id
+from db.session import get_db, get_optional_claims, get_org_id, require_writable_org
 
 router = APIRouter(prefix="/threads", tags=["threads"])
 DbSession = Annotated[Session, Depends(get_db)]
 OrgId = Annotated[str, Depends(get_org_id)]
+# Writes must never come from the anonymous demo workspace (SEC-003).
+WriteOrgId = Annotated[str, Depends(require_writable_org)]
 OptionalClaims = Annotated[dict | None, Depends(get_optional_claims)]
 
 _MAX_TEXT = 40_000
@@ -61,7 +63,7 @@ class ThreadCreate(BaseModel):
 
 @router.post("")
 async def create_thread(
-    body: ThreadCreate, db: DbSession, org_id: OrgId, claims: OptionalClaims
+    body: ThreadCreate, db: DbSession, org_id: WriteOrgId, claims: OptionalClaims
 ) -> dict:
     user_id, email = _user(claims)
     t = Thread(org_id=org_id, created_by=user_id, created_by_name=email, title=body.title.strip())
@@ -126,7 +128,7 @@ class TurnCreate(BaseModel):
 
 @router.post("/{thread_id}/turns")
 async def append_turn(
-    body: TurnCreate, db: DbSession, org_id: OrgId, claims: OptionalClaims, thread_id: str
+    body: TurnCreate, db: DbSession, org_id: WriteOrgId, claims: OptionalClaims, thread_id: str
 ) -> dict:
     if body.role not in ("user", "assistant"):
         raise HTTPException(status_code=422, detail="role must be 'user' or 'assistant'")
@@ -182,7 +184,7 @@ class ThreadPatch(BaseModel):
 
 @router.patch("/{thread_id}")
 async def update_thread(
-    body: ThreadPatch, db: DbSession, org_id: OrgId, claims: OptionalClaims, thread_id: str
+    body: ThreadPatch, db: DbSession, org_id: WriteOrgId, claims: OptionalClaims, thread_id: str
 ) -> dict:
     user_id, _ = _user(claims)
     t = _get_visible(db, org_id, thread_id, user_id)

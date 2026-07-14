@@ -19,13 +19,15 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException
 from sqlalchemy.orm import Session
 
 from db.models import Org
-from db.session import get_db, get_org_id
+from db.session import get_db, get_org_id, require_writable_org
 
 logger = logging.getLogger("osai.slack_ask")
 
 router = APIRouter(tags=["slack"])
 DbSession = Annotated[Session, Depends(get_db)]
 OrgId = Annotated[str, Depends(get_org_id)]
+# Writes must never come from the anonymous demo workspace (SEC-003).
+WriteOrgId = Annotated[str, Depends(require_writable_org)]
 
 
 def _hash(token: str) -> str:
@@ -33,7 +35,7 @@ def _hash(token: str) -> str:
 
 
 @router.post("/settings/slack-ask-token")
-async def mint_slack_ask_token(db: DbSession, org_id: OrgId) -> dict:
+async def mint_slack_ask_token(db: DbSession, org_id: WriteOrgId) -> dict:
     """Mint (or rotate) the org's Slack /ask token. Plaintext returned once."""
     org = db.get(Org, org_id)
     if org is None:
@@ -49,7 +51,7 @@ async def mint_slack_ask_token(db: DbSession, org_id: OrgId) -> dict:
 
 
 @router.delete("/settings/slack-ask-token")
-async def revoke_slack_ask_token(db: DbSession, org_id: OrgId) -> dict:
+async def revoke_slack_ask_token(db: DbSession, org_id: WriteOrgId) -> dict:
     org = db.get(Org, org_id)
     if org is None:
         raise HTTPException(status_code=404, detail="Org not found.")

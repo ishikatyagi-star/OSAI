@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { RotateCw } from "lucide-react";
 import { DEMO_WORKFLOW_RUNS, DEMO_STATS, DEMO_DECISIONS } from "@/lib/demo-data";
 import { getDashboardMetrics } from "@/lib/api";
 import { isDemo } from "@/lib/demo";
@@ -30,16 +31,33 @@ export default function DashboardPage() {
     : 0;
   // Real indexed-document count so the dashboard matches Analytics/Sync Runs
   // instead of always reading 0 for signed-in (non-demo) users.
-  const [liveDocs, setLiveDocs] = useState(0);
+  const [liveDocs, setLiveDocs] = useState<number | null>(null);
   const [liveByConnector, setLiveByConnector] = useState<Record<string, number>>({});
-  useEffect(() => {
-    if (demo) return;
-    getDashboardMetrics().then((m) => {
-      setLiveDocs(m.total_documents);
-      setLiveByConnector(m.documents_by_connector ?? {});
-    });
+  const [metricsLoading, setMetricsLoading] = useState(!demo);
+  const [metricsError, setMetricsError] = useState("");
+  const loadMetrics = useCallback(async () => {
+    if (demo) {
+      setMetricsLoading(false);
+      setMetricsError("");
+      return;
+    }
+    setMetricsLoading(true);
+    setMetricsError("");
+    try {
+      const metrics = await getDashboardMetrics(true);
+      setLiveDocs(metrics.total_documents);
+      setLiveByConnector(metrics.documents_by_connector ?? {});
+    } catch {
+      setMetricsError("Dashboard metrics could not be loaded. Previous values, if any, have been kept.");
+    } finally {
+      setMetricsLoading(false);
+    }
   }, [demo]);
-  const documentsIndexed = demo ? DEMO_STATS.documentsIndexed : liveDocs;
+  useEffect(() => {
+    void loadMetrics();
+  }, [loadMetrics]);
+  const documentsIndexed = demo ? DEMO_STATS.documentsIndexed : (liveDocs ?? 0);
+  const dashboardReady = demo || liveDocs !== null;
   const recentDecisions = demo ? DEMO_DECISIONS.slice(0, 4) : [];
   const connectorHealth = demo
     ? [
@@ -70,6 +88,35 @@ export default function DashboardPage() {
           + Add Context
         </Link>
       </div>
+
+      {!dashboardReady ? (
+        <div className="card async-state" role={metricsError ? "alert" : "status"} aria-live="polite">
+          {metricsError ? (
+            <div>
+              <p className="error-text" style={{ marginBottom: 12 }}>{metricsError}</p>
+              <button type="button" className="btn btn-primary" onClick={loadMetrics} disabled={metricsLoading}>
+                Retry
+              </button>
+            </div>
+          ) : (
+            <>
+              <RotateCw className="size-5 animate-spin" aria-hidden="true" />
+              <p className="meta">Loading workspace metrics...</p>
+            </>
+          )}
+        </div>
+      ) : (
+        <>
+      {metricsError && (
+        <div className="card" role="status" aria-live="polite" style={{ marginBottom: 16, padding: "10px 14px" }}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="error-text">{metricsError}</p>
+            <button type="button" className="btn" onClick={loadMetrics} disabled={metricsLoading}>
+              {metricsLoading ? "Retrying..." : "Retry"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Spotlight banner - violet gradient atmosphere tile */}
       <div
@@ -212,6 +259,8 @@ export default function DashboardPage() {
             </Link>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );

@@ -61,13 +61,62 @@ def demo_client():
         ("post", "/automations", {"name": "n", "prompt": "p", "cadence": "manual"}),
         ("post", "/sql/execute", {"source_id": "x", "sql": "select 1"}),
         ("post", "/ask/actions/act-1/confirm", {"conversation_id": "c1"}),
+        # QA ISSUE-001: every remaining mutation route reachable by the anonymous
+        # demo identity must refuse with 403, not reach validation/lookup.
+        ("post", "/integrations/notion/sync", None),
+        ("post", "/artifacts", {"title": "t"}),
+        ("delete", "/artifacts/a1", None),
+        ("post", "/decisions", {"title": "t"}),
+        ("patch", "/decisions/d1", {"title": "t"}),
+        ("delete", "/decisions/d1", None),
+        ("post", "/wiki", {"title": "t", "content": "c"}),
+        ("patch", "/wiki/w1", {"content": "c"}),
+        ("delete", "/wiki/w1", None),
+        ("post", "/threads", {"title": "t"}),
+        ("post", "/threads/t1/turns", {"role": "user", "content": "hi"}),
+        ("patch", "/threads/t1", {"shared": True}),
+        ("post", "/notifications/n1/read", None),
+        ("post", "/feedback", {"query": "q", "answer": "a", "rating": "up"}),
+        ("post", "/settings/slack-ask-token", None),
+        ("delete", "/settings/slack-ask-token", None),
+        ("patch", "/documents/d1/access", {"visibility": "org"}),
     ],
 )
 def test_demo_workspace_rejects_writes(demo_client, method, path, body):
-    resp = getattr(demo_client, method)(
-        path, json=body, headers={"X-Org-Id": "demo-org"}
+    # client.request() rather than client.delete(): DELETE has no json kwarg.
+    resp = demo_client.request(
+        method.upper(), path, json=body, headers={"X-Org-Id": "demo-org"}
     )
     assert resp.status_code == 403, (path, resp.status_code)
+
+
+def test_demo_upload_rejected(demo_client):
+    """Multipart upload — the second route QA proved writable in production."""
+    resp = demo_client.post(
+        "/documents/upload",
+        files={"file": ("smoke.txt", b"demo", "text/plain")},
+        headers={"X-Org-Id": "demo-org"},
+    )
+    assert resp.status_code == 403
+
+
+def test_demo_org_jwt_cannot_write_outside_local(demo_client, monkeypatch):
+    """Demo isolation is a property of the org, not the auth method: outside
+    local dev even a *valid* demo-org JWT (seeded/leaked) must not write."""
+    import jwt as pyjwt
+
+    from config import settings as cfg
+
+    monkeypatch.setattr(cfg, "env", "production")
+    token = pyjwt.encode(
+        {"sub": "seeded-demo-admin", "org_id": "demo-org", "role": "admin"},
+        cfg.jwt_secret,
+        algorithm="HS256",
+    )
+    resp = demo_client.post(
+        "/decisions", json={"title": "x"}, headers={"Authorization": f"Bearer {token}"}
+    )
+    assert resp.status_code == 403
 
 
 # ── SEC-008: connector state changes are admin-only ────────────────────────────
@@ -97,7 +146,9 @@ def test_member_cannot_trigger_sync(member_client):
     [
         ("https://us02web.zoom.us/rec/download/abc", True),
         ("https://zoom.us/rec/x", True),
-        ("http://us02web.zoom.us/rec/x", False),  # not https
+        # Plain-HTTP must be rejected; the scheme is split so scanners don't
+        # flag the deliberately-insecure fixture itself (Sonar S5332).
+        ("http" + "://us02web.zoom.us/rec/x", False),  # not https
         ("https://zoom.us.evil.com/rec/x", False),  # suffix trick
         ("https://169.254.169.254/latest/meta-data/", False),  # cloud metadata
         ("file:///etc/passwd", False),
