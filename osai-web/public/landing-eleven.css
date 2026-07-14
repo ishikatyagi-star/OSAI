@@ -113,6 +113,20 @@ nav {
   display: none;
 }
 
+@media (max-width: 980px) {
+  .nav-mobile-menu {
+    display: block;
+  }
+
+  .landing-saas .nav-mobile-menu[open]::before {
+    content: "";
+    position: fixed;
+    inset: 64px 0 0;
+    background: rgba(20, 20, 20, 0.34);
+    backdrop-filter: blur(2px);
+  }
+}
+
 .nav-mobile-links {
   position: fixed;
   top: 72px;
@@ -235,6 +249,20 @@ section {
   border-top: 0 !important;
 }
 
+.landing-saas section {
+  padding: clamp(64px, 7vw, 88px) clamp(20px, 4vw, 48px) !important;
+}
+
+.landing-saas .hero {
+  min-height: auto !important;
+  padding-top: clamp(104px, 10vw, 128px) !important;
+  padding-bottom: clamp(56px, 6vw, 72px) !important;
+}
+
+.landing-saas .nav-mobile-links {
+  z-index: 1;
+}
+
 .hero::before,
 .hero-glow,
 .final-glow {
@@ -275,18 +303,6 @@ section {
   opacity: 0.28 !important;
 }
 
-.hero-pixel-img {
-  opacity: 0.24 !important;
-  filter: saturate(0.65) contrast(0.85) blur(0.2px) !important;
-}
-
-/* The university source image contains interface copy; fading that copy turns
-   it into unreadable pseudo-content. Keep the atmospheric gradient, not text
-   users cannot actually read. */
-.landing-university .hero-pixel-img {
-  display: none !important;
-}
-
 .hero-overlay {
   background: linear-gradient(90deg, rgba(245, 245, 245, 0.98), rgba(245, 245, 245, 0.86) 42%, rgba(245, 245, 245, 0.34)) !important;
 }
@@ -303,8 +319,22 @@ section {
 }
 
 .hero-inner {
+  display: grid !important;
   grid-template-columns: minmax(0, 1fr) minmax(320px, 440px) !important;
+  align-items: center;
   gap: clamp(42px, 7vw, 96px) !important;
+}
+
+.hero-mascot-stage {
+  display: grid;
+  place-items: center;
+  align-self: center;
+}
+
+.hero-mascot-stage img {
+  width: min(100%, 440px);
+  height: auto;
+  filter: drop-shadow(0 28px 28px rgba(41, 37, 36, 0.12));
 }
 
 .hero-tag,
@@ -653,12 +683,31 @@ footer span {
 }
 
 .landing-saas .loop-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 96px;
+  column-gap: 16px;
+  min-height: 210px;
   padding: 28px 24px !important;
   background: transparent !important;
   border: 0 !important;
   border-bottom: 1px solid var(--el-hairline-strong) !important;
   border-radius: 0 !important;
   box-shadow: none !important;
+}
+
+.loop-mascot {
+  position: static;
+  grid-column: 2;
+  grid-row: 1 / span 3;
+  align-self: end;
+  justify-self: end;
+  width: 96px;
+  height: auto;
+}
+
+.landing-saas .loop-card > :not(.loop-mascot) {
+  grid-column: 1;
 }
 
 .landing-saas .loop-card:nth-child(odd):not(.repeat) {
@@ -671,6 +720,7 @@ footer span {
 }
 
 .loop-card.repeat {
+  grid-template-columns: 1fr;
   background: var(--el-surface-strong) !important;
 }
 
@@ -760,6 +810,10 @@ footer .footer-logo,
     max-width: 520px;
   }
 
+  .hero-mascot-stage {
+    margin-inline: auto;
+  }
+
   .hero::before {
     width: 88vw;
     height: 88vw;
@@ -776,6 +830,8 @@ footer .footer-logo,
 
   nav {
     min-height: 64px !important;
+    justify-content: flex-start !important;
+    gap: 8px !important;
   }
 
   .nav-links,
@@ -785,11 +841,25 @@ footer .footer-logo,
 
   .nav-mobile-menu {
     display: block;
+    margin-left: auto;
   }
 
+  .landing-university .nav-logo span {
+    display: none !important;
+  }
+
+  .landing-saas .nav-mobile-menu[open]::before,
+  .landing-university .nav-mobile-menu[open]::before {
+    content: "";
+    position: fixed;
+    inset: 64px 0 0;
+    background: rgba(20, 20, 20, 0.34);
+    backdrop-filter: blur(2px);
+  }
   .nav-right,
   nav > div {
     gap: 8px !important;
+    flex: 0 0 auto;
   }
 
   .nav-signin,
@@ -802,6 +872,12 @@ footer .footer-logo,
   .btn-secondary,
   .nav-demo-btn {
     max-width: 100%;
+  }
+
+  .nav-demo-btn {
+    padding-inline: 14px !important;
+    font-size: 14px !important;
+    white-space: nowrap;
   }
 
   h1 {
@@ -822,9 +898,10 @@ footer .footer-logo,
   .hero-tag,
   .eyebrow.dot {
     overflow-wrap: anywhere;
+  }
 
   h2 {
-    font-size: clamp(32px, 11vw, 46px) !important;
+    font-size: clamp(28px, 8vw, 30px) !important;
   }
 
   .hero-actions,
@@ -885,6 +962,59 @@ footer .footer-logo,
   .landing-saas .loop-card:nth-child(odd):not(.repeat) {
     border-right: 0 !important;
   }
+
+  .landing-saas .hero-inner {
+    gap: 16px !important;
+  }
+
+  .landing-saas .hero-mascot-stage img {
+    width: 180px;
+  }
+
+  .landing-saas .loop-card {
+    min-height: 180px;
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
+    grid-template-columns: minmax(0, 1fr) 72px;
+    column-gap: 12px;
+    padding: 20px !important;
+  }
+
+  .landing-saas .loop-card.repeat p {
+    min-width: 0;
+  }
+
+  .loop-mascot {
+    width: 72px;
+  }
+
+  .landing-saas .loop-card.repeat {
+    grid-template-columns: 1fr;
+  }
+}
+
+.contact-form-unavailable {
+  display: grid;
+  align-content: center;
+  gap: 16px;
+  min-height: 320px;
+  padding: 32px !important;
+}
+
+.contact-form-unavailable h3 {
+  max-width: 20ch;
+  color: var(--el-ink) !important;
+  font-family: var(--el-serif) !important;
+  font-size: clamp(24px, 3vw, 34px) !important;
+  line-height: 1.15 !important;
+}
+
+.contact-form-unavailable p {
+  max-width: 52ch;
+  color: var(--el-body) !important;
+  font-family: var(--el-sans) !important;
+  line-height: 1.65 !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

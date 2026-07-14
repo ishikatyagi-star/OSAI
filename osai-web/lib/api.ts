@@ -54,7 +54,8 @@ function handleUnauthorized(status: number) {
 async function apiGet<T>(
   path: string,
   fallback: T,
-  timeoutMs: number = DEFAULT_TIMEOUT_MS
+  timeoutMs: number = DEFAULT_TIMEOUT_MS,
+  throwOnError = false
 ): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -70,10 +71,12 @@ async function apiGet<T>(
       // is indistinguishable from an empty workspace. Surface it so a broken
       // backend is diagnosable in the console instead of looking like "no data".
       console.warn(`GET ${path} failed (${res.status}); using fallback.`);
+      if (throwOnError) throw new Error(`GET ${path} failed (${res.status})`);
       return fallback;
     }
     return (await res.json()) as T;
   } catch (err) {
+    if (throwOnError) throw err;
     // Network error or timeout abort - same reasoning as above.
     console.warn(`GET ${path} errored (${(err as Error)?.name ?? "error"}); using fallback.`);
     return fallback;
@@ -116,33 +119,51 @@ async function apiPost<TBody, TResult>(
 
 async function apiPatch<TBody, TResult>(
   path: string,
-  body: TBody
+  body: TBody,
+  timeoutMs: number = POST_TIMEOUT_MS
 ): Promise<TResult> {
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    method: "PATCH",
-    headers: getHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify(body),
-    cache: "no-store",
-  });
-  if (!res.ok) {
-    handleUnauthorized(res.status);
-    const detail = await res.text();
-    throw new Error(`PATCH ${path} failed (${res.status}): ${detail}`);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${API_BASE_URL}${path}`, {
+      method: "PATCH",
+      headers: getHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify(body),
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      handleUnauthorized(res.status);
+      const detail = await res.text();
+      throw new Error(`PATCH ${path} failed (${res.status}): ${detail}`);
+    }
+    return (await res.json()) as TResult;
+  } finally {
+    clearTimeout(timer);
   }
-  return (await res.json()) as TResult;
 }
 
-async function apiDelete<TResult>(path: string): Promise<TResult> {
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    method: "DELETE",
-    headers: getHeaders(),
-    cache: "no-store",
-  });
-  if (!res.ok) {
-    handleUnauthorized(res.status);
-    throw new Error(`DELETE ${path} failed (${res.status})`);
+async function apiDelete<TResult>(
+  path: string,
+  timeoutMs: number = POST_TIMEOUT_MS
+): Promise<TResult> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${API_BASE_URL}${path}`, {
+      method: "DELETE",
+      headers: getHeaders(),
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      handleUnauthorized(res.status);
+      throw new Error(`DELETE ${path} failed (${res.status})`);
+    }
+    return (await res.json()) as TResult;
+  } finally {
+    clearTimeout(timer);
   }
-  return (await res.json()) as TResult;
 }
 
 // ─── Authentication & Onboarding ─────────────────────────────────────────────
@@ -195,8 +216,10 @@ export function clearSession() {
     "osai_token",
     "osai_org_id",
     "osai_org_name",
+    "osai_user_id",
     "osai_user_email",
     "osai_user_name",
+    "osai_demo",
   ]) {
     localStorage.removeItem(k);
   }
@@ -259,12 +282,12 @@ export type TeamInvite = {
   invite_link: string;
 };
 
-export function getTeamMembers() {
-  return apiGet<TeamMember[]>("/team/members", []);
+export function getTeamMembers(strict = false) {
+  return apiGet<TeamMember[]>("/team/members", [], DEFAULT_TIMEOUT_MS, strict);
 }
 
-export function getDepartments() {
-  return apiGet<Department[]>("/team/departments", []);
+export function getDepartments(strict = false) {
+  return apiGet<Department[]>("/team/departments", [], DEFAULT_TIMEOUT_MS, strict);
 }
 
 export function createDepartment(name: string, color?: string) {
@@ -274,8 +297,8 @@ export function createDepartment(name: string, color?: string) {
   });
 }
 
-export function getInvites() {
-  return apiGet<TeamInvite[]>("/team/invites", []);
+export function getInvites(strict = false) {
+  return apiGet<TeamInvite[]>("/team/invites", [], DEFAULT_TIMEOUT_MS, strict);
 }
 
 export function createInvite(
@@ -307,8 +330,8 @@ export function updateMember(
 
 // ─── Integrations ────────────────────────────────────────────────────────────
 
-export function getIntegrations() {
-  return apiGet<Integration[]>("/integrations", []);
+export function getIntegrations(strict = false) {
+  return apiGet<Integration[]>("/integrations", [], DEFAULT_TIMEOUT_MS, strict);
 }
 
 export function triggerSync(connectorKey: string) {
@@ -391,34 +414,38 @@ export type ConnectorDocument = {
 // Indexed documents for a connector (powers the Synced files view). Uses a high
 // limit so the file list and its count reflect the full active index rather than
 // a truncated slice that would disagree with the card's total.
-export function getConnectorDocuments(connectorKey: string) {
+export function getConnectorDocuments(connectorKey: string, strict = false) {
   return apiGet<ConnectorDocument[]>(
     `/integrations/${connectorKey}/documents?limit=500`,
-    []
+    [],
+    DEFAULT_TIMEOUT_MS,
+    strict
   );
 }
 
-export function getHealthcheck(connectorKey: string) {
+export function getHealthcheck(connectorKey: string, strict = false) {
   return apiGet<{ healthy: boolean; message: string }>(
     `/integrations/${connectorKey}/healthcheck`,
-    { healthy: false, message: "Unknown" }
+    { healthy: false, message: "Unknown" },
+    DEFAULT_TIMEOUT_MS,
+    strict
   );
 }
 
 // ─── Sync Runs ───────────────────────────────────────────────────────────────
 
-export function getSyncRuns() {
-  return apiGet<SyncRun[]>("/sync-runs", []);
+export function getSyncRuns(strict = false) {
+  return apiGet<SyncRun[]>("/sync-runs", [], DEFAULT_TIMEOUT_MS, strict);
 }
 
 // ─── Workflows ───────────────────────────────────────────────────────────────
 
-export function getWorkflowRuns() {
-  return apiGet<WorkflowRun[]>("/workflows", []);
+export function getWorkflowRuns(strict = false) {
+  return apiGet<WorkflowRun[]>("/workflows", [], DEFAULT_TIMEOUT_MS, strict);
 }
 
-export function getWorkflowRun(id: string) {
-  return apiGet<WorkflowRun | null>(`/workflows/${id}`, null);
+export function getWorkflowRun(id: string, strict = false) {
+  return apiGet<WorkflowRun | null>(`/workflows/${id}`, null, DEFAULT_TIMEOUT_MS, strict);
 }
 
 export function postWorkflow(
@@ -494,7 +521,7 @@ export type DashboardMetrics = {
   automations: number;
 };
 
-export function getDashboardMetrics() {
+export function getDashboardMetrics(strict = false) {
   return apiGet<DashboardMetrics>("/dashboard/metrics", {
     total_documents: 0,
     documents_by_connector: {},
@@ -506,7 +533,7 @@ export function getDashboardMetrics() {
     members: 0,
     departments: 0,
     automations: 0,
-  });
+  }, DEFAULT_TIMEOUT_MS, strict);
 }
 
 // ─── Automations (NL scheduled tasks) ─────────────────────────────────────────
@@ -535,8 +562,8 @@ export type Automation = {
   has_trigger_token?: boolean;
 };
 
-export function getAutomations() {
-  return apiGet<Automation[]>("/automations", []);
+export function getAutomations(strict = false) {
+  return apiGet<Automation[]>("/automations", [], DEFAULT_TIMEOUT_MS, strict);
 }
 
 export function createAutomation(input: {
@@ -597,8 +624,8 @@ export type ApiDecision = {
   updated_at: string | null;
 };
 
-export function getDecisions() {
-  return apiGet<ApiDecision[]>("/decisions", []);
+export function getDecisions(strict = false) {
+  return apiGet<ApiDecision[]>("/decisions", [], undefined, strict);
 }
 
 export function createDecision(input: {
@@ -662,18 +689,18 @@ export type AccessMap = {
   }[];
 };
 
-export function getAccessMap() {
+export function getAccessMap(strict = false) {
   return apiGet<AccessMap>("/graph/access", {
     users: [],
     connectors: [],
     access: [],
-  });
+  }, DEFAULT_TIMEOUT_MS, strict);
 }
 
 // ─── Evals (Phase 6 - GET /evals) ─────────────────────────────────────────────
 
-export function getEvalRun() {
-  return apiGet<EvalRun | null>("/evals", null);
+export function getEvalRun(strict = false) {
+  return apiGet<EvalRun | null>("/evals", null, DEFAULT_TIMEOUT_MS, strict);
 }
 
 // ─── Knowledge base uploads (POST /documents/upload) ─────────────────────────
@@ -780,12 +807,12 @@ export function createThread(title: string) {
   return apiPost<{ title: string }, ThreadSummary>("/threads", { title });
 }
 
-export function listThreads() {
-  return apiGet<ThreadSummary[]>("/threads", []);
+export function listThreads(strict = false) {
+  return apiGet<ThreadSummary[]>("/threads", [], DEFAULT_TIMEOUT_MS, strict);
 }
 
-export function getThread(id: string) {
-  return apiGet<(ThreadSummary & { turns: ThreadTurnRow[] }) | null>(`/threads/${id}`, null);
+export function getThread(id: string, strict = false) {
+  return apiGet<(ThreadSummary & { turns: ThreadTurnRow[] }) | null>(`/threads/${id}`, null, DEFAULT_TIMEOUT_MS, strict);
 }
 
 export function appendThreadTurn(
@@ -823,8 +850,8 @@ export type WikiRevisionRow = {
   created_at: string | null;
 };
 
-export function getWikiEntries() {
-  return apiGet<WikiEntry[]>("/wiki", []);
+export function getWikiEntries(strict = false) {
+  return apiGet<WikiEntry[]>("/wiki", [], DEFAULT_TIMEOUT_MS, strict);
 }
 
 export function createWikiEntry(input: { title: string; content: string }) {
@@ -842,8 +869,8 @@ export function deleteWikiEntry(id: string) {
   return apiDelete<{ deleted: boolean }>(`/wiki/${id}`);
 }
 
-export function getWikiRevisions(id: string) {
-  return apiGet<WikiRevisionRow[]>(`/wiki/${id}/revisions`, []);
+export function getWikiRevisions(id: string, strict = false) {
+  return apiGet<WikiRevisionRow[]>(`/wiki/${id}/revisions`, [], DEFAULT_TIMEOUT_MS, strict);
 }
 
 // ─── Saved artifacts ─────────────────────────────────────────────────────────
@@ -867,8 +894,8 @@ export function saveArtifact(input: {
   return apiPost<typeof input, SavedArtifactRow>("/artifacts", input);
 }
 
-export function listArtifacts() {
-  return apiGet<SavedArtifactRow[]>("/artifacts", []);
+export function listArtifacts(strict = false) {
+  return apiGet<SavedArtifactRow[]>("/artifacts", [], DEFAULT_TIMEOUT_MS, strict);
 }
 
 export function deleteArtifact(id: string) {
@@ -881,8 +908,8 @@ export type SqlSourceRow = { id: string; name: string; dsn: string };
 export type SqlPlan = { sql: string; explanation: string };
 export type SqlResult = { sql: string; columns: string[]; rows: unknown[][]; row_count: number };
 
-export function listSqlSources() {
-  return apiGet<SqlSourceRow[]>("/sql/sources", []);
+export function listSqlSources(strict = false) {
+  return apiGet<SqlSourceRow[]>("/sql/sources", [], DEFAULT_TIMEOUT_MS, strict);
 }
 
 export function addSqlSource(input: { name: string; dsn: string }) {

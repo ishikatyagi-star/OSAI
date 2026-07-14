@@ -1,6 +1,16 @@
-import { redirect } from "next/navigation";
+"use client";
 
-// Evals moved into Settings → Advanced to declutter the main navigation.
+import Link from "next/link";
+import { ChevronLeft } from "lucide-react";
+import { EvalDashboard } from "@/components/evals/eval-dashboard";
+
 export default function EvalsPage() {
-  redirect("/settings/advanced");
+  return (
+    <div>
+      <Link href="/settings" className="back-link">
+        <ChevronLeft className="size-3.5" aria-hidden="true" /> Settings
+      </Link>
+      <EvalDashboard />
+    </div>
+  );
 }

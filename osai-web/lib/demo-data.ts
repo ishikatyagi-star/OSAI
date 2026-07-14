@@ -2,6 +2,7 @@
 // fully populated for recordings and stakeholder demos.
 
 import type { Integration, SyncRun, WorkflowRun, SearchResponse, DataRouting } from "./types";
+import type { Department, TeamMember } from "./api";
 
 export const DEMO_INTEGRATIONS: Integration[] = [
   {
@@ -356,18 +357,71 @@ export const DEMO_DATA_ROUTING: DataRouting = {
   },
 };
 
+export const DEMO_DOCS_PER_CONNECTOR: Record<string, number> = {
+  notion: 847,
+  slack: 302,
+  google_drive: 98,
+  freshdesk: 47,
+  zoom: 12,
+};
+
+export const DEMO_DEPARTMENTS: Department[] = [
+  { id: "dept-engineering", name: "Engineering", color: "#2563eb", members: 2 },
+  { id: "dept-product", name: "Product", color: "#7c3aed", members: 1 },
+  { id: "dept-support", name: "Customer Support", color: "#059669", members: 1 },
+];
+
+export const DEMO_TEAM_MEMBERS: TeamMember[] = [
+  {
+    id: "member-sarah",
+    email: "sarah@company.com",
+    display_name: "Sarah Chen",
+    role: "admin",
+    department_id: "dept-engineering",
+    department: "Engineering",
+    data_tier: "red",
+    status: "active",
+  },
+  {
+    id: "member-yash",
+    email: "yash@company.com",
+    display_name: "Yash Das",
+    role: "member",
+    department_id: "dept-engineering",
+    department: "Engineering",
+    data_tier: "amber",
+    status: "active",
+  },
+  {
+    id: "member-anish",
+    email: "anish@company.com",
+    display_name: "Anish Patel",
+    role: "member",
+    department_id: "dept-product",
+    department: "Product",
+    data_tier: "amber",
+    status: "active",
+  },
+  {
+    id: "member-ishika",
+    email: "ishika@company.com",
+    display_name: "Ishika Tyagi",
+    role: "member",
+    department_id: "dept-support",
+    department: "Customer Support",
+    data_tier: "normal",
+    status: "active",
+  },
+];
+
 export const DEMO_STATS = {
-  documentsIndexed: 1247,
-  connectorsActive: 5,
+  documentsIndexed: Object.values(DEMO_DOCS_PER_CONNECTOR).reduce((sum, count) => sum + count, 0),
+  connectorsActive: DEMO_INTEGRATIONS.filter((item) => item.auth_state === "connected").length,
   workflowsRun: 24,
-  pendingActions: 6,
-  docsPerConnector: {
-    notion: 847,
-    slack: 302,
-    google_drive: 98,
-    freshdesk: 47,
-    zoom: 12,
-  } as Record<string, number>,
+  pendingActions: DEMO_WORKFLOW_RUNS.flatMap((run) => run.action_items ?? []).filter(
+    (item) => item.status === "needs_review"
+  ).length,
+  docsPerConnector: DEMO_DOCS_PER_CONNECTOR,
 };
 
 export type Decision = {

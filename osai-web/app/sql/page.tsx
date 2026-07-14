@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bookmark, Database, Loader2, Play, Plus, Sparkles, Trash2 } from "lucide-react";
+import { Bookmark, Database, Eye, EyeOff, Loader2, Play, Plus, Sparkles, Trash2 } from "lucide-react";
 import {
   addSqlSource,
   deleteSqlSource,
@@ -15,6 +15,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { isDemo } from "@/lib/demo";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 /** Data: ask questions of live databases with a visible, editable SQL plan.
  * The LLM proposes the query; nothing runs until you approve it - and
@@ -27,22 +36,72 @@ export default function SqlPage() {
   const [newDsn, setNewDsn] = useState("");
   const [question, setQuestion] = useState("");
   const [sql, setSql] = useState("");
+  const [plannedSourceId, setPlannedSourceId] = useState<string | null>(null);
   const [explanation, setExplanation] = useState("");
   const [result, setResult] = useState<SqlResult | null>(null);
   const [busy, setBusy] = useState<"plan" | "run" | "add" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [savingArtifact, setSavingArtifact] = useState(false);
+  const [loadingSources, setLoadingSources] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [showDsn, setShowDsn] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<SqlSourceRow | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+  const demo = isDemo();
+
+  function clearPlanState() {
+    setSql("");
+    setExplanation("");
+    setResult(null);
+    setSaved(false);
+    setError(null);
+    setPlannedSourceId(null);
+  }
 
   async function reloadSources() {
-    const rows = await listSqlSources();
-    setSources(rows);
-    if (rows.length && !rows.some((r) => r.id === sourceId)) setSourceId(rows[0].id);
+    setLoadingSources(true);
+    setLoadError("");
+    if (isDemo()) {
+      setSources([]);
+      setLoadingSources(false);
+      return;
+    }
+    try {
+      const rows = await listSqlSources(true);
+      setSources(rows);
+      if (rows.length && !rows.some((r) => r.id === sourceId)) setSourceId(rows[0].id);
+    } catch {
+      setLoadError("Data sources could not be loaded. Check your connection and retry.");
+    } finally {
+      setLoadingSources(false);
+    }
   }
 
   useEffect(() => {
     reloadSources();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function handleDeleteSource() {
+    if (!pendingDelete || deleteBusy) return;
+    const deletingId = pendingDelete.id;
+    setDeleteBusy(true);
+    setDeleteError("");
+    try {
+      await deleteSqlSource(deletingId);
+      const remaining = sources.filter((source) => source.id !== deletingId);
+      setSources(remaining);
+      setSourceId((current) => current === deletingId ? (remaining[0]?.id ?? "") : current);
+      if (sourceId === deletingId) clearPlanState();
+      setPendingDelete(null);
+    } catch {
+      setDeleteError("The data source could not be removed. Please try again.");
+    } finally {
+      setDeleteBusy(false);
+    }
+  }
 
   async function handleAdd() {
     if (!newName.trim() || !newDsn.trim()) return;
@@ -54,15 +113,15 @@ export default function SqlPage() {
       setNewName("");
       setNewDsn("");
       await reloadSources();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not add source.");
+    } catch {
+      setError("Could not add the source. Verify the read-only connection details and try again.");
     } finally {
       setBusy(null);
     }
   }
 
   async function handlePlan() {
-    if (!sourceId || !question.trim()) return;
+    if (!sourceId || !question.trim() || busy) return;
     setBusy("plan");
     setError(null);
     setResult(null);
@@ -71,30 +130,38 @@ export default function SqlPage() {
       const p = await planSqlQuery({ source_id: sourceId, question });
       setSql(p.sql);
       setExplanation(p.explanation);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not generate a plan.");
+      setPlannedSourceId(sourceId);
+    } catch {
+      setError("Could not generate a SQL plan. Please try again.");
     } finally {
       setBusy(null);
     }
   }
 
   async function handleRun() {
-    if (!sourceId || !sql.trim()) return;
+    if (!sourceId || !sql.trim() || busy) return;
+    if (plannedSourceId !== sourceId) {
+      setError("This SQL plan belongs to a different data source. Generate a new plan before running it.");
+      return;
+    }
     setBusy("run");
     setError(null);
     setSaved(false);
     try {
       setResult(await executeSqlQuery({ source_id: sourceId, sql }));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Query failed.");
+    } catch {
+      setError("The read-only query failed. Review the SQL and try again.");
     } finally {
       setBusy(null);
     }
   }
 
   async function handleSaveArtifact() {
-    if (!result) return;
-    await saveArtifact({
+    if (!result || savingArtifact || saved) return;
+    setSavingArtifact(true);
+    setError(null);
+    try {
+      await saveArtifact({
       title: question.trim() || "SQL result",
       kind: "source_table",
       data: {
@@ -108,8 +175,13 @@ export default function SqlPage() {
           tone: "neutral",
         })),
       },
-    });
-    setSaved(true);
+      });
+      setSaved(true);
+    } catch {
+      setError("The result could not be saved as an artifact. Please try again.");
+    } finally {
+      setSavingArtifact(false);
+    }
   }
 
   return (
@@ -122,7 +194,7 @@ export default function SqlPage() {
             and only runs what you approve - read-only, where the data lives.
           </p>
         </div>
-        <Button onClick={() => setAdding((v) => !v)}>
+        <Button onClick={() => setAdding((v) => !v)} disabled={demo} title={demo ? "Data connections are disabled in the shared demo" : undefined}>
           <Plus size={14} /> Add source
         </Button>
       </div>
@@ -130,12 +202,27 @@ export default function SqlPage() {
       {adding && (
         <div className="card" style={{ marginBottom: 16, padding: 16 }}>
           <div className="flex flex-col gap-2">
-            <Input placeholder="Name (e.g. warehouse)" value={newName} onChange={(e) => setNewName(e.target.value)} />
-            <Input
-              placeholder="postgresql://user:pass@host:5432/db (read-only credentials recommended)"
-              value={newDsn}
-              onChange={(e) => setNewDsn(e.target.value)}
-            />
+            <label className="text-caption" style={{ display: "grid", gap: 6 }}>
+              Source name
+              <Input name="source-name" autoComplete="off" placeholder="e.g. warehouse" value={newName} onChange={(e) => setNewName(e.target.value)} />
+            </label>
+            <label className="text-caption" style={{ display: "grid", gap: 6 }}>
+              Read-only PostgreSQL connection string
+              <span className="relative flex items-center">
+                <Input
+                  name="dsn"
+                  type={showDsn ? "text" : "password"}
+                  autoComplete="off"
+                  placeholder="postgresql://user:pass@host:5432/db"
+                  value={newDsn}
+                  onChange={(e) => setNewDsn(e.target.value)}
+                  className="pr-12"
+                />
+                <Button type="button" size="icon" variant="ghost" className="absolute right-1" onClick={() => setShowDsn((visible) => !visible)} aria-label={showDsn ? "Hide connection string" : "Show connection string"}>
+                  {showDsn ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </Button>
+              </span>
+            </label>
             <div className="flex justify-end gap-2">
               <Button variant="ghost" onClick={() => setAdding(false)} disabled={busy === "add"}>
                 Cancel
@@ -148,11 +235,20 @@ export default function SqlPage() {
         </div>
       )}
 
-      {sources.length === 0 ? (
+      {loadError ? (
+        <div className="card async-state" role="alert">
+          <div>
+            <p className="error-text" style={{ marginBottom: 12 }}>{loadError}</p>
+            <button type="button" className="btn btn-primary" onClick={reloadSources}>Retry</button>
+          </div>
+        </div>
+      ) : loadingSources ? (
+        <div className="card async-state" role="status" aria-live="polite">Loading data sources…</div>
+      ) : sources.length === 0 ? (
         <div className="card" style={{ padding: 24, textAlign: "center" }}>
           <Database className="mx-auto mb-2 size-6 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">
-            No data sources yet. Connect a PostgreSQL database to ask it questions.
+             {demo ? "Live database connections are disabled in the shared demo workspace." : "No data sources yet. Connect a PostgreSQL database to ask it questions."}
           </p>
         </div>
       ) : (
@@ -162,7 +258,10 @@ export default function SqlPage() {
             <select
               aria-label="Data source"
               value={sourceId}
-              onChange={(e) => setSourceId(e.target.value)}
+              onChange={(e) => {
+                setSourceId(e.target.value);
+                clearPlanState();
+              }}
               style={{
                 background: "var(--bg-surface)",
                 color: "inherit",
@@ -183,12 +282,8 @@ export default function SqlPage() {
                 size="sm"
                 variant="ghost"
                 className="text-destructive"
-                aria-label="Remove source"
-                onClick={async () => {
-                  await deleteSqlSource(sourceId);
-                  setSourceId("");
-                  reloadSources();
-                }}
+                aria-label={`Remove source: ${sources.find((source) => source.id === sourceId)?.name ?? "selected source"}`}
+                onClick={() => { setDeleteError(""); setPendingDelete(sources.find((source) => source.id === sourceId) ?? null); }}
               >
                 <Trash2 className="size-3.5" />
               </Button>
@@ -220,7 +315,7 @@ export default function SqlPage() {
                   style={{ fontFamily: "monospace", fontSize: 12 }}
                 />
                 <div className="flex justify-end">
-                  <Button onClick={handleRun} disabled={busy !== null || !sql.trim()}>
+                  <Button onClick={handleRun} disabled={busy !== null || !sql.trim() || plannedSourceId !== sourceId}>
                     {busy === "run" ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}
                     Run query
                   </Button>
@@ -228,7 +323,7 @@ export default function SqlPage() {
               </div>
             )}
 
-            {error && <p className="mt-2 text-xs text-red-500">{error}</p>}
+            {error && <p className="mt-2 text-xs text-red-500" role="alert">{error}</p>}
           </div>
 
           {result && (
@@ -237,12 +332,13 @@ export default function SqlPage() {
                 <span className="text-xs text-muted-foreground">
                   {result.row_count} row{result.row_count === 1 ? "" : "s"}
                 </span>
-                <Button size="sm" variant="ghost" onClick={handleSaveArtifact} disabled={saved}>
-                  <Bookmark className="size-3.5" /> {saved ? "Saved" : "Save as artifact"}
+                <Button size="sm" variant="ghost" onClick={handleSaveArtifact} disabled={saved || savingArtifact}>
+                  {savingArtifact ? <Loader2 className="size-3.5 animate-spin" /> : <Bookmark className="size-3.5" />}
+                  {savingArtifact ? "Saving..." : saved ? "Saved" : "Save as artifact"}
                 </Button>
               </div>
-              <div style={{ overflowX: "auto" }}>
-                <table className="w-full text-left text-sm">
+              <div className="table-scroll" tabIndex={0} role="region" aria-label="SQL query results">
+                <table className="data-table">
                   <thead>
                     <tr>
                       {result.columns.map((c) => (
@@ -268,6 +364,29 @@ export default function SqlPage() {
             </div>
           )}
         </>
+      )}
+
+      {pendingDelete && (
+        <Dialog open onOpenChange={(open) => !open && !deleteBusy && setPendingDelete(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Remove this data source?</DialogTitle>
+              <DialogDescription>“{pendingDelete.name}” will be removed from Sheldon. The database itself will not be changed.</DialogDescription>
+            </DialogHeader>
+            {deleteError && <p className="error-text" role="alert">{deleteError}</p>}
+            <DialogFooter>
+              <button type="button" className="btn" onClick={() => setPendingDelete(null)} disabled={deleteBusy}>Cancel</button>
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={handleDeleteSource}
+                disabled={deleteBusy}
+              >
+                {deleteBusy ? "Removing..." : "Remove source"}
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

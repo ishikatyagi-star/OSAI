@@ -11,6 +11,7 @@ const css = await readFile(new URL("../public/landing-eleven.css", import.meta.u
 const nextConfig = await readFile(new URL("../next.config.ts", import.meta.url), "utf8");
 const landingRoute = await readFile(new URL("../app/landing/route.ts", import.meta.url), "utf8");
 const root = fileURLToPath(new URL("..", import.meta.url));
+const calendarUrl = "https://calendar.google.com/calendar/u/0/appointments/schedules/AcZssZ3qwSMjKMhXKW7-NFO0ZqHthdvO6MUio_sAy1UUk1qHU4jbXD6AZhcx5zOzlLeyxFFBdP923DBN";
 const sourceExtensions = new Set([".css", ".html", ".js", ".jsx", ".json", ".mjs", ".svg", ".ts", ".tsx"]);
 
 async function frontendSourceFiles(dir) {
@@ -36,13 +37,33 @@ test("homepage keeps its audit fixes", () => {
   assert.equal((html.match(/<main\b/g) ?? []).length, 1);
   assert.equal((html.match(/<\/main>/g) ?? []).length, 1);
   assert.match(html, /<details class="nav-mobile-menu">/);
+  assert.match(html, /<summary role="button" aria-label="Navigation menu" aria-controls="mobile-navigation" aria-expanded="false">/);
+  assert.match(html, /mobileMenuTrigger\.setAttribute\('aria-expanded', String\(mobileMenu\.open\)\)/);
   assert.match(html, /mobileMenu\.removeAttribute\('open'\)/);
-  assert.match(html, /See how Sheldon works/);
+  assert.equal((html.match(/>Book a Call<\/a>/g) ?? []).length, 3);
+  assert.equal((html.match(/>Try a Demo<\/a>/g) ?? []).length, 3);
+  assert.equal((html.match(new RegExp(`<a href="${calendarUrl}" target="_blank" rel="noopener noreferrer" aria-label="Book a Call \\(opens in a new tab\\)" class="btn btn-secondary btn-lg">Book a Call<\\/a>`, "g")) ?? []).length, 2);
+  assert.equal((html.match(/<a href="\/demo" class="btn btn-primary(?: btn-lg)?">Try a Demo<\/a>/g) ?? []).length, 3);
+  assert.doesNotMatch(html, /Share your workflow|Get a demo|See how Sheldon works/);
+  assert.doesNotMatch(html, /<section class="positioning">/);
+  assert.match(css, /\.landing-saas \.hero\s*{[^}]*min-height: auto !important;/s);
+  assert.match(css, /\.landing-saas \.nav-mobile-menu\[open\]::before\s*,\s*\.landing-university \.nav-mobile-menu\[open\]::before\s*{/);
+  assert.match(css, /@media \(max-width: 980px\)\s*{[\s\S]*?\.nav-mobile-menu\s*{\s*display: block;/);
+  assert.match(css, /\.landing-saas \.loop-card\s*{[\s\S]*?min-width: 0;[\s\S]*?width: 100%;/);
+  assert.match(html, /landing-eleven\.css\?v=20260714-ui-audit/);
+  assert.match(universityHtml, /landing-eleven\.css\?v=20260714-ui-audit/);
   assert.doesNotMatch(html, /Explore live workflow/);
   assert.match(html, /matchMedia\('\(prefers-reduced-motion: reduce\)'\)/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
   assert.match(css, /\.prose p strong\s*{[^}]*color: var\(--el-ink\) !important;/s);
   assert.match(css, /\.out-cell p\s*{[^}]*color: var\(--el-body\) !important;/s);
+});
+
+test("website contains no share-workflow CTA", async () => {
+  const publicFiles = await frontendSourceFiles(path.join(root, "public"));
+  for (const file of publicFiles.filter((file) => path.extname(file) === ".html")) {
+    assert.doesNotMatch(await readFile(file, "utf8"), /Share your workflow/i, file);
+  }
 });
 
 test("root landing route does not shadow app routes", () => {
