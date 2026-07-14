@@ -3,8 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FlaskConical, Users, ChevronRight, Trash2, type LucideIcon } from "lucide-react";
-import { deleteAccount, resetWorkspaceContent, mintSlackAskToken, revokeSlackAskToken } from "@/lib/api";
+import { FlaskConical, Users, ChevronRight, Trash2, LogOut, type LucideIcon } from "lucide-react";
+import { clearSession, deleteAccount, logoutAllSessions, resetWorkspaceContent, mintSlackAskToken, revokeSlackAskToken } from "@/lib/api";
 import { isDemo } from "@/lib/demo";
 import {
   Dialog,
@@ -45,6 +45,8 @@ export default function SettingsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [signOutAllOpen, setSignOutAllOpen] = useState(false);
+  const [signingOutAll, setSigningOutAll] = useState(false);
   const [resetMsg, setResetMsg] = useState("");
   const [resetError, setResetError] = useState("");
   const [resetConfirm, setResetConfirm] = useState("");
@@ -125,6 +127,19 @@ export default function SettingsPage() {
       setDeleteError("Your account was not deleted. Please try again or contact support.");
     } finally {
       setDeleting(false);
+    }
+  }
+
+  async function handleSignOutEverywhere() {
+    setSigningOutAll(true);
+    try {
+      await logoutAllSessions();
+    } catch {
+      // Even if the revoke call fails, drop this device's session so the button
+      // never leaves the user believing they're signed out when they aren't.
+      clearSession();
+    } finally {
+      router.replace("/login");
     }
   }
 
@@ -231,6 +246,25 @@ export default function SettingsPage() {
         className="card"
         style={{ marginTop: 12, borderColor: "color-mix(in srgb, var(--red) 35%, var(--border))" }}
       >
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 20 }}>
+          <div
+            className="connector-icon-badge"
+            style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)" }}
+          >
+            <LogOut size={18} strokeWidth={1.75} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <h2 style={{ margin: 0 }}>Sign out everywhere</h2>
+            <p className="meta" style={{ margin: "4px 0 12px", lineHeight: 1.5 }}>
+              Revoke every active session on all devices. Use this if you&apos;ve lost a device or
+              suspect your account is compromised. You&apos;ll need to sign in again here too.
+            </p>
+            <button className="btn" onClick={() => setSignOutAllOpen(true)}>
+              Sign out everywhere
+            </button>
+          </div>
+        </div>
+
         <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
           <div
             className="connector-icon-badge"
@@ -271,6 +305,26 @@ export default function SettingsPage() {
             </button>
             <button type="button" className="btn btn-danger" onClick={handleReset} disabled={resetting || resetConfirm !== "CLEAR"}>
               {resetting ? "Clearing\u2026" : "Yes, clear data"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={signOutAllOpen} onOpenChange={setSignOutAllOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Sign out everywhere</DialogTitle>
+            <DialogDescription>
+              This revokes every active session on all devices, including this one. Anyone using
+              your account will be signed out and will need to sign in again.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <button className="btn" onClick={() => setSignOutAllOpen(false)} disabled={signingOutAll}>
+              Cancel
+            </button>
+            <button className="btn btn-danger" onClick={handleSignOutEverywhere} disabled={signingOutAll}>
+              {signingOutAll ? "Signing out…" : "Sign out everywhere"}
             </button>
           </DialogFooter>
         </DialogContent>
