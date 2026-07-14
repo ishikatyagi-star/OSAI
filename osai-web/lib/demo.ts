@@ -6,12 +6,22 @@
 //   - NEXT_PUBLIC_OSAI_DEMO=1 at build time (e.g. the pitch deployment), or
 //   - localStorage `osai_demo` === "1", or
 //   - the session org is the shared "demo-org" (the /demo + "Try Demo" path).
+//
+// A real signed-in session always wins (SHE-5): a customer signed into their
+// own org must never see the bundled DEMO_* fixtures, even on a deployment
+// built with the demo env flag or with stale demo keys left in localStorage.
 export function isDemo(): boolean {
-  if (process.env.NEXT_PUBLIC_OSAI_DEMO === "1") return true;
-  if (typeof window === "undefined") return false;
+  if (typeof window === "undefined") {
+    return process.env.NEXT_PUBLIC_OSAI_DEMO === "1";
+  }
+  const orgId = localStorage.getItem("osai_org_id");
+  const signedInRealOrg =
+    localStorage.getItem("osai_authed") === "1" && !!orgId && orgId !== "demo-org";
+  if (signedInRealOrg) return false;
   return (
+    process.env.NEXT_PUBLIC_OSAI_DEMO === "1" ||
     localStorage.getItem("osai_demo") === "1" ||
-    localStorage.getItem("osai_org_id") === "demo-org"
+    orgId === "demo-org"
   );
 }
 

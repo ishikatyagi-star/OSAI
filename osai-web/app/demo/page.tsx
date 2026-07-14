@@ -9,8 +9,10 @@ export default function DemoPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // Set demo credentials in localStorage
-    localStorage.setItem("osai_token", "demo-token");
+    // Mark the shared demo workspace locally. Only non-sensitive display flags
+    // are stored - no token key at all (QA E-03): demo auth is the X-Org-Id
+    // header, and real sessions live in the httpOnly cookie.
+    localStorage.removeItem("osai_token"); // legacy key from older builds
     localStorage.setItem("osai_org_id", "demo-org");
     localStorage.setItem("osai_org_name", "Intellact AI");
     localStorage.setItem("osai_user_email", "admin@intellactai.com");

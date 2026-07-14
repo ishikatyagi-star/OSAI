@@ -246,6 +246,13 @@ export function markSignedIn(fields: {
   name?: string;
 }) {
   if (typeof window === "undefined") return;
+  if (fields.orgId !== "demo-org") {
+    // Signing into a real org ends any demo session: stale demo flags (or a
+    // legacy token key) must not leak DEMO_* fixtures into a customer
+    // workspace (SHE-5) or keep a pre-cookie JWT around (QA E-03).
+    localStorage.removeItem("osai_demo");
+    localStorage.removeItem("osai_token");
+  }
   localStorage.setItem("osai_authed", "1");
   localStorage.setItem("osai_org_id", fields.orgId);
   if (fields.orgName) localStorage.setItem("osai_org_name", fields.orgName);

@@ -45,8 +45,9 @@ export default function OnboardingPage() {
       localStorage.setItem("osai_org_name", res.name);
       localStorage.setItem("osai_user_name", res.admin_display_name);
       try {
+        // login() lands the httpOnly session cookie; the JWT itself must never
+        // be persisted in localStorage (QA E-03).
         const session = await login({ email: adminEmail.trim() });
-        localStorage.setItem("osai_token", session.token);
         localStorage.setItem("osai_user_id", session.user_id);
       } catch {
         /* login optional in some modes */

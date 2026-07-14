@@ -207,15 +207,15 @@ def test_stale_token_version_is_rejected():
     assert getattr(exc.value, "status_code", None) == 401
 
 
-def test_logout_all_revokes_outstanding_tokens():
-    """POST /auth/logout-all bumps the generation so previously issued tokens
-    (carrying the old tv) stop being accepted."""
+def _seed_member_with_token() -> str:
+    """Create a fresh demo-org member and return a freshly issued session JWT.
+    Shared by the revocation and cookie-auth tests (kills the Sonar-flagged
+    duplicated setup block)."""
     import uuid
 
     from api.routes.auth import _issue_token
     from db.models import Org, User
-    from db.repositories import assert_token_current
-    from db.session import SessionLocal, _decode_token
+    from db.session import SessionLocal
 
     uid = f"user-{uuid.uuid4()}"
     with SessionLocal() as s:
@@ -232,8 +232,16 @@ def test_logout_all_revokes_outstanding_tokens():
             )
         )
         s.commit()
-        token = _issue_token(s.get(User, uid))
+        return _issue_token(s.get(User, uid))
 
+
+def test_logout_all_revokes_outstanding_tokens():
+    """POST /auth/logout-all bumps the generation so previously issued tokens
+    (carrying the old tv) stop being accepted."""
+    from db.repositories import assert_token_current
+    from db.session import SessionLocal, _decode_token
+
+    token = _seed_member_with_token()
     claims = _decode_token(f"Bearer {token}")
     assert claims["tv"] == 0
     with SessionLocal() as s:
@@ -254,28 +262,9 @@ def test_logout_all_revokes_outstanding_tokens():
 def test_session_cookie_carries_auth_and_is_httponly():
     """A valid JWT in the osai_session cookie authenticates a request (no
     Authorization header), and the login response sets it httpOnly + Lax."""
-    import uuid
+    from db.session import SESSION_COOKIE, get_claims
 
-    from api.routes.auth import _issue_token
-    from db.models import Org, User
-    from db.session import SESSION_COOKIE, SessionLocal, get_claims
-
-    uid = f"user-{uuid.uuid4()}"
-    with SessionLocal() as s:
-        if s.get(Org, "demo-org") is None:
-            s.add(Org(id="demo-org", name="demo"))
-        s.add(
-            User(
-                id=uid,
-                org_id="demo-org",
-                email=f"{uid}@t.test",
-                display_name="t",
-                role="member",
-                token_version=0,
-            )
-        )
-        s.commit()
-        token = _issue_token(s.get(User, uid))
+    token = _seed_member_with_token()
 
     # get_claims resolves the principal from the cookie alone (no header). Drop
     # any conftest override so the real dependency runs.
