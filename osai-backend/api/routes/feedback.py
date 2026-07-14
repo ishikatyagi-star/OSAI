@@ -10,12 +10,14 @@ from sqlalchemy.orm import Session
 
 from db.models import AnswerFeedback
 from db.repositories import try_db
-from db.session import get_db, get_optional_claims, get_org_id, require_admin
+from db.session import get_db, get_optional_claims, get_org_id, require_admin, require_writable_org
 from memory.org_memory import record_memory
 
 router = APIRouter(prefix="/feedback", tags=["feedback"])
 DbSession = Annotated[Session, Depends(get_db)]
 OrgId = Annotated[str, Depends(get_org_id)]
+# Writes must never come from the anonymous demo workspace (SEC-003).
+WriteOrgId = Annotated[str, Depends(require_writable_org)]
 OptionalClaims = Annotated[dict | None, Depends(get_optional_claims)]
 
 _MAX_TEXT = 20_000
@@ -38,7 +40,7 @@ class FeedbackCreate(BaseModel):
 
 @router.post("")
 async def submit_feedback(
-    body: FeedbackCreate, db: DbSession, org_id: OrgId, claims: OptionalClaims
+    body: FeedbackCreate, db: DbSession, org_id: WriteOrgId, claims: OptionalClaims
 ) -> dict:
     if body.rating not in ("up", "down"):
         raise HTTPException(status_code=422, detail="rating must be 'up' or 'down'")

@@ -81,11 +81,16 @@ async def require_writable_org(
     the X-Org-Id header (see get_org_id). Anonymous callers must therefore never
     drive writes or side effects there: mutating settings, running workflows,
     triggering syncs, executing SQL, or confirming connector actions (SEC-003).
-    A genuinely authenticated member (valid JWT) is always allowed."""
+
+    Outside local dev the shared demo org is read-only *even with a valid JWT*
+    (e.g. a leaked/seeded demo-org token) — demo isolation is a property of the
+    org, not of how the caller authenticated. Local dev signs into seeded
+    demo-org users and still needs writes, so the env gate keeps that working."""
     claims = _decode_token(authorization)
-    if claims and claims.get("org_id"):
-        return claims["org_id"]
-    if x_org_id == settings.default_org_id:
+    org_id = claims.get("org_id") if claims else None
+    if org_id and (org_id != settings.default_org_id or settings.env == "local"):
+        return org_id
+    if org_id == settings.default_org_id or x_org_id == settings.default_org_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="The demo workspace is read-only.",

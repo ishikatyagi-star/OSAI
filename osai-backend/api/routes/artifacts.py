@@ -9,11 +9,13 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from db.models import SavedArtifact
-from db.session import get_db, get_optional_claims, get_org_id
+from db.session import get_db, get_optional_claims, get_org_id, require_writable_org
 
 router = APIRouter(prefix="/artifacts", tags=["artifacts"])
 DbSession = Annotated[Session, Depends(get_db)]
 OrgId = Annotated[str, Depends(get_org_id)]
+# Writes must never come from the anonymous demo workspace (SEC-003).
+WriteOrgId = Annotated[str, Depends(require_writable_org)]
 OptionalClaims = Annotated[dict | None, Depends(get_optional_claims)]
 
 
@@ -38,7 +40,7 @@ class ArtifactCreate(BaseModel):
 
 @router.post("")
 async def save_artifact(
-    body: ArtifactCreate, db: DbSession, org_id: OrgId, claims: OptionalClaims
+    body: ArtifactCreate, db: DbSession, org_id: WriteOrgId, claims: OptionalClaims
 ) -> dict:
     a = SavedArtifact(
         org_id=org_id,
@@ -67,7 +69,7 @@ async def list_artifacts(db: DbSession, org_id: OrgId) -> list[dict]:
 
 
 @router.delete("/{artifact_id}")
-async def delete_artifact(db: DbSession, org_id: OrgId, artifact_id: str) -> dict:
+async def delete_artifact(db: DbSession, org_id: WriteOrgId, artifact_id: str) -> dict:
     a = db.get(SavedArtifact, artifact_id)
     if a is None or a.org_id != org_id:
         raise HTTPException(status_code=404, detail="Artifact not found.")

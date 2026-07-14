@@ -8,11 +8,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from db.models import Notification
-from db.session import get_db, get_optional_claims, get_org_id
+from db.session import get_db, get_optional_claims, get_org_id, require_writable_org
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 DbSession = Annotated[Session, Depends(get_db)]
 OrgId = Annotated[str, Depends(get_org_id)]
+# Writes must never come from the anonymous demo workspace (SEC-003).
+WriteOrgId = Annotated[str, Depends(require_writable_org)]
 OptionalClaims = Annotated[dict | None, Depends(get_optional_claims)]
 
 
@@ -43,7 +45,7 @@ async def list_notifications(
 
 @router.post("/{notification_id}/read")
 async def mark_read(
-    db: DbSession, org_id: OrgId, claims: OptionalClaims, notification_id: str
+    db: DbSession, org_id: WriteOrgId, claims: OptionalClaims, notification_id: str
 ) -> dict:
     user_id = claims.get("sub") if claims else None
     n = db.get(Notification, notification_id)
