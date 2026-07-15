@@ -452,31 +452,68 @@
   .loop-arrow-left { top: 48%; left: 18%; }
 
   /* ---------- USE CASES ---------- */
-  .grid-4 {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 16px;
+  .saas-workflows {
     margin-top: 56px;
+    border-top: 1px solid var(--hairline);
   }
-  .uc-card {
-    background: var(--surface-1);
-    border: 1px solid var(--hairline);
-    border-radius: var(--r-xl);
-    padding: 26px;
-    transition: border-color 0.15s, transform 0.15s;
+
+  .saas-workflow {
+    display: grid;
+    grid-template-columns: 48px minmax(180px, 0.8fr) minmax(320px, 1.6fr) minmax(130px, 0.6fr);
+    align-items: center;
+    gap: 24px;
+    min-height: 136px;
+    padding: 24px 0;
+    border-bottom: 1px solid var(--hairline);
+    transition: background-color 0.18s ease-out, padding 0.18s ease-out;
   }
-  .uc-card:hover { border-color: #333; transform: translateY(-3px); }
-  .uc-kicker {
+
+  .saas-workflow:hover {
+    padding-right: 20px;
+    padding-left: 20px;
+    background: rgba(255, 255, 255, 0.56);
+  }
+
+  .workflow-index {
+    color: var(--ink-muted);
+    font-family: var(--el-serif, Georgia, serif);
+    font-size: 18px;
+  }
+
+  .workflow-team {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--ink-muted);
     font-size: 12px;
-    color: var(--accent-blue);
     font-weight: 600;
-    letter-spacing: 0.04em;
-    margin-bottom: 18px;
-    display: flex; align-items: center; gap: 8px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
   }
-  .uc-kicker::before { content: ''; width: 18px; height: 1px; background: var(--accent-blue); }
-  .uc-card h3 { font-size: 19px; margin-bottom: 12px; }
-  .uc-card p { font-size: 14px; line-height: 1.5; color: var(--ink-muted); }
+
+  .workflow-name h3 { font-size: 19px; line-height: 1.25; }
+
+  .workflow-path {
+    color: var(--ink-muted);
+    font-size: 15px;
+    line-height: 1.55;
+  }
+
+  .workflow-path span {
+    display: inline-block;
+    margin: 0 5px;
+    color: var(--ink);
+  }
+
+  .workflow-result {
+    justify-self: end;
+    padding: 8px 12px;
+    background: var(--surface-2);
+    border-radius: var(--r-pill);
+    color: var(--ink);
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
 
   /* ---------- INSIDE Sheldon (features) ---------- */
   .feat-grid {
@@ -662,6 +699,13 @@
       width: min(190px, 70vw);
     }
     .grid-4 { grid-template-columns: 1fr 1fr; }
+    .saas-workflow {
+      grid-template-columns: 36px minmax(160px, 0.8fr) minmax(0, 1.5fr);
+    }
+    .workflow-result {
+      grid-column: 2 / -1;
+      justify-self: start;
+    }
     .feat-card.span2 { grid-column: span 2; }
     .footer-inner { grid-template-columns: 1fr; }
     .footer-cols { justify-content: flex-start; gap: 48px; }
@@ -671,6 +715,15 @@
     .loop-grid, .feat-grid, .out-grid, .grid-4, .team-grid { grid-template-columns: 1fr; }
     .feat-card.span2 { grid-column: span 1; }
     .loop-card.repeat { grid-column: 1 / -1; }
+    .saas-workflow {
+      grid-template-columns: 32px 1fr;
+      gap: 10px 14px;
+      padding: 22px 0;
+    }
+    .workflow-index { grid-row: 1 / span 3; }
+    .workflow-path,
+    .workflow-result { grid-column: 2; }
+    .workflow-result { margin-top: 4px; }
     h1 { font-size: 44px; }
   }
 </style>
@@ -795,31 +848,47 @@
 <section class="use-cases" id="use-cases">
   <div class="wrap">
     <div class="section-head fade-up">
-      <span class="eyebrow">Where we start</span>
-      <h2>High-friction workflows with clear business impact.</h2>
-      <p class="lead" style="margin-top:20px;">Start with the workflows that consume the most coordination time, involve the most cross-functional handoffs, and are easiest to measure.</p>
+      <span class="eyebrow">SaaS workflows</span>
+      <h2>Keep every stage of your SaaS company moving.</h2>
+      <p class="lead" style="margin-top:20px;">Sheldon carries work from the first signal to the final system update, across the workflows your teams run every day.</p>
     </div>
-    <div class="grid-4">
-      <div class="uc-card fade-up">
-        <div class="uc-kicker">Revenue Operations</div>
-        <h3>Deal desk &amp; approvals</h3>
-        <p>Discount approvals, quote exceptions, contract redlines, handoff coordination, and deal desk workflows that span Sales, Finance, and Legal.</p>
-      </div>
-      <div class="uc-card fade-up">
-        <div class="uc-kicker">Customer Operations</div>
-        <h3>Escalations &amp; renewals</h3>
-        <p>Escalations, implementation tasks, renewal coordination, account exceptions, and cross-functional customer requests that require multiple teams to stay aligned.</p>
-      </div>
-      <div class="uc-card fade-up">
-        <div class="uc-kicker">Finance &amp; Procurement</div>
-        <h3>Vendors &amp; approvals</h3>
-        <p>Reimbursements, vendor onboarding, purchasing approvals, invoice exceptions, and budget requests with multiple dependencies and stakeholders.</p>
-      </div>
-      <div class="uc-card fade-up">
-        <div class="uc-kicker">People Operations</div>
-        <h3>Hiring &amp; access</h3>
-        <p>Hiring workflows, onboarding, offboarding, leave approvals, access provisioning, and internal requests that touch HR, IT, and managers.</p>
-      </div>
+    <div class="saas-workflows" role="list">
+      <article class="saas-workflow fade-up" role="listitem">
+        <div class="workflow-index">01</div>
+        <div class="workflow-name"><span class="workflow-team">Revenue</span><h3>Lead to closed-won</h3></div>
+        <p class="workflow-path">Capture and enrich <span>→</span> route the owner <span>→</span> run follow-ups <span>→</span> coordinate deal desk <span>→</span> update the CRM</p>
+        <div class="workflow-result">CRM current</div>
+      </article>
+      <article class="saas-workflow fade-up" role="listitem">
+        <div class="workflow-index">02</div>
+        <div class="workflow-name"><span class="workflow-team">Customer success</span><h3>Signed to live</h3></div>
+        <p class="workflow-path">Receive the handoff <span>→</span> schedule kickoff <span>→</span> provision access <span>→</span> track onboarding <span>→</span> launch the customer</p>
+        <div class="workflow-result">Customer launched</div>
+      </article>
+      <article class="saas-workflow fade-up" role="listitem">
+        <div class="workflow-index">03</div>
+        <div class="workflow-name"><span class="workflow-team">Support</span><h3>Escalation to resolution</h3></div>
+        <p class="workflow-path">Detect severity <span>→</span> gather account context <span>→</span> route engineering <span>→</span> update the customer <span>→</span> close the loop</p>
+        <div class="workflow-result">Issue resolved</div>
+      </article>
+      <article class="saas-workflow fade-up" role="listitem">
+        <div class="workflow-index">04</div>
+        <div class="workflow-name"><span class="workflow-team">Product</span><h3>Feedback to roadmap</h3></div>
+        <p class="workflow-path">Collect signals <span>→</span> cluster requests <span>→</span> attach revenue and usage <span>→</span> create the issue <span>→</span> notify customers when shipped</p>
+        <div class="workflow-result">Roadmap informed</div>
+      </article>
+      <article class="saas-workflow fade-up" role="listitem">
+        <div class="workflow-index">05</div>
+        <div class="workflow-name"><span class="workflow-team">Renewals</span><h3>Health signal to renewal</h3></div>
+        <p class="workflow-path">Watch usage and risk <span>→</span> build the account plan <span>→</span> coordinate outreach <span>→</span> handle approvals <span>→</span> update the forecast</p>
+        <div class="workflow-result">Renewal advanced</div>
+      </article>
+      <article class="saas-workflow fade-up" role="listitem">
+        <div class="workflow-index">06</div>
+        <div class="workflow-name"><span class="workflow-team">Finance</span><h3>Usage to cash</h3></div>
+        <p class="workflow-path">Reconcile usage <span>→</span> prepare invoices <span>→</span> flag anomalies <span>→</span> run dunning <span>→</span> sync finance systems</p>
+        <div class="workflow-result">Cash collected</div>
+      </article>
     </div>
   </div>
 </section>
