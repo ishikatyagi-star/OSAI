@@ -210,11 +210,15 @@ export function login(credentials: LoginCredentials): Promise<LoginSession> {
 // Uses a longer timeout than the default: the free-tier backend can cold-start
 // for 30–60s, and an 8s timeout would wrongly report Google as disabled (hiding
 // the sign-in button) on the first page load after the instance has spun down.
-export function getAuthConfig() {
+export function getAuthConfig(strict = false) {
   return apiGet<{ google_enabled: boolean; email_login_enabled: boolean }>(
     "/auth/config",
     { google_enabled: false, email_login_enabled: true },
-    60000
+    60000,
+    // strict lets the caller tell "the backend says Google is off" apart from
+    // "the backend did not answer". Swallowed to the fallback they look
+    // identical, which reports a cold-starting API as sign-in being disabled.
+    strict
   );
 }
 
