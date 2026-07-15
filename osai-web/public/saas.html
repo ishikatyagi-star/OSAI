@@ -76,7 +76,7 @@
 
   .landing-saas a:focus-visible,
   .landing-saas summary:focus-visible {
-    outline: 3px solid #1d4ed8;
+    outline: 3px solid var(--el-ink);
     outline-offset: 3px;
     border-radius: 4px;
   }
@@ -256,7 +256,7 @@
 
   .hero-positioning {
     max-width: 680px;
-    margin-bottom: 18px;
+    margin-bottom: 20px;
     color: var(--el-ink, #0c0a09);
     font-family: var(--el-serif, Georgia, serif);
     font-size: clamp(24px, 3vw, 36px);
@@ -531,16 +531,15 @@
     border: 1px solid var(--el-hairline);
     border-radius: var(--r-xl);
   }
-  .landing-saas .feat-grid { gap: 1px !important; }
+  .landing-saas .feat-grid { gap: 1px; }
   .landing-saas .feat-card {
     min-height: 220px;
-    padding: 32px !important;
-    background: var(--el-canvas) !important;
-    border: 0 !important;
-    border-radius: 0 !important;
-    box-shadow: none !important;
+    padding: 32px;
+    background: var(--el-canvas);
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
   }
-  .feat-card.span2 { grid-column: span 1; }
   .feat-index {
     display: block;
     margin-bottom: 36px;
@@ -627,7 +626,7 @@
   .final h2 { margin-bottom: 22px; }
   .final-signoff {
     display: block;
-    margin-top: 18px;
+    margin-top: 20px;
     font-family: var(--el-sans, var(--font));
     font-size: clamp(13px, 1.4vw, 16px);
     font-weight: 600;
@@ -636,7 +635,6 @@
   }
   .final .lead { margin: 0 auto 36px; max-width: 560px; }
   .final-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
-  .final-note { margin-top: 22px; font-size: 13px; color: var(--ink-muted); }
 
   /* ---------- FOOTER ---------- */
   footer {
@@ -691,7 +689,7 @@
     .hero { padding-top: 120px; }
     .hero-inner { grid-template-columns: 1fr; gap: 44px; }
     .two-col { grid-template-columns: 1fr; gap: 36px; }
-    .loop-grid, .feat-grid, .out-grid { grid-template-columns: 1fr 1fr; }
+    .feat-grid, .out-grid { grid-template-columns: 1fr 1fr; }
     .loop-orbit {
       display: flex;
       flex-direction: column;
@@ -742,7 +740,6 @@
       letter-spacing: 0.06em;
       text-transform: uppercase;
     }
-    .grid-4 { grid-template-columns: 1fr 1fr; }
     .saas-workflow {
       grid-template-columns: 36px minmax(160px, 0.8fr) minmax(0, 1.5fr);
     }
@@ -750,21 +747,18 @@
       grid-column: 2 / -1;
       justify-self: start;
     }
-    .feat-card.span2 { grid-column: span 2; }
     .footer-inner { grid-template-columns: 1fr; }
     .footer-cols { justify-content: flex-start; gap: 48px; }
   }
 
   @media (max-width: 560px) {
-    .loop-grid, .feat-grid, .out-grid, .grid-4, .team-grid { grid-template-columns: 1fr; }
-    .feat-card.span2 { grid-column: span 1; }
-    .landing-saas .feat-grid { grid-template-columns: 1fr !important; }
+    .feat-grid, .out-grid, .team-grid { grid-template-columns: 1fr; }
+    .landing-saas .feat-grid { grid-template-columns: 1fr; }
     .landing-saas .feat-card { min-height: 190px; }
-    .loop-card.repeat { grid-column: 1 / -1; }
     .saas-workflow {
       grid-template-columns: 32px 1fr;
-      gap: 10px 14px;
-      padding: 22px 0;
+      gap: 12px 16px;
+      padding: 24px 0;
     }
     .workflow-index { grid-row: 1 / span 3; }
     .workflow-path,

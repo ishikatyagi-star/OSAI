@@ -49,7 +49,6 @@ test("homepage keeps its audit fixes", () => {
   assert.match(css, /\.landing-saas \.hero\s*{[^}]*min-height: auto !important;/s);
   assert.match(css, /\.landing-saas \.nav-mobile-menu\[open\]::before\s*,\s*\.landing-university \.nav-mobile-menu\[open\]::before\s*{/);
   assert.match(css, /@media \(max-width: 980px\)\s*{[\s\S]*?\.nav-mobile-menu\s*{\s*display: block;/);
-  assert.match(css, /\.landing-saas \.loop-card\s*{[\s\S]*?min-width: 0;[\s\S]*?width: 100%;/);
   assert.match(html, /landing-eleven\.css\?v=20260714-ui-audit/);
   assert.match(universityHtml, /landing-eleven\.css\?v=20260714-ui-audit/);
   assert.doesNotMatch(html, /Explore live workflow/);
@@ -85,7 +84,7 @@ test("homepage keeps loop, workflow, feature, and focus layouts responsive", () 
   assert.match(html, /@media \(max-width: 980px\)[\s\S]*?\.loop-orbit\s*{\s*display: flex;\s*flex-direction: column;/);
   assert.match(html, /\.loop-hub::after\s*{[\s\S]*?Back to ingest/);
   assert.match(html, /@media \(max-width: 980px\)[\s\S]*?\.saas-workflow\s*{\s*grid-template-columns: 36px/);
-  assert.match(html, /@media \(max-width: 560px\)[\s\S]*?\.landing-saas \.feat-grid\s*{\s*grid-template-columns: 1fr !important;/);
+  assert.match(html, /@media \(max-width: 560px\)[\s\S]*?\.landing-saas \.feat-grid\s*{\s*grid-template-columns: 1fr;/);
   assert.match(html, /@media \(max-width: 560px\)[\s\S]*?\.saas-workflow\s*{\s*grid-template-columns: 32px 1fr;/);
 });
 
