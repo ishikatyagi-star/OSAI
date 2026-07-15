@@ -59,6 +59,36 @@ test("homepage keeps its audit fixes", () => {
   assert.match(css, /\.out-cell p\s*{[^}]*color: var\(--el-body\) !important;/s);
 });
 
+test("homepage preserves the approved positioning and section content", () => {
+  assert.match(
+    html,
+    /<h1>Run your company on autopilot\.<\/h1>\s*<p class="hero-positioning">Turn company context into workflows that move\.<\/p>\s*<p class="hero-sub">Sheldon absorbs your company's context,[\s\S]*?learning from every outcome\.<\/p>/,
+  );
+  assert.match(
+    html,
+    /<p class="hero-micro">Built for fast-moving teams that want to scale execution without losing context\.<\/p>\s*<div class="hero-actions">/,
+  );
+  assert.match(html, /<h2 id="loop-title">Sheldon acts like an AI-native operating system that runs your company\.<\/h2>/);
+  assert.equal((html.match(/<article class="loop-node /g) ?? []).length, 4);
+  assert.equal((html.match(/<article class="saas-workflow /g) ?? []).length, 6);
+  assert.equal((html.match(/<div class="feat-card /g) ?? []).length, 6);
+  assert.match(html, /One brain to remember\. A team of agents to execute\./);
+  assert.match(html, /Got work\?<br>Consider it done\.<span class="final-signoff">Signed, Sheldon\.<\/span>/);
+  assert.doesNotMatch(html, /We respond within 24 hours\./);
+  assert.equal((html.match(/Run your company on autopilot\.<\/p>|Run your company on autopilot\.<\/span>/g) ?? []).length, 2);
+});
+
+test("homepage keeps loop, workflow, feature, and focus layouts responsive", () => {
+  assert.match(html, /\.loop-orbit\s*{[\s\S]*?grid-template-areas:[\s\S]*?"learn hub decide"[\s\S]*?"\. act \.":?;/);
+  assert.equal((html.match(/class="loop-arrow /g) ?? []).length, 4);
+  assert.match(html, /\.landing-saas a:focus-visible,\s*\.landing-saas summary:focus-visible\s*{/);
+  assert.match(html, /@media \(max-width: 980px\)[\s\S]*?\.loop-orbit\s*{\s*display: flex;\s*flex-direction: column;/);
+  assert.match(html, /\.loop-hub::after\s*{[\s\S]*?Back to ingest/);
+  assert.match(html, /@media \(max-width: 980px\)[\s\S]*?\.saas-workflow\s*{\s*grid-template-columns: 36px/);
+  assert.match(html, /@media \(max-width: 560px\)[\s\S]*?\.landing-saas \.feat-grid\s*{\s*grid-template-columns: 1fr !important;/);
+  assert.match(html, /@media \(max-width: 560px\)[\s\S]*?\.saas-workflow\s*{\s*grid-template-columns: 32px 1fr;/);
+});
+
 test("website contains no share-workflow CTA", async () => {
   const publicFiles = await frontendSourceFiles(path.join(root, "public"));
   for (const file of publicFiles.filter((file) => path.extname(file) === ".html")) {
