@@ -598,6 +598,10 @@ export type DashboardMetrics = {
   members: number;
   departments: number;
   automations: number;
+  // When these counts were true. The server stamps it on every response, so a
+  // view kept from an earlier load can say how fresh it is instead of implying
+  // it is live.
+  as_of?: string;
 };
 
 export function getDashboardMetrics(strict = false) {
