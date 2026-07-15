@@ -9,7 +9,11 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from config import settings
-from connectors.composio_ingest import ingest_composio_toolkit, sync_all_connections
+from connectors.composio_ingest import (
+    ingest_composio_toolkit,
+    purge_connector_data,
+    sync_all_connections,
+)
 from connectors.composio_tool import get_default_composio_client
 from db.session import SessionLocal, get_db, get_org_id, require_admin
 
@@ -110,10 +114,17 @@ async def list_connections(org_id: OrgId) -> list[dict]:
 
 
 @router.post("/disconnect/{toolkit}")
-async def disconnect(toolkit: str, org_id: OrgId, _admin: AdminOnly) -> dict:
-    """Revoke the org's connected account(s) for a toolkit at Composio, so a
-    subsequent Connect goes through a fresh OAuth handshake."""
-    return await _client_or_404().disconnect(toolkit, org_id)
+async def disconnect(toolkit: str, org_id: OrgId, db: DbSession, _admin: AdminOnly) -> dict:
+    """Revoke the org's connected account(s) for a toolkit at Composio and delete
+    everything that account synced into this org.
+
+    A disconnected account must leave no data behind (counts, Ask retrieval), so
+    switching the connected Google/other account — disconnect then reconnect —
+    can never mix the old account's files with the new one's."""
+    result = await _client_or_404().disconnect(toolkit, org_id)
+    removed = await purge_connector_data(db, org_id, toolkit)
+    db.commit()
+    return {**result, "documents_removed": removed}
 
 
 @router.post("/{toolkit}/ingest")

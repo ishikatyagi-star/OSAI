@@ -7,7 +7,7 @@ from __future__ import annotations
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from connectors.composio_ingest import ingest_composio_toolkit
+from connectors.composio_ingest import ingest_composio_toolkit, purge_connector_data
 from db.models import Base, ConnectorAccount, SourceDocumentRecord
 
 
@@ -117,6 +117,50 @@ async def test_reconnect_with_different_account_purges_previous_docs():
     assert account.config["account_email"] == "bob@b.com"
     assert account.config["previous_account_email"] == "alice@a.com"
     assert account.config.get("last_reconnected_at")
+
+
+async def test_disconnect_purges_synced_docs_and_clears_identity():
+    """Disconnecting a connector deletes everything the connected account synced
+    (Postgres + Qdrant) and clears the stored identity, so a later reconnect with
+    a new account starts clean and cannot mix the two accounts' files."""
+    session = _session()
+    qdrant = _FakeQdrant()
+
+    account_a = _FakeDrive(
+        "ca_A",
+        "alice@a.com",
+        [("f1", "roadmap.txt", "Q3 roadmap"), ("f2", "notes.txt", "meeting notes")],
+    )
+    await ingest_composio_toolkit(
+        "demo-org", "googledrive", session, client=account_a, qdrant_store=qdrant
+    )
+    assert session.query(SourceDocumentRecord).count() == 2
+
+    removed = await purge_connector_data(
+        session, "demo-org", "googledrive", qdrant_store=qdrant
+    )
+    session.commit()
+
+    assert removed == 2
+    # Postgres docs gone…
+    assert (
+        session.query(SourceDocumentRecord)
+        .filter(SourceDocumentRecord.source_type == "google_drive")
+        .count()
+        == 0
+    )
+    # …Qdrant vectors purged…
+    assert ("demo-org", "google_drive") in qdrant.deleted_source_types
+    # …and the account is marked disconnected with no lingering identity.
+    account = (
+        session.query(ConnectorAccount)
+        .filter(ConnectorAccount.connector_key == "google_drive")
+        .one()
+    )
+    assert account.auth_state == "disconnected"
+    assert "account_external_id" not in account.config
+    assert "account_email" not in account.config
+    assert account.last_sync_at is None
 
 
 async def test_resync_same_account_does_not_purge():
