@@ -1041,19 +1041,89 @@ def get_workflow_run(session: Session, run_id: str) -> dict | None:
     }
 
 
+# The action-item lifecycle (SHE-6 P0). Terminal states are completed/cancelled;
+# `failed` is durable and retryable, so it can be claimed again.
+ACTION_ITEM_CLAIMABLE = ("needs_review", "failed")
+
+
+def claim_action_item(session: Session, *, item_id: str, org_id: str) -> str:
+    """Atomically claim an action item so exactly one approval can execute it.
+
+    Returns "claimed" (this caller won and may execute), "taken" (a concurrent or
+    prior approval already has it), or "absent" (no such item in this org).
+
+    The single `UPDATE ... WHERE status IN (claimable)` is the guard: under READ
+    COMMITTED two concurrent approvals serialize on the row, so the loser matches
+    zero rows. Without it, both callers read `needs_review`, both pass the check
+    and both push to the connector — a duplicate ticket, page or message. This is
+    the same guarantee claim_proposed_action gives the Ask confirm path (SEC-007);
+    workflow approval executes the same connectors and needs it just as much.
+    """
+    item = session.get(ActionItemRecord, item_id)
+    if item is None:
+        return "absent"
+    updated = (
+        session.query(ActionItemRecord)
+        .filter(
+            ActionItemRecord.id == item_id,
+            ActionItemRecord.status.in_(ACTION_ITEM_CLAIMABLE),
+        )
+        .update({"status": "executing"}, synchronize_session=False)
+    )
+    session.commit()
+    if updated != 1:
+        return "taken"
+    session.add(
+        AuditEvent(
+            org_id=org_id,
+            event_type="action_item.claimed",
+            actor="user",
+            payload={"item_id": item_id, "destination": item.destination},
+        )
+    )
+    session.commit()
+    return "claimed"
+
+
+def cancel_action_item(session: Session, *, item_id: str, org_id: str) -> str:
+    """Reject an item that is awaiting review, so it stops asking to be run."""
+    updated = (
+        session.query(ActionItemRecord)
+        .filter(
+            ActionItemRecord.id == item_id,
+            ActionItemRecord.status.in_(ACTION_ITEM_CLAIMABLE),
+        )
+        .update({"status": "cancelled"}, synchronize_session=False)
+    )
+    session.commit()
+    if updated != 1:
+        return "taken"
+    session.add(
+        AuditEvent(
+            org_id=org_id,
+            event_type="action_item.cancelled",
+            actor="user",
+            payload={"item_id": item_id},
+        )
+    )
+    session.commit()
+    return "cancelled"
+
+
 def approve_action_item(
     session: Session,
     *,
     item_id: str,
     org_id: str,
 ) -> ActionItemRecord | None:
-    """Mark an action item as approved and record a ConnectorAction."""
+    """Record the approval of an already-claimed action item.
+
+    Callers must claim_action_item() first: this does not guard against a
+    concurrent approval, it only writes the paperwork for one that won.
+    """
     item = session.get(ActionItemRecord, item_id)
     if item is None:
         return None
-    if item.status not in ("needs_review", "failed"):
-        return item  # idempotent — already approved/executed
-    item.status = "approved"
     session.add(
         ConnectorAction(
             org_id=org_id,
