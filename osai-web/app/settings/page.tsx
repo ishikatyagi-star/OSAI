@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FlaskConical, Users, ChevronRight, Trash2, LogOut, type LucideIcon } from "lucide-react";
+import { Database, FlaskConical, Users, ChevronRight, Trash2, LogOut, type LucideIcon } from "lucide-react";
 import { clearSession, deleteAccount, logoutAllSessions, resetWorkspaceContent, mintSlackAskToken, revokeSlackAskToken } from "@/lib/api";
 import { isDemo } from "@/lib/demo";
 import {
@@ -29,6 +29,13 @@ const LINKS: SettingsLink[] = [
     title: "Team access",
     description:
       "Manage roles, departments, and Normal / Amber / Red access tiers for your team.",
+  },
+  {
+    href: "/sql",
+    icon: Database,
+    title: "Data sources",
+    description:
+      "Connect a read-only database so Sheldon can answer from live data. It writes the SQL, shows it to you, and only runs what you approve.",
   },
   {
     href: "/evals",

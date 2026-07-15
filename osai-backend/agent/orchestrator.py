@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 from uuid import uuid4
 
@@ -46,6 +47,56 @@ def _forget_proposed(action_id: str) -> None:
         pass
 
 
+# "Remember that X" — an explicit instruction to store a fact, which is how a
+# user teaches OSAI something that lives in no connected tool. It's an order, not
+# a retrieval question, so it's handled before RAG (answering it from context
+# would drop the fact on the floor).
+_MEMORY_INSTRUCTION = re.compile(
+    r"^\s*(?:hey\s+)?(?:sheldon[,:\s]+)?"
+    r"(?:please\s+|can\s+you\s+|could\s+you\s+|pls\s+)?"
+    r"(?:remember|make\s+a\s+note|take\s+a\s+note|note|keep\s+in\s+mind)"
+    r"(?:\s+this)?(?:\s+that\b|\s*[:,-]|\s+)\s*(?P<fact>\S.*)$",
+    re.IGNORECASE | re.DOTALL,
+)
+# …but "do you remember X?" / "what do you recall about X?" ask OSAI to *recall*.
+# Those must fall through to normal retrieval, not overwrite memory.
+_MEMORY_QUESTION = re.compile(
+    r"^\s*(?:do|did|does|what|which|when|where|why|how)\b.*\b(?:remember|recall)\b",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def _memory_instruction(question: str) -> str | None:
+    """Return the fact to store if `question` is an explicit remember-this
+    instruction, else None."""
+    if _MEMORY_QUESTION.match(question or ""):
+        return None
+    match = _MEMORY_INSTRUCTION.match(question or "")
+    if not match:
+        return None
+    fact = match.group("fact").strip().rstrip("?").strip()
+    return fact or None
+
+
+def _memory_is_writable(org_id: str) -> bool:
+    """Mirror require_writable_org: the shared demo workspace is read-only
+    outside local dev, so a demo visitor can't write into org memory."""
+    return org_id != settings.default_org_id or settings.env == "local"
+
+
+def _store_fact(org_id: str, fact: str, user_id: str | None) -> bool:
+    from db.session import SessionLocal
+    from memory.org_memory import record_memory
+
+    try:
+        with SessionLocal() as session:
+            record_memory(session, org_id, kind="fact", content=fact, user_id=user_id)
+        return True
+    except Exception as exc:  # noqa: BLE001 — never 500 a chat turn on a memory write
+        logger.warning("Could not record fact for %s: %s", org_id, exc)
+        return False
+
+
 async def run_ask(
     request: AskRequest,
     requester_permissions: list[str] | None = None,
@@ -54,6 +105,29 @@ async def run_ask(
 ) -> AskResponse:
     started = time.monotonic()
     conversation_id = request.conversation_id or str(uuid4())
+
+    # 0. "Remember that X" — an explicit instruction to store a fact. This is how
+    #    a user teaches OSAI something that exists in no connected tool, so it's
+    #    handled before RAG: answering it from retrieved context would discard it.
+    if (fact := _memory_instruction(request.question)) is not None:
+        if not _memory_is_writable(request.org_id):
+            answer = (
+                "The demo workspace is read-only, so I can't save that to memory here. "
+                "In your own workspace I'd remember it and use it in future answers."
+            )
+        elif _store_fact(request.org_id, fact, user_id):
+            answer = f"Got it — I'll remember that {fact}"
+        else:
+            answer = "I couldn't save that to memory just now. Please try again."
+        return AskResponse(
+            conversation_id=conversation_id,
+            answer=answer,
+            citations=[],
+            actions_taken=[],
+            enough_context=True,
+            model_route="memory",
+            latency_ms=int((time.monotonic() - started) * 1000),
+        )
 
     # 1. RAG: retrieve context + an in-house answer, scoped to the caller's
     #    permissions + clearance tier. Citations always come from OSAI's

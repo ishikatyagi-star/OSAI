@@ -8,6 +8,7 @@ import { deleteArtifact, listArtifacts, type SavedArtifactRow } from "@/lib/api"
 import { OpenUiArtifacts } from "@/components/ask/openui-artifacts";
 import type { AskUiArtifact } from "@/lib/types";
 import { Button } from "@/components/ui/button";
+import { DEMO_ARTIFACTS } from "@/lib/demo-data";
 import { isDemo } from "@/lib/demo";
 import {
   Dialog,
@@ -33,7 +34,10 @@ export default function ArtifactsPage() {
     setLoading(true);
     setLoadError("");
     if (isDemo()) {
-      setRows([]);
+      // Show sample artifacts rather than an empty state: the demo has no saved
+      // rows of its own, and "nothing pinned yet" reads as broken for the one
+      // page whose whole point is what a pinned answer looks like.
+      setRows(DEMO_ARTIFACTS);
       setLoading(false);
       return;
     }
@@ -76,6 +80,12 @@ export default function ArtifactsPage() {
 
   async function remove(id: string) {
     if (deleteBusy) return;
+    if (isDemo()) {
+      // The demo's artifacts are local samples and the backend is read-only, so
+      // say that plainly instead of surfacing a "try again" that never succeeds.
+      setMutationError("Saved artifacts are read-only in the shared demo.");
+      return;
+    }
     setDeleteBusy(true);
     setMutationError("");
     try {
