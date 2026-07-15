@@ -7,7 +7,10 @@ SELECT-only, single-statement, capped rows. Data stays where it lives.
 
 from __future__ import annotations
 
+import hashlib
+import logging
 import re
+import time
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -15,8 +18,11 @@ from pydantic import BaseModel, Field
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import Session
 
+from api.ratelimit import rate_limit
 from db.models import SqlSource
-from db.session import get_db, get_org_id, require_writable_org
+from db.session import get_db, get_org_id, require_admin, require_writable_org
+
+logger = logging.getLogger("osai.sql")
 
 router = APIRouter(prefix="/sql", tags=["sql"])
 DbSession = Annotated[Session, Depends(get_db)]
@@ -24,6 +30,13 @@ OrgId = Annotated[str, Depends(get_org_id)]
 # Adding a source stores a DSN; plan/execute run SQL against a live external DB.
 # None of that is reachable from the anonymous demo workspace (SEC-003).
 WriteOrgId = Annotated[str, Depends(require_writable_org)]
+# SQL bypasses the per-document ACL/tier model entirely: a query reads whatever
+# the connected database role can see, unfiltered by the permissions that gate
+# every other answer. So the whole surface is admin-only — managing a source
+# handles live DB credentials, and running a query is unmediated data access
+# (SHE-6 P0 "enforce admin authorization"). Grant it per-source to members only
+# once row-level scoping exists.
+AdminClaims = Annotated[dict, Depends(require_admin)]
 
 _MAX_ROWS = 500
 _FORBIDDEN = re.compile(
@@ -52,6 +65,41 @@ def ensure_readonly_select(sql: str) -> str:
     if not re.search(r"\blimit\s+\d+\b", stripped, re.IGNORECASE):
         stripped = f"{stripped} LIMIT {_MAX_ROWS}"
     return stripped
+
+
+def _fingerprint(sql: str) -> str:
+    """Stable id for a query's shape. Logged instead of the SQL text so an audit
+    trail never leaks the values (or PII) embedded in a literal."""
+    normalised = re.sub(r"\s+", " ", sql.strip().lower())
+    return hashlib.sha256(normalised.encode("utf-8")).hexdigest()[:16]
+
+
+def _audit(
+    *,
+    actor: str | None,
+    org_id: str,
+    source_id: str,
+    sql: str,
+    duration_ms: int,
+    outcome: str,
+    rows: int | None = None,
+    error: str | None = None,
+) -> None:
+    """Record who ran what, against which source, and how it went (SHE-6 P0).
+    Queries touch customer databases, so the trail must exist even when the
+    query fails."""
+    logger.info(
+        "sql_query actor=%s org=%s source=%s fingerprint=%s duration_ms=%d "
+        "outcome=%s rows=%s error=%s",
+        actor,
+        org_id,
+        source_id,
+        _fingerprint(sql),
+        duration_ms,
+        outcome,
+        rows if rows is not None else "-",
+        error or "-",
+    )
 
 
 def _get_source(db: Session, org_id: str, source_id: str) -> SqlSource:
@@ -100,7 +148,9 @@ class SourceCreate(BaseModel):
 
 
 @router.post("/sources")
-async def add_source(body: SourceCreate, db: DbSession, org_id: WriteOrgId) -> dict:
+async def add_source(
+    body: SourceCreate, db: DbSession, org_id: WriteOrgId, _admin: AdminClaims
+) -> dict:
     if not body.dsn.startswith(("postgresql://", "postgresql+psycopg://")):
         raise HTTPException(
             status_code=422, detail="Only PostgreSQL sources are supported (postgresql://…)."
@@ -119,13 +169,15 @@ async def add_source(body: SourceCreate, db: DbSession, org_id: WriteOrgId) -> d
 
 
 @router.get("/sources")
-async def list_sources(db: DbSession, org_id: OrgId) -> list[dict]:
+async def list_sources(db: DbSession, org_id: OrgId, _admin: AdminClaims) -> list[dict]:
     rows = db.query(SqlSource).filter(SqlSource.org_id == org_id).all()
     return [{"id": s.id, "name": s.name, "dsn": _mask(s.dsn)} for s in rows]
 
 
 @router.delete("/sources/{source_id}")
-async def delete_source(db: DbSession, org_id: WriteOrgId, source_id: str) -> dict:
+async def delete_source(
+    db: DbSession, org_id: WriteOrgId, source_id: str, _admin: AdminClaims
+) -> dict:
     s = _get_source(db, org_id, source_id)
     db.delete(s)
     db.commit()
@@ -133,7 +185,9 @@ async def delete_source(db: DbSession, org_id: WriteOrgId, source_id: str) -> di
 
 
 @router.get("/sources/{source_id}/schema")
-async def get_schema(db: DbSession, org_id: OrgId, source_id: str) -> list[dict]:
+async def get_schema(
+    db: DbSession, org_id: OrgId, source_id: str, _admin: AdminClaims
+) -> list[dict]:
     s = _get_source(db, org_id, source_id)
     try:
         return _schema_summary(s.dsn)
@@ -147,7 +201,9 @@ class PlanRequest(BaseModel):
 
 
 @router.post("/plan")
-async def plan_query(body: PlanRequest, db: DbSession, org_id: WriteOrgId) -> dict:
+async def plan_query(
+    body: PlanRequest, db: DbSession, org_id: WriteOrgId, _admin: AdminClaims
+) -> dict:
     """LLM writes the SQL from the schema. The plan is returned for the user
     to inspect/edit — nothing executes here."""
     s = _get_source(db, org_id, body.source_id)
@@ -190,13 +246,22 @@ class ExecuteRequest(BaseModel):
     sql: str = Field(min_length=1, max_length=20_000)
 
 
-@router.post("/execute")
-async def execute_query(body: ExecuteRequest, db: DbSession, org_id: WriteOrgId) -> dict:
+@router.post(
+    "/execute",
+    # A query hits a customer's live database; cap the blast radius of a runaway
+    # UI loop or a scripted caller (SHE-6 P0 "rate limits").
+    dependencies=[Depends(rate_limit(max_calls=30, window_seconds=60))],
+)
+async def execute_query(
+    body: ExecuteRequest, db: DbSession, org_id: WriteOrgId, admin: AdminClaims
+) -> dict:
     """Run a user-approved SELECT deterministically. Same SQL, same answer —
-    the LLM is not in this path."""
+    the LLM is not in this path. Every attempt is audited, including failures."""
     s = _get_source(db, org_id, body.source_id)
+    actor = admin.get("email") or admin.get("sub")
     safe_sql = ensure_readonly_select(body.sql)
     engine = _engine(s.dsn)
+    started = time.monotonic()
     try:
         with engine.connect() as conn:
             conn.execute(text("SET TRANSACTION READ ONLY"))
@@ -206,9 +271,27 @@ async def execute_query(body: ExecuteRequest, db: DbSession, org_id: WriteOrgId)
     except HTTPException:
         raise
     except Exception as exc:  # noqa: BLE001 — SQL errors are the caller's to fix
+        _audit(
+            actor=actor,
+            org_id=org_id,
+            source_id=s.id,
+            sql=safe_sql,
+            duration_ms=int((time.monotonic() - started) * 1000),
+            outcome="failed",
+            error=type(exc).__name__,
+        )
         raise HTTPException(status_code=422, detail=f"Query failed: {exc}") from exc
     finally:
         engine.dispose()
+    _audit(
+        actor=actor,
+        org_id=org_id,
+        source_id=s.id,
+        sql=safe_sql,
+        duration_ms=int((time.monotonic() - started) * 1000),
+        outcome="succeeded",
+        rows=len(rows),
+    )
     return {"sql": safe_sql, "columns": columns, "rows": rows, "row_count": len(rows)}
 
 
