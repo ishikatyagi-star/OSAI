@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Database, FlaskConical, Users, ChevronRight, Trash2, LogOut, type LucideIcon } from "lucide-react";
-import { clearSession, deleteAccount, logoutAllSessions, resetWorkspaceContent, mintSlackAskToken, revokeSlackAskToken } from "@/lib/api";
+import { clearSession, deleteAccount, getSession, logoutAllSessions, resetWorkspaceContent, mintSlackAskToken, revokeSlackAskToken } from "@/lib/api";
 import { isDemo } from "@/lib/demo";
 import {
   Dialog,
@@ -20,6 +20,7 @@ type SettingsLink = {
   icon: LucideIcon;
   title: string;
   description: string;
+  adminOnly?: boolean;
 };
 
 const LINKS: SettingsLink[] = [
@@ -31,11 +32,15 @@ const LINKS: SettingsLink[] = [
       "Manage roles, departments, and Normal / Amber / Red access tiers for your team.",
   },
   {
+    // Admin-only server-side: a query reads whatever the connected database role
+    // can see, unfiltered by the tiers that gate every other answer. Hide it from
+    // members rather than offer a card that 403s.
     href: "/sql",
     icon: Database,
     title: "Data sources",
     description:
       "Connect a read-only database so Sheldon can answer from live data. It writes the SQL, shows it to you, and only runs what you approve.",
+    adminOnly: true,
   },
   {
     href: "/evals",
@@ -62,6 +67,19 @@ export default function SettingsPage() {
   const [slackToken, setSlackToken] = useState<{ token: string; path: string } | null>(null);
   const [slackBusy, setSlackBusy] = useState(false);
   const [slackError, setSlackError] = useState("");
+  // Ask the server who we are: the session cookie is httpOnly, so the role can't
+  // be read client-side. Starts false so an admin-only card never flashes for a
+  // member while the request is in flight (and stays hidden if it fails).
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    if (isDemo()) return;
+    getSession()
+      .then((s) => setIsAdmin(!!s?.is_admin))
+      .catch(() => setIsAdmin(false));
+  }, []);
+
+  const links = LINKS.filter((link) => !link.adminOnly || isAdmin);
 
   async function handleMintSlack() {
     if (isDemo()) {
@@ -160,7 +178,7 @@ export default function SettingsPage() {
       </div>
 
       <div className="card-grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))" }}>
-        {LINKS.map((link) => {
+        {links.map((link) => {
           const Icon = link.icon;
           return (
             <Link key={link.href} href={link.href} className="card" style={{ textDecoration: "none" }}>

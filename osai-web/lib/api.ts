@@ -222,6 +222,29 @@ export function getAuthConfig(strict = false) {
   );
 }
 
+export type SessionInfo = {
+  user_id: string;
+  email: string;
+  display_name: string;
+  org_id: string;
+  org_name: string | null;
+  role: string;
+  is_admin: boolean;
+  data_tier: string;
+  permissions: string[];
+  department_id: string | null;
+};
+
+// Who the current session belongs to and what it may do. The session cookie is
+// httpOnly, so this is the only way the browser can learn its own role: use it
+// to offer the right surfaces (admin-only Data sources) rather than rendering a
+// control that 403s. Never a security boundary - the server gates every route.
+// Returns null when unauthenticated (401) or the backend can't be reached, so
+// callers fail closed to the non-admin view.
+export function getSession(): Promise<SessionInfo | null> {
+  return apiGet<SessionInfo | null>("/auth/session", null);
+}
+
 // Clear local, non-sensitive session state (cached org/user + the "authed"
 // flag). The session JWT lives in an httpOnly cookie the browser can't touch, so
 // callers that need the cookie gone must go through logout()/logoutAllSessions().
