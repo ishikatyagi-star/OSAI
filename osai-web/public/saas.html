@@ -518,17 +518,31 @@
   /* ---------- INSIDE Sheldon (features) ---------- */
   .feat-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1px;
     margin-top: 56px;
-  }
-  .feat-card {
-    background: var(--surface-1);
+    overflow: hidden;
+    background: var(--hairline);
     border: 1px solid var(--hairline);
     border-radius: var(--r-xl);
-    padding: 28px;
   }
-  .feat-card.span2 { grid-column: span 2; }
+  .landing-saas .feat-grid { gap: 1px !important; }
+  .landing-saas .feat-card {
+    min-height: 220px;
+    padding: 32px !important;
+    background: var(--canvas) !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+  .feat-card.span2 { grid-column: span 1; }
+  .feat-index {
+    display: block;
+    margin-bottom: 36px;
+    color: var(--ink-muted);
+    font-family: var(--el-serif, Georgia, serif);
+    font-size: 17px;
+  }
   .feat-card h3 { font-size: 19px; margin-bottom: 12px; }
   .feat-card p { font-size: 14.5px; line-height: 1.55; color: var(--ink-muted); }
 
@@ -714,6 +728,8 @@
   @media (max-width: 560px) {
     .loop-grid, .feat-grid, .out-grid, .grid-4, .team-grid { grid-template-columns: 1fr; }
     .feat-card.span2 { grid-column: span 1; }
+    .landing-saas .feat-grid { grid-template-columns: 1fr !important; }
+    .landing-saas .feat-card { min-height: 190px; }
     .loop-card.repeat { grid-column: 1 / -1; }
     .saas-workflow {
       grid-template-columns: 32px 1fr;
@@ -898,28 +914,38 @@
   <div class="wrap">
     <div class="section-head fade-up">
       <span class="eyebrow">Product features</span>
-      <h2>One place to see, steer, and improve execution.</h2>
+      <h2>One brain to remember. A team of agents to execute.</h2>
     </div>
     <div class="feat-grid">
-      <div class="feat-card span2 fade-up">
-        <h3>Unified operational queue</h3>
-        <p>See every live workflow across teams, with current status, blockers, owners, deadlines, and risk signals in one place.</p>
+      <div class="feat-card fade-up">
+        <span class="feat-index">01</span>
+        <h3>Your company's operating brain</h3>
+        <p>Sheldon remembers the decisions, policies, exceptions, account history, and unwritten rules your team relies on to get work right.</p>
       </div>
       <div class="feat-card fade-up">
-        <h3>Workflow memory</h3>
-        <p>Sheldon keeps context from previous requests, decisions, exceptions, and outcomes so your company does not have to start from zero every time.</p>
+        <span class="feat-index">02</span>
+        <h3>Agents that do the work</h3>
+        <p>Sheldon's agents take action across your tools, coordinate handoffs, chase missing inputs, and keep going until the workflow is complete.</p>
       </div>
       <div class="feat-card fade-up">
-        <h3>Human-in-the-loop control</h3>
-        <p>Step in when needed, approve exceptions, override automations, and keep humans focused on judgment-heavy decisions rather than repetitive coordination.</p>
+        <span class="feat-index">03</span>
+        <h3>One operational queue</h3>
+        <p>See every live workflow, owner, blocker, deadline, and risk signal in one place instead of piecing status together across tools.</p>
       </div>
       <div class="feat-card fade-up">
-        <h3>Real-time state tracking</h3>
-        <p>Know where every workflow stands, what changed, what is blocked, and what needs attention without digging through multiple tools.</p>
+        <span class="feat-index">04</span>
+        <h3>Human approval gates</h3>
+        <p>Set the decisions that require human judgment. Review exceptions, approve sensitive actions, and override an agent at any point.</p>
       </div>
       <div class="feat-card fade-up">
-        <h3>Continuous improvement</h3>
-        <p>As the AI-native operating system sees more workflows, it gets better at routing, escalation logic, and decision support - turning operations into a compounding system.</p>
+        <span class="feat-index">05</span>
+        <h3>Live system state</h3>
+        <p>Every action updates the systems your team already trusts, so the CRM, helpdesk, project tracker, and finance stack stay current.</p>
+      </div>
+      <div class="feat-card fade-up">
+        <span class="feat-index">06</span>
+        <h3>Execution that compounds</h3>
+        <p>Every outcome teaches Sheldon how your company works, improving routing, escalation, and decision quality with each completed workflow.</p>
       </div>
     </div>
   </div>
