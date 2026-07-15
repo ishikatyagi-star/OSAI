@@ -49,7 +49,7 @@ test("homepage keeps its audit fixes", () => {
   assert.match(css, /\.landing-saas \.hero\s*{[^}]*min-height: auto !important;/s);
   assert.match(css, /\.landing-saas \.nav-mobile-menu\[open\]::before\s*,\s*\.landing-university \.nav-mobile-menu\[open\]::before\s*{/);
   assert.match(css, /@media \(max-width: 980px\)\s*{[\s\S]*?\.nav-mobile-menu\s*{\s*display: block;/);
-  assert.match(html, /landing-eleven\.css\?v=20260714-ui-audit/);
+  assert.match(html, /landing-eleven\.css\?v=20260715-saas-loop/);
   assert.match(universityHtml, /landing-eleven\.css\?v=20260714-ui-audit/);
   assert.doesNotMatch(html, /Explore live workflow/);
   assert.match(html, /matchMedia\('\(prefers-reduced-motion: reduce\)'\)/);
@@ -70,6 +70,7 @@ test("homepage preserves the approved positioning and section content", () => {
   assert.match(html, /<h2 id="loop-title">Sheldon acts like an AI-native operating system that runs your company\.<\/h2>/);
   assert.equal((html.match(/<article class="loop-node /g) ?? []).length, 4);
   assert.equal((html.match(/<article class="saas-workflow /g) ?? []).length, 6);
+  assert.equal((html.match(/<span aria-hidden="true">→<\/span>/g) ?? []).length, 24);
   assert.equal((html.match(/<div class="feat-card /g) ?? []).length, 6);
   assert.match(html, /One brain to remember\. A team of agents to execute\./);
   assert.match(html, /Got work\?<br>Consider it done\.<span class="final-signoff">Signed, Sheldon\.<\/span>/);
