@@ -63,6 +63,20 @@ class Settings(BaseSettings):
                 f"is true and OSAI_ENV is {self.env!r} — the webhook is public and "
                 "must verify Zoom's signature, not accept unauthenticated events."
             )
+        # Without a Gemini key, embeddings silently fall back to deterministic
+        # hash vectors (memory/embeddings.py). That is keyword bucketing, not
+        # semantic retrieval: Ask keeps answering, just far worse, with nothing
+        # in the logs to say why. A misconfigured deployment must fail loudly at
+        # boot rather than quietly serve degraded answers (mirrors the guards
+        # above). Local dev keeps the fallback so the stack runs without a key.
+        if self.env != "local" and not self.gemini_api_key:
+            raise ValueError(
+                "OSAI_GEMINI_API_KEY must be set when OSAI_ENV is "
+                f"{self.env!r} — without it embeddings silently degrade to "
+                "non-semantic hash vectors and retrieval quality collapses with "
+                "no error. Set the key, or run with OSAI_ENV=local to use the "
+                "hash fallback deliberately."
+            )
         return self
 
     qdrant_url: str = "http://localhost:6333"

@@ -137,6 +137,12 @@ async def capabilities() -> dict[str, object]:
     from connectors.composio_tool import get_default_composio_client
 
     scheduler = await asyncio.to_thread(_scheduler_transport_reachable)
+    # Whether retrieval is actually semantic. Without a Gemini key the embedder
+    # falls back to hash vectors (keyword bucketing), which answers questions
+    # visibly worse while erroring nowhere — so report it rather than let it hide.
+    # A non-local deploy refuses to boot in that state (see config guard); this
+    # keeps it observable in local/dev, where the fallback is allowed.
+    semantic_embeddings = bool(settings.gemini_api_key)
     return {
         "environment": settings.env,
         "scheduler": scheduler,
@@ -146,6 +152,10 @@ async def capabilities() -> dict[str, object]:
         "sql_sources": True,  # server-side read-only SQL is built in
         "workflow_execution": bool(
             settings.hermes_sidecar_url and settings.hermes_sidecar_token
+        ),
+        "semantic_embeddings": semantic_embeddings,
+        "embedding_model": (
+            settings.gemini_embedding_model if semantic_embeddings else "hash-fallback"
         ),
         "google_oauth": settings.google_oauth_enabled,
         "email_login": bool(settings.email_login_enabled),

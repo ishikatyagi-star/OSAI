@@ -69,6 +69,8 @@ def test_capabilities_shape_and_cadence_consistency():
         "connectors",
         "sql_sources",
         "workflow_execution",
+        "semantic_embeddings",
+        "embedding_model",
         "google_oauth",
         "email_login",
     ):
@@ -77,3 +79,6 @@ def test_capabilities_shape_and_cadence_consistency():
     # Recurring cadences may only be offered when the scheduler transport works.
     recurring = set(caps["automation_cadences"]) - {"manual"}
     assert bool(recurring) == bool(caps["scheduler"])
+    # Retrieval quality must be honest: the hash fallback is reported as such,
+    # never dressed up as a real embedding model.
+    assert (caps["embedding_model"] == "hash-fallback") != caps["semantic_embeddings"]
