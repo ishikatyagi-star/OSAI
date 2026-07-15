@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -11,6 +12,9 @@ from sqlalchemy.orm import Session
 from db.models import DecisionRecord
 from db.repositories import try_db
 from db.session import get_db, get_org_id, require_writable_org
+from memory.org_memory import record_memory
+
+logger = logging.getLogger("osai.decisions")
 
 router = APIRouter(prefix="/decisions", tags=["decisions"])
 DbSession = Annotated[Session, Depends(get_db)]
@@ -94,18 +98,18 @@ async def create_decision(body: DecisionCreate, db: DbSession, org_id: WriteOrgI
     db.add(row)
     db.commit()
 
-    # Real work feeds the wiki: a logged decision drafts a context entry for
-    # someone to approve (never blocks decision creation).
-    from api.routes.wiki import suggest_entry
-
-    suggest_entry(
-        db,
-        org_id,
-        f"Decision: {row.title}",
-        f"{row.title}\n\nStatus: {row.status} · Impact: {row.impact}"
-        + (f" · Owner: {row.owner}" if row.owner else ""),
-        origin="decision",
-    )
+    # Real work feeds the org's memory: a logged decision becomes a fact Ask can
+    # recall and cite (best-effort — never blocks decision creation).
+    try:
+        record_memory(
+            db,
+            org_id,
+            kind="decision",
+            content=f"Decision: {row.title} — status {row.status}, impact {row.impact}"
+            + (f", owner {row.owner}" if row.owner else ""),
+        )
+    except Exception:  # noqa: BLE001 — memory is best-effort
+        logger.warning("Could not record decision memory for %s", row.id)
     return _serialize(row)
 
 

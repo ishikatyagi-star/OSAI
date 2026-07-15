@@ -20,7 +20,6 @@ const [
   analytics,
   ask,
   composerAttach,
-  wiki,
   sql,
   team,
   workflow,
@@ -41,7 +40,6 @@ const [
   read("app/analytics/page.tsx"),
   read("app/ask/page.tsx"),
   read("components/ask/composer-attach.tsx"),
-  read("app/wiki/page.tsx"),
   read("app/sql/page.tsx"),
   read("app/team/page.tsx"),
   read("app/workflows/[id]/page.tsx"),
@@ -74,7 +72,6 @@ test("frontend distinguishes live failures from legitimate empty states", () => 
   assert.match(api, /getWorkflowRun\(id: string, strict = false\)/);
   assert.match(api, /listThreads\(strict = false\)/);
   assert.match(api, /getThread\(id: string, strict = false\)/);
-  assert.match(api, /getWikiRevisions\(id: string, strict = false\)/);
   assert.match(dashboard, /getDashboardMetrics\(true\)/);
   assert.match(dashboard, /Dashboard metrics could not be loaded/);
   assert.match(dashboard, /dashboardReady/);
@@ -85,7 +82,7 @@ test("frontend distinguishes live failures from legitimate empty states", () => 
 
 test("frontend copy contains no mojibake", () => {
   const mojibake = /[\u00c2\u00c3\ufffd]|\u00e2[\u0080-\u00bf\u20ac]|\u00f0[\u0080-\u00bf\u0178]/u;
-  assert.doesNotMatch([appShell, sidebar, dashboard, analytics, artifacts, connectorManager, sql, team, wiki].join("\n"), mojibake);
+  assert.doesNotMatch([appShell, sidebar, dashboard, analytics, artifacts, connectorManager, sql, team].join("\n"), mojibake);
 });
 
 test("legacy routes preserve user intent", () => {
@@ -119,12 +116,10 @@ test("shared demo blocks backend mutations with explicit UI messaging", () => {
   assert.equal((ask.match(/disabled=\{pending \|\| demo\}/g) ?? []).length, 2);
   assert.match(ask, /File uploads are disabled in the shared demo/);
   assert.match(composerAttach, /busy \|\| disabled/);
-  assert.match(wiki, /disabled=\{demo\}/);
-  assert.match(wiki, /Wiki changes are disabled in the shared demo/);
 });
 
 test("high-stakes dialogs retain errors and lock duplicate mutations", () => {
-  for (const source of [artifacts, wiki, sql]) {
+  for (const source of [artifacts, sql]) {
     assert.match(source, /disabled=\{deleteBusy\}/);
     assert.match(source, /role="alert"/);
   }
@@ -144,8 +139,6 @@ test("thread, source, and team state cannot masquerade as empty or stale", () =>
   assert.match(team, /const invite = await createInvite/);
   assert.match(team, /const department = await createDepartment/);
   assert.match(team, /addingDepartment/);
-  assert.match(wiki, /getWikiRevisions\(id, true\)/);
-  assert.match(wiki, /requestId === revisionsRequestRef\.current/);
 });
 
 test("integration diagnostics distinguish request failures from empty data", () => {

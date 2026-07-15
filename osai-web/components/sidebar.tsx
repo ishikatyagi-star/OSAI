@@ -6,9 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   BarChart3,
-  BookOpen,
   Bookmark,
-  Database,
   Clock,
   LayoutDashboard,
   LogOut,
@@ -44,8 +42,10 @@ type NavGroup = {
 };
 
 // Decluttered IA: Search folds into Ask Sheldon, Team Board folds into Decision Log,
-// and Evals + Data Routing move into Settings / Integrations. One consistent icon
-// set (lucide, outline, uniform stroke) so no item reads heavier than the others.
+// and Evals + Data Routing + Data (SQL sources) move into Settings / Integrations.
+// The wiki is gone: you teach Sheldon a fact by telling Ask ("remember that X"),
+// which writes straight to org memory. One consistent icon set (lucide, outline,
+// uniform stroke) so no item reads heavier than the others.
 const NAV_GROUPS: NavGroup[] = [
   {
     label: "Workspace",
@@ -59,9 +59,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Manage",
     items: [
       { href: "/decisions", icon: ScrollText, label: "Decision Log" },
-      { href: "/wiki", icon: BookOpen, label: "Wiki" },
       { href: "/artifacts", icon: Bookmark, label: "Artifacts" },
-      { href: "/sql", icon: Database, label: "Data" },
       { href: "/graph", icon: Share2, label: "Org Graph" },
       { href: "/team", icon: Users, label: "Team" },
       { href: "/automations", icon: Clock, label: "Automations" },
