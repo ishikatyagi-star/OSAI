@@ -2,7 +2,7 @@
 // fully populated for recordings and stakeholder demos.
 
 import type { Integration, SyncRun, WorkflowRun, SearchResponse, DataRouting } from "./types";
-import type { Department, TeamMember } from "./api";
+import type { Department, SavedArtifactRow, TeamMember } from "./api";
 
 export const DEMO_INTEGRATIONS: Integration[] = [
   {
@@ -749,3 +749,73 @@ export const DEMO_EVAL_RUN: EvalRun = {
     { id: "qa-06", category: "qa", question: "Name the three data-routing tiers.", expected: "Normal, Amber, Red", actual: "Normal, Amber, Red", passed: true, score: 0.99, latency_ms: 1230, notes: null },
   ],
 };
+
+// Pinned artifacts for the demo workspace. The demo has no backend rows to list,
+// so without these the Artifacts page reads as broken ("nothing pinned yet") when
+// it is really the headline feature: an answer you keep, export and re-ask about.
+// Shapes mirror buildOpenUiArtifacts output, one per kind, so the demo shows the
+// range (summary metrics, a cited source table, an action plan).
+export const DEMO_ARTIFACTS: SavedArtifactRow[] = [
+  {
+    id: "demo-artifact-sla",
+    thread_id: null,
+    title: "Open SLA escalations",
+    kind: "answer_summary",
+    created_by_name: "Admin",
+    created_at: "2026-07-13T09:24:00Z",
+    data: {
+      id: "demo-artifact-sla",
+      kind: "answer_summary",
+      title: "Open SLA escalations",
+      subtitle: "Rolled up from Freshdesk and Slack, refreshed at last sync.",
+      metrics: [
+        { label: "Open", value: "7", tone: "warning" },
+        { label: "Breaching in 4h", value: "2", tone: "danger" },
+        { label: "Resolved this week", value: "18", tone: "success" },
+      ],
+      rows: [
+        { label: "Enterprise billing sync failing", value: "Breaching", meta: "Freshdesk #102", tone: "danger" },
+        { label: "Redis connection pool errors", value: "4h left", meta: "Freshdesk #98", tone: "warning" },
+        { label: "SSO redirect loop", value: "On track", meta: "Freshdesk #91", tone: "neutral" },
+      ],
+    },
+  },
+  {
+    id: "demo-artifact-vpc",
+    thread_id: null,
+    title: "Where VPC ownership is documented",
+    kind: "source_table",
+    created_by_name: "Admin",
+    created_at: "2026-07-12T16:05:00Z",
+    data: {
+      id: "demo-artifact-vpc",
+      kind: "source_table",
+      title: "Where VPC ownership is documented",
+      subtitle: "Every source Sheldon used to answer, with confidence.",
+      rows: [
+        { label: "VPC and Ollama Security Setup", value: "Notion", meta: "Updated 3 days ago", confidence: 0.94 },
+        { label: "Map VPC security groups", value: "Owned by yash@osai.local", meta: "Task", confidence: 0.88 },
+        { label: "#infra scoping thread", value: "Slack", meta: "12 replies", confidence: 0.71 },
+      ],
+    },
+  },
+  {
+    id: "demo-artifact-onboarding",
+    thread_id: null,
+    title: "Pilot onboarding plan",
+    kind: "action_plan",
+    created_by_name: "Admin",
+    created_at: "2026-07-11T11:40:00Z",
+    data: {
+      id: "demo-artifact-onboarding",
+      kind: "action_plan",
+      title: "Pilot onboarding plan",
+      subtitle: "Drafted by Sheldon. Every step still needs your approval to run.",
+      rows: [
+        { label: "Connect Freshdesk and Notion", value: "Done", meta: "Step 1", tone: "success" },
+        { label: "Invite the pilot team", value: "In progress", meta: "Step 2", tone: "info" },
+        { label: "Schedule the kickoff demo", value: "Needs approval", meta: "Step 3", tone: "warning" },
+      ],
+    },
+  },
+];
