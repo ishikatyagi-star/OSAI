@@ -28,8 +28,13 @@ const TIER_COLORS: Record<string, string> = {
 
 function statusClass(status: string) {
   if (status === "needs_review") return "badge badge-yellow";
+  // In flight: claimed and pushing to the connector. Not green yet, because
+  // nothing has landed in the customer's tool.
+  if (status === "executing") return "badge badge-yellow";
+  // "executed" is the pre-state-machine name for "completed"; older rows keep it.
   if (["approved", "executed", "completed", "succeeded"].includes(status)) return "badge badge-green";
   if (status === "failed") return "badge badge-red";
+  // cancelled/skipped: deliberately not run, which is an outcome, not a fault.
   return "badge badge-grey";
 }
 
