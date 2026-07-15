@@ -76,9 +76,43 @@ def test_capabilities_shape_and_cadence_consistency():
     ):
         assert key in caps, key
     assert "manual" in caps["automation_cadences"]
-    # Recurring cadences may only be offered when the scheduler transport works.
+    # Recurring cadences may only be offered when the scheduler works.
     recurring = set(caps["automation_cadences"]) - {"manual"}
     assert bool(recurring) == bool(caps["scheduler"])
     # Retrieval quality must be honest: the hash fallback is reported as such,
     # never dressed up as a real embedding model.
     assert (caps["embedding_model"] == "hash-fallback") != caps["semantic_embeddings"]
+
+
+def test_scheduler_reports_false_without_a_live_worker(monkeypatch):
+    """A reachable Redis broker is not enough: on the free tier Redis is up but
+    no worker is deployed, so a recurring schedule would be accepted and never
+    run. scheduler must reflect a live worker, and no worker means no recurring
+    cadences offered — otherwise the UI promises a cadence that silently never
+    fires."""
+    # A broker with no worker consuming: control.ping() returns no replies.
+    monkeypatch.setattr(
+        "workers.celery_app.celery_app.control.ping",
+        lambda timeout=1.0: [],
+    )
+    caps = client.get("/capabilities").json()
+    assert caps["scheduler"] is False
+    assert caps["automation_cadences"] == ["manual"]
+
+    # A responsive worker: at least one ping reply.
+    monkeypatch.setattr(
+        "workers.celery_app.celery_app.control.ping",
+        lambda timeout=1.0: [{"worker@host": {"ok": "pong"}}],
+    )
+    caps = client.get("/capabilities").json()
+    assert caps["scheduler"] is True
+    assert "daily" in caps["automation_cadences"]
+
+
+def test_scheduler_false_when_broker_ping_raises(monkeypatch):
+    """A dead/unreachable broker must fail closed to no scheduler, not error."""
+    def _boom(timeout=1.0):
+        raise ConnectionError("broker unreachable")
+
+    monkeypatch.setattr("workers.celery_app.celery_app.control.ping", _boom)
+    assert client.get("/capabilities").json()["scheduler"] is False

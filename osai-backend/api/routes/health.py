@@ -115,17 +115,23 @@ async def health_ready(response: Response) -> dict[str, object]:
     }
 
 
-def _scheduler_transport_reachable() -> bool:
-    """Cheap Redis ping — the celery beat/worker transport. Configuration alone
-    isn't enough: a schedule accepted without a live transport will never run."""
-    try:
-        import redis
+def _scheduler_available() -> bool:
+    """Whether a Celery worker is actually running to execute scheduled work.
 
-        client = redis.Redis.from_url(
-            settings.redis_url, socket_connect_timeout=1, socket_timeout=1
-        )
-        return bool(client.ping())
-    except Exception:  # noqa: BLE001 — unreachable transport = no scheduler
+    A reachable Redis broker is NOT the test: on the free tier Redis is up but no
+    worker/beat is deployed, so a recurring schedule is accepted and then never
+    runs. The honest signal is a live worker — Celery's control ping broadcasts
+    over the broker and only a running worker answers. No worker (or no broker)
+    means no scheduler, so we must not offer recurring cadences.
+    """
+    try:
+        from workers.celery_app import celery_app
+
+        # ping() returns one reply per live worker; empty/None means nobody is
+        # consuming. Bounded so a dead broker fails fast instead of hanging.
+        replies = celery_app.control.ping(timeout=1.0)
+        return bool(replies)
+    except Exception:  # noqa: BLE001 — any failure = no usable scheduler
         return False
 
 
@@ -136,7 +142,7 @@ async def capabilities() -> dict[str, object]:
     flags instead of assuming a fully provisioned stack."""
     from connectors.composio_tool import get_default_composio_client
 
-    scheduler = await asyncio.to_thread(_scheduler_transport_reachable)
+    scheduler = await asyncio.to_thread(_scheduler_available)
     # Whether retrieval is actually semantic. Without a Gemini key the embedder
     # falls back to hash vectors (keyword bucketing), which answers questions
     # visibly worse while erroring nowhere — so report it rather than let it hide.
