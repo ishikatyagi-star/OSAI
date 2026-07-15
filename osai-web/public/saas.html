@@ -620,6 +620,15 @@
   }
   .final-inner { position: relative; z-index: 1; max-width: 680px; margin: 0 auto; }
   .final h2 { margin-bottom: 22px; }
+  .final-signoff {
+    display: block;
+    margin-top: 18px;
+    font-family: var(--el-sans, var(--font));
+    font-size: clamp(13px, 1.4vw, 16px);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
   .final .lead { margin: 0 auto 36px; max-width: 560px; }
   .final-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
   .final-note { margin-top: 22px; font-size: 13px; color: var(--ink-muted); }
@@ -1007,13 +1016,12 @@
   <div class="final-glow"></div>
   <div class="final-inner fade-up">
     <span class="eyebrow">Get in touch</span>
-    <h2>Bring autopilot to one workflow first.</h2>
+    <h2>Got work?<br>Consider it done.<span class="final-signoff">Signed, Sheldon.</span></h2>
     <p class="lead">Pick one workflow that is slowing your team down. We'll help map it, redesign it, and show how Sheldon can run it end to end.</p>
     <div class="final-actions">
       <a href="/demo" class="btn btn-primary btn-lg">Try a Demo</a>
       <a href="https://calendar.google.com/calendar/u/0/appointments/schedules/AcZssZ3qwSMjKMhXKW7-NFO0ZqHthdvO6MUio_sAy1UUk1qHU4jbXD6AZhcx5zOzlLeyxFFBdP923DBN" target="_blank" rel="noopener noreferrer" aria-label="Book a Call (opens in a new tab)" class="btn btn-secondary btn-lg">Book a Call</a>
     </div>
-    <p class="final-note">We respond within 24 hours.</p>
   </div>
 </section>
 
@@ -1023,7 +1031,7 @@
   <div class="footer-inner">
     <div class="footer-brand">
       <span class="nav-logo"><img src="/brand/sheldon-ai-logo.png" alt="" width="32" height="32" />Sheldon</span>
-      <p class="footer-tag">The AI-native operating system for modern companies.</p>
+      <p class="footer-tag">Run your company on autopilot.</p>
     </div>
     <div class="footer-cols">
       <div class="footer-col">
@@ -1041,7 +1049,7 @@
     </div>
   </div>
   <div class="footer-bottom">
-    <span>Sheldon · AI-native operating system · 2026</span>
+    <span>Run your company on autopilot.</span>
     <span>Early stage · Building with operators</span>
   </div>
 </footer>
