@@ -1333,11 +1333,25 @@ def reset_org_content(session: Session, org_id: str) -> dict[str, int]:
 
 # --- Team: departments, invites, members -----------------------------------
 
+# The only roles the system understands. permissions_for_role treats anything
+# that isn't "admin" as a member, so an unvalidated role string doesn't just sit
+# in the column: it silently strips admin rights (a typo'd "Admin" included).
+VALID_ROLES = ("admin", "member")
+
+
 def permissions_for_role(role: str) -> list[str]:
     """Map a role to data-access grants used by permission-aware retrieval."""
     if role == "admin":
         return ["org:admin", "source:all"]
     return ["source:all"]
+
+
+def count_admins(session: Session, org_id: str) -> int:
+    return (
+        session.query(User)
+        .filter(User.org_id == org_id, User.role == "admin")
+        .count()
+    )
 
 
 def list_departments(session: Session, org_id: str) -> list[Department]:
@@ -1382,6 +1396,26 @@ def update_member(
     if user is None:
         return None
     if role is not None:
+        # Validate the enum. data_tier below was already checked against
+        # TIER_ORDER; role was not, so any string landed straight in the column
+        # and permissions_for_role then read it as "not admin" — a typo silently
+        # demoted someone.
+        if role not in VALID_ROLES:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Unknown role {role!r}. Valid roles: {', '.join(VALID_ROLES)}.",
+            )
+        # Never leave a workspace with nobody who can administer it. Demoting the
+        # last admin locks the org out of team management, integrations and data
+        # sources permanently — there would be no one left able to promote anyone.
+        if user.role == "admin" and role != "admin" and count_admins(session, org_id) <= 1:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "This is the workspace's only admin. Promote another member "
+                    "to admin before changing this one's role."
+                ),
+            )
         user.role = role
         user.permissions = permissions_for_role(role)
     if department_id is not None:

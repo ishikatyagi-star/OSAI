@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 from api.ratelimit import rate_limit
 from config import settings
 from db.models import Org, User
-from db.repositories import accept_invite_for_email, provision_org, try_db
+from db.repositories import accept_invite_for_email, count_admins, provision_org, try_db
 from db.session import SESSION_COOKIE, _decode_jwt, get_claims, get_db
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -349,12 +349,25 @@ Claims = Annotated[dict, Depends(get_claims)]
 async def delete_account(claims: Claims, db: DbSession) -> dict:
     """Permanently delete the signed-in user's account. Requires a valid session.
 
-    Deletes the user record only; the org and its data are left intact (an admin
-    may still own other members). The client should clear its session after this.
+    Deletes the user record only; the org and its data are left intact — which is
+    only safe while someone can still administer it, hence the last-admin guard.
+    The client should clear its session after this.
     """
     user = db.get(User, claims.get("sub"))
     if user is None:
         raise HTTPException(status_code=404, detail="Account not found.")
+    # The org and its data outlive the account, so the last admin leaving would
+    # strand a workspace nobody can administer: no team management, no
+    # integrations, no way to promote a replacement (SHE-6 P1 "the backend
+    # rejects last-admin demotion/removal").
+    if user.role == "admin" and count_admins(db, user.org_id) <= 1:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "You are the workspace's only admin. Promote another member to "
+                "admin before deleting your account."
+            ),
+        )
     db.delete(user)
     db.commit()
     return {"deleted": True}
