@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from db.models import (
@@ -16,7 +18,6 @@ from db.models import (
     SyncRun,
     User,
 )
-from db.repositories import try_db
 from db.session import get_db, get_org_id
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
@@ -77,21 +78,30 @@ def _metrics(db: Session, org_id: str) -> dict:
     }
 
 
-_EMPTY = {
-    "total_documents": 0,
-    "documents_by_connector": {},
-    "documents_by_tier": {},
-    "connectors_connected": 0,
-    "sync_runs_total": 0,
-    "sync_runs_succeeded": 0,
-    "last_sync_at": None,
-    "members": 0,
-    "departments": 0,
-    "automations": 0,
-}
-
-
 @router.get("/metrics")
 async def metrics(db: DbSession, org_id: OrgId) -> dict:
-    """Live metrics aggregated from the org's real ingested data + workspace."""
-    return try_db("dashboard_metrics", _EMPTY, lambda: _metrics(db, org_id))
+    """Live metrics aggregated from the org's real ingested data + workspace.
+
+    A database failure must never be reported as zeros. "0 documents, 0 members"
+    is not an error message — it reads as "your workspace is empty", i.e. data
+    loss, when the truth is only that we could not reach the data. That matters
+    concretely here: the free-tier database pauses when idle, so the failure mode
+    is routine. Fail with 503 and let the client say so honestly (SHE-6 P1 "do
+    not convert database/service failures to zero").
+
+    Genuine zeros still return 200 — an empty workspace is a real answer.
+    """
+    try:
+        data = _metrics(db, org_id)
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Metrics are unavailable: the workspace database could not be "
+                "reached. Your data is not lost."
+            ),
+        ) from exc
+    # Freshness (SHE-6 P1 "include freshness metadata"): every count above is
+    # true as of this instant, so a client showing a cached or retried view can
+    # say when it was true rather than implying it is live.
+    return {**data, "as_of": datetime.now(UTC).isoformat()}
