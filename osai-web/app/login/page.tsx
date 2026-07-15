@@ -7,23 +7,32 @@ import Image from "next/image";
 import { AlertTriangle, ArrowRight, Check, Sparkles } from "lucide-react";
 import { getAuthConfig, googleSignInUrl, markSignedIn } from "@/lib/api";
 
-// The free-tier API sleeps when idle and refuses connections for ~30-60s while it
-// wakes. Retry across that window rather than treating the first failure as an
-// answer: a single failed check used to latch the page to "sign-in unavailable"
-// until the visitor manually reloaded, which is the worst possible first
-// impression for someone who came here to sign in.
-const AUTH_CHECK_ATTEMPTS = 12;
+// The free-tier API sleeps when idle and refuses connections while it wakes.
+// Retry across that window rather than treating the first failure as an answer:
+// a single failed check used to latch the page to "sign-in unavailable" until
+// the visitor manually reloaded, which is the worst possible first impression
+// for someone who came here to sign in.
+//
+// The window is deliberately longer than the worst cold start we've measured
+// (>90s), because giving up early is what produces the false "sign-in is down".
+const AUTH_CHECK_ATTEMPTS = 36;
 const AUTH_CHECK_RETRY_MS = 5000;
 
 export default function LoginPage() {
   const router = useRouter();
+  // true/false = the server answered. null = we don't know yet. "Didn't answer"
+  // is NOT the same as "answered false", and must never be rendered as though
+  // sign-in were switched off.
   const [googleEnabled, setGoogleEnabled] = useState<boolean | null>(null);
   const [waking, setWaking] = useState(false);
+  const [unreachable, setUnreachable] = useState(false);
   const [invitedEmail, setInvitedEmail] = useState("");
+  const [checkKey, setCheckKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      setUnreachable(false);
       for (let attempt = 0; attempt < AUTH_CHECK_ATTEMPTS && !cancelled; attempt++) {
         try {
           // strict: a cold-start failure throws instead of masquerading as
@@ -40,10 +49,12 @@ export default function LoginPage() {
           await new Promise((resolve) => setTimeout(resolve, AUTH_CHECK_RETRY_MS));
         }
       }
-      // Still nothing after the wake-up window: the backend is genuinely down.
+      // Out of retries and still no answer. We do NOT know that sign-in is
+      // disabled - only that the server hasn't replied - so keep googleEnabled
+      // null and say exactly that, with a way to try again.
       if (!cancelled) {
         setWaking(false);
-        setGoogleEnabled(false);
+        setUnreachable(true);
       }
     })();
     const invite = new URLSearchParams(window.location.search).get("invite");
@@ -51,7 +62,7 @@ export default function LoginPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [checkKey]);
 
   // Demo workspace = shared sample data, no real account. Real sign-in is
   // Google only - the passwordless email login accepted any address without
@@ -116,13 +127,31 @@ export default function LoginPage() {
             Continue with Google
           </button>
         )}
+        {/* The server answered and said Google is not configured here. */}
         {googleEnabled === false && (
           <div className="login-error" role="status">
-            <AlertTriangle className="size-3.5" /> Google sign-in is temporarily unavailable. You can still explore the demo.
+            <AlertTriangle className="size-3.5" /> Google sign-in is not enabled on this deployment. You can still explore the demo.
           </div>
         )}
 
-        {googleEnabled === null && (
+        {/* The server never answered. Say that, rather than claiming sign-in is
+            off: it is almost always a slow wake-up, and a retry usually works. */}
+        {unreachable && googleEnabled === null && (
+          <div className="login-auth-check" role="status" aria-live="polite">
+            The server is still waking up. This can take a couple of minutes when it
+            has been idle.
+            <button
+              type="button"
+              className="btn btn-sm"
+              style={{ marginLeft: 8 }}
+              onClick={() => setCheckKey((key) => key + 1)}
+            >
+              Try again
+            </button>
+          </div>
+        )}
+
+        {googleEnabled === null && !unreachable && (
           <div className="login-auth-check" role="status" aria-live="polite">
             {waking
               ? "Waking up the server, this can take up to a minute…"
