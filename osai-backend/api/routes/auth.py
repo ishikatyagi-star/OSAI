@@ -123,6 +123,43 @@ async def set_session(body: SessionExchange, response: Response) -> dict:
     return {"ok": True}
 
 
+@router.get("/session")
+async def get_session(
+    claims: Annotated[dict, Depends(get_claims)], db: DbSession
+) -> dict:
+    """Who this session belongs to and what it may do (SHE-6 P0 introspection).
+
+    The session cookie is httpOnly, so the browser cannot read its own identity
+    out of it — this is how the client learns who it is and which surfaces to
+    offer (e.g. admin-only Data sources) instead of guessing and rendering a 403.
+
+    Answered from the database rather than the JWT: the token carries a role
+    snapshot from up to 30 days ago, so a demotion must take effect now, not when
+    the token expires. Authorization itself is still enforced per-route; this is
+    for honest UI, never a substitute for the server-side gate. Revocation is
+    already applied by get_claims.
+    """
+    user = db.get(User, claims.get("sub"))
+    if user is None:
+        # The token verifies but the account is gone — fail closed.
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Account not found."
+        )
+    org = db.get(Org, user.org_id)
+    return {
+        "user_id": user.id,
+        "email": user.email,
+        "display_name": user.display_name,
+        "org_id": user.org_id,
+        "org_name": org.name if org else None,
+        "role": user.role,
+        "is_admin": user.role == "admin",
+        "data_tier": user.data_tier,
+        "permissions": list(user.permissions or []),
+        "department_id": user.department_id,
+    }
+
+
 @router.post("/logout")
 async def logout(response: Response) -> dict:
     """Clear this device's session cookie. (Use /auth/logout-all to revoke every
