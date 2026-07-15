@@ -314,19 +314,68 @@
   }
 
   /* ---------- AGENTIC LOOP ---------- */
-  .loop-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
-    margin-top: 56px;
-  }
-  .loop-card {
-    background: var(--surface-1);
-    border: 1px solid var(--hairline);
-    border-radius: var(--r-xl);
-    padding: 26px;
+  .loop-orbit {
+    --orbit-size: min(650px, 64vw);
     position: relative;
+    display: grid;
+    grid-template-columns: minmax(250px, 1fr) 220px minmax(250px, 1fr);
+    grid-template-rows: auto 190px auto;
+    grid-template-areas:
+      ". ingest ."
+      "learn hub decide"
+      ". act .";
+    gap: 24px 40px;
+    margin-top: 56px;
+    padding: 16px 0;
+    isolation: isolate;
   }
+
+  .loop-orbit::before {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    top: 50%;
+    left: 50%;
+    width: var(--orbit-size);
+    aspect-ratio: 1;
+    transform: translate(-50%, -50%);
+    border: 1px solid var(--hairline);
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at 38% 34%, rgba(167, 229, 211, 0.25), transparent 30%),
+      radial-gradient(circle at 68% 58%, rgba(244, 197, 168, 0.24), transparent 34%),
+      radial-gradient(circle, rgba(255, 255, 255, 0.58), rgba(245, 245, 245, 0.12) 62%, transparent 63%);
+  }
+
+  .loop-node {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 76px;
+    column-gap: 16px;
+    min-height: 166px;
+    padding: 24px;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid var(--hairline);
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(41, 37, 36, 0.06);
+  }
+
+  .loop-node-ingest { grid-area: ingest; width: min(100%, 410px); justify-self: center; }
+  .loop-node-decide { grid-area: decide; }
+  .loop-node-act { grid-area: act; width: min(100%, 410px); justify-self: center; }
+  .loop-node-learn { grid-area: learn; }
+
+  .loop-orbit .loop-mascot {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+    align-self: end;
+    width: 76px;
+    height: auto;
+  }
+
+  .loop-node > :not(.loop-mascot) { grid-column: 1; }
+
   .loop-step {
     font-size: 12px;
     font-weight: 600;
@@ -347,19 +396,60 @@
     font-size: 12px;
     font-weight: 600;
   }
-  .loop-card h3 { margin-bottom: 10px; font-size: 18px; }
-  .loop-card p { font-size: 14px; line-height: 1.5; color: var(--ink-muted); }
+  .loop-node h3 { margin-bottom: 8px; font-size: 18px; }
+  .loop-node p { font-size: 14px; line-height: 1.5; color: var(--ink-muted); }
 
-  .loop-card.repeat {
-    grid-column: 1 / -1;
-    background: var(--surface-2);
-    display: flex;
-    align-items: center;
-    gap: 18px;
-    flex-wrap: wrap;
+  .loop-hub {
+    grid-area: hub;
+    z-index: 2;
+    align-self: center;
+    display: grid;
+    place-items: center;
+    width: 190px;
+    aspect-ratio: 1;
+    padding: 28px;
+    justify-self: center;
+    text-align: center;
+    background: var(--ink);
+    color: var(--canvas);
+    border: 8px solid rgba(255, 255, 255, 0.72);
+    border-radius: 50%;
+    box-shadow: 0 18px 42px rgba(41, 37, 36, 0.18);
   }
-  .loop-card.repeat .loop-step { margin-bottom: 0; }
-  .loop-card.repeat p { flex: 1; min-width: 260px; font-size: 16px; color: var(--ink); }
+
+  .loop-hub span {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    opacity: 0.68;
+  }
+
+  .loop-hub strong {
+    font-family: var(--el-serif, Georgia, serif);
+    font-size: 23px;
+    font-weight: 400;
+    line-height: 1.08;
+  }
+
+  .loop-arrow {
+    position: absolute;
+    z-index: 3;
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    background: var(--canvas);
+    border: 1px solid var(--hairline);
+    border-radius: 50%;
+    color: var(--ink);
+    font-size: 18px;
+  }
+
+  .loop-arrow-top { top: 17%; right: 28%; }
+  .loop-arrow-right { top: 48%; right: 18%; }
+  .loop-arrow-bottom { right: 48%; bottom: 15%; }
+  .loop-arrow-left { top: 48%; left: 18%; }
 
   /* ---------- USE CASES ---------- */
   .grid-4 {
@@ -537,6 +627,40 @@
     .hero-inner { grid-template-columns: 1fr; gap: 44px; }
     .two-col { grid-template-columns: 1fr; gap: 36px; }
     .loop-grid, .feat-grid, .out-grid { grid-template-columns: 1fr 1fr; }
+    .loop-orbit {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding: 0;
+    }
+    .loop-orbit::before,
+    .loop-arrow { display: none; }
+    .loop-node,
+    .loop-node-ingest,
+    .loop-node-act {
+      width: 100%;
+      min-height: 154px;
+    }
+    .loop-node:not(.loop-node-learn)::after {
+      content: '↓';
+      position: absolute;
+      left: 50%;
+      bottom: -28px;
+      z-index: 3;
+      display: grid;
+      place-items: center;
+      width: 24px;
+      height: 24px;
+      transform: translateX(-50%);
+      background: var(--canvas);
+      border: 1px solid var(--hairline);
+      border-radius: 50%;
+      font-size: 13px;
+    }
+    .loop-hub {
+      order: 5;
+      width: min(190px, 70vw);
+    }
     .grid-4 { grid-template-columns: 1fr 1fr; }
     .feat-card.span2 { grid-column: span 2; }
     .footer-inner { grid-template-columns: 1fr; }
@@ -628,49 +752,41 @@
   <div class="wrap">
     <div class="section-head fade-up">
       <span class="eyebrow">The agentic loop</span>
-      <h2>An AI-native operating system that runs itself.</h2>
+      <h2>Sheldon acts like an AI-native operating system that runs your company.</h2>
     </div>
-    <div class="loop-grid">
-      <div class="loop-card fade-up">
+    <div class="loop-orbit" aria-label="Sheldon's continuous operating loop">
+      <article class="loop-node loop-node-ingest fade-up">
         <div class="loop-step"><span class="loop-num">1</span>Ingest</div>
         <img class="loop-mascot" src="/brand/sheldon-ai-mascot-ingesting-web.webp" alt="" width="240" height="240" loading="lazy">
-        <h3>Absorb messy context</h3>
-        <p>We absorb messy context from your existing channels - forms, emails, chat, and internal tools.</p>
-      </div>
-      <div class="loop-card fade-up">
+        <h3>Absorb company context</h3>
+        <p>Sheldon reads the signals already moving through your CRM, inbox, docs, chat, and support tools.</p>
+      </article>
+      <article class="loop-node loop-node-decide fade-up">
         <div class="loop-step"><span class="loop-num">2</span>Decide</div>
         <img class="loop-mascot" src="/brand/sheldon-ai-mascot-orchestrating-web.webp" alt="" width="240" height="240" loading="lazy">
-        <h3>Reason over workflows</h3>
-        <p>Sheldon reasons over workflows rather than just following static rules, determining stakeholders and required context.</p>
-      </div>
-      <div class="loop-card fade-up">
+        <h3>Choose the next best action</h3>
+        <p>It applies your policies, past decisions, and live business state to decide what should happen next.</p>
+      </article>
+      <article class="loop-node loop-node-act fade-up">
         <div class="loop-step"><span class="loop-num">3</span>Act</div>
         <img class="loop-mascot" src="/brand/sheldon-ai-mascot-handoff-web.webp" alt="" width="240" height="240" loading="lazy">
-        <h3>Execute in your tools</h3>
-        <p>We execute directly inside the tools your team already uses, triggering next steps and requesting approvals.</p>
-      </div>
-      <div class="loop-card fade-up">
-        <div class="loop-step"><span class="loop-num">4</span>Update</div>
-        <img class="loop-mascot" src="/brand/sheldon-ai-mascot-syncing-web.webp" alt="" width="240" height="240" loading="lazy">
-        <h3>Sync your system of record</h3>
-        <p>Each action is seamlessly synced to your system of record, eliminating manual supervision.</p>
-      </div>
-      <div class="loop-card fade-up">
-        <div class="loop-step"><span class="loop-num">5</span>Audit</div>
-        <img class="loop-mascot" src="/brand/sheldon-ai-mascot-approving-web.webp" alt="" width="240" height="240" loading="lazy">
-        <h3>Full transparency</h3>
-        <p>Full transparency ensures that humans can verify the steps and trust the outcome.</p>
-      </div>
-      <div class="loop-card fade-up">
-        <div class="loop-step"><span class="loop-num" aria-hidden="true">∞</span>Loop</div>
+        <h3>Agents execute the work</h3>
+        <p>Sheldon's agents update tools, coordinate handoffs, request approvals, and carry the workflow to completion.</p>
+      </article>
+      <article class="loop-node loop-node-learn fade-up">
+        <div class="loop-step"><span class="loop-num">4</span>Learn</div>
         <img class="loop-mascot" src="/brand/sheldon-ai-mascot-learning-web.webp" alt="" width="240" height="240" loading="lazy">
-        <h3>The loop improves</h3>
-        <p>Capture outcomes, exceptions, and decisions as reusable context.</p>
+        <h3>Turn outcomes into memory</h3>
+        <p>Every approval, exception, and result becomes context that improves the next cycle.</p>
+      </article>
+      <div class="loop-hub fade-up">
+        <span>Company brain</span>
+        <strong>Every cycle makes Sheldon smarter.</strong>
       </div>
-      <div class="loop-card repeat fade-up">
-        <div class="loop-step"><span class="loop-num" aria-hidden="true">↻</span>The loop repeats</div>
-        <p>Every completed workflow becomes context for the next one. Every day, the system gets smarter and your company runs faster.</p>
-      </div>
+      <span class="loop-arrow loop-arrow-top" aria-hidden="true">→</span>
+      <span class="loop-arrow loop-arrow-right" aria-hidden="true">↓</span>
+      <span class="loop-arrow loop-arrow-bottom" aria-hidden="true">←</span>
+      <span class="loop-arrow loop-arrow-left" aria-hidden="true">↑</span>
     </div>
   </div>
 </section>
