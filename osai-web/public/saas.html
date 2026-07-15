@@ -74,6 +74,13 @@
 
   a { color: var(--accent-blue); text-decoration: none; }
 
+  .landing-saas a:focus-visible,
+  .landing-saas summary:focus-visible {
+    outline: 3px solid #1d4ed8;
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+
   ::selection { background: rgba(0,153,255,0.3); color: #fff; }
 
   .wrap { max-width: 1200px; margin: 0 auto; }
