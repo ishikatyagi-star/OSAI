@@ -7,16 +7,44 @@ import Image from "next/image";
 import { AlertTriangle, ArrowRight, Check, Sparkles } from "lucide-react";
 import { getAuthConfig, googleSignInUrl, markSignedIn } from "@/lib/api";
 
+// The free-tier API sleeps when idle and refuses connections for ~30-60s while it
+// wakes. Retry across that window rather than treating the first failure as an
+// answer: a single failed check used to latch the page to "sign-in unavailable"
+// until the visitor manually reloaded, which is the worst possible first
+// impression for someone who came here to sign in.
+const AUTH_CHECK_ATTEMPTS = 12;
+const AUTH_CHECK_RETRY_MS = 5000;
+
 export default function LoginPage() {
   const router = useRouter();
   const [googleEnabled, setGoogleEnabled] = useState<boolean | null>(null);
+  const [waking, setWaking] = useState(false);
   const [invitedEmail, setInvitedEmail] = useState("");
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const c = await getAuthConfig();
-      if (!cancelled) setGoogleEnabled(c.google_enabled);
+      for (let attempt = 0; attempt < AUTH_CHECK_ATTEMPTS && !cancelled; attempt++) {
+        try {
+          // strict: a cold-start failure throws instead of masquerading as
+          // {google_enabled: false}, so only a real answer ends the loop.
+          const c = await getAuthConfig(true);
+          if (!cancelled) {
+            setWaking(false);
+            setGoogleEnabled(c.google_enabled);
+          }
+          return;
+        } catch {
+          if (cancelled) return;
+          setWaking(true);
+          await new Promise((resolve) => setTimeout(resolve, AUTH_CHECK_RETRY_MS));
+        }
+      }
+      // Still nothing after the wake-up window: the backend is genuinely down.
+      if (!cancelled) {
+        setWaking(false);
+        setGoogleEnabled(false);
+      }
     })();
     const invite = new URLSearchParams(window.location.search).get("invite");
     if (invite) setInvitedEmail(invite);
@@ -96,7 +124,9 @@ export default function LoginPage() {
 
         {googleEnabled === null && (
           <div className="login-auth-check" role="status" aria-live="polite">
-            Checking sign-in options…
+            {waking
+              ? "Waking up the server, this can take up to a minute…"
+              : "Checking sign-in options…"}
           </div>
         )}
 
