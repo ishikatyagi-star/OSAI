@@ -719,7 +719,23 @@
     }
     .loop-hub {
       order: 5;
+      position: relative;
       width: min(190px, 70vw);
+      margin-bottom: 48px;
+    }
+    .loop-hub::after {
+      content: '↻ Back to ingest';
+      position: absolute;
+      left: 50%;
+      bottom: -44px;
+      width: max-content;
+      transform: translateX(-50%);
+      color: var(--el-body);
+      font-family: var(--el-sans, var(--font));
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
     }
     .grid-4 { grid-template-columns: 1fr 1fr; }
     .saas-workflow {
