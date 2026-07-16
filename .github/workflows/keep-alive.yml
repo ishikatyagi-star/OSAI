@@ -1,0 +1,50 @@
+name: keep-alive
+
+# Render's free tier spins the API down after ~15 minutes idle, and waking it
+# takes 60-90s. That cold start is why sign-in appeared to hang for two minutes
+# (and why a stale auth check once read as "Google sign-in is disabled").
+# Pinging on a schedule keeps the instance up so a visitor never pays for it.
+#
+# Why a daily window and not 24/7: osai-api is the only FREE web service, and
+# Render gives free instances 750 hours/month. Round-the-clock warming burns
+# ~730h and leaves no margin — and exceeding the quota SUSPENDS the service,
+# which is far worse than a cold start. 02:00-19:59 UTC is ~540h/month (~210h
+# spare) and covers 07:30-01:30 IST plus the US morning. Outside the window the
+# first visitor still waits, and the login page now says "waking up" honestly.
+#
+# Free on this repo: GitHub Actions minutes are unlimited for public repos.
+# Note: GitHub disables scheduled workflows after 60 days with no repo activity,
+# and can delay a schedule under load, so treat this as best-effort warming, not
+# a monitor.
+
+on:
+  schedule:
+    - cron: "*/5 2-19 * * *"
+  workflow_dispatch: # so it can be triggered by hand after a deploy
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Wake the API and keep the database from pausing
+        run: |
+          # /health/ready, NOT /health/live. Readiness runs a real SELECT 1, so
+          # this one ping also stops the free Supabase project pausing after ~7
+          # days idle. /health/live deliberately touches no dependencies, so it
+          # would keep the API warm while letting the database pause underneath.
+          URL="https://osai-api-ema6.onrender.com/health/ready"
+          for attempt in 1 2 3; do
+            code=$(curl -s -o /tmp/body -w '%{http_code}' --max-time 120 "$URL" || echo 000)
+            echo "attempt $attempt: HTTP $code $(head -c 120 /tmp/body 2>/dev/null)"
+            if [ "$code" = "200" ]; then
+              echo "API is awake and ready."
+              exit 0
+            fi
+            sleep 20
+          done
+          # Warn rather than fail: this job's purpose is warming, not alerting.
+          # A red X every 5 minutes during any real outage would be pure noise
+          # (see the osai-worker deploy-failure emails) and would train everyone
+          # to ignore it.
+          echo "::warning::API not ready after 3 attempts — it may be down or still waking."
