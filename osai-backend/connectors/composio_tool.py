@@ -12,6 +12,7 @@ agent simply has no Composio tools.
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any
 
@@ -246,6 +247,42 @@ class ComposioClient:
                 "error": f"HTTP {resp.status_code}: {resp.text[:200]}",
             }
         body = resp.json()
+        return {
+            "successful": body.get("successful", body.get("error") is None),
+            "data": body.get("data"),
+            "error": body.get("error"),
+        }
+
+    async def execute_capped(
+        self, slug: str, arguments: dict[str, Any], user_id: str, max_bytes: int
+    ) -> dict[str, Any]:
+        """Like execute(), but streams the response and aborts once it exceeds
+        max_bytes. For tools that inline file content (e.g. GOOGLEDRIVE_DOWNLOAD_FILE)
+        the response is roughly the file itself — buffering it unbounded has
+        OOM-killed the 512MB prod instance mid-sync."""
+        async with httpx.AsyncClient(timeout=60) as client:
+            async with client.stream(
+                "POST",
+                f"{self.base_url}/api/v3/tools/execute/{slug}",
+                headers=self._headers(),
+                json={"arguments": arguments, "user_id": user_id},
+            ) as resp:
+                if resp.status_code != 200:
+                    return {
+                        "successful": False,
+                        "data": None,
+                        "error": f"HTTP {resp.status_code}",
+                    }
+                buf = bytearray()
+                async for chunk in resp.aiter_bytes():
+                    buf.extend(chunk)
+                    if len(buf) > max_bytes:
+                        return {
+                            "successful": False,
+                            "data": None,
+                            "error": f"response exceeded {max_bytes} bytes; skipped",
+                        }
+        body = json.loads(bytes(buf))
         return {
             "successful": body.get("successful", body.get("error") is None),
             "data": body.get("data"),

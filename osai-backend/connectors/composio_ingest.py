@@ -39,6 +39,26 @@ logger = logging.getLogger("osai.composio.ingest")
 _MEDIA_EXTS = (".mp3", ".mp4", ".m4a", ".wav", ".webm", ".mpeg", ".mpga", ".ogg", ".mov")
 _WHISPER_MAX_BYTES = 25 * 1024 * 1024
 
+# Never download file content bigger than this: the Composio download tool
+# inlines the whole file (base64) in its JSON response, which execute() buffers
+# fully in RAM — several copies of a big file at once OOM-kills the 512MB prod
+# instance. Oversized files are indexed by name with skipped_large_file=True.
+_MAX_DOWNLOAD_BYTES = 5 * 1024 * 1024
+
+
+def _file_size(f: dict) -> int | None:
+    """Size in bytes from a Drive listing entry (str or int; absent for
+    Google-native docs, which export small)."""
+    for key in ("size", "sizeBytes", "size_bytes", "quotaBytesUsed"):
+        v = f.get(key)
+        if v is None:
+            continue
+        try:
+            return int(v)
+        except (TypeError, ValueError):
+            continue
+    return None
+
 
 def _is_media(name: str) -> bool:
     return name.lower().endswith(_MEDIA_EXTS)
@@ -67,7 +87,14 @@ async def _transcribe_media(client: ComposioClient, fid: str, name: str, org_id:
     if not settings.transcribe_key:
         return None
     try:
-        dl = await client.execute("GOOGLEDRIVE_DOWNLOAD_FILE", {"file_id": fid}, org_id)
+        # Capped so the buffered response can never exceed what Whisper accepts
+        # anyway (base64 inflates ~4/3x) — execute() would buffer it unbounded.
+        dl = await client.execute_capped(
+            "GOOGLEDRIVE_DOWNLOAD_FILE",
+            {"file_id": fid},
+            org_id,
+            max_bytes=_WHISPER_MAX_BYTES * 2,
+        )
     except Exception:  # noqa: BLE001
         return None
     data = dl.get("data") or {}
@@ -379,6 +406,28 @@ async def _fetch_googledrive(
         url = f.get("webViewLink") or f.get("web_view_link")
         text = ""
         metadata: dict[str, Any] = {}
+        # GOOGLEDRIVE_DOWNLOAD_FILE returns the whole file base64-inlined in
+        # JSON, and execute() buffers the full response — one big Drive file
+        # materialises several times its size in RAM and OOM-kills the 512MB
+        # prod instance (observed: instance died ~1 min into every real sync).
+        # The listing gives us the size up front, so skip content for large
+        # files and index them by name.
+        size = _file_size(f)
+        if size is not None and size > _MAX_DOWNLOAD_BYTES:
+            documents.append(
+                SourceDocument(
+                    source_id=f"gdrive:{fid}",
+                    source_type="google_drive",
+                    org_id=org_id,
+                    external_id=fid,
+                    title=name,
+                    url=url,
+                    text=name,
+                    metadata={"skipped_large_file": True, "size_bytes": size},
+                    permissions=["source:all"],
+                )
+            )
+            continue
         if _is_media(name):
             # Audio/video: transcribe with Whisper so the *content* is searchable,
             # not just the filename.
@@ -390,8 +439,13 @@ async def _fetch_googledrive(
                 metadata = {"media": True, "transcribed": False}
         else:
             try:
-                content = await client.execute(
-                    "GOOGLEDRIVE_DOWNLOAD_FILE", {"file_id": fid}, org_id
+                # Capped: Google-native docs report no size in the listing, so
+                # the size check above can't protect this call by itself.
+                content = await client.execute_capped(
+                    "GOOGLEDRIVE_DOWNLOAD_FILE",
+                    {"file_id": fid},
+                    org_id,
+                    max_bytes=_MAX_DOWNLOAD_BYTES * 2,
                 )
                 text = _plain_text(content.get("data") or {})
             except Exception:  # noqa: BLE001
