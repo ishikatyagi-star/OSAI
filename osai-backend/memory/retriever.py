@@ -90,6 +90,14 @@ async def retrieve_answer(request: SearchRequest) -> SearchResponse:
     # and look like a hallucination. Keep only hits above a similarity floor.
     hits = [h for h in hits if float(getattr(h, "score", 0.0)) >= settings.retrieval_min_score]
 
+    # Relative cutoff on top of the absolute floor: cosine scores cluster, so
+    # when the best hit is strong, a hit barely over the floor is filler that
+    # gets cited as a ~70% "source" despite saying nothing about the query
+    # (observed: untranscribed video files cited on a document question).
+    if hits:
+        best = max(float(getattr(h, "score", 0.0)) for h in hits)
+        hits = [h for h in hits if float(getattr(h, "score", 0.0)) >= best - 0.08]
+
     # Data governance: drop chunks the requester isn't permitted to see — both by
     # permission grant and by data-clearance tier (a member never sees documents
     # above their tier; admins/system context have "red" clearance = see-all).

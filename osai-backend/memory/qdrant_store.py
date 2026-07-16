@@ -46,14 +46,18 @@ class QdrantStore:
                 )
         # Qdrant Cloud rejects filtering on an unindexed field; every search is
         # org-scoped, so ensure a keyword index on org_id. Idempotent.
-        try:
-            await self.client.create_payload_index(
-                collection_name=self.collection_name,
-                field_name="org_id",
-                field_schema=models.PayloadSchemaType.KEYWORD,
-            )
-        except Exception:
-            pass  # index already exists
+        # source_document_id is filtered on by set_document_payload (per-doc
+        # access changes) and delete_document (stale-vector purge) — without
+        # its index those silently no-op against Qdrant Cloud.
+        for field in ("org_id", "source_document_id"):
+            try:
+                await self.client.create_payload_index(
+                    collection_name=self.collection_name,
+                    field_name=field,
+                    field_schema=models.PayloadSchemaType.KEYWORD,
+                )
+            except Exception:
+                pass  # index already exists
 
     async def search(
         self, query_vector: list[float], org_id: str, limit: int = 8
@@ -118,6 +122,27 @@ class QdrantStore:
             collection_name=self.collection_name,
             payload=payload,
             points=models.FilterSelector(
+                filter=models.Filter(
+                    must=[
+                        models.FieldCondition(
+                            key="org_id", match=models.MatchValue(value=org_id)
+                        ),
+                        models.FieldCondition(
+                            key="source_document_id",
+                            match=models.MatchValue(value=source_document_id),
+                        ),
+                    ]
+                )
+            ),
+        )
+
+    async def delete_document(self, org_id: str, source_document_id: str) -> None:
+        """Delete every chunk of one document (org-scoped). Used when a re-sync
+        decides a document should no longer be retrievable (e.g. its content
+        degraded to filename-only), so stale vectors can't keep matching."""
+        await self.client.delete(
+            collection_name=self.collection_name,
+            points_selector=models.FilterSelector(
                 filter=models.Filter(
                     must=[
                         models.FieldCondition(
