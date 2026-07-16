@@ -61,26 +61,36 @@ test("homepage keeps its audit fixes", () => {
 test("homepage preserves the approved positioning and section content", () => {
   assert.match(
     html,
-    /<h1>Run your company on autopilot\.<\/h1>\s*<p class="hero-positioning">Turn company context into workflows that move\.<\/p>\s*<p class="hero-sub">Sheldon absorbs your company's context,[\s\S]*?learning from every outcome\.<\/p>/,
+    /<span class="eyebrow hero-kicker">AI-native Operating System\.<\/span>\s*<h1>Run your company on autopilot\.<\/h1>\s*<p class="hero-sub">Sheldon absorbs your company's context,[\s\S]*?learning from every outcome\.<\/p>/,
   );
+  assert.doesNotMatch(html, /Turn company context into workflows that move\./);
+  assert.match(html, /Teams spend too much time moving work and not enough time doing it\./);
   assert.match(
     html,
     /<p class="hero-micro">Built for fast-moving teams that want to scale execution without losing context\.<\/p>\s*<div class="hero-actions">/,
   );
   assert.match(html, /<h2 id="loop-title">Sheldon acts like an AI-native operating system that runs your company\.<\/h2>/);
-  assert.equal((html.match(/<article class="loop-node /g) ?? []).length, 4);
+  assert.equal((html.match(/<article class="loop-node /g) ?? []).length, 5);
+  assert.match(html, /<span class="loop-num">4<\/span>Update/);
+  assert.match(html, /<span class="loop-num">5<\/span>Audit/);
   assert.equal((html.match(/<article class="saas-workflow /g) ?? []).length, 6);
   assert.equal((html.match(/<span aria-hidden="true">→<\/span>/g) ?? []).length, 24);
   assert.equal((html.match(/<div class="feat-card /g) ?? []).length, 6);
   assert.match(html, /One brain to remember\. A team of agents to execute\./);
-  assert.match(html, /Got work\?<br>Consider it done\.<span class="final-signoff">Signed, Sheldon\.<\/span>/);
+  assert.match(html, /Got work\?<br>Shall be done\.<span class="final-signoff">Signed, Sheldon\.<\/span>/);
   assert.doesNotMatch(html, /We respond within 24 hours\./);
-  assert.equal((html.match(/Run your company on autopilot\.<\/p>|Run your company on autopilot\.<\/span>/g) ?? []).length, 2);
+  assert.match(html, /An AI-native operating system that runs your company on autopilot\.<\/p>/);
+  assert.match(html, /They will do it\.<\/p>/);
+  assert.match(html, /<a href="\/login" class="nav-signin nav-signin-btn">Sign in<\/a>/);
+  assert.match(html, /Worked across growth with founders in EdTech, SaaS, and B2B AI agents/);
+  assert.match(html, /Perplexity's Comet Browser/);
+  assert.match(html, /EY CAFTA runner-up/);
+  assert.match(html, /Dean's List at Master's Union/);
 });
 
 test("homepage keeps loop, workflow, feature, and focus layouts responsive", () => {
-  assert.match(html, /\.loop-orbit\s*{[\s\S]*?grid-template-areas:[\s\S]*?"learn hub decide"[\s\S]*?"\. act \.":?;/);
-  assert.equal((html.match(/class="loop-arrow /g) ?? []).length, 4);
+  assert.match(html, /\.loop-orbit\s*{[\s\S]*?grid-template-areas:[\s\S]*?"audit hub decide"[\s\S]*?"update \. act";/);
+  assert.equal((html.match(/class="loop-arrow /g) ?? []).length, 5);
   assert.match(html, /\.landing-saas a:focus-visible,\s*\.landing-saas summary:focus-visible\s*{/);
   assert.match(html, /@media \(max-width: 980px\)[\s\S]*?\.loop-orbit\s*{\s*display: flex;\s*flex-direction: column;/);
   assert.match(html, /\.loop-hub::after\s*{[\s\S]*?Back to ingest/);

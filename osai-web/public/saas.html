@@ -177,6 +177,16 @@
   }
   .nav-signin:hover { color: var(--ink-muted) !important; }
 
+  .hero-kicker {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    padding: 10px 16px;
+    background: var(--el-surface-strong);
+    border: 1px solid var(--el-hairline);
+    border-radius: var(--r-pill);
+  }
+
   /* ---------- SECTION SCAFFOLD ---------- */
   section { padding: 96px 30px; }
 
@@ -254,17 +264,6 @@
 
   .hero h1 { margin-bottom: 26px; }
 
-  .hero-positioning {
-    max-width: 680px;
-    margin-bottom: 20px;
-    color: var(--el-ink, #0c0a09);
-    font-family: var(--el-serif, Georgia, serif);
-    font-size: clamp(24px, 3vw, 36px);
-    font-weight: 400;
-    line-height: 1.12;
-    letter-spacing: -0.02em;
-  }
-
   .hero-sub {
     font-size: 19px;
     line-height: 1.45;
@@ -326,11 +325,11 @@
     position: relative;
     display: grid;
     grid-template-columns: minmax(240px, 1fr) minmax(300px, 1.2fr) minmax(240px, 1fr);
-    grid-template-rows: auto 190px auto;
+    grid-template-rows: auto 280px auto;
     grid-template-areas:
       ". ingest ."
-      "learn hub decide"
-      ". act .";
+      "audit hub decide"
+      "update . act";
     gap: 24px 32px;
     margin-top: 56px;
     padding: 16px 0;
@@ -358,10 +357,12 @@
     position: relative;
     z-index: 1;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 76px;
-    column-gap: 16px;
-    min-height: 166px;
-    padding: 24px;
+    grid-template-columns: minmax(0, 1fr) 60px;
+    column-gap: 12px;
+    min-width: 0;
+    min-height: 174px;
+    padding: 20px;
+    overflow: hidden;
     background: rgba(255, 255, 255, 0.9);
     border: 1px solid var(--el-hairline);
     border-radius: 16px;
@@ -370,18 +371,19 @@
 
   .loop-node-ingest { grid-area: ingest; width: min(100%, 410px); justify-self: center; }
   .loop-node-decide { grid-area: decide; }
-  .loop-node-act { grid-area: act; width: min(100%, 410px); justify-self: center; }
-  .loop-node-learn { grid-area: learn; }
+  .loop-node-act { grid-area: act; }
+  .loop-node-update { grid-area: update; }
+  .loop-node-audit { grid-area: audit; }
 
   .loop-orbit .loop-mascot {
     grid-column: 2;
     grid-row: 1 / span 3;
     align-self: end;
-    width: 76px;
+    width: 60px;
     height: auto;
   }
 
-  .loop-node > :not(.loop-mascot) { grid-column: 1; }
+  .loop-node > :not(.loop-mascot) { grid-column: 1; min-width: 0; }
 
   .loop-step {
     font-size: 12px;
@@ -403,8 +405,8 @@
     font-size: 12px;
     font-weight: 600;
   }
-  .loop-node h3 { margin-bottom: 8px; font-size: 18px; }
-  .loop-node p { font-size: 16px; line-height: 1.5; color: var(--el-body); }
+  .loop-node h3 { margin-bottom: 8px; font-size: 18px; overflow-wrap: anywhere; }
+  .loop-node p { font-size: 16px; line-height: 1.5; color: var(--el-body); overflow-wrap: anywhere; }
 
   .loop-hub {
     grid-area: hub;
@@ -457,6 +459,7 @@
   .loop-arrow-right { top: 48%; right: 18%; }
   .loop-arrow-bottom { right: 48%; bottom: 15%; }
   .loop-arrow-left { top: 48%; left: 18%; }
+  .loop-arrow-return { top: 17%; left: 28%; }
 
   /* ---------- USE CASES ---------- */
   .saas-workflows {
@@ -704,7 +707,7 @@
       width: 100%;
       min-height: 154px;
     }
-    .loop-node:not(.loop-node-learn)::after {
+    .loop-node:not(.loop-node-audit)::after {
       content: '↓';
       position: absolute;
       left: 50%;
@@ -721,7 +724,7 @@
       font-size: 13px;
     }
     .loop-hub {
-      order: 5;
+      order: 6;
       position: relative;
       width: min(190px, 70vw);
       margin-bottom: 48px;
@@ -791,7 +794,7 @@
     </div>
   </details>
   <div class="nav-right">
-    <a href="/login" class="nav-signin">Sign in</a>
+    <a href="/login" class="nav-signin nav-signin-btn">Sign in</a>
     <a href="/demo" class="btn btn-primary">Try a Demo</a>
   </div>
 </nav>
@@ -802,9 +805,8 @@
   <div class="hero-glow"></div>
   <div class="wrap hero-inner">
     <div class="hero-left">
-      <span class="eyebrow dot">AI operations workspace</span>
+      <span class="eyebrow hero-kicker">AI-native Operating System.</span>
       <h1>Run your company on autopilot.</h1>
-      <p class="hero-positioning">Turn company context into workflows that move.</p>
       <p class="hero-sub">Sheldon absorbs your company's context, remembers every decision and exception, then executes the work end to end, learning from every outcome.</p>
       <p class="hero-micro">Built for fast-moving teams that want to scale execution without losing context.</p>
       <div class="hero-actions">
@@ -833,7 +835,7 @@
       <ul class="line-list fade-up">
         <li>Coordination becomes a full-time job at scale.</li>
         <li>Work gets stuck between functions, not inside them.</li>
-        <li>Teams spend too much time moving work and not enough time finishing it.</li>
+        <li>Teams spend too much time moving work and not enough time doing it.</li>
         <li>Systems store information, but they do not execute the workflow.</li>
       </ul>
     </div>
@@ -866,11 +868,17 @@
         <h3>Agents execute the work</h3>
         <p>Sheldon's agents update tools, coordinate handoffs, request approvals, and carry the workflow to completion.</p>
       </article>
-      <article class="loop-node loop-node-learn fade-up">
-        <div class="loop-step"><span class="loop-num">4</span>Learn</div>
-        <img class="loop-mascot" src="/brand/sheldon-ai-mascot-learning-web.webp" alt="" width="240" height="240" loading="lazy">
-        <h3>Turn outcomes into memory</h3>
-        <p>Every approval, exception, and result becomes context that improves the next cycle.</p>
+      <article class="loop-node loop-node-update fade-up">
+        <div class="loop-step"><span class="loop-num">4</span>Update</div>
+        <img class="loop-mascot" src="/brand/sheldon-ai-mascot-syncing-web.webp" alt="" width="240" height="240" loading="lazy">
+        <h3>Update the system of record</h3>
+        <p>Sheldon writes the completed action and current state back to the tools your team trusts.</p>
+      </article>
+      <article class="loop-node loop-node-audit fade-up">
+        <div class="loop-step"><span class="loop-num">5</span>Audit</div>
+        <img class="loop-mascot" src="/brand/sheldon-ai-mascot-approving-web.webp" alt="" width="240" height="240" loading="lazy">
+        <h3>Keep every action auditable</h3>
+        <p>Humans can review what happened, why it happened, and the context behind every decision.</p>
       </article>
       <div class="loop-hub fade-up">
         <span>Company brain</span>
@@ -880,6 +888,7 @@
       <span class="loop-arrow loop-arrow-right" aria-hidden="true">↓</span>
       <span class="loop-arrow loop-arrow-bottom" aria-hidden="true">←</span>
       <span class="loop-arrow loop-arrow-left" aria-hidden="true">↑</span>
+      <span class="loop-arrow loop-arrow-return" aria-hidden="true">↗</span>
     </div>
   </div>
 </section>
@@ -999,7 +1008,7 @@
     <div class="section-head fade-up">
       <span class="eyebrow">Who we are</span>
       <h2>Built by people who have lived inside operational chaos.</h2>
-      <p class="lead" style="margin-top:22px;">We've spent the last few years inside fast-moving companies across product, operations, automation, and go-to-market. We've seen how much execution depends on the invisible labor of context transfer, follow-ups, and internal coordination. Sheldon comes from that firsthand experience - and from the belief that the next great AI-native operating systems for companies will not just store work. They will move it.</p>
+      <p class="lead" style="margin-top:22px;">We've spent the last few years inside fast-moving companies across product, operations, automation, and go-to-market. We've seen how much execution depends on the invisible labor of context transfer, follow-ups, and internal coordination. Sheldon comes from that firsthand experience - and from the belief that the next great AI-native operating systems for companies will not just store work. They will do it.</p>
     </div>
     <div class="team-grid">
       <div class="team-card fade-up">
@@ -1016,10 +1025,10 @@
         <div class="team-name">Yash</div>
         <div class="team-role">GTM &amp; Sales</div>
         <ul class="team-bullets">
-          <li>Worked with founders across three early-stage startups in Ed-Tech and SaaS</li>
-          <li>Led user activations for Perplexity</li>
-          <li>Wharton WGHS Global Semifinalist; Microsoft GenAI Hackathon runner-up</li>
-          <li>Ranked #2 on Dean's List at Masters' Union</li>
+          <li>Worked across growth with founders in EdTech, SaaS, and B2B AI agents</li>
+          <li>Led user activations for Perplexity's Comet Browser</li>
+          <li>Wharton WGHS Global Semifinalist; Microsoft GenAI Hackathon runner-up; EY CAFTA runner-up</li>
+          <li>Dean's List at Master's Union</li>
         </ul>
       </div>
     </div>
@@ -1031,7 +1040,7 @@
   <div class="final-glow"></div>
   <div class="final-inner fade-up">
     <span class="eyebrow">Get in touch</span>
-    <h2>Got work?<br>Consider it done.<span class="final-signoff">Signed, Sheldon.</span></h2>
+    <h2>Got work?<br>Shall be done.<span class="final-signoff">Signed, Sheldon.</span></h2>
     <p class="lead">Pick one workflow that is slowing your team down. We'll help map it, redesign it, and show how Sheldon can run it end to end.</p>
     <div class="final-actions">
       <a href="/demo" class="btn btn-primary btn-lg">Try a Demo</a>
@@ -1046,7 +1055,7 @@
   <div class="footer-inner">
     <div class="footer-brand">
       <span class="nav-logo"><img src="/brand/sheldon-ai-logo.png" alt="" width="32" height="32" />Sheldon</span>
-      <p class="footer-tag">Run your company on autopilot.</p>
+      <p class="footer-tag">An AI-native operating system that runs your company on autopilot.</p>
     </div>
     <div class="footer-cols">
       <div class="footer-col">
