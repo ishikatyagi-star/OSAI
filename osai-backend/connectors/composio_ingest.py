@@ -387,6 +387,27 @@ def _notion_blocks_text(data: dict) -> str:
     return "\n".join(p for p in parts if p)
 
 
+async def _text_from_download_url(data: Any) -> str:
+    """Composio delivers exported file content as a temporary URL (R2), not
+    inline — fetch it with a hard size cap. Only called for text exports."""
+    url = _find_url(data)
+    if not url:
+        return ""
+    try:
+        async with httpx.AsyncClient(timeout=60) as h:
+            async with h.stream("GET", url) as r:
+                if r.status_code != 200:
+                    return ""
+                buf = bytearray()
+                async for chunk in r.aiter_bytes():
+                    buf.extend(chunk)
+                    if len(buf) > _MAX_DOWNLOAD_BYTES:
+                        return ""
+        return bytes(buf).decode("utf-8", errors="replace")
+    except Exception:  # noqa: BLE001 — content extraction is best-effort
+        return ""
+
+
 async def _fetch_googledrive(
     client: ComposioClient, org_id: str, limit: int
 ) -> list[SourceDocument]:
@@ -403,6 +424,9 @@ async def _fetch_googledrive(
         if not fid:
             continue
         name = f.get("name") or "Untitled"
+        mime = f.get("mimeType") or f.get("mime_type") or ""
+        if mime == "application/vnd.google-apps.folder":
+            continue  # folders have no content; indexing them as docs is noise
         url = f.get("webViewLink") or f.get("web_view_link")
         text = ""
         metadata: dict[str, Any] = {}
@@ -438,16 +462,32 @@ async def _fetch_googledrive(
             else:
                 metadata = {"media": True, "transcribed": False}
         else:
+            args: dict[str, Any] = {"file_id": fid}
+            is_workspace_doc = mime.startswith("application/vnd.google-apps")
+            if is_workspace_doc:
+                # Workspace files (Docs/Sheets/Slides) can't be downloaded
+                # raw — the tool errors "mime_type is required for exporting
+                # Google Workspace files" and the doc used to be indexed as
+                # just its filename. Export to text.
+                args["mime_type"] = (
+                    "text/csv"
+                    if mime == "application/vnd.google-apps.spreadsheet"
+                    else "text/plain"
+                )
             try:
-                # Capped: Google-native docs report no size in the listing, so
-                # the size check above can't protect this call by itself.
+                # Capped: Drive listings report no size, so the size check
+                # above can't protect this call by itself.
                 content = await client.execute_capped(
                     "GOOGLEDRIVE_DOWNLOAD_FILE",
-                    {"file_id": fid},
+                    args,
                     org_id,
                     max_bytes=_MAX_DOWNLOAD_BYTES * 2,
                 )
-                text = _plain_text(content.get("data") or {})
+                data = content.get("data") or {}
+                text = _plain_text(data)
+                if not text and is_workspace_doc:
+                    # Exported content arrives as a temporary URL, not inline.
+                    text = await _text_from_download_url(data)
             except Exception:  # noqa: BLE001
                 text = ""
         documents.append(
