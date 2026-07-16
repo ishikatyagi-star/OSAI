@@ -20,14 +20,23 @@ const AUTH_CHECK_RETRY_MS = 5000;
 
 export default function LoginPage() {
   const router = useRouter();
-  // true/false = the server answered. null = we don't know yet. "Didn't answer"
-  // is NOT the same as "answered false", and must never be rendered as though
-  // sign-in were switched off.
-  const [googleEnabled, setGoogleEnabled] = useState<boolean | null>(null);
+  // Show the button immediately instead of waiting on the backend to confirm it.
+  //
+  // Gating it on /auth/config made the page as slow as the slowest possible
+  // backend: on a cold free-tier instance the visitor stared at a spinner for
+  // ~40-90s before a sign-in button appeared, which is what "sign-in takes two
+  // minutes to load" actually was. Google sign-in is configured on every real
+  // deployment, so assuming it and correcting if the server disagrees is right
+  // far more often, and costs nothing when it isn't: the click lands on
+  // /auth/google/start, which 503s cleanly if Google really is unconfigured.
+  //
+  // The config call below still runs: it corrects this to false if the server
+  // says so, and it doubles as the request that wakes a sleeping API while the
+  // visitor is still reading the page.
+  const [googleEnabled, setGoogleEnabled] = useState<boolean | null>(true);
   const [waking, setWaking] = useState(false);
   const [unreachable, setUnreachable] = useState(false);
   const [invitedEmail, setInvitedEmail] = useState("");
-  const [checkKey, setCheckKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -62,7 +71,7 @@ export default function LoginPage() {
     return () => {
       cancelled = true;
     };
-  }, [checkKey]);
+  }, []);
 
   // Demo workspace = shared sample data, no real account. Real sign-in is
   // Google only - the passwordless email login accepted any address without
@@ -134,29 +143,16 @@ export default function LoginPage() {
           </div>
         )}
 
-        {/* The server never answered. Say that, rather than claiming sign-in is
-            off: it is almost always a slow wake-up, and a retry usually works. */}
-        {unreachable && googleEnabled === null && (
-          <div className="login-auth-check" role="status" aria-live="polite">
-            The server is still waking up. This can take a couple of minutes when it
-            has been idle.
-            <button
-              type="button"
-              className="btn btn-sm"
-              style={{ marginLeft: 8 }}
-              onClick={() => setCheckKey((key) => key + 1)}
-            >
-              Try again
-            </button>
-          </div>
-        )}
-
-        {googleEnabled === null && !unreachable && (
-          <div className="login-auth-check" role="status" aria-live="polite">
-            {waking
-              ? "Waking up the server, this can take up to a minute…"
-              : "Checking sign-in options…"}
-          </div>
+        {/* A slow or unreachable backend is a note under a usable button, not a
+            blocker in front of it. The button already works: clicking it wakes
+            the API on the way to Google. Never hide sign-in just because we
+            couldn't reach the server - that is the failure this page had. */}
+        {googleEnabled !== false && (waking || unreachable) && (
+          <p className="login-auth-check" role="status" aria-live="polite">
+            {unreachable
+              ? "The server is taking a while to wake up. Sign-in still works; the first click may be slow."
+              : "Waking up the server. The first sign-in after a quiet spell can take a moment."}
+          </p>
         )}
 
         {googleEnabled && (

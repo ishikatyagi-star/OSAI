@@ -19,7 +19,13 @@ name: keep-alive
 
 on:
   schedule:
-    - cron: "*/5 2-19 * * *"
+    # Every 5 minutes, but offset off the top of the hour on purpose. GitHub
+    # delays scheduled runs under load and the hour boundary is the most
+    # contended slot, so "*/5" (which includes :00) is the likeliest to be
+    # dropped — measured: a "*/5" schedule produced zero runs in its first 40
+    # minutes. 5-minute spacing (not 10) leaves room for a dropped run inside
+    # Render's ~15-minute idle timeout.
+    - cron: "2,7,12,17,22,27,32,37,42,47,52,57 2-19 * * *"
   workflow_dispatch: # so it can be triggered by hand after a deploy
 
 jobs:
