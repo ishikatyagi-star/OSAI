@@ -321,18 +321,12 @@
 
   /* ---------- AGENTIC LOOP ---------- */
   .loop-orbit {
-    --orbit-size: min(650px, 64vw);
+    --orbit-size: 650px;
     position: relative;
-    display: grid;
-    grid-template-columns: minmax(240px, 1fr) minmax(300px, 1.2fr) minmax(240px, 1fr);
-    grid-template-rows: auto 280px auto;
-    grid-template-areas:
-      ". ingest ."
-      "audit hub decide"
-      "update . act";
-    gap: 24px 32px;
-    margin-top: 56px;
-    padding: 16px 0;
+    display: block;
+    width: min(100%, 980px);
+    min-height: 820px;
+    margin: 56px auto 0;
     isolation: isolate;
   }
 
@@ -354,26 +348,26 @@
   }
 
   .loop-node {
-    position: relative;
+    position: absolute;
     z-index: 1;
     display: grid;
     grid-template-columns: minmax(0, 1fr) 60px;
     column-gap: 12px;
+    width: 290px;
     min-width: 0;
-    min-height: 174px;
+    min-height: 220px;
     padding: 20px;
-    overflow: hidden;
     background: rgba(255, 255, 255, 0.9);
     border: 1px solid var(--el-hairline);
     border-radius: 16px;
     box-shadow: 0 10px 30px rgba(41, 37, 36, 0.06);
   }
 
-  .loop-node-ingest { grid-area: ingest; width: min(100%, 410px); justify-self: center; }
-  .loop-node-decide { grid-area: decide; }
-  .loop-node-act { grid-area: act; }
-  .loop-node-update { grid-area: update; }
-  .loop-node-audit { grid-area: audit; }
+  .loop-node-ingest { top: 0; left: 50%; width: 320px; transform: translateX(-50%); }
+  .loop-node-decide { top: 25%; right: 0; }
+  .loop-node-act { right: 12%; bottom: 0; }
+  .loop-node-update { bottom: 0; left: 12%; }
+  .loop-node-audit { top: 25%; left: 0; }
 
   .loop-orbit .loop-mascot {
     grid-column: 2;
@@ -409,9 +403,10 @@
   .loop-node p { font-size: 16px; line-height: 1.5; color: var(--el-body); overflow-wrap: anywhere; }
 
   .loop-hub {
-    grid-area: hub;
+    position: absolute;
+    top: 50%;
+    left: 50%;
     z-index: 2;
-    align-self: center;
     display: grid;
     place-items: center;
     width: 190px;
@@ -424,6 +419,7 @@
     border: 8px solid rgba(255, 255, 255, 0.72);
     border-radius: 50%;
     box-shadow: 0 18px 42px rgba(41, 37, 36, 0.18);
+    transform: translate(-50%, -50%);
   }
 
   .loop-hub span {
@@ -455,11 +451,11 @@
     font-size: 18px;
   }
 
-  .loop-arrow-top { top: 17%; right: 28%; }
-  .loop-arrow-right { top: 48%; right: 18%; }
-  .loop-arrow-bottom { right: 48%; bottom: 15%; }
-  .loop-arrow-left { top: 48%; left: 18%; }
-  .loop-arrow-return { top: 17%; left: 28%; }
+  .loop-arrow-top { top: 18%; right: 25%; }
+  .loop-arrow-right { top: 53%; right: 12%; }
+  .loop-arrow-bottom { bottom: 11%; left: 50%; }
+  .loop-arrow-left { top: 53%; left: 12%; }
+  .loop-arrow-return { top: 18%; left: 25%; }
 
   /* ---------- USE CASES ---------- */
   .saas-workflows {
@@ -685,6 +681,14 @@
   .fade-up.visible { opacity: 1; transform: translateY(0); }
 
   /* ---------- RESPONSIVE ---------- */
+  @media (min-width: 981px) and (max-width: 1050px) {
+    .landing-saas nav { padding-inline: 20px !important; }
+    .landing-saas .nav-links { gap: 10px !important; }
+    .landing-saas .nav-links a { padding-inline: 2px; font-size: 14px !important; }
+    .landing-saas .nav-right { gap: 8px; }
+    .landing-saas .nav-right .btn { padding-inline: 14px; }
+  }
+
   @media (max-width: 980px) {
     nav { padding: 0 20px; }
     .nav-links { display: none; }
@@ -696,6 +700,8 @@
     .loop-orbit {
       display: flex;
       flex-direction: column;
+      width: 100%;
+      min-height: 0;
       gap: 16px;
       padding: 0;
     }
@@ -704,8 +710,11 @@
     .loop-node,
     .loop-node-ingest,
     .loop-node-act {
+      position: relative;
+      inset: auto;
       width: 100%;
       min-height: 154px;
+      transform: none;
     }
     .loop-node:not(.loop-node-audit)::after {
       content: '↓';
@@ -726,8 +735,10 @@
     .loop-hub {
       order: 6;
       position: relative;
+      inset: auto;
       width: min(190px, 70vw);
       margin-bottom: 48px;
+      transform: none;
     }
     .loop-hub::after {
       content: '↻ Back to ingest';
@@ -770,26 +781,34 @@
     h1 { font-size: 44px; }
   }
 </style>
-<link rel="stylesheet" href="/landing-eleven.css?v=20260715-saas-loop" />
+<link rel="stylesheet" href="/landing-eleven.css?v=20260716-orbit-nav" />
 </head>
 <body class="landing-saas">
 
 <!-- NAV -->
 <nav>
-  <a href="#top" class="nav-logo"><img src="/brand/sheldon-ai-logo.png" alt="" width="32" height="32" />Sheldon</a>
+  <a href="#top" class="nav-logo"><img src="/brand/sheldon-ai-logo.png" alt="" width="38" height="38" />Sheldon</a>
   <div class="nav-links">
-    <a href="#loop">The Agentic Loop</a>
-    <a href="#use-cases">Use Cases</a>
+    <a href="#top">Home</a>
+    <a href="#problem">Problem</a>
+    <a href="#loop">Loop</a>
+    <a href="#use-cases">Workflows</a>
+    <a href="#features">Features</a>
     <a href="#outcomes">Outcomes</a>
     <a href="#team">Team</a>
+    <a href="#demo">Contact</a>
   </div>
   <details class="nav-mobile-menu">
     <summary role="button" aria-label="Navigation menu" aria-controls="mobile-navigation" aria-expanded="false">Menu</summary>
     <div class="nav-mobile-links" id="mobile-navigation">
-      <a href="#loop">The Agentic Loop</a>
-      <a href="#use-cases">Use Cases</a>
+      <a href="#top">Home</a>
+      <a href="#problem">Problem</a>
+      <a href="#loop">Loop</a>
+      <a href="#use-cases">Workflows</a>
+      <a href="#features">Features</a>
       <a href="#outcomes">Outcomes</a>
       <a href="#team">Team</a>
+      <a href="#demo">Contact</a>
       <a href="/login">Sign in</a>
     </div>
   </details>
@@ -821,7 +840,7 @@
 </section>
 
 <!-- THE PROBLEM -->
-<section class="problem">
+<section class="problem" id="problem">
   <div class="wrap">
     <div class="section-head fade-up">
       <span class="eyebrow">The problem</span>
@@ -884,10 +903,10 @@
         <span>Company brain</span>
         <strong>Every cycle makes Sheldon smarter.</strong>
       </div>
-      <span class="loop-arrow loop-arrow-top" aria-hidden="true">→</span>
-      <span class="loop-arrow loop-arrow-right" aria-hidden="true">↓</span>
+      <span class="loop-arrow loop-arrow-top" aria-hidden="true">↘</span>
+      <span class="loop-arrow loop-arrow-right" aria-hidden="true">↙</span>
       <span class="loop-arrow loop-arrow-bottom" aria-hidden="true">←</span>
-      <span class="loop-arrow loop-arrow-left" aria-hidden="true">↑</span>
+      <span class="loop-arrow loop-arrow-left" aria-hidden="true">↖</span>
       <span class="loop-arrow loop-arrow-return" aria-hidden="true">↗</span>
     </div>
   </div>
@@ -943,7 +962,7 @@
 </section>
 
 <!-- INSIDE Sheldon -->
-<section class="inside">
+<section class="inside" id="features">
   <div class="wrap">
     <div class="section-head fade-up">
       <span class="eyebrow">Product features</span>
@@ -1054,7 +1073,7 @@
 <footer>
   <div class="footer-inner">
     <div class="footer-brand">
-      <span class="nav-logo"><img src="/brand/sheldon-ai-logo.png" alt="" width="32" height="32" />Sheldon</span>
+      <span class="nav-logo"><img src="/brand/sheldon-ai-logo.png" alt="" width="38" height="38" />Sheldon</span>
       <p class="footer-tag">An AI-native operating system that runs your company on autopilot.</p>
     </div>
     <div class="footer-cols">

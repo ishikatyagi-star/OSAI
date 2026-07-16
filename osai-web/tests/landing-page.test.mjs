@@ -49,8 +49,8 @@ test("homepage keeps its audit fixes", () => {
   assert.match(css, /\.landing-saas \.hero\s*{[^}]*min-height: auto !important;/s);
   assert.match(css, /\.landing-saas \.nav-mobile-menu\[open\]::before\s*,\s*\.landing-university \.nav-mobile-menu\[open\]::before\s*{/);
   assert.match(css, /@media \(max-width: 980px\)\s*{[\s\S]*?\.nav-mobile-menu\s*{\s*display: block;/);
-  assert.match(html, /landing-eleven\.css\?v=20260715-saas-loop/);
-  assert.match(universityHtml, /landing-eleven\.css\?v=20260714-ui-audit/);
+  assert.match(html, /landing-eleven\.css\?v=20260716-orbit-nav/);
+  assert.match(universityHtml, /landing-eleven\.css\?v=20260716-orbit-nav/);
   assert.doesNotMatch(html, /Explore live workflow/);
   assert.match(html, /matchMedia\('\(prefers-reduced-motion: reduce\)'\)/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
@@ -89,7 +89,12 @@ test("homepage preserves the approved positioning and section content", () => {
 });
 
 test("homepage keeps loop, workflow, feature, and focus layouts responsive", () => {
-  assert.match(html, /\.loop-orbit\s*{[\s\S]*?grid-template-areas:[\s\S]*?"audit hub decide"[\s\S]*?"update \. act";/);
+  assert.match(html, /\.loop-orbit\s*{[\s\S]*?display: block;[\s\S]*?width: min\(100%, 980px\);[\s\S]*?min-height: 820px;/);
+  assert.match(html, /\.loop-node-ingest\s*{[^}]*top: 0;[^}]*left: 50%;[^}]*transform: translateX\(-50%\);/);
+  assert.match(html, /\.loop-node-decide\s*{[^}]*top: 25%;[^}]*right: 0;/);
+  assert.match(html, /\.loop-node-act\s*{[^}]*right: 12%;[^}]*bottom: 0;/);
+  assert.match(html, /\.loop-node-update\s*{[^}]*bottom: 0;[^}]*left: 12%;/);
+  assert.match(html, /\.loop-node-audit\s*{[^}]*top: 25%;[^}]*left: 0;/);
   assert.equal((html.match(/class="loop-arrow /g) ?? []).length, 5);
   assert.match(html, /\.landing-saas a:focus-visible,\s*\.landing-saas summary:focus-visible\s*{/);
   assert.match(html, /@media \(max-width: 980px\)[\s\S]*?\.loop-orbit\s*{\s*display: flex;\s*flex-direction: column;/);
@@ -97,6 +102,16 @@ test("homepage keeps loop, workflow, feature, and focus layouts responsive", () 
   assert.match(html, /@media \(max-width: 980px\)[\s\S]*?\.saas-workflow\s*{\s*grid-template-columns: 36px/);
   assert.match(html, /@media \(max-width: 560px\)[\s\S]*?\.landing-saas \.feat-grid\s*{\s*grid-template-columns: 1fr;/);
   assert.match(html, /@media \(max-width: 560px\)[\s\S]*?\.saas-workflow\s*{\s*grid-template-columns: 32px 1fr;/);
+  const requiredNavTargets = ["top", "problem", "loop", "use-cases", "features", "outcomes", "team", "demo"];
+  const desktopNav = html.match(/<div class="nav-links">([\s\S]*?)<\/div>/)?.[1] ?? "";
+  const mobileNav = html.match(/<div class="nav-mobile-links"[^>]*>([\s\S]*?)<\/div>/)?.[1] ?? "";
+  for (const target of requiredNavTargets) {
+    assert.match(html, new RegExp(`<section[^>]*id="${target}"`));
+    assert.match(desktopNav, new RegExp(`href="#${target}"`));
+    assert.match(mobileNav, new RegExp(`href="#${target}"`));
+  }
+  assert.match(css, /\.nav-logo,[\s\S]*?footer \.footer-logo\s*{[^}]*font-size: 27px !important;/);
+  assert.match(css, /\.nav-logo img,[\s\S]*?footer \.footer-logo img\s*{[^}]*width: 38px !important;[^}]*height: 38px !important;/);
 });
 
 test("website contains no share-workflow CTA", async () => {
