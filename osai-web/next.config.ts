@@ -56,8 +56,15 @@ const nextConfig: NextConfig = {
     return [
       { source: "/", destination: "/landing" },
       // Same-origin API proxy: the browser calls /api/* on this origin so the
-      // httpOnly session cookie is first-party. Prod uses the equivalent Vercel
-      // rewrite (vercel.json); this covers `next dev`.
+      // httpOnly session cookie is first-party. This is the ONLY /api rewrite —
+      // it serves `next dev` and Vercel alike, because Next.js rewrites are
+      // resolved at build time (apiOrigin above reads the env then).
+      //
+      // Do NOT move this to vercel.json: that file is static JSON and Vercel
+      // does not interpolate env vars in it, so a "${NEXT_PUBLIC_API_BASE_URL}"
+      // destination is a literal string, silently shadows this rewrite, and
+      // every /api/* call 404s in production while dev and `next start` stay
+      // green. That outage took down sign-in once already.
       {
         source: "/api/:path*",
         destination: `${apiOrigin}/:path*`,
