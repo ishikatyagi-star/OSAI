@@ -456,9 +456,7 @@ h2 em {
 .hero-widget,
 .contact-form,
 .team-card,
-.loop-card,
 .uc-card,
-.feat-card,
 .workflow-card,
 .spotlight,
 .focus-grid,
@@ -519,7 +517,6 @@ h2 em {
 .wf-card:hover,
 .workflow-card:hover,
 .uc-card:hover,
-.loop-card:hover,
 .focus-cell:hover {
   transform: translateY(-2px) !important;
   border-color: var(--el-hairline-strong) !important;
@@ -538,7 +535,6 @@ h2 em {
 .focus-tag,
 .uc-card p,
 .feat-card p,
-.loop-card p,
 .out-cell p,
 .not-chip,
 .footer-bottom,
@@ -571,7 +567,6 @@ footer span {
 .team-bullets li,
 .uc-card p,
 .feat-card p,
-.loop-card p,
 .footer-bottom {
   color: var(--el-body) !important;
 }
@@ -603,10 +598,6 @@ footer span {
 .focus-tag,
 .footer-bottom {
   font-size: 12px !important;
-}
-
-.final-note {
-  color: var(--el-body) !important;
 }
 
 .wf-badge.run,
@@ -669,31 +660,8 @@ footer span {
   background: rgba(255, 255, 255, 0.72) !important;
 }
 
-.loop-grid,
-.grid-4,
-.feat-grid,
 .team-grid {
   gap: 16px !important;
-}
-
-.landing-saas .loop-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  gap: 0 !important;
-  border-top: 1px solid var(--el-hairline-strong);
-}
-
-.landing-saas .loop-card {
-  position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 96px;
-  column-gap: 16px;
-  min-height: 210px;
-  padding: 28px 24px !important;
-  background: transparent !important;
-  border: 0 !important;
-  border-bottom: 1px solid var(--el-hairline-strong) !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
 }
 
 .loop-mascot {
@@ -706,23 +674,6 @@ footer span {
   height: auto;
 }
 
-.landing-saas .loop-card > :not(.loop-mascot) {
-  grid-column: 1;
-}
-
-.landing-saas .loop-card:nth-child(odd):not(.repeat) {
-  border-right: 1px solid var(--el-hairline-strong) !important;
-}
-
-.landing-saas .loop-card:hover {
-  background: rgba(255, 255, 255, 0.48) !important;
-  transform: none !important;
-}
-
-.loop-card.repeat {
-  grid-template-columns: 1fr;
-  background: var(--el-surface-strong) !important;
-}
 
 .loop-num {
   background: var(--el-surface-strong) !important;
@@ -955,14 +906,6 @@ footer .footer-logo,
     max-width: 100% !important;
   }
 
-  .landing-saas .loop-grid {
-    grid-template-columns: 1fr !important;
-  }
-
-  .landing-saas .loop-card:nth-child(odd):not(.repeat) {
-    border-right: 0 !important;
-  }
-
   .landing-saas .hero-inner {
     gap: 16px !important;
   }
@@ -971,27 +914,10 @@ footer .footer-logo,
     width: 180px;
   }
 
-  .landing-saas .loop-card {
-    min-height: 180px;
-    min-width: 0;
-    width: 100%;
-    box-sizing: border-box;
-    grid-template-columns: minmax(0, 1fr) 72px;
-    column-gap: 12px;
-    padding: 20px !important;
-  }
-
-  .landing-saas .loop-card.repeat p {
-    min-width: 0;
-  }
-
   .loop-mascot {
     width: 72px;
   }
 
-  .landing-saas .loop-card.repeat {
-    grid-template-columns: 1fr;
-  }
 }
 
 .contact-form-unavailable {
