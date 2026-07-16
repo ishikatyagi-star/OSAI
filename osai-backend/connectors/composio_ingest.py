@@ -10,6 +10,7 @@ Notion is implemented first; add other toolkits by extending `_FETCHERS`.
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import logging
 from typing import Any
@@ -80,7 +81,10 @@ async def _transcribe_media(client: ComposioClient, fid: str, name: str, org_id:
             if len(v) > _WHISPER_MAX_BYTES * 4 // 3 + 4:
                 return None
             try:
-                audio = base64.b64decode(v)
+                # Decode off the event loop: a ~33MB base64 decode on the tiny
+                # prod CPU (0.15 vCPU) stalls the loop long enough for Render's
+                # 5s /health probe to fail and kill the instance mid-sync.
+                audio = await asyncio.to_thread(base64.b64decode, v)
                 break
             except Exception:  # noqa: BLE001
                 pass
@@ -241,10 +245,17 @@ async def ingest_composio_toolkit(
         apply_tier_rules(session, org_id, native_key, documents)
     indexed = upsert_source_documents(session, documents)
     vector_error = None
-    try:
-        await qdrant_store.upsert_chunks(chunks_for_documents(documents))
-    except Exception as exc:  # noqa: BLE001 — vectors shouldn't block source sync
-        vector_error = str(exc)
+    # Embed and upsert one document at a time, yielding between documents.
+    # Doing all ~25 documents' chunks in a single batch holds every embedding
+    # in memory at once and hogs the tiny prod CPU (0.15 vCPU / 512MB) long
+    # enough for Render's 5s /health probe to fail and kill the instance
+    # mid-sync — a partial index that finishes beats a full one that dies.
+    for document in documents:
+        await asyncio.sleep(0)
+        try:
+            await qdrant_store.upsert_chunks(chunks_for_documents([document]))
+        except Exception as exc:  # noqa: BLE001 — vectors shouldn't block source sync
+            vector_error = str(exc)
 
     record_sync_result(
         session,
@@ -298,6 +309,7 @@ async def _fetch_notion(client: ComposioClient, org_id: str, limit: int) -> list
 
     documents: list[SourceDocument] = []
     for page in results[:limit]:
+        await asyncio.sleep(0)  # keep /health responsive during ingest
         page_id = page.get("id")
         if not page_id:
             continue
@@ -357,6 +369,9 @@ async def _fetch_googledrive(
 
     documents: list[SourceDocument] = []
     for f in files[:limit]:
+        # Yield between files so /health keeps answering while a sync hogs the
+        # tiny prod CPU — otherwise Render kills the instance mid-ingest.
+        await asyncio.sleep(0)
         fid = f.get("id")
         if not fid:
             continue
@@ -406,6 +421,7 @@ async def _fetch_slack(client: ComposioClient, org_id: str, limit: int) -> list[
 
     documents: list[SourceDocument] = []
     for ch in channels[:limit]:
+        await asyncio.sleep(0)  # keep /health responsive during ingest
         cid = ch.get("id")
         if not cid:
             continue
