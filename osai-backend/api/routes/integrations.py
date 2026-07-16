@@ -109,6 +109,12 @@ async def list_connector_documents(
     ]
 
 
+# One ingest per (org, toolkit) at a time. Double-clicking "Sync Now" (or a UI
+# retry) used to stack two full ingests in the same process, doubling memory
+# pressure on the tiny prod instance — the second click should be a no-op.
+_INFLIGHT_INGESTS: set[tuple[str, str]] = set()
+
+
 async def _ingest_composio_in_background(org_id: str, slug: str) -> None:
     """Run a Composio re-ingest off the request path, with its own DB session.
 
@@ -118,11 +124,18 @@ async def _ingest_composio_in_background(org_id: str, slug: str) -> None:
     sync run — so /sync-runs showed nothing. As a background task it always runs
     to completion and records its result.
     """
-    with SessionLocal() as db:
-        try:
-            await ingest_composio_toolkit(org_id, slug, db)
-        except Exception:  # noqa: BLE001 — recorded as a failed run inside; never crash
-            pass
+    key = (org_id, slug)
+    if key in _INFLIGHT_INGESTS:
+        return
+    _INFLIGHT_INGESTS.add(key)
+    try:
+        with SessionLocal() as db:
+            try:
+                await ingest_composio_toolkit(org_id, slug, db)
+            except Exception:  # noqa: BLE001 — recorded as a failed run inside; never crash
+                pass
+    finally:
+        _INFLIGHT_INGESTS.discard(key)
 
 
 @router.post("/{connector_key}/sync")
