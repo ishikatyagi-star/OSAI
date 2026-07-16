@@ -279,10 +279,22 @@ async def ingest_composio_toolkit(
     # mid-sync — a partial index that finishes beats a full one that dies.
     for document in documents:
         await asyncio.sleep(0)
+        # Don't embed documents whose "text" is just their own filename
+        # (untranscribed media, skipped-large files): the vector carries no
+        # content signal but still matches ~0.7 on unrelated queries and gets
+        # cited as a source. The file stays listed via Postgres either way.
+        if not document.text.strip() or document.text.strip() == (document.title or "").strip():
+            try:
+                # Also purge any vectors indexed for this doc by earlier syncs,
+                # so already-ingested filename-only chunks stop matching.
+                await qdrant_store.delete_document(org_id, document.source_id)
+            except Exception:  # noqa: BLE001 — cleanup is best-effort
+                pass
+            continue
         try:
             await qdrant_store.upsert_chunks(chunks_for_documents([document]))
         except Exception as exc:  # noqa: BLE001 — vectors shouldn't block source sync
-            vector_error = str(exc)
+            vector_error = f"{vector_error}; {exc}" if vector_error else str(exc)
 
     record_sync_result(
         session,
