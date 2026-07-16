@@ -38,6 +38,12 @@ function getHeaders(extraHeaders: Record<string, string> = {}): Record<string, s
 // the provided fallback (typically demo data or null).
 const DEFAULT_TIMEOUT_MS = 8000;
 
+// Page-defining loads (integrations, dashboard metrics) get a longer budget:
+// a Render cold start or a sync running in the same process can push the
+// backend past 8s, and aborting there paints a false "check your connection"
+// error over a healthy backend.
+const SLOW_LOAD_TIMEOUT_MS = 20000;
+
 // A 401 means the session cookie is missing/expired/revoked. Drop the local
 // auth flag and send the user back to sign in.
 //
@@ -410,7 +416,7 @@ export function updateMember(
 // ─── Integrations ────────────────────────────────────────────────────────────
 
 export function getIntegrations(strict = false) {
-  return apiGet<Integration[]>("/integrations", [], DEFAULT_TIMEOUT_MS, strict);
+  return apiGet<Integration[]>("/integrations", [], SLOW_LOAD_TIMEOUT_MS, strict);
 }
 
 export function triggerSync(connectorKey: string) {
@@ -616,7 +622,7 @@ export function getDashboardMetrics(strict = false) {
     members: 0,
     departments: 0,
     automations: 0,
-  }, DEFAULT_TIMEOUT_MS, strict);
+  }, SLOW_LOAD_TIMEOUT_MS, strict);
 }
 
 // ─── Automations (NL scheduled tasks) ─────────────────────────────────────────

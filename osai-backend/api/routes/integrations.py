@@ -1,3 +1,4 @@
+import asyncio
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
@@ -37,7 +38,10 @@ async def list_integrations(db: DbSession, org_id: OrgId) -> list[dict[str, obje
     client = get_default_composio_client()
     if client.available():
         try:
-            connections = await client.list_connections(org_id)
+            # Bounded well under the frontend's fetch budget: if Composio is
+            # slow the page must still render from the DB (overlay is optional),
+            # not time out client-side and show a load error.
+            connections = await asyncio.wait_for(client.list_connections(org_id), timeout=4)
             active: dict[str, dict] = {}
             for c in connections:
                 if c.get("toolkit") and (c.get("status") or "").upper() == "ACTIVE":
