@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Check, Info, Loader2, Plus } from "lucide-react";
+import { AlertTriangle, Check, Info, Loader2, Plug, Plus } from "lucide-react";
 import { COMPOSIO_TOOLKIT, composioConnect, composioDisconnect, getDashboardMetrics, getIntegrations, getSyncRuns, triggerSync } from "@/lib/api";
 import { DEMO_INTEGRATIONS, DEMO_STATS, DEMO_SYNC_RUNS } from "@/lib/demo-data";
 import { isDemo } from "@/lib/demo";
-import { CONNECTOR_META, getConnectorIcon } from "@/lib/connector-meta";
+import { CONNECTOR_META } from "@/lib/connector-meta";
 import type { Integration, SyncRun } from "@/lib/types";
 import { AddConnectorDialog } from "@/components/integrations/add-connector-dialog";
 import { ConnectorManager } from "@/components/integrations/connector-manager";
@@ -358,9 +358,12 @@ export default function IntegrationsPage() {
             <div className="card" style={{ textAlign: "center", padding: "44px 24px", marginBottom: 16 }}>
               <SheldonMascot state="syncing" size={96} className="empty-state-mascot" />
               <p className="text-body font-semibold" style={{ marginBottom: 6 }}>No connectors yet</p>
-              <p className="meta" style={{ maxWidth: 420, margin: "0 auto" }}>
-                Add a connector to start indexing context from Notion, Google Drive, Slack, and more.
+              <p className="meta" style={{ maxWidth: 420, margin: "0 auto 16px" }}>
+                Connect any of 1,000+ tools your team already uses to start indexing context.
               </p>
+              <button type="button" className="btn btn-primary" onClick={() => setCatalogOpen(true)}>
+                <Plus size={14} /> Browse connectors
+              </button>
             </div>
           )}
 
@@ -371,7 +374,6 @@ export default function IntegrationsPage() {
                 color: "var(--text-secondary)",
                 description: "",
               };
-              const Icon = getConnectorIcon(item.key);
               const docCount = demo
                 ? DEMO_STATS.docsPerConnector[item.key] ?? 0
                 : docsByConnector[item.key] ?? 0;
@@ -384,7 +386,15 @@ export default function IntegrationsPage() {
                       className="connector-icon-badge"
                       style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)" }}
                     >
-                      <Icon size={18} strokeWidth={1.8} />
+                      {item.logo ? (
+                        // Composio-hosted logo, same treatment as the catalog
+                        // dialog; plain <img> keeps remote domains out of
+                        // next.config image allowlists.
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={item.logo} alt="" width={20} height={20} className="rounded-md" />
+                      ) : (
+                        <Plug size={18} strokeWidth={1.8} className="text-muted-foreground" />
+                      )}
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
@@ -413,24 +423,11 @@ export default function IntegrationsPage() {
                       <span className="connector-stat-label">Docs indexed</span>
                     </div>
                     <div className="connector-stat">
-                      <span className="connector-stat-value">{item.capabilities?.length ?? 0}</span>
-                      <span className="connector-stat-label">Capabilities</span>
-                    </div>
-                    <div className="connector-stat">
                       <span className="connector-stat-value">
                         {item.last_sync ? timeAgo(item.last_sync) : "-"}
                       </span>
                       <span className="connector-stat-label">Last sync</span>
                     </div>
-                  </div>
-
-                  {/* Capabilities */}
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
-                    {(item.capabilities ?? []).map((cap) => (
-                      <span key={cap} className="badge badge-grey" style={{ fontSize: 10 }}>
-                        {cap}
-                      </span>
-                    ))}
                   </div>
 
                   {item.sync_error && (

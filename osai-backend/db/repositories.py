@@ -1200,15 +1200,9 @@ def provision_org(
     )
     session.add(user)
 
-    # Seed default Connector accounts
-    for key in ("notion", "slack", "freshdesk", "google_drive"):
-        session.add(
-            ConnectorAccount(
-                org_id=org.id,
-                connector_key=key,
-                auth_state="not_configured",
-            )
-        )
+    # New orgs start with no connector accounts — connect flows upsert them on
+    # demand, and Integrations shows only configured connections plus the full
+    # Composio catalog entry point.
 
     # New orgs start with no departments — the admin creates their own from the
     # Team page so the org chart reflects how they actually work, instead of five

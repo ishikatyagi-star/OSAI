@@ -62,13 +62,10 @@ def test_provision_org_repository() -> None:
         assert user.display_name == "Acme Admin"
         assert user.role == "admin"
 
-        # Verify default connector accounts are seeded
+        # New orgs start with no connector accounts; connect flows create them
+        # on demand and Integrations offers the full Composio catalog instead.
         connectors = session.query(ConnectorAccount).filter_by(org_id=org.id).all()
-        assert len(connectors) == 4
-        keys = {c.connector_key for c in connectors}
-        assert keys == {"notion", "slack", "freshdesk", "google_drive"}
-        for conn in connectors:
-            assert conn.auth_state == "not_configured"
+        assert connectors == []
 
 
 def test_provision_org_duplicate_email() -> None:
