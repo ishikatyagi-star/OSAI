@@ -10,6 +10,7 @@ held in a per-process store keyed by action id; the confirm endpoint executes th
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -151,6 +152,20 @@ async def run_ask(
     answer = rag.answer
     via: str = "osai"
     if hermes_enabled():
+        # Live read: if the question names a connected Composio app, pull fresh
+        # data from it right now (read-only tools only) so apps without an
+        # ingestion fetcher aren't dead ends — the laptop-agent experience.
+        # Bounded and best-effort: a slow/failed live read must not delay Ask.
+        from connectors.composio_live import live_read_context
+
+        live_context = ""
+        try:
+            live_context = await asyncio.wait_for(
+                live_read_context(request.org_id, request.question), timeout=20
+            )
+        except Exception:  # noqa: BLE001 — enrichment only
+            pass
+
         # Connector/environment awareness is injected inside run_via_hermes
         # (environment_preamble); the plain-RAG fallback below stays untouched —
         # its answers come from retrieval and adding connector context there
@@ -161,6 +176,7 @@ async def run_ask(
             user_id=user_id,
             permissions=requester_permissions or [],
             history=request.history,
+            extra_context=live_context,
         )
         if hermes_answer:
             answer = hermes_answer

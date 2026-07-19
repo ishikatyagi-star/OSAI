@@ -8,6 +8,8 @@ export type Integration = {
   scopes: string[];
   last_sync: string | null;
   sync_error: string | null;
+  // Composio-hosted brand logo URL; null/absent renders a generic icon.
+  logo?: string | null;
   // Which external account is currently connected (e.g. the Google user), and
   // the previous one + when it changed, so the UI can show reconnect state.
   account_email?: string | null;

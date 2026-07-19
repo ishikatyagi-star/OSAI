@@ -29,6 +29,10 @@ TOOLKIT_SCOPES: dict[str, list[str]] = {
     "googledrive": ["https://www.googleapis.com/auth/drive.readonly"],
 }
 
+# Toolkit logo URLs rarely change; cache them for the process lifetime so the
+# Integrations page doesn't re-hit Composio's toolkit endpoint on every load.
+_TOOLKIT_LOGO_CACHE: dict[str, str | None] = {}
+
 
 class ComposioClient:
     def __init__(self, api_key: str | None = None, base_url: str | None = None) -> None:
@@ -111,6 +115,29 @@ class ComposioClient:
                 if q in (t["slug"] or "").lower() or q in (t["name"] or "").lower()
             ]
         return {"items": out, "next_cursor": body.get("next_cursor")}
+
+    async def toolkit_logo(self, slug: str) -> str | None:
+        """Logo URL for a toolkit, from Composio's toolkit detail endpoint.
+        Cached per slug for the process lifetime; failures cache None so a bad
+        slug doesn't add a round-trip to every Integrations load."""
+        key = (slug or "").lower()
+        if not key:
+            return None
+        if key in _TOOLKIT_LOGO_CACHE:
+            return _TOOLKIT_LOGO_CACHE[key]
+        logo: str | None = None
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.get(
+                    f"{self.base_url}/api/v3/toolkits/{key}",
+                    headers=self._headers(),
+                )
+            if resp.status_code == 200:
+                logo = (resp.json().get("meta") or {}).get("logo")
+        except httpx.HTTPError:
+            logo = None
+        _TOOLKIT_LOGO_CACHE[key] = logo
+        return logo
 
     async def _ensure_auth_config(self, client: httpx.AsyncClient, toolkit: str) -> str | None:
         """Return an auth_config id for a toolkit, creating a managed one if needed.

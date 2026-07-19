@@ -130,3 +130,42 @@ async def test_sync_all_only_ingests_active_supported_connections():
     # Only the active, supported (notion) connection should have been ingested.
     assert len(result["synced"]) == 1
     assert result["synced"][0]["toolkit"] == "notion"
+
+
+class _FakeComposioGmail(_FakeComposio):
+    async def execute(self, slug, arguments, user_id):
+        if slug == "GMAIL_FETCH_EMAILS":
+            return {
+                "data": {
+                    "response_data": {
+                        "messages": [
+                            {
+                                "messageId": "msg-1",
+                                "subject": "Q3 pricing proposal",
+                                "sender": "jane@example.com",
+                                "messageText": "Attached is the updated pricing sheet.",
+                            },
+                            {"messageId": "msg-2", "sender": "bob@example.com"},
+                        ]
+                    }
+                }
+            }
+        return {"successful": False, "data": None, "error": "unknown"}
+
+
+async def test_gmail_ingestion_indexes_messages():
+    session = _session()
+    result = await ingest_composio_toolkit(
+        "demo-org", "gmail", session, client=_FakeComposioGmail(), qdrant_store=_FakeQdrant()
+    )
+    assert result["status"] == "succeeded"
+    assert result["documents_indexed"] == 2
+
+    rows = {r.external_id: r for r in session.query(SourceDocumentRecord).all()}
+    doc = rows["msg-1"]
+    assert doc.source_type == "gmail"
+    assert doc.title == "Q3 pricing proposal"
+    assert "jane@example.com" in doc.text
+    assert "updated pricing sheet" in doc.text
+    # A message with no subject/body still indexes under a placeholder title.
+    assert rows["msg-2"].title == "(no subject)"

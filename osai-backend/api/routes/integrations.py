@@ -25,12 +25,11 @@ AdminOnly = Annotated[dict, Depends(require_admin)]
 
 @router.get("")
 async def list_integrations(db: DbSession, org_id: OrgId) -> list[dict[str, object]]:
-    fallback = [connector.summary() for connector in connector_registry.all()]
-    items = try_db(
-        "list_integrations",
-        fallback,
-        lambda: list_db_integrations(db, org_id) or fallback,
-    )
+    # Only integrations the org has actually configured. A fresh workspace gets
+    # an empty list — the frontend renders its empty state pointing at the full
+    # Composio catalog instead of a fixed set of native connector cards.
+    items = try_db("list_integrations", [], lambda: list_db_integrations(db, org_id))
+    items = [it for it in items if it.get("auth_state") != "not_configured"]
 
     # Overlay live Composio connections onto the matching native card so an
     # authorized app reads "connected" even if ingestion hasn't run yet. The
@@ -74,6 +73,20 @@ async def list_integrations(db: DbSession, org_id: OrgId) -> list[dict[str, obje
                         }
                     )
         except Exception:  # noqa: BLE001 — connection overlay is best-effort
+            pass
+
+        # Attach Composio-hosted logos so the frontend never hardcodes brand
+        # icons. Cached per slug in-process, bounded so a slow Composio can't
+        # stall the page; a missing logo just renders the generic fallback.
+        try:
+            slugs = [NATIVE_TO_COMPOSIO.get(it["key"], it["key"]) for it in items]
+            logos = await asyncio.wait_for(
+                asyncio.gather(*(client.toolkit_logo(slug) for slug in slugs)),
+                timeout=4,
+            )
+            for it, logo in zip(items, logos):
+                it["logo"] = logo
+        except Exception:  # noqa: BLE001 — logo enrichment is best-effort
             pass
 
     return items
@@ -146,8 +159,9 @@ async def trigger_sync(
     background_tasks: BackgroundTasks,
     _admin: AdminOnly,
 ) -> dict[str, object]:
-    if connector_key not in {connector.key for connector in connector_registry.all()}:
-        raise HTTPException(status_code=404, detail="Unknown connector")
+    # Catalog apps (e.g. Gmail) have no native connector, so an unknown key is
+    # only an error when there's also no active Composio connection for it.
+    is_native = connector_key in {connector.key for connector in connector_registry.all()}
 
     # If this app is connected through Composio OAuth, ingest via Composio (no
     # native service-account credentials needed, e.g. Google Drive). Only fall
@@ -173,13 +187,16 @@ async def trigger_sync(
                 "documents_indexed": 0,
             }
 
+    if not is_native:
+        raise HTTPException(status_code=404, detail="Unknown connector")
     return await sync_connector(connector_key, org_id, db)
 
 
 @router.get("/{connector_key}/healthcheck")
 async def connector_healthcheck(connector_key: str, org_id: OrgId) -> dict[str, object]:
-    if connector_key not in {connector.key for connector in connector_registry.all()}:
-        raise HTTPException(status_code=404, detail="Unknown connector")
+    # Catalog apps have no native connector; only 404 when Composio has no
+    # active connection for the key either (checked below).
+    is_native = connector_key in {connector.key for connector in connector_registry.all()}
 
     # If the app is connected via Composio OAuth, report on that connection rather
     # than the native connector (which would ask for service-account creds).
@@ -200,6 +217,8 @@ async def connector_healthcheck(connector_key: str, org_id: OrgId) -> dict[str, 
         except Exception:  # noqa: BLE001 — fall back to native healthcheck
             pass
 
+    if not is_native:
+        raise HTTPException(status_code=404, detail="Unknown connector")
     connector = connector_registry.get(connector_key)
     result = await connector.healthcheck(org_id)
     return {

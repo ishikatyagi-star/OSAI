@@ -559,6 +559,46 @@ async def _fetch_slack(client: ComposioClient, org_id: str, limit: int) -> list[
     return documents
 
 
+async def _fetch_gmail(client: ComposioClient, org_id: str, limit: int) -> list[SourceDocument]:
+    """Recent inbox emails, one document per message. Subject/sender land in the
+    title so filename-only guards don't drop messages with short bodies."""
+    res = await client.execute("GMAIL_FETCH_EMAILS", {"max_results": min(limit, 25)}, org_id)
+    data = res.get("data") or {}
+    messages = _first_list(
+        _dig(data, "response_data", "messages"), _dig(data, "messages")
+    )
+
+    documents: list[SourceDocument] = []
+    for msg in messages[:limit]:
+        await asyncio.sleep(0)  # keep /health responsive during ingest
+        if not isinstance(msg, dict):
+            continue
+        mid = msg.get("messageId") or msg.get("id")
+        if not mid:
+            continue
+        subject = (msg.get("subject") or "").strip() or "(no subject)"
+        sender = (msg.get("sender") or msg.get("from") or "").strip()
+        body = ""
+        for key in ("messageText", "messageBody", "snippet", "preview"):
+            v = msg.get(key)
+            if isinstance(v, str) and v.strip():
+                body = v.strip()
+                break
+        header = f"From: {sender}\nSubject: {subject}" if sender else f"Subject: {subject}"
+        documents.append(
+            SourceDocument(
+                source_id=f"gmail:{mid}",
+                source_type="gmail",
+                org_id=org_id,
+                external_id=str(mid),
+                title=subject,
+                text=f"{header}\n\n{body}" if body else header,
+                permissions=["source:all"],
+            )
+        )
+    return documents
+
+
 def _plain_text(data: Any) -> str:
     """Best-effort text extraction from a Composio file/content payload."""
     if isinstance(data, str):
@@ -575,6 +615,7 @@ _FETCHERS = {
     "notion": _fetch_notion,
     "googledrive": _fetch_googledrive,
     "slack": _fetch_slack,
+    "gmail": _fetch_gmail,
 }
 
 
