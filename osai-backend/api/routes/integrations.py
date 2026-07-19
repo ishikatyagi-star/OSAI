@@ -84,7 +84,7 @@ async def list_integrations(db: DbSession, org_id: OrgId) -> list[dict[str, obje
                 asyncio.gather(*(client.toolkit_logo(slug) for slug in slugs)),
                 timeout=4,
             )
-            for it, logo in zip(items, logos):
+            for it, logo in zip(items, logos, strict=False):
                 it["logo"] = logo
         except Exception:  # noqa: BLE001 — logo enrichment is best-effort
             pass
