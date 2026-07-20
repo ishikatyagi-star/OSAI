@@ -14,7 +14,14 @@ from config import settings
 # for API clients and tests.
 SESSION_COOKIE = "osai_session"
 
-engine = create_engine(settings.database_url, pool_pre_ping=True)
+# statement_timeout: one runaway query must not wedge the single web process
+# (free tier runs everything in-process). SQLite (tests) rejects `options`.
+_connect_args = (
+    {"options": "-c statement_timeout=15000"}
+    if settings.database_url.startswith("postgres")
+    else {}
+)
+engine = create_engine(settings.database_url, pool_pre_ping=True, connect_args=_connect_args)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
 
 

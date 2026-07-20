@@ -188,6 +188,15 @@ class Settings(BaseSettings):
     # Redis (for Celery)
     redis_url: str = "redis://localhost:6379/0"
 
+    # Error tracking (Sentry or any Sentry-compatible DSN, e.g. GlitchTip).
+    # Unset = telemetry disabled entirely; client errors still land in logs.
+    sentry_dsn: str | None = None
+
+    # Shared secret for the GitHub-Actions automations cron (X-Cron-Token on
+    # POST /internal/automations/run-due). Unset = the endpoint 404s, so a bare
+    # deploy can't be poked into running every org's automations by strangers.
+    automations_cron_token: str | None = None
+
     # Zoom webhooks. Disabled by default: the ingestion path is still hardcoded to
     # the demo org and its transcription task needs a Celery worker (not deployed
     # on the free tier), so the endpoint stays off — and 404s — until explicitly

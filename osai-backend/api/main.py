@@ -15,6 +15,7 @@ from api.routes import (
     graph,
     health,
     integrations,
+    internal,
     notifications,
     orgs,
     search,
@@ -29,6 +30,18 @@ from api.routes import (
     workflows,
 )
 from config import settings as app_settings
+
+# Error tracking: inert without a DSN. Default sample rates keep the free tier
+# comfortable; errors matter here, not traces.
+if app_settings.sentry_dsn:
+    import sentry_sdk
+
+    sentry_sdk.init(
+        dsn=app_settings.sentry_dsn,
+        environment=app_settings.env,
+        traces_sample_rate=0,
+        send_default_pii=False,
+    )
 
 app = FastAPI(title="OSAI API", version="0.1.0")
 app.add_middleware(
@@ -57,6 +70,7 @@ app.include_router(workflow_actions.router)
 app.include_router(settings.router)
 app.include_router(sql.router)
 app.include_router(slack_ask.router)
+app.include_router(internal.router)
 app.include_router(webhooks.router)
 app.include_router(orgs.router)
 app.include_router(auth.router)

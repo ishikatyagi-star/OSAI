@@ -69,23 +69,32 @@ class GeminiEmbeddingProvider(EmbeddingProvider):
         import asyncio
 
         from google.genai import types as genai_types  # type: ignore[import-untyped]
+        from tenacity import AsyncRetrying, stop_after_attempt, wait_random_exponential
 
         loop = asyncio.get_event_loop()
         results: list[list[float]] = []
         batch_size = 100
         for i in range(0, len(texts), batch_size):
             batch = texts[i : i + batch_size]
-            response = await loop.run_in_executor(
-                None,
-                lambda b=batch: self._client.models.embed_content(
-                    model=self._model,
-                    contents=b,
-                    config=genai_types.EmbedContentConfig(
-                        task_type="RETRIEVAL_DOCUMENT",
-                        output_dimensionality=self.dimension,
-                    ),
-                ),
-            )
+            # One transient Gemini/network failure otherwise fails the whole
+            # sync's embedding pass; retry each batch a couple of times.
+            async for attempt in AsyncRetrying(
+                stop=stop_after_attempt(3),
+                wait=wait_random_exponential(multiplier=0.5, max=4),
+                reraise=True,
+            ):
+                with attempt:
+                    response = await loop.run_in_executor(
+                        None,
+                        lambda b=batch: self._client.models.embed_content(
+                            model=self._model,
+                            contents=b,
+                            config=genai_types.EmbedContentConfig(
+                                task_type="RETRIEVAL_DOCUMENT",
+                                output_dimensionality=self.dimension,
+                            ),
+                        ),
+                    )
             for emb in response.embeddings:
                 # Truncated (sub-3072) MRL embeddings are not unit-normalized;
                 # normalize so cosine similarity in Qdrant is meaningful.

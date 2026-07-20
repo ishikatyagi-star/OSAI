@@ -17,6 +17,12 @@ import logging
 from typing import Any
 
 import httpx
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_random_exponential,
+)
 
 from config import settings
 
@@ -33,6 +39,17 @@ TOOLKIT_SCOPES: dict[str, list[str]] = {
 # Integrations page doesn't re-hit Composio's toolkit endpoint on every load.
 _TOOLKIT_LOGO_CACHE: dict[str, str | None] = {}
 
+# Retry transient network failures on read-only Composio calls so one blip
+# doesn't fail a whole page load or sync. Write-capable paths (execute,
+# execute_capped) are deliberately NOT retried: a timed-out write may have
+# landed, and retrying it could double-run a real side effect.
+_network_retry = retry(
+    retry=retry_if_exception_type((httpx.TimeoutException, httpx.TransportError)),
+    stop=stop_after_attempt(3),
+    wait=wait_random_exponential(multiplier=0.5, max=4),
+    reraise=True,
+)
+
 
 class ComposioClient:
     def __init__(self, api_key: str | None = None, base_url: str | None = None) -> None:
@@ -45,6 +62,7 @@ class ComposioClient:
     def _headers(self) -> dict[str, str]:
         return {"x-api-key": self.api_key or "", "Content-Type": "application/json"}
 
+    @_network_retry
     async def list_tools(
         self, toolkits: list[str] | None = None, limit: int = 20
     ) -> list[dict[str, Any]]:
@@ -65,6 +83,7 @@ class ComposioClient:
                     specs.append(_to_spec(tool))
         return specs
 
+    @_network_retry
     async def list_toolkits(
         self,
         limit: int = 50,
@@ -116,6 +135,7 @@ class ComposioClient:
             ]
         return {"items": out, "next_cursor": body.get("next_cursor")}
 
+    @_network_retry
     async def toolkit_logo(self, slug: str) -> str | None:
         """Logo URL for a toolkit, from Composio's toolkit detail endpoint.
         Cached per slug for the process lifetime; failures cache None so a bad
@@ -204,6 +224,7 @@ class ComposioClient:
             "expires_at": body.get("expires_at"),
         }
 
+    @_network_retry
     async def list_connections(self, user_id: str) -> list[dict[str, Any]]:
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.get(
