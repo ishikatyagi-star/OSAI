@@ -100,3 +100,27 @@ async def _deliver(auto: Automation, result: str) -> dict | None:
     from agent.delivery import deliver_result
 
     return await deliver_result(auto.org_id, auto.deliver_to, auto.name, result)
+
+
+async def run_due_automations() -> dict[str, object]:
+    """Run every active automation whose cadence interval has elapsed.
+
+    Shared by the Celery beat task and the authed /internal cron endpoint, so
+    prod scheduling works with or without a deployed worker. One failing
+    automation never blocks the rest; failures leave last_run_at untouched so
+    the next tick retries them.
+    """
+    from db.repositories import list_due_automations
+    from db.session import SessionLocal
+
+    ran: list[str] = []
+    failed: list[str] = []
+    with SessionLocal() as db:
+        for auto in list_due_automations(db):
+            try:
+                await execute_automation(db, auto)
+                ran.append(auto.id)
+            except Exception as exc:  # noqa: BLE001 — one bad automation must not block the rest
+                logger.warning("Scheduled automation %s failed: %s", auto.id, exc)
+                failed.append(auto.id)
+    return {"ran": ran, "failed": failed}

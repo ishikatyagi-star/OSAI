@@ -90,9 +90,9 @@ async def test_beat_task_runs_due_automations_and_isolates_failures(monkeypatch)
     monkeypatch.setattr(runner, "execute_automation", fake_execute)
     monkeypatch.setattr(db_session, "SessionLocal", maker)
 
-    from workers.tasks.automations import _run_due
-
-    result = await _run_due()
+    # The loop moved to agent/automation_runner (shared by the Celery beat task
+    # and the /internal cron endpoint); patch its collaborators on that module.
+    result = await runner.run_due_automations()
     assert set(result["ran"]) == {a1_id, a3_id}
     assert result["failed"] == [a2_id]
     assert executed and len(executed) == 2
