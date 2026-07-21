@@ -63,18 +63,20 @@ class Settings(BaseSettings):
                 f"is true and OSAI_ENV is {self.env!r} — the webhook is public and "
                 "must verify Zoom's signature, not accept unauthenticated events."
             )
-        # Without a Gemini key, embeddings silently fall back to deterministic
-        # hash vectors (memory/embeddings.py). That is keyword bucketing, not
-        # semantic retrieval: Ask keeps answering, just far worse, with nothing
-        # in the logs to say why. A misconfigured deployment must fail loudly at
-        # boot rather than quietly serve degraded answers (mirrors the guards
-        # above). Local dev keeps the fallback so the stack runs without a key.
-        if self.env != "local" and not self.gemini_api_key:
+        # Without a real embedding provider, embeddings silently fall back to
+        # deterministic hash vectors (memory/embeddings.py). That is keyword
+        # bucketing, not semantic retrieval: Ask keeps answering, just far worse,
+        # with nothing in the logs to say why. A misconfigured deployment must
+        # fail loudly at boot rather than quietly serve degraded answers (mirrors
+        # the guards above). Either Voyage or Gemini satisfies this. Local dev
+        # keeps the fallback so the stack runs without a key.
+        if self.env != "local" and not (self.gemini_api_key or self.voyage_api_key):
             raise ValueError(
-                "OSAI_GEMINI_API_KEY must be set when OSAI_ENV is "
-                f"{self.env!r} — without it embeddings silently degrade to "
+                "An embedding provider key (OSAI_VOYAGE_API_KEY or "
+                "OSAI_GEMINI_API_KEY) must be set when OSAI_ENV is "
+                f"{self.env!r} — without one, embeddings silently degrade to "
                 "non-semantic hash vectors and retrieval quality collapses with "
-                "no error. Set the key, or run with OSAI_ENV=local to use the "
+                "no error. Set a key, or run with OSAI_ENV=local to use the "
                 "hash fallback deliberately."
             )
         return self
@@ -152,6 +154,16 @@ class Settings(BaseSettings):
     gemini_api_key: str | None = None
     gemini_model: str = "gemini-2.0-flash"
     gemini_embedding_model: str = "gemini-embedding-001"
+
+    # Voyage AI embeddings — a no-billing-required alternative to Gemini. When
+    # OSAI_VOYAGE_API_KEY is set it takes precedence over Gemini (see
+    # memory/embeddings._build_default_provider). voyage-3.5-lite supports an
+    # output_dimension of 512/256/1024; keep embedding_dimension in sync and
+    # recreate the Qdrant collection when switching providers (the vector space
+    # and dimension differ from Gemini's).
+    voyage_api_key: str | None = None
+    voyage_model: str = "voyage-3.5-lite"
+    voyage_base_url: str = "https://api.voyageai.com/v1"
 
     # LLM text generation — any OpenAI-compatible provider (Groq, OpenRouter,
     # GitHub Models, Cerebras, Mistral, …). When set, it is the preferred provider

@@ -57,7 +57,11 @@ services:
         sync: false
       - key: OSAI_QDRANT_API_KEY      # your Qdrant Cloud API key
         sync: false
-      - key: OSAI_GEMINI_API_KEY      # embeddings
+      - key: OSAI_GEMINI_API_KEY      # embeddings (used only if no Voyage key)
+        sync: false
+      - key: OSAI_VOYAGE_API_KEY      # embeddings, no-billing alt; takes precedence over Gemini
+        sync: false
+      - key: OSAI_EMBEDDING_DIMENSION # set 1024 when using Voyage (voyage-3.5-lite); recreate Qdrant collection on switch
         sync: false
       - key: OSAI_LLM_API_KEY          # Groq (text generation)
         sync: false
