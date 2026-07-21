@@ -71,6 +71,8 @@ services:
         value: llama-3.3-70b-versatile
       - key: OSAI_COMPOSIO_API_KEY
         sync: false
+      - key: OSAI_COMPOSIO_AGENT_ENABLED  # Ask grounds via LLM tool-calling over connected Composio apps
+        value: "true"
       - key: OSAI_AUTOMATIONS_CRON_TOKEN  # must match the AUTOMATIONS_CRON_TOKEN GitHub secret
         sync: false
       - key: OSAI_SENTRY_DSN           # error tracking; optional but strongly recommended
