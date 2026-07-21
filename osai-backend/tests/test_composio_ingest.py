@@ -203,3 +203,29 @@ async def test_unchanged_documents_are_not_re_embedded_on_resync():
     assert second["documents_embedded"] == 0
     assert second["documents_skipped_unchanged"] == 1
     assert q.embed_calls == 1  # unchanged: no new embed call
+
+
+async def test_failed_ingest_records_a_visible_sync_run():
+    """A mid-ingest failure must still leave a failed SyncRun, so /sync-runs never
+    shows silence after the user clicked Sync (regression)."""
+    from db.models import SyncRun
+
+    session = _session()
+
+    # Force a hard failure *after* fetch by monkeypatching upsert to raise.
+    import connectors.composio_ingest as ing
+
+    orig = ing.upsert_source_documents
+    ing.upsert_source_documents = lambda *a, **k: (_ for _ in ()).throw(RuntimeError("db boom"))
+    try:
+        result = await ingest_composio_toolkit(
+            "demo-org", "notion", session, client=_FakeComposio(), qdrant_store=_FakeQdrant()
+        )
+    finally:
+        ing.upsert_source_documents = orig
+
+    assert result["status"] == "failed"
+    runs = session.query(SyncRun).all()
+    assert len(runs) == 1
+    assert runs[0].status == "failed"
+    assert "db boom" in (runs[0].error or "")
