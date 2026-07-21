@@ -107,12 +107,19 @@ async def chat_with_tools(
             tool_parse_fail = resp.status_code == 400 and _is_tool_parse_failure(resp)
             if transient or tool_parse_fail:
                 retry_after = resp.headers.get("retry-after")
-                delay = float(retry_after) if retry_after else 1.0 * (attempt + 1)
+                # 429 on free tiers is usually a per-minute limit; back off long
+                # enough to clear the window (honour Retry-After when present).
+                if resp.status_code == 429:
+                    delay = float(retry_after) if retry_after else 8.0 * (attempt + 1)
+                    cap = 30.0
+                else:
+                    delay = float(retry_after) if retry_after else 1.0 * (attempt + 1)
+                    cap = 8.0
                 last_exc = httpx.HTTPStatusError(
                     f"LLM {resp.status_code}", request=resp.request, response=resp
                 )
                 if attempt < 3:
-                    await asyncio.sleep(min(delay, 8))
+                    await asyncio.sleep(min(delay, cap))
                     continue
             resp.raise_for_status()
             return resp.json()["choices"][0]["message"]
