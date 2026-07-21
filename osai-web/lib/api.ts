@@ -466,6 +466,8 @@ export type ComposioConnectResult = {
   redirect_url?: string;
   connected_account_id?: string;
   error?: string;
+  // Human-readable detail when error is a known code (e.g. "needs_api_key").
+  message?: string;
 };
 
 // Begin a real OAuth connection for a connector via Composio. Returns a

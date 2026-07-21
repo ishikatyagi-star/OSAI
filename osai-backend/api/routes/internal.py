@@ -47,6 +47,12 @@ async def report_client_error(err: ClientError) -> dict[str, bool]:
         with sentry_sdk.new_scope() as scope:
             scope.set_tag("origin", "web-client")
             scope.set_tag("client_path", err.path or "unknown")
+            # Forward the browser stack + boundary source so Sentry can group and
+            # give an actionable trace, not just the message.
+            if err.source:
+                scope.set_tag("client_source", err.source)
+            if err.stack:
+                scope.set_extra("stack", err.stack)
             sentry_sdk.capture_message(
                 f"[web] {err.message}",
                 level="error",

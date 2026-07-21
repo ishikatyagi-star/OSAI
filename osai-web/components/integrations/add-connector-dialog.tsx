@@ -93,7 +93,14 @@ export function AddConnectorDialog({
         // native connector cards).
         window.location.href = res.redirect_url;
       } else {
-        setError(res.error || "Couldn't start the connection. Try again.");
+        // Honest, specific messaging: API-key apps have no one-click flow, so
+        // say that plainly rather than a generic "couldn't connect".
+        setError(
+          res.error === "needs_api_key"
+            ? res.message ||
+                "This app connects with an API key rather than one-click sign-in, which isn't supported yet."
+            : res.error || "Couldn't start the connection. Try again."
+        );
         setConnecting(null);
       }
     } catch {

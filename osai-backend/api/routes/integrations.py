@@ -41,22 +41,39 @@ async def list_integrations(db: DbSession, org_id: OrgId) -> list[dict[str, obje
             # slow the page must still render from the DB (overlay is optional),
             # not time out client-side and show a load error.
             connections = await asyncio.wait_for(client.list_connections(org_id), timeout=4)
-            active: dict[str, dict] = {}
+            # Collapse to one connection per native key, preferring ACTIVE. A key
+            # whose only connection is EXPIRED must read "expired" (needs
+            # reconnect), never "connected" — otherwise the card looks healthy
+            # while every sync 404s. Google expires OAuth tokens for apps in
+            # "Testing" publishing status after ~7 days, so this is the common
+            # steady state, not an edge case.
+            live: dict[str, dict] = {}
             for c in connections:
-                if c.get("toolkit") and (c.get("status") or "").upper() == "ACTIVE":
-                    active[to_native_key(c["toolkit"])] = c
+                tk = c.get("toolkit")
+                if not tk:
+                    continue
+                key = to_native_key(tk)
+                status = (c.get("status") or "").upper()
+                prev = live.get(key)
+                prev_status = (prev.get("status") or "").upper() if prev else ""
+                # ACTIVE always wins; otherwise keep the first seen.
+                if prev is None or (status == "ACTIVE" and prev_status != "ACTIVE"):
+                    live[key] = c
             by_key = {it["key"]: it for it in items}
-            for key, conn in active.items():
+            for key, conn in live.items():
+                status = (conn.get("status") or "").upper()
+                auth_state = "connected" if status == "ACTIVE" else "expired"
                 if key in by_key:
-                    by_key[key]["auth_state"] = "connected"
+                    by_key[key]["auth_state"] = auth_state
                     # Prefer the live account email if we have it (may be fresher
                     # than what the last sync persisted).
                     if conn.get("email") and not by_key[key].get("account_email"):
                         by_key[key]["account_email"] = conn.get("email")
-                else:
+                elif status == "ACTIVE" or key not in {it["key"] for it in items}:
                     # A catalog connector with no native counterpart (e.g. Gmail,
                     # Linear via Composio) — synthesize a card so anything the
-                    # user connects from the full catalog is visible here.
+                    # user connects from the full catalog is visible here,
+                    # including an expired one so they can reconnect it.
                     items.append(
                         {
                             "key": key,
@@ -64,7 +81,7 @@ async def list_integrations(db: DbSession, org_id: OrgId) -> list[dict[str, obje
                             .replace("_", " ")
                             .title(),
                             "capabilities": ["execute"],
-                            "auth_state": "connected",
+                            "auth_state": auth_state,
                             "scopes": [],
                             "last_sync": None,
                             "sync_error": None,
@@ -169,15 +186,17 @@ async def trigger_sync(
     client = get_default_composio_client()
     if client.available():
         slug = NATIVE_TO_COMPOSIO.get(connector_key, connector_key)
+        statuses: set[str] = set()
         try:
             connections = await client.list_connections(org_id)
-            has_active = any(
-                c.get("toolkit") == slug and (c.get("status") or "").upper() == "ACTIVE"
+            statuses = {
+                (c.get("status") or "").upper()
                 for c in connections
-            )
+                if c.get("toolkit") == slug
+            }
         except Exception:  # noqa: BLE001 — fall back to native sync on lookup failure
-            has_active = False
-        if has_active:
+            statuses = set()
+        if "ACTIVE" in statuses:
             # Kick the ingest off in the background and return immediately so the
             # UI can show "sync started" and poll /sync-runs for the result.
             background_tasks.add_task(_ingest_composio_in_background, org_id, slug)
@@ -185,6 +204,17 @@ async def trigger_sync(
                 "connector_key": connector_key,
                 "status": "started",
                 "documents_indexed": 0,
+            }
+        if statuses and not is_native:
+            # The connection exists but isn't usable (expired/initiated). Tell the
+            # user to reconnect instead of failing with an opaque error — this is
+            # the common "worked yesterday, 404s today" case for OAuth tokens that
+            # expire (e.g. Google Testing-mode refresh tokens after ~7 days).
+            return {
+                "connector_key": connector_key,
+                "status": "reconnect_required",
+                "documents_indexed": 0,
+                "message": "This connection has expired. Reconnect the app to resume syncing.",
             }
 
     if not is_native:

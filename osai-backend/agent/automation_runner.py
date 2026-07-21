@@ -117,10 +117,21 @@ async def run_due_automations() -> dict[str, object]:
     failed: list[str] = []
     with SessionLocal() as db:
         for auto in list_due_automations(db):
+            # Cache the id before the transaction: after a fault, touching an ORM
+            # attribute can trigger a lazy-load or fail on an expired instance.
+            auto_id = auto.id
             try:
                 await execute_automation(db, auto)
-                ran.append(auto.id)
+                # execute_automation commits its own run record on success; a
+                # no-op here if already clean, but keeps the session tidy if a
+                # future executor path leaves work uncommitted.
+                db.commit()
+                ran.append(auto_id)
             except Exception as exc:  # noqa: BLE001 — one bad automation must not block the rest
-                logger.warning("Scheduled automation %s failed: %s", auto.id, exc)
-                failed.append(auto.id)
+                # Roll back so a partial/failed transaction can't poison the
+                # shared session and take down every later automation this tick
+                # with PendingRollbackError.
+                db.rollback()
+                logger.warning("Scheduled automation %s failed: %s", auto_id, exc)
+                failed.append(auto_id)
     return {"ran": ran, "failed": failed}
