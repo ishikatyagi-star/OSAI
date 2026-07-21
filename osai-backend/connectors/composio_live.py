@@ -65,13 +65,32 @@ def _fillable_arguments(spec: dict[str, Any], question: str) -> dict[str, Any] |
     return args
 
 
+# Natural-language terms that should trigger a live read of a connected app,
+# beyond the app's own name. Without these, "summarize my unread emails" never
+# reaches Gmail (the word "gmail" isn't in the question) and the agent answers
+# with no data. Keyed by Composio toolkit slug.
+_TOOLKIT_SYNONYMS: dict[str, tuple[str, ...]] = {
+    "gmail": ("email", "emails", "e-mail", "mail", "mails", "inbox", "unread"),
+    "googlecalendar": ("calendar", "meeting", "meetings", "schedule", "event", "events"),
+    "googledrive": ("drive", "document", "documents", "docs", "file", "files", "spreadsheet"),
+    "slack": ("slack", "message", "messages", "channel", "channels", "dm", "thread"),
+    "notion": ("notion", "wiki", "page", "pages"),
+    "github": ("github", "repo", "repos", "repository", "pull request", "commit", "issue"),
+    "linear": ("linear", "ticket", "tickets"),
+}
+
+
 def _matched_toolkits(question: str, toolkits: list[str]) -> list[str]:
-    """Connected toolkits the question plausibly refers to, by name mention."""
-    q = question.lower()
+    """Connected toolkits the question plausibly refers to — by app name or a
+    common synonym (so "my emails" reaches Gmail, "my calendar" reaches Google
+    Calendar, etc.). Only connected apps are considered, so synonyms can't pull
+    in something the org hasn't authorized."""
+    q = f" {question.lower()} "
     matched = []
     for slug in toolkits:
         name = (slug or "").lower()
-        if name and (name in q or name.replace("_", " ") in q):
+        terms = (name, name.replace("_", " ")) + _TOOLKIT_SYNONYMS.get(name, ())
+        if any(t and (t in q) for t in terms):
             matched.append(slug)
     return matched
 

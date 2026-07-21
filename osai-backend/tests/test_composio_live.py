@@ -73,3 +73,17 @@ async def test_live_read_never_runs_write_tools():
     ctx = await live_read_context("org-1", "create a linear issue for the outage", client=client)
     assert ctx == ""
     assert client.executed == []
+
+
+async def test_synonyms_route_email_query_to_gmail():
+    # "emails" must reach Gmail even though the word "gmail" isn't in the
+    # question (regression: without synonyms the agent got no data and
+    # hallucinated a fake inbox summary).
+    from connectors.composio_live import _matched_toolkits
+
+    active = ["gmail", "googlecalendar", "slack"]
+    assert _matched_toolkits("summarize my unread emails", active) == ["gmail"]
+    assert _matched_toolkits("scan my mails", active) == ["gmail"]
+    assert _matched_toolkits("what's on my calendar today", active) == ["googlecalendar"]
+    # No connected app referenced -> no live read (no false positives).
+    assert _matched_toolkits("who owns the VPC security setup", active) == []

@@ -151,14 +151,15 @@ async def run_ask(
     #    would otherwise be invisible.
     answer = rag.answer
     via: str = "osai"
+
+    # Live read: if the question refers to a connected Composio app, pull fresh
+    # data from it right now (read-only tools only) so apps without an ingestion
+    # fetcher aren't dead ends — the laptop-agent experience. Bounded and
+    # best-effort: a slow/failed live read must not delay Ask.
+    live_context = ""
     if hermes_enabled():
-        # Live read: if the question names a connected Composio app, pull fresh
-        # data from it right now (read-only tools only) so apps without an
-        # ingestion fetcher aren't dead ends — the laptop-agent experience.
-        # Bounded and best-effort: a slow/failed live read must not delay Ask.
         from connectors.composio_live import live_read_context
 
-        live_context = ""
         try:
             live_context = await asyncio.wait_for(
                 live_read_context(request.org_id, request.question), timeout=20
@@ -166,6 +167,14 @@ async def run_ask(
         except Exception:  # noqa: BLE001 — enrichment only
             pass
 
+    # Anti-hallucination gate: hand the question to Hermes only when there is
+    # real grounding — retrieved org context OR fresh live data. With neither,
+    # Hermes (a general LLM) will confidently fabricate answers to questions
+    # like "summarize my unread emails" (inventing senders and counts). In that
+    # case keep the honest, grounded RAG response ("No relevant context found…")
+    # instead of a made-up one. Fabricated data is worse than an empty result.
+    grounded = rag.enough_context or bool(live_context)
+    if hermes_enabled() and grounded:
         # Connector/environment awareness is injected inside run_via_hermes
         # (environment_preamble); the plain-RAG fallback below stays untouched —
         # its answers come from retrieval and adding connector context there
@@ -204,7 +213,9 @@ async def run_ask(
         answer=answer,
         citations=rag.citations,
         actions_taken=actions,
-        enough_context=rag.enough_context,
+        # Grounded by retrieved context OR fresh live data; drives the
+        # "limited context" banner, which shouldn't show when live data answered.
+        enough_context=grounded,
         model_route=model_route,
         latency_ms=int((time.monotonic() - started) * 1000),
         via=via,  # type: ignore[arg-type]

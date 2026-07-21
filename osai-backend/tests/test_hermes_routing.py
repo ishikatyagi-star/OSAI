@@ -73,3 +73,39 @@ async def test_ask_stays_inhouse_when_hermes_disabled(monkeypatch):
     resp = await orch.run_ask(AskRequest(org_id="o1", question="hi"))
     assert resp.via == "osai"
     assert resp.answer == "in-house answer"
+
+
+async def test_ungrounded_question_does_not_reach_hermes(monkeypatch):
+    """No retrieved context and no live data => Hermes must not be invoked, so it
+    can't fabricate. The honest 'no context' answer stands (anti-hallucination)."""
+
+    async def _empty_retrieve(_request):
+        return SearchResponse(
+            answer="No relevant context found. Trigger a connector sync to ingest data.",
+            citations=[],
+            enough_context=False,
+        )
+
+    monkeypatch.setattr(orch, "retrieve_answer", _empty_retrieve)
+
+    async def _no_actions(_request, _answer, user_id=None):
+        return []
+
+    monkeypatch.setattr(orch, "_plan_actions", _no_actions)
+    monkeypatch.setattr(orch, "hermes_enabled", lambda: True)
+
+    called = {"hermes": False}
+
+    async def _fake_hermes(*a, **k):
+        called["hermes"] = True
+        return "FABRICATED: you have 10 unread emails from John Doe"
+
+    monkeypatch.setattr(orch, "run_via_hermes", _fake_hermes)
+
+    resp = await orch.run_ask(
+        AskRequest(org_id="o1", question="summarize my unread emails"), user_id="u1"
+    )
+    assert called["hermes"] is False, "Hermes must not run without grounding"
+    assert "No relevant context" in resp.answer
+    assert resp.via == "osai"
+    assert resp.enough_context is False
