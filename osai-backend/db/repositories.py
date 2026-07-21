@@ -1,7 +1,7 @@
 import logging
 import secrets
 from collections.abc import Sequence
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from fastapi import HTTPException
 from sqlalchemy import desc, select
@@ -832,9 +832,13 @@ def load_proposed_action(action_id: str) -> dict | None:
             row = session.get(ConnectorAction, action_id)
             if row is None or row.status != "proposed":
                 return None
-            if row.created_at and now_utc() - row.created_at > timedelta(
-                hours=_PROPOSED_TTL_HOURS
-            ):
+            # created_at is tz-naive (stored in a naive column); coerce to
+            # aware-UTC before subtracting the aware now_utc(), or this raises
+            # TypeError (which the SQLAlchemyError guard would not catch).
+            created = row.created_at
+            if created is not None and created.tzinfo is None:
+                created = created.replace(tzinfo=UTC)
+            if created and now_utc() - created > timedelta(hours=_PROPOSED_TTL_HOURS):
                 return None
             return dict(row.payload or {})
     except SQLAlchemyError:
@@ -1569,6 +1573,11 @@ def list_due_automations(session: Session, now: datetime | None = None) -> list[
     elapsed since their last run. Never-run automations are due immediately.
     Consumed by the Celery beat scheduler."""
     now = now or now_utc()
+    # Compare in aware-UTC throughout: now_utc() is aware, but last_run_at comes
+    # from a tz-naive column, and a caller may pass a naive `now`. Normalize both
+    # so the comparison never raises "can't compare naive and aware datetimes".
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=UTC)
     candidates = (
         session.query(Automation)
         .filter(
@@ -1578,11 +1587,20 @@ def list_due_automations(session: Session, now: datetime | None = None) -> list[
         )
         .all()
     )
-    return [
-        a
-        for a in candidates
-        if a.last_run_at is None or a.last_run_at <= now - CADENCE_INTERVALS[a.cadence]
-    ]
+    due = []
+    for a in candidates:
+        if a.last_run_at is None:
+            due.append(a)
+            continue
+        # last_run_at is stored in a tz-naive DateTime column (Postgres drops the
+        # tzinfo), so coerce to aware-UTC before comparing with the aware `now` —
+        # otherwise the comparison raises TypeError and fails the whole tick.
+        last = a.last_run_at
+        if last.tzinfo is None:
+            last = last.replace(tzinfo=UTC)
+        if last <= now - CADENCE_INTERVALS[a.cadence]:
+            due.append(a)
+    return due
 
 
 def delete_automation(session: Session, org_id: str, automation_id: str) -> bool:
