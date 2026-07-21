@@ -24,6 +24,22 @@ from llm.gemini import chat_with_tools, tool_calling_available
 
 logger = logging.getLogger("osai.composio.agent")
 
+
+def _report(context: str, exc: Exception) -> None:
+    """Surface an otherwise-swallowed agent failure. When the agent silently
+    returns None, Ask falls back to the weaker heuristic and it's invisible why —
+    so log it and, when Sentry is configured, capture it so the reason is seen."""
+    logger.warning("composio agent: %s: %s", context, exc)
+    from config import settings
+
+    if settings.sentry_dsn:
+        import sentry_sdk
+
+        with sentry_sdk.new_scope() as scope:
+            scope.set_tag("subsystem", "composio-agent")
+            scope.set_context("composio_agent", {"stage": context})
+            sentry_sdk.capture_exception(exc)
+
 # Bounds. Tool count keeps the request under provider size limits (the Groq 413);
 # iterations bound cost/latency; response bytes bound context growth per call.
 _MAX_TOOLS = 40
@@ -125,7 +141,8 @@ async def run_composio_agent(
         return None
     try:
         connections = await client.list_connections(org_id)
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
+        _report("list_connections failed", exc)
         return None
     active = [
         c["toolkit"]
@@ -150,7 +167,7 @@ async def run_composio_agent(
         try:
             msg = await chat_with_tools(messages, tools)
         except Exception as exc:  # noqa: BLE001 — best-effort; fall through
-            logger.warning("composio agent chat failed: %s", exc)
+            _report("chat_with_tools failed", exc)
             return None
 
         calls = msg.get("tool_calls") or []
