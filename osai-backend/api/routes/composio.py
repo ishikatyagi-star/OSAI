@@ -65,7 +65,10 @@ async def connect(toolkit: str, org_id: OrgId, _admin: AdminOnly) -> dict:
             f"/integrations/composio/callback?org_id={org_id}"
         )
     result = await _client_or_404().connect(toolkit, org_id, callback_url=callback_url)
-    if result.get("error"):
+    # "needs_api_key" is an expected outcome (API-key app, no one-click flow), not
+    # a server failure — return it as 200 so the UI can show the honest message
+    # instead of a thrown generic error. Genuine failures still 400.
+    if result.get("error") and result["error"] != "needs_api_key":
         raise HTTPException(status_code=400, detail=result["error"])
     return result
 

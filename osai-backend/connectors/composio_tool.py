@@ -159,6 +159,22 @@ class ComposioClient:
         _TOOLKIT_LOGO_CACHE[key] = logo
         return logo
 
+    async def _supports_managed_oauth(self, client: httpx.AsyncClient, toolkit: str) -> bool:
+        """True if Composio can run a managed OAuth flow for this toolkit (so a
+        one-click Connect yields a redirect). API-key-only toolkits return an
+        empty managed-auth-scheme list and must not attempt the OAuth link."""
+        try:
+            resp = await client.get(
+                f"{self.base_url}/api/v3/toolkits/{toolkit.lower()}",
+                headers=self._headers(),
+            )
+            if resp.status_code != 200:
+                return True  # unknown -> don't block; let the link call decide
+            schemes = resp.json().get("composio_managed_auth_schemes") or []
+            return any((s or "").upper() == "OAUTH2" for s in schemes)
+        except httpx.HTTPError:
+            return True  # network blip -> don't block on a best-effort probe
+
     async def _ensure_auth_config(self, client: httpx.AsyncClient, toolkit: str) -> str | None:
         """Return an auth_config id for a toolkit, creating a managed one if needed.
 
@@ -204,6 +220,18 @@ class ComposioClient:
         """Start an OAuth connection. Returns {redirect_url, connected_account_id}.
         callback_url is where Composio sends the user after authorizing."""
         async with httpx.AsyncClient(timeout=30) as client:
+            # One-click connect only works for toolkits Composio can OAuth on our
+            # behalf. API-key apps (Perplexity, many data APIs) have no managed
+            # OAuth flow, so the link call would dead-end with an opaque error.
+            # Detect and return a specific, honest signal instead.
+            if not await self._supports_managed_oauth(client, toolkit):
+                return {
+                    "error": "needs_api_key",
+                    "message": (
+                        "This app connects with an API key rather than one-click "
+                        "sign-in, which isn't supported yet."
+                    ),
+                }
             auth_config_id = await self._ensure_auth_config(client, toolkit)
             if not auth_config_id:
                 return {"error": f"Could not get auth config for {toolkit}"}

@@ -143,6 +143,7 @@ export default function IntegrationsPage() {
         documents_indexed?: number;
         status?: string;
         error?: string | null;
+        message?: string | null;
       };
       const indexed = Number(res.documents_indexed ?? 0);
       // Composio syncs now run in the background and return "started"; the docs
@@ -154,15 +155,24 @@ export default function IntegrationsPage() {
         [key]:
           res.status === "failed"
             ? `Sync failed - ${(res.error || "see Sync Runs for details.").split("\n")[0].slice(0, 140)}`
-            : res.status === "started"
-              ? "Sync started - files will appear in Sync Runs shortly."
-              : indexed > 0
-                ? `Indexed ${indexed} file${indexed > 1 ? "s" : ""}`
-                : "Sync complete - no new documents.",
+            : res.status === "reconnect_required"
+              ? res.message || "This connection expired. Reconnect the app to resume syncing."
+              : res.status === "started"
+                ? "Sync started - files will appear in Sync Runs shortly."
+                : indexed > 0
+                  ? `Indexed ${indexed} file${indexed > 1 ? "s" : ""}`
+                  : "Sync complete - no new documents.",
       }));
       setSyncTone((tones) => ({
         ...tones,
-        [key]: res.status === "failed" ? "error" : res.status === "started" ? "info" : "success",
+        [key]:
+          res.status === "failed"
+            ? "error"
+            : res.status === "reconnect_required"
+              ? "error"
+              : res.status === "started"
+                ? "info"
+                : "success",
       }));
       loadIntegrations();
     } catch {
@@ -401,15 +411,29 @@ export default function IntegrationsPage() {
                         <h2 style={{ margin: 0 }}>{brandText(meta.label)}</h2>
                         <StatusDot state={item.auth_state} />
                         <span
-                          className={`badge badge-${item.auth_state === "connected" ? "green" : item.auth_state === "error" ? "red" : "grey"}`}
+                          className={`badge badge-${
+                            item.auth_state === "connected"
+                              ? "green"
+                              : item.auth_state === "error"
+                                ? "red"
+                                : item.auth_state === "expired"
+                                  ? "amber"
+                                  : "grey"
+                          }`}
                         >
-                          {item.auth_state === "not_configured" ? "not connected" : item.auth_state}
+                          {item.auth_state === "not_configured"
+                            ? "not connected"
+                            : item.auth_state === "expired"
+                              ? "expired"
+                              : item.auth_state}
                         </span>
                       </div>
                       <p className="meta" style={{ margin: 0 }}>
-                        {item.auth_state === "connected" && item.account_email
-                          ? `Connected as ${item.account_email}`
-                          : brandText(meta.description)}
+                        {item.auth_state === "expired"
+                          ? "Connection expired - reconnect to resume syncing."
+                          : item.auth_state === "connected" && item.account_email
+                            ? `Connected as ${item.account_email}`
+                            : brandText(meta.description)}
                       </p>
                     </div>
                   </div>
@@ -456,7 +480,7 @@ export default function IntegrationsPage() {
                          onClick={() => handleConnectStart(item.key)}
                          aria-busy={!!connecting[item.key]}
                        >
-                         {connecting[item.key] ? "Opening…" : "Connect"}
+                         {connecting[item.key] ? "Opening…" : item.auth_state === "expired" ? "Reconnect" : "Connect"}
                       </button>
                     )}
                      <button

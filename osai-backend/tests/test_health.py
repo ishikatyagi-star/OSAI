@@ -14,6 +14,9 @@ def test_integrations_fallback_without_database() -> None:
     client = TestClient(app)
     response = client.get("/integrations")
     assert response.status_code == 200
-    # Without a database there are no configured integrations to show; the
-    # endpoint degrades to an empty list rather than a fixed native-card set.
-    assert response.json() == []
+    # Without a database there is no fixed native-card set: the endpoint returns
+    # only live Composio-sourced connections (none when no key is configured, so
+    # this is [] in CI). The key property is that nothing is a seeded native
+    # "not_configured" card.
+    items = response.json()
+    assert all(it.get("auth_state") != "not_configured" for it in items)
