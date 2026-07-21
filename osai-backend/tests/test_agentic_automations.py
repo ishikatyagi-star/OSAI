@@ -38,6 +38,16 @@ async def test_preamble_states_environment_facts():
     assert "Settings → Integrations" in preamble
 
 
+async def test_preamble_forbids_fake_process_narration_and_fabrication():
+    # Regression: the agent narrated fake work ("scanning your emails, please
+    # wait") and invented data. The preamble must explicitly forbid both.
+    preamble = (await environment_preamble("demo-org")).lower()
+    assert "single turn" in preamble
+    assert "please wait" in preamble  # named as a thing NOT to say
+    assert "never invent" in preamble or "do not invent" in preamble
+    assert "john doe" in preamble  # named as a placeholder NOT to use
+
+
 async def test_hermes_payload_includes_preamble_and_extra_context(monkeypatch):
     monkeypatch.setattr(hermes_mod.settings, "hermes_sidecar_url", "http://hermes.test")
     monkeypatch.setattr(hermes_mod.settings, "env", "local")
