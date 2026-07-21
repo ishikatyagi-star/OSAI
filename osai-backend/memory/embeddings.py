@@ -146,9 +146,12 @@ class VoyageEmbeddingProvider(EmbeddingProvider):
         async with httpx.AsyncClient(timeout=60) as client:
             for i in range(0, len(texts), batch_size):
                 batch = texts[i : i + batch_size]
+                # Longer backoff than usual: Voyage free-tier limits are
+                # per-minute, so a 429 needs a multi-second wait to clear, not a
+                # sub-second retry.
                 async for attempt in AsyncRetrying(
-                    stop=stop_after_attempt(3),
-                    wait=wait_random_exponential(multiplier=0.5, max=4),
+                    stop=stop_after_attempt(4),
+                    wait=wait_random_exponential(multiplier=1, max=30),
                     reraise=True,
                 ):
                     with attempt:

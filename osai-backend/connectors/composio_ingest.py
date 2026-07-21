@@ -46,6 +46,11 @@ _WHISPER_MAX_BYTES = 25 * 1024 * 1024
 # instance. Oversized files are indexed by name with skipped_large_file=True.
 _MAX_DOWNLOAD_BYTES = 5 * 1024 * 1024
 
+# Chunks embedded per request. Batching across documents cuts a 25-doc sync from
+# ~25 embedding requests to a handful, staying under free-tier per-minute limits;
+# the cap keeps peak memory bounded on the small instance.
+_EMBED_BATCH_CHUNKS = 96
+
 
 def _file_size(f: dict) -> int | None:
     """Size in bytes from a Drive listing entry (str or int; absent for
@@ -281,9 +286,27 @@ async def ingest_composio_toolkit(
         vector_error = None
         embedded = 0
         skipped_unchanged = 0
-        # Embed one document at a time, yielding between documents: batching all
-        # ~25 docs' chunks holds every embedding in memory and hogs the tiny prod
-        # CPU long enough for Render's health probe to kill the instance mid-sync.
+        # Batch chunks across documents into a few embed calls, not one per doc.
+        # Free-tier embedding providers (Voyage/Gemini) rate-limit per minute, so
+        # one request per document blows the limit (429) on any real sync. The
+        # per-batch cap bounds memory so a big sync can't OOM the small instance.
+        pending_chunks: list[dict[str, Any]] = []
+        pending_stamps: list[tuple[str, str]] = []  # (source_id, content_hash)
+
+        async def _flush() -> None:
+            nonlocal embedded, vector_error
+            if not pending_chunks:
+                return
+            try:
+                await qdrant_store.upsert_chunks(list(pending_chunks))
+                for sid, h in pending_stamps:
+                    _set_embedded_hash(session, sid, h)
+                embedded += len(pending_stamps)
+            except Exception as exc:  # noqa: BLE001 — vectors shouldn't block sync
+                vector_error = f"{vector_error}; {exc}" if vector_error else str(exc)
+            pending_chunks.clear()
+            pending_stamps.clear()
+
         for document in documents:
             await asyncio.sleep(0)
             # Don't embed documents whose "text" is just their own filename
@@ -303,12 +326,11 @@ async def ingest_composio_toolkit(
                 _set_embedded_hash(session, document.source_id, content_hash)
                 skipped_unchanged += 1
                 continue
-            try:
-                await qdrant_store.upsert_chunks(chunks_for_documents([document]))
-                _set_embedded_hash(session, document.source_id, content_hash)
-                embedded += 1
-            except Exception as exc:  # noqa: BLE001 — vectors shouldn't block sync
-                vector_error = f"{vector_error}; {exc}" if vector_error else str(exc)
+            pending_chunks.extend(chunks_for_documents([document]))
+            pending_stamps.append((document.source_id, content_hash))
+            if len(pending_chunks) >= _EMBED_BATCH_CHUNKS:
+                await _flush()
+        await _flush()
     except Exception as exc:  # noqa: BLE001 — always leave a visible failed run
         logger.error("Composio ingest %s failed: %s", toolkit, exc)
         try:
