@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import hashlib
 import logging
 from typing import Any
 
@@ -22,7 +23,7 @@ from api.schemas.connector import SourceDocument
 from config import settings
 from connectors.composio_tool import ComposioClient, get_default_composio_client
 from connectors.toolkit_map import to_native_key
-from db.models import now_utc
+from db.models import SourceDocumentRecord, now_utc
 from db.repositories import (
     apply_tier_rules,
     chunks_for_documents,
@@ -270,8 +271,17 @@ async def ingest_composio_toolkit(
         # the same way a natively-synced one would be, instead of always
         # landing at the connector's default tier.
         apply_tier_rules(session, org_id, native_key, documents)
+
+    # Re-embedding unchanged documents on every sync is what exhausts the
+    # embedding provider's quota (and burns the tiny CPU). Capture each doc's
+    # previously-embedded content hash BEFORE the upsert overwrites metadata,
+    # so we can skip re-embedding anything whose text hasn't changed.
+    prior_hashes = _prior_embedded_hashes(session, [d.source_id for d in documents])
+
     indexed = upsert_source_documents(session, documents)
     vector_error = None
+    embedded = 0
+    skipped_unchanged = 0
     # Embed and upsert one document at a time, yielding between documents.
     # Doing all ~25 documents' chunks in a single batch holds every embedding
     # in memory at once and hogs the tiny prod CPU (0.15 vCPU / 512MB) long
@@ -291,8 +301,18 @@ async def ingest_composio_toolkit(
             except Exception:  # noqa: BLE001 — cleanup is best-effort
                 pass
             continue
+        content_hash = _content_hash(document.text)
+        if prior_hashes.get(document.source_id) == content_hash:
+            # Unchanged since the last successful embed — its vectors already
+            # exist in Qdrant, so re-embedding would just waste quota. Re-stamp
+            # the hash (upsert wiped metadata) and move on.
+            _set_embedded_hash(session, document.source_id, content_hash)
+            skipped_unchanged += 1
+            continue
         try:
             await qdrant_store.upsert_chunks(chunks_for_documents([document]))
+            _set_embedded_hash(session, document.source_id, content_hash)
+            embedded += 1
         except Exception as exc:  # noqa: BLE001 — vectors shouldn't block source sync
             vector_error = f"{vector_error}; {exc}" if vector_error else str(exc)
 
@@ -312,6 +332,8 @@ async def ingest_composio_toolkit(
         "toolkit": toolkit,
         "documents_seen": len(documents),
         "documents_indexed": indexed,
+        "documents_embedded": embedded,
+        "documents_skipped_unchanged": skipped_unchanged,
         "vector_error": vector_error,
     }
 
@@ -319,6 +341,42 @@ async def ingest_composio_toolkit(
 # ---------------------------------------------------------------------------
 # Toolkit-specific fetchers — turn a connected app's content into SourceDocuments
 # ---------------------------------------------------------------------------
+
+
+def _content_hash(text: str) -> str:
+    """Stable hash of a document's indexed text, used to skip re-embedding
+    unchanged documents on subsequent syncs."""
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _prior_embedded_hashes(session: Session, source_ids: list[str]) -> dict[str, str]:
+    """The content hash last successfully embedded for each source id (from the
+    document's metadata), so an unchanged doc isn't re-embedded."""
+    if not source_ids:
+        return {}
+    rows = (
+        session.query(SourceDocumentRecord.id, SourceDocumentRecord.metadata_json)
+        .filter(SourceDocumentRecord.id.in_(source_ids))
+        .all()
+    )
+    out: dict[str, str] = {}
+    for sid, meta in rows:
+        h = (meta or {}).get("embedded_hash")
+        if h:
+            out[sid] = h
+    return out
+
+
+def _set_embedded_hash(session: Session, source_id: str, content_hash: str) -> None:
+    """Record the content hash we just embedded, so the next sync can skip this
+    doc if its text is unchanged. Best-effort: never fail a sync over bookkeeping."""
+    record = session.get(SourceDocumentRecord, source_id)
+    if record is None:
+        return
+    meta = dict(record.metadata_json or {})
+    meta["embedded_hash"] = content_hash
+    record.metadata_json = meta
+    session.flush()
 
 
 def _dig(data: Any, *keys: str) -> Any:

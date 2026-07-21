@@ -169,3 +169,37 @@ async def test_gmail_ingestion_indexes_messages():
     assert "updated pricing sheet" in doc.text
     # A message with no subject/body still indexes under a placeholder title.
     assert rows["msg-2"].title == "(no subject)"
+
+
+class _CountingQdrant:
+    """Counts embed calls so we can assert unchanged docs are not re-embedded."""
+
+    def __init__(self):
+        self.embed_calls = 0
+
+    async def upsert_chunks(self, chunks):
+        self.embed_calls += 1
+        return len(chunks)
+
+    async def delete_document(self, *a, **k):
+        return None
+
+
+async def test_unchanged_documents_are_not_re_embedded_on_resync():
+    session = _session()
+    q = _CountingQdrant()
+
+    first = await ingest_composio_toolkit(
+        "demo-org", "notion", session, client=_FakeComposio(), qdrant_store=q
+    )
+    assert first["documents_embedded"] == 1
+    assert first["documents_skipped_unchanged"] == 0
+    assert q.embed_calls == 1
+
+    # Second sync of identical content must skip embedding entirely.
+    second = await ingest_composio_toolkit(
+        "demo-org", "notion", session, client=_FakeComposio(), qdrant_store=q
+    )
+    assert second["documents_embedded"] == 0
+    assert second["documents_skipped_unchanged"] == 1
+    assert q.embed_calls == 1  # unchanged: no new embed call
