@@ -57,6 +57,18 @@ def test_stale_runs_are_due_per_cadence():
     assert due == {hourly.id, weekly.id}
 
 
+def test_due_selection_survives_aware_now_vs_naive_last_run():
+    # Production regression: now_utc() is tz-AWARE while last_run_at is stored in
+    # a tz-naive column. The comparison must not raise (it 500'd the whole cron
+    # tick before). Mirror prod by passing an aware `now` and a naive stored ts.
+    session = _sessionmaker()()
+    stale = _auto(session, cadence="hourly", last_run_at=NOW - timedelta(hours=2))
+    _auto(session, cadence="hourly", last_run_at=NOW - timedelta(minutes=5))  # not due
+    aware_now = datetime(2026, 7, 11, 12, 0, tzinfo=UTC)
+    due = {d.id for d in list_due_automations(session, now=aware_now)}
+    assert due == {stale.id}
+
+
 def test_manual_paused_draft_and_disabled_are_never_due():
     session = _sessionmaker()()
     _auto(session, cadence="manual")
