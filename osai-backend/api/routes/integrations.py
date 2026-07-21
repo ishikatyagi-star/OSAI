@@ -161,8 +161,11 @@ async def _ingest_composio_in_background(org_id: str, slug: str) -> None:
     try:
         with SessionLocal() as db:
             try:
+                # ingest_composio_toolkit always records a sync run (success or a
+                # visible failed run), so a swallowed error here can't leave
+                # /sync-runs empty.
                 await ingest_composio_toolkit(org_id, slug, db)
-            except Exception:  # noqa: BLE001 — recorded as a failed run inside; never crash
+            except Exception:  # noqa: BLE001 — never crash the background worker
                 pass
     finally:
         _INFLIGHT_INGESTS.discard(key)

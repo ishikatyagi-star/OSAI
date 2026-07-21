@@ -285,24 +285,34 @@ class ComposioClient:
             return {"id": c.get("id"), "email": c.get("email")}
         return None
 
+    @_network_retry
     async def disconnect(self, toolkit: str, user_id: str) -> dict[str, Any]:
-        """Revoke this org's connected account(s) for a toolkit at Composio, so a
-        later Connect starts a fresh OAuth handshake. Returns {deleted: N}."""
-        connections = await self.list_connections(user_id)
+        """Revoke ALL of this org's connected accounts for a toolkit at Composio,
+        so a later Connect starts a fresh OAuth handshake. Returns {deleted: N}.
+
+        Queries filtered by toolkit_slug rather than the general list_connections:
+        the unfiltered list truncates/dedupes and leaves orphaned (often expired)
+        accounts behind, which keep the Integrations card alive — the user then
+        can't actually disconnect. A thorough revoke must remove every one."""
         target = toolkit.lower()
-        ids = [
-            c["id"]
-            for c in connections
-            if c.get("id") and (c.get("toolkit") or "").lower() == target
-        ]
-        deleted = 0
         async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.get(
+                f"{self.base_url}/api/v3/connected_accounts",
+                headers=self._headers(),
+                params={"user_ids": user_id, "toolkit_slug": target, "limit": 100},
+            )
+            ids = (
+                [x["id"] for x in resp.json().get("items", []) if x.get("id")]
+                if resp.status_code == 200
+                else []
+            )
+            deleted = 0
             for cid in ids:
-                resp = await client.delete(
+                d = await client.delete(
                     f"{self.base_url}/api/v3/connected_accounts/{cid}",
                     headers=self._headers(),
                 )
-                if resp.status_code in (200, 204):
+                if d.status_code in (200, 204):
                     deleted += 1
         return {"deleted": deleted}
 

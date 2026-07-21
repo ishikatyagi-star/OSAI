@@ -92,25 +92,43 @@ async def chat_with_tools(
         payload["tools"] = tools
         payload["tool_choice"] = "auto"
     last_exc: Exception | None = None
+    # Retry budget is larger than the plain path: on top of rate-limit/5xx, some
+    # providers (Groq + Llama) intermittently emit MALFORMED function-call syntax
+    # and 400 with `tool_use_failed` / "Failed to call a function" — the tool
+    # choice is fine, only the formatting broke, so a re-roll usually succeeds.
     async with httpx.AsyncClient(timeout=60) as client:
-        for attempt in range(3):
+        for attempt in range(4):
             resp = await client.post(
                 f"{settings.llm_base_url}/chat/completions",
                 headers={"Authorization": f"Bearer {settings.llm_api_key}"},
                 json=payload,
             )
-            if resp.status_code in (429, 500, 502, 503, 529):
+            transient = resp.status_code in (429, 500, 502, 503, 529)
+            tool_parse_fail = resp.status_code == 400 and _is_tool_parse_failure(resp)
+            if transient or tool_parse_fail:
                 retry_after = resp.headers.get("retry-after")
-                delay = float(retry_after) if retry_after else 1.5 * (attempt + 1)
+                delay = float(retry_after) if retry_after else 1.0 * (attempt + 1)
                 last_exc = httpx.HTTPStatusError(
                     f"LLM {resp.status_code}", request=resp.request, response=resp
                 )
-                if attempt < 2:
+                if attempt < 3:
                     await asyncio.sleep(min(delay, 8))
                     continue
             resp.raise_for_status()
             return resp.json()["choices"][0]["message"]
     raise last_exc or RuntimeError("LLM tool-calling failed")
+
+
+def _is_tool_parse_failure(resp: httpx.Response) -> bool:
+    """A 400 that's the provider failing to parse the model's function call
+    (non-deterministic formatting), not a genuinely malformed request — so it's
+    worth re-rolling."""
+    try:
+        err = resp.json().get("error", {})
+        blob = f"{err.get('code', '')} {err.get('message', '')}".lower()
+    except (ValueError, TypeError):
+        return False
+    return "tool_use_failed" in blob or "failed to call a function" in blob
 
 
 async def generate_json(prompt: str, model: str | None = None) -> Any:

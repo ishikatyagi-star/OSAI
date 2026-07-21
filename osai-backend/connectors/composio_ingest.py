@@ -252,69 +252,79 @@ async def ingest_composio_toolkit(
             "documents_indexed": 0,
         }
 
-    # Reconnect handling: if the org reconnected this toolkit with a *different*
-    # external account, purge the previous account's documents so counts and Ask
-    # reflect only the currently-connected account (never a mix of both).
     native_key = to_native_key(toolkit)
-    await _handle_account_change(session, client, org_id, toolkit, native_key, qdrant_store)
-
+    # Everything below records a sync run no matter how it ends. Any unhandled
+    # error here previously vanished (the background caller swallows exceptions),
+    # so /sync-runs showed nothing at all — the user saw "Sync started" and then
+    # silence. Now a failure always leaves a visible, explained failed run.
     try:
+        # Reconnect handling: if the org reconnected this toolkit with a
+        # *different* external account, purge the previous account's documents so
+        # counts and Ask reflect only the currently-connected account.
+        await _handle_account_change(
+            session, client, org_id, toolkit, native_key, qdrant_store
+        )
         documents = await fetcher(client, org_id, limit)
-    except Exception as exc:  # noqa: BLE001
-        logger.error("Composio ingest %s failed: %s", toolkit, exc)
-        return {"status": "failed", "error": str(exc), "documents_indexed": 0}
 
-    if documents:
-        # Same per-info sensitivity overrides the native connector sync path
-        # applies (see connectors/sync_service.py) — tier rules are keyed by
-        # the native connector key, so a Composio-ingested doc is classified
-        # the same way a natively-synced one would be, instead of always
-        # landing at the connector's default tier.
-        apply_tier_rules(session, org_id, native_key, documents)
+        if documents:
+            # Tier rules are keyed by the native connector key, so a
+            # Composio-ingested doc is classified the same way a natively-synced
+            # one would be, instead of always landing at the default tier.
+            apply_tier_rules(session, org_id, native_key, documents)
 
-    # Re-embedding unchanged documents on every sync is what exhausts the
-    # embedding provider's quota (and burns the tiny CPU). Capture each doc's
-    # previously-embedded content hash BEFORE the upsert overwrites metadata,
-    # so we can skip re-embedding anything whose text hasn't changed.
-    prior_hashes = _prior_embedded_hashes(session, [d.source_id for d in documents])
+        # Capture each doc's previously-embedded content hash BEFORE the upsert
+        # overwrites metadata, so unchanged docs skip re-embedding (which is what
+        # exhausts the embedding quota and burns the tiny CPU).
+        prior_hashes = _prior_embedded_hashes(session, [d.source_id for d in documents])
 
-    indexed = upsert_source_documents(session, documents)
-    vector_error = None
-    embedded = 0
-    skipped_unchanged = 0
-    # Embed and upsert one document at a time, yielding between documents.
-    # Doing all ~25 documents' chunks in a single batch holds every embedding
-    # in memory at once and hogs the tiny prod CPU (0.15 vCPU / 512MB) long
-    # enough for Render's 5s /health probe to fail and kill the instance
-    # mid-sync — a partial index that finishes beats a full one that dies.
-    for document in documents:
-        await asyncio.sleep(0)
-        # Don't embed documents whose "text" is just their own filename
-        # (untranscribed media, skipped-large files): the vector carries no
-        # content signal but still matches ~0.7 on unrelated queries and gets
-        # cited as a source. The file stays listed via Postgres either way.
-        if not document.text.strip() or document.text.strip() == (document.title or "").strip():
+        indexed = upsert_source_documents(session, documents)
+        vector_error = None
+        embedded = 0
+        skipped_unchanged = 0
+        # Embed one document at a time, yielding between documents: batching all
+        # ~25 docs' chunks holds every embedding in memory and hogs the tiny prod
+        # CPU long enough for Render's health probe to kill the instance mid-sync.
+        for document in documents:
+            await asyncio.sleep(0)
+            # Don't embed documents whose "text" is just their own filename
+            # (untranscribed media, skipped-large files): the vector carries no
+            # content signal but still matches ~0.7 on unrelated queries.
+            if not document.text.strip() or document.text.strip() == (
+                document.title or ""
+            ).strip():
+                try:
+                    await qdrant_store.delete_document(org_id, document.source_id)
+                except Exception:  # noqa: BLE001 — cleanup is best-effort
+                    pass
+                continue
+            content_hash = _content_hash(document.text)
+            if prior_hashes.get(document.source_id) == content_hash:
+                # Unchanged since the last successful embed; vectors already exist.
+                _set_embedded_hash(session, document.source_id, content_hash)
+                skipped_unchanged += 1
+                continue
             try:
-                # Also purge any vectors indexed for this doc by earlier syncs,
-                # so already-ingested filename-only chunks stop matching.
-                await qdrant_store.delete_document(org_id, document.source_id)
-            except Exception:  # noqa: BLE001 — cleanup is best-effort
-                pass
-            continue
-        content_hash = _content_hash(document.text)
-        if prior_hashes.get(document.source_id) == content_hash:
-            # Unchanged since the last successful embed — its vectors already
-            # exist in Qdrant, so re-embedding would just waste quota. Re-stamp
-            # the hash (upsert wiped metadata) and move on.
-            _set_embedded_hash(session, document.source_id, content_hash)
-            skipped_unchanged += 1
-            continue
+                await qdrant_store.upsert_chunks(chunks_for_documents([document]))
+                _set_embedded_hash(session, document.source_id, content_hash)
+                embedded += 1
+            except Exception as exc:  # noqa: BLE001 — vectors shouldn't block sync
+                vector_error = f"{vector_error}; {exc}" if vector_error else str(exc)
+    except Exception as exc:  # noqa: BLE001 — always leave a visible failed run
+        logger.error("Composio ingest %s failed: %s", toolkit, exc)
         try:
-            await qdrant_store.upsert_chunks(chunks_for_documents([document]))
-            _set_embedded_hash(session, document.source_id, content_hash)
-            embedded += 1
-        except Exception as exc:  # noqa: BLE001 — vectors shouldn't block source sync
-            vector_error = f"{vector_error}; {exc}" if vector_error else str(exc)
+            session.rollback()  # clear any poisoned transaction before recording
+            record_sync_result(
+                session,
+                org_id=org_id,
+                connector_key=native_key,
+                status="failed",
+                documents_seen=0,
+                documents_indexed=0,
+                error=str(exc)[:500],
+            )
+        except Exception:  # noqa: BLE001 — never mask the original failure
+            session.rollback()
+        return {"status": "failed", "error": str(exc), "documents_indexed": 0}
 
     record_sync_result(
         session,
