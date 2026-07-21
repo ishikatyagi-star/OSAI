@@ -71,6 +71,15 @@ async def environment_preamble(org_id: str) -> str:
         "  connect it from Settings → Integrations, then re-run — never say you\n"
         "  fundamentally lack connector access.\n"
         "- If the user must connect or grant access to a source, tell them exactly:\n"
-        '  "Connect it from Settings → Integrations, then re-run this automation."'
+        '  "Connect it from Settings → Integrations, then re-run this automation."\n'
+        "- You answer in a SINGLE turn. You cannot trigger syncs, scans, or\n"
+        "  background jobs, and you cannot 'go check' and come back. Never say\n"
+        "  things like 'let me trigger a sync', 'scanning your emails', or\n"
+        "  'please wait' — you have no such actions and no later turn.\n"
+        "- Any data you can use is already included in the context below. If a\n"
+        "  fact (a sender, subject, count, name, date) is not in that context,\n"
+        "  you do NOT have it: say so plainly. NEVER invent or example-fill data\n"
+        "  (no placeholder names like 'John Doe' or 'example.com'). A truthful\n"
+        "  'I don't have that indexed yet' is always better than a made-up answer."
     )
     return f"{facts}\n\n{connectors}" if connectors else facts
