@@ -42,9 +42,13 @@ def _report(context: str, exc: Exception) -> None:
 
 # Bounds. Tool count keeps the request under provider size limits (the Groq 413);
 # iterations bound cost/latency; response bytes bound context growth per call.
-_MAX_TOOLS = 40
+# Kept deliberately lean: free-tier LLM providers rate-limit on tokens-per-minute,
+# and tool schemas + tool results dominate the token budget. Fewer tools, shorter
+# descriptions, and smaller results keep a question under the per-minute cap.
+_MAX_TOOLS = 16
 _MAX_ITERS = 4
-_MAX_TOOL_RESULT_CHARS = 4000
+_MAX_TOOL_RESULT_CHARS = 2500
+_MAX_DESCRIPTION_CHARS = 220
 # OpenAI function names must match ^[A-Za-z0-9_-]{1,64}$; Composio slugs almost
 # always do, but guard so one odd slug can't fail the whole request.
 _VALID_NAME_LEN = 64
@@ -98,7 +102,7 @@ def _openai_tools(specs: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "type": "function",
                 "function": {
                     "name": name,
-                    "description": (spec.get("description") or name)[:1000],
+                    "description": (spec.get("description") or name)[:_MAX_DESCRIPTION_CHARS],
                     "parameters": _prune_schema(spec.get("parameters") or {}),
                 },
             }
