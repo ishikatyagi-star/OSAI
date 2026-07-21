@@ -694,6 +694,9 @@ def record_sync_result(
     documents_indexed: int,
     error: str | None = None,
 ) -> SyncRun:
+    # sync_runs (and the connector_accounts row updated below) FK to
+    # connectors.key; ensure it exists for Composio-only apps (gmail, …).
+    ensure_connector_record(session, connector_key)
     run = SyncRun(
         org_id=org_id,
         connector_key=connector_key,
@@ -886,12 +889,32 @@ def discard_proposed_action(action_id: str) -> None:
             session.commit()
 
 
+def ensure_connector_record(session: Session, connector_key: str) -> None:
+    """Ensure a `connectors` row exists for `connector_key`.
+
+    connector_accounts, sync_runs, and connector_actions all FK to
+    connectors.key. Under Composio-first, connector_key is an arbitrary app slug
+    (gmail, linear, …) that was never seeded into `connectors`, so writing any of
+    those rows for such an app raised a ForeignKeyViolation — which silently
+    failed sync and disconnect. Create a minimal record on demand instead."""
+    if session.get(ConnectorRecord, connector_key) is None:
+        session.add(
+            ConnectorRecord(
+                key=connector_key,
+                display_name=connector_key.replace("_", " ").title(),
+                capabilities=["execute"],
+            )
+        )
+        session.flush()
+
+
 def ensure_connector_account(
     session: Session, org_id: str, connector_key: str
 ) -> ConnectorAccount:
     """Get (or create) the ConnectorAccount row for an org+connector. A Composio
     OAuth connection may not have created one, but we need it to persist the
     connected-account identity used for reconnect handling."""
+    ensure_connector_record(session, connector_key)
     account = session.scalar(
         select(ConnectorAccount).where(
             ConnectorAccount.org_id == org_id,
