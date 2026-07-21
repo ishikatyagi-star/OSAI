@@ -80,6 +80,44 @@ _TOOLKIT_SYNONYMS: dict[str, tuple[str, ...]] = {
 }
 
 
+# The best content-bearing read tool per toolkit, tried first. Without this the
+# selector picks whichever read tool Composio lists first — e.g. GMAIL_LIST_DRAFTS
+# (usually empty) instead of GMAIL_FETCH_EMAILS — and answers "no data".
+_PREFERRED_TOOLS: dict[str, tuple[str, ...]] = {
+    "gmail": ("GMAIL_FETCH_EMAILS",),
+    "slack": ("SLACK_FETCH_CONVERSATION_HISTORY", "SLACK_LIST_ALL_CHANNELS"),
+    "notion": ("NOTION_SEARCH_NOTION_PAGE",),
+    "googledrive": ("GOOGLEDRIVE_LIST_FILES", "GOOGLEDRIVE_FIND_FILE"),
+}
+
+# Verb preference when no explicit tool is listed: content-fetching over
+# metadata-listing over single-object gets.
+_VERB_RANK = (("_FETCH", 0), ("_SEARCH", 1), ("_FIND", 1), ("_LIST", 2), ("_GET", 3))
+
+
+def _tool_priority(slug: str, toolkit: str) -> tuple[int, int]:
+    s = slug.upper()
+    preferred = _PREFERRED_TOOLS.get(toolkit, ())
+    if s in preferred:
+        return (0, preferred.index(s))
+    for marker, rank in _VERB_RANK:
+        if marker in s:
+            return (1, rank)
+    return (2, 0)
+
+
+def _has_content(data: object) -> bool:
+    """True if the response actually carries usable content, so an empty result
+    (e.g. {"drafts": [], "resultSizeEstimate": 0}) is skipped for the next tool."""
+    if isinstance(data, dict):
+        return any(_has_content(v) for v in data.values())
+    if isinstance(data, list):
+        return any(_has_content(v) for v in data)
+    if isinstance(data, str):
+        return bool(data.strip())
+    return False  # bare numbers/bools/None are not content
+
+
 def _matched_toolkits(question: str, toolkits: list[str]) -> list[str]:
     """Connected toolkits the question plausibly refers to — by app name or a
     common synonym (so "my emails" reaches Gmail, "my calendar" reaches Google
@@ -130,13 +168,9 @@ async def live_read_context(
             if _is_read_tool(spec.get("name", ""))
             and (args := _fillable_arguments(spec, question)) is not None
         ]
-        # Prefer bulk reads (FETCH/LIST/SEARCH) over single-object GETs.
-        candidates.sort(
-            key=lambda ca: 0 if any(
-                m in ca[0]["name"].upper() for m in ("_FETCH", "_LIST", "_SEARCH")
-            ) else 1
-        )
-        for spec, args in candidates[:3]:
+        # Best content tool first (preferred per-toolkit, then FETCH>SEARCH>LIST>GET).
+        candidates.sort(key=lambda ca: _tool_priority(ca[0]["name"], toolkit))
+        for spec, args in candidates[:4]:
             try:
                 res = await client.execute_capped(
                     spec["name"], args, org_id, _MAX_RESPONSE_BYTES
@@ -144,7 +178,10 @@ async def live_read_context(
             except Exception as exc:  # noqa: BLE001
                 logger.warning("Live read %s failed: %s", spec["name"], exc)
                 continue
-            if not res.get("successful") or res.get("data") is None:
+            # Skip a call that succeeded but returned nothing usable (e.g. an
+            # empty drafts list) and try the next tool, rather than reporting
+            # "no data" when a better tool would have returned real content.
+            if not res.get("successful") or not _has_content(res.get("data")):
                 continue
             snippet = json.dumps(res["data"], default=str)[:_MAX_SNIPPET_CHARS]
             return (

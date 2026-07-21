@@ -90,6 +90,10 @@ export function ConnectorManager({
       : null;
   const ConnectorIcon = meta?.icon ?? Plug;
   const connected = integration?.auth_state === "connected";
+  // An expired connection still has a Composio account to revoke, so it must
+  // remain disconnectable, otherwise the card is stuck (can't sync, can't
+  // remove). Disconnect is offered for both connected and expired states.
+  const disconnectable = connected || integration?.auth_state === "expired";
 
   async function runHealthcheck(key: string) {
     const requestId = ++healthRequestRef.current;
@@ -353,7 +357,7 @@ export function ConnectorManager({
 
         {/* Actions */}
         <div className="flex items-center justify-between gap-2">
-          {connected ? (
+          {disconnectable ? (
             <Button
               variant="ghost"
               size="sm"
