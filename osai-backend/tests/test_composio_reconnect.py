@@ -184,3 +184,33 @@ async def test_resync_same_account_does_not_purge():
         .all()
     )
     assert {d.external_id for d in drive_docs} == {"f1", "f2"}
+
+
+async def test_disconnect_revokes_all_accounts_via_toolkit_filter(monkeypatch):
+    """ComposioClient.disconnect must delete EVERY account for the toolkit, using
+    the toolkit-filtered query — the unfiltered list truncates and leaves orphan
+    (expired) accounts behind, which is why the card 'won't disconnect'."""
+    import httpx
+
+    from connectors.composio_tool import ComposioClient
+
+    seen_params = {}
+    deleted_ids = []
+
+    async def _fake_get(self, url, headers=None, params=None):
+        seen_params.update(params or {})
+        items = [{"id": f"ca_{i}"} for i in range(6)]  # 6 gmail accounts
+        return httpx.Response(200, json={"items": items}, request=httpx.Request("GET", url))
+
+    async def _fake_delete(self, url, headers=None):
+        deleted_ids.append(url.rsplit("/", 1)[-1])
+        return httpx.Response(204, request=httpx.Request("DELETE", url))
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", _fake_get)
+    monkeypatch.setattr(httpx.AsyncClient, "delete", _fake_delete)
+
+    result = await ComposioClient(api_key="k").disconnect("gmail", "org-1")
+
+    assert result == {"deleted": 6}  # all six, not a truncated subset
+    assert seen_params.get("toolkit_slug") == "gmail"
+    assert len(deleted_ids) == 6
