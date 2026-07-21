@@ -87,3 +87,36 @@ async def test_synonyms_route_email_query_to_gmail():
     assert _matched_toolkits("what's on my calendar today", active) == ["googlecalendar"]
     # No connected app referenced -> no live read (no false positives).
     assert _matched_toolkits("who owns the VPC security setup", active) == []
+
+
+_DRAFTS_TOOL = {
+    "name": "GMAIL_LIST_DRAFTS",
+    "parameters": {"type": "object", "properties": {"limit": {"type": "integer"}}},
+}
+_FETCH_TOOL = {
+    "name": "GMAIL_FETCH_EMAILS",
+    "parameters": {"type": "object", "properties": {"max_results": {"type": "integer"}}},
+}
+
+
+class _GmailClient(_FakeClient):
+    def __init__(self):
+        super().__init__(
+            tools=[_DRAFTS_TOOL, _FETCH_TOOL],
+            connections=[{"toolkit": "gmail", "status": "ACTIVE"}],
+        )
+
+    async def execute_capped(self, slug, arguments, user_id, max_bytes):
+        self.executed.append((slug, arguments))
+        if slug == "GMAIL_LIST_DRAFTS":
+            return {"successful": True, "data": {"drafts": [], "resultSizeEstimate": 0}}
+        return {"successful": True, "data": {"messages": [{"subject": "Real email"}]}}
+
+
+async def test_gmail_prefers_fetch_and_skips_empty_drafts():
+    client = _GmailClient()
+    ctx = await live_read_context("org-1", "summarize my unread emails", client=client)
+    # FETCH_EMAILS is preferred and tried first; real content is returned.
+    assert "Real email" in ctx
+    assert "GMAIL_FETCH_EMAILS" in ctx
+    assert client.executed[0][0] == "GMAIL_FETCH_EMAILS"

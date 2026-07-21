@@ -178,6 +178,11 @@ class Settings(BaseSettings):
     composio_api_key: str | None = None
     composio_base_url: str = "https://backend.composio.dev"
     composio_toolkits: str = "composio_search"  # comma-separated toolkit slugs to expose
+    # When true, Ask grounds answers by letting the LLM call the org's connected
+    # Composio read tools directly (function-calling), instead of the heuristic
+    # live-read. Scales to any connector with no per-app code. Off by default so
+    # it can be validated before it becomes the pilot's default grounding path.
+    composio_agent_enabled: bool = False
 
     @property
     def composio_toolkit_list(self) -> list[str]:

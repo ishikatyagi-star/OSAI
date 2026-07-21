@@ -152,9 +152,36 @@ async def run_ask(
     answer = rag.answer
     via: str = "osai"
 
-    # Live read: if the question refers to a connected Composio app, pull fresh
-    # data from it right now (read-only tools only) so apps without an ingestion
-    # fetcher aren't dead ends — the laptop-agent experience. Bounded and
+    # Preferred grounding path (flagged): let the LLM call the org's connected
+    # Composio read tools directly. Scales to any connector with no per-app code.
+    # If it produces a grounded answer, use it as-is and skip Hermes.
+    if settings.composio_agent_enabled:
+        from connectors.composio_agent import run_composio_agent
+
+        agent_answer = None
+        try:
+            agent_answer = await asyncio.wait_for(
+                run_composio_agent(request.org_id, request.question, history=request.history),
+                timeout=45,
+            )
+        except Exception:  # noqa: BLE001 — best-effort; fall through to RAG/Hermes
+            pass
+        if agent_answer:
+            actions = await _plan_actions(request, agent_answer, user_id=user_id)
+            return AskResponse(
+                conversation_id=conversation_id,
+                answer=agent_answer,
+                citations=rag.citations,
+                actions_taken=actions,
+                enough_context=True,
+                model_route=f"composio-agent:{settings.llm_model}",
+                latency_ms=int((time.monotonic() - started) * 1000),
+                via="osai",  # type: ignore[arg-type]
+            )
+
+    # Live read (heuristic fallback): if the question refers to a connected
+    # Composio app, pull fresh data from it right now (read-only tools only) so
+    # apps without an ingestion fetcher aren't dead ends. Bounded and
     # best-effort: a slow/failed live read must not delay Ask.
     live_context = ""
     if hermes_enabled():
