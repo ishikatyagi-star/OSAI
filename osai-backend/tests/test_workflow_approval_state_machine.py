@@ -5,9 +5,8 @@ ticket, a Slack message, a Notion page). Two approvals of the same item must
 therefore execute exactly once — the guarantee SEC-007 already gives the Ask
 confirm path, which this path needed just as much (SHE-6 P0).
 
-Lifecycle: needs_review -> executing -> completed | failed, plus cancelled as a
-terminal "no". `failed` stays claimable so a transient connector error can be
-retried; `completed` and `cancelled` cannot.
+Lifecycle: needs_review -> executing -> completed | failed_preflight |
+outcome_unknown, plus cancelled. Only failed_preflight is retryable.
 """
 
 from __future__ import annotations
@@ -76,12 +75,17 @@ def test_claim_moves_the_item_out_of_needs_review():
     assert session.get(ActionItemRecord, item_id).status == "executing"
 
 
-def test_a_failed_item_can_be_retried():
-    """`failed` is durable but retryable — a transient connector error must not
-    strand the item forever."""
+def test_a_preflight_failure_can_be_retried():
+    """A failure proven to precede provider dispatch remains retryable."""
     session = _session()
-    item_id = _seed_item(session, status="failed")
+    item_id = _seed_item(session, status="failed_preflight")
     assert claim_action_item(session, item_id=item_id, org_id="demo-org") == "claimed"
+
+
+def test_ambiguous_failure_cannot_be_retried():
+    session = _session()
+    item_id = _seed_item(session, status="outcome_unknown")
+    assert claim_action_item(session, item_id=item_id, org_id="demo-org") == "taken"
 
 
 def test_completed_items_cannot_be_reclaimed():

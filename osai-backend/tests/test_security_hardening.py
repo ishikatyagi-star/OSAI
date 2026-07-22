@@ -61,6 +61,7 @@ def demo_client():
         ("post", "/automations", {"name": "n", "prompt": "p", "cadence": "manual"}),
         ("post", "/sql/execute", {"source_id": "x", "sql": "select 1"}),
         ("post", "/ask/actions/act-1/confirm", {"conversation_id": "c1"}),
+        ("post", "/ask/actions/act-1/dismiss", {"conversation_id": "c1"}),
         # QA ISSUE-001: every remaining mutation route reachable by the anonymous
         # demo identity must refuse with 403, not reach validation/lookup.
         ("post", "/integrations/notion/sync", None),
@@ -73,6 +74,7 @@ def demo_client():
         ("post", "/threads/t1/turns", {"role": "user", "content": "hi"}),
         ("patch", "/threads/t1", {"shared": True}),
         ("post", "/notifications/n1/read", None),
+        ("post", "/notifications/read-all", None),
         ("post", "/feedback", {"query": "q", "answer": "a", "rating": "up"}),
         ("post", "/settings/slack-ask-token", None),
         ("delete", "/settings/slack-ask-token", None),
@@ -81,9 +83,7 @@ def demo_client():
 )
 def test_demo_workspace_rejects_writes(demo_client, method, path, body):
     # client.request() rather than client.delete(): DELETE has no json kwarg.
-    resp = demo_client.request(
-        method.upper(), path, json=body, headers={"X-Org-Id": "demo-org"}
-    )
+    resp = demo_client.request(method.upper(), path, json=body, headers={"X-Org-Id": "demo-org"})
     assert resp.status_code == 403, (path, resp.status_code)
 
 
@@ -137,30 +137,9 @@ def test_member_cannot_trigger_sync(member_client):
     assert resp.status_code in (401, 403)
 
 
-# ── SEC-004: SSRF host allowlist on webhook download URLs ───────────────────────
-@pytest.mark.parametrize(
-    "url,allowed",
-    [
-        ("https://us02web.zoom.us/rec/download/abc", True),
-        ("https://zoom.us/rec/x", True),
-        # Plain-HTTP must be rejected; the scheme is split so scanners don't
-        # flag the deliberately-insecure fixture itself (Sonar S5332).
-        ("http" + "://us02web.zoom.us/rec/x", False),  # not https
-        ("https://zoom.us.evil.com/rec/x", False),  # suffix trick
-        ("https://169.254.169.254/latest/meta-data/", False),  # cloud metadata
-        ("file:///etc/passwd", False),
-    ],
-)
-def test_zoom_download_url_allowlist(url, allowed):
-    from workers.tasks.ingest import _is_allowed_download_url
-
-    assert _is_allowed_download_url(url) is allowed
-
-
-def test_zoom_signature_fails_closed_without_secret():
-    from api.routes.webhooks import verify_zoom_signature
-
-    assert verify_zoom_signature("ts", "v0=deadbeef", b"{}", None) is False
+def test_member_cannot_read_invite_links(member_client):
+    resp = member_client.get("/team/invites")
+    assert resp.status_code in (401, 403)
 
 
 # ── SEC-007: concurrent confirms consume the action exactly once ───────────────
@@ -194,18 +173,30 @@ def test_stale_token_version_is_rejected():
 
     class _Session:
         def get(self, _model, _pk):
-            return type("U", (), {"token_version": 3, "role": "member", "data_tier": "normal"})()
+            return type(
+                "U",
+                (),
+                {
+                    "org_id": "demo-org",
+                    "token_version": 3,
+                    "role": "member",
+                    "data_tier": "normal",
+                },
+            )()
 
     # Matching generation → fine.
-    repo.assert_token_current(_Session(), {"sub": "u1", "tv": 3})
+    repo.assert_token_current(_Session(), {"sub": "u1", "org_id": "demo-org", "tv": 3})
     # Stale generation → 401.
     with pytest.raises(Exception) as exc:
-        repo.assert_token_current(_Session(), {"sub": "u1", "tv": 2})
+        repo.assert_token_current(_Session(), {"sub": "u1", "org_id": "demo-org", "tv": 2})
     assert getattr(exc.value, "status_code", None) == 401
 
 
+_AUTH_TEST_ORG_ID = "security-auth-test-org"
+
+
 def _seed_member_with_token() -> str:
-    """Create a fresh demo-org member and return a freshly issued session JWT.
+    """Create a fresh non-demo member and return a freshly issued session JWT.
     Shared by the revocation and cookie-auth tests (kills the Sonar-flagged
     duplicated setup block)."""
     import uuid
@@ -216,12 +207,12 @@ def _seed_member_with_token() -> str:
 
     uid = f"user-{uuid.uuid4()}"
     with SessionLocal() as s:
-        if s.get(Org, "demo-org") is None:
-            s.add(Org(id="demo-org", name="demo"))
+        if s.get(Org, _AUTH_TEST_ORG_ID) is None:
+            s.add(Org(id=_AUTH_TEST_ORG_ID, name="Security auth test"))
         s.add(
             User(
                 id=uid,
-                org_id="demo-org",
+                org_id=_AUTH_TEST_ORG_ID,
                 email=f"{uid}@t.test",
                 display_name="t",
                 role="member",
@@ -244,10 +235,10 @@ def test_logout_all_revokes_outstanding_tokens():
     with SessionLocal() as s:
         assert_token_current(s, claims)  # accepted before revocation
 
-    resp = TestClient(app).post(
-        "/auth/logout-all", headers={"Authorization": f"Bearer {token}"}
-    )
+    resp = TestClient(app).post("/auth/logout-all", headers={"Authorization": f"Bearer {token}"})
     assert resp.status_code == 200 and resp.json()["revoked"] is True
+    assert "osai_session=" in resp.headers.get("set-cookie", "")
+    assert "Max-Age=0" in resp.headers.get("set-cookie", "")
 
     with SessionLocal() as s:
         with pytest.raises(Exception) as exc:
@@ -262,10 +253,7 @@ def _real_auth():
     constant-lambda overrides would otherwise mask."""
     from db.session import get_org_id, require_writable_org
 
-    saved = {
-        k: app.dependency_overrides.pop(k, None)
-        for k in (get_org_id, require_writable_org)
-    }
+    saved = {k: app.dependency_overrides.pop(k, None) for k in (get_org_id, require_writable_org)}
     yield
     for k, v in saved.items():
         if v is not None:

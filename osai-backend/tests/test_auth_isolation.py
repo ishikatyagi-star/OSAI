@@ -7,6 +7,7 @@ ignored in favour of the caller's token org.
 
 from __future__ import annotations
 
+import uuid
 from datetime import UTC, datetime, timedelta
 
 import jwt
@@ -111,6 +112,43 @@ def test_ask_ignores_body_org_id(client_without_org_override, monkeypatch):
     assert captured["org_id"] == "org-A"  # token org, not the body's "org-B"
 
 
+def test_token_is_rejected_after_principal_moves_to_another_org(
+    client_without_org_override, monkeypatch
+):
+    """A signed token is bound to the user's current workspace membership."""
+    from db.models import Org, User
+    from db.session import SessionLocal
+
+    marker = uuid.uuid4().hex
+    old_org = f"org-old-{marker}"
+    new_org = f"org-new-{marker}"
+    user_id = f"moved-{marker}"
+    old_token = _token(old_org, sub=user_id, role="member")
+    with SessionLocal() as db:
+        db.add(Org(id=new_org, name=new_org))
+        db.flush()
+        user = db.get(User, user_id)
+        assert user is not None
+        user.org_id = new_org
+        db.commit()
+
+    called = False
+
+    async def should_not_run(*_args, **_kwargs):
+        nonlocal called
+        called = True
+        raise AssertionError("stale cross-org token reached Ask")
+
+    monkeypatch.setattr("api.routes.agent.run_ask", should_not_run)
+    response = client_without_org_override.post(
+        "/ask",
+        json={"question": "private workspace question"},
+        headers={"Authorization": f"Bearer {old_token}"},
+    )
+    assert response.status_code == 401
+    assert called is False
+
+
 def test_email_login_disabled_returns_403(monkeypatch):
     """SEV-102: password-less email login is refused when disabled (prod)."""
     monkeypatch.setattr(settings, "email_login_enabled", False)
@@ -157,6 +195,97 @@ def test_get_workflow_cross_org_reads_as_404(client_without_org_override):
         runs = list_workflow_runs(s, "demo-org")
     if not runs:
         return  # nothing seeded to probe; the auth test above still guards the route
-    headers = {"Authorization": f"Bearer {_token('other-org')}"}
+    headers = {
+        "Authorization": (
+            f"Bearer {_token('other-org', sub=f'other-org-user-{uuid.uuid4().hex}')}"
+        )
+    }
     resp = client_without_org_override.get(f"/workflows/{runs[0].id}", headers=headers)
     assert resp.status_code == 404
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/artifacts",
+        "/automations",
+        "/dashboard/metrics",
+        "/decisions",
+        "/evals",
+        "/graph/entities",
+        "/integrations",
+        "/notifications",
+        "/notifications/page",
+        "/settings/data-routing",
+        "/sync-runs",
+        "/sync-runs/page",
+        "/team/members",
+        "/threads",
+        "/workflows",
+    ],
+)
+def test_private_read_routes_require_auth(client_without_org_override, path):
+    assert client_without_org_override.get(path).status_code == 401
+
+
+def test_artifacts_are_isolated_between_real_tenants(client_without_org_override):
+    marker = uuid.uuid4().hex
+    token_a = _token(f"org-a-{marker}", sub=f"admin-a-{marker}")
+    token_b = _token(f"org-b-{marker}", sub=f"admin-b-{marker}")
+    headers_a = {"Authorization": f"Bearer {token_a}"}
+    headers_b = {"Authorization": f"Bearer {token_b}"}
+
+    created = client_without_org_override.post(
+        "/artifacts",
+        json={
+            "title": "Tenant A only",
+            "kind": "source_table",
+            "data": {
+                "id": f"tenant-a-{marker}",
+                "kind": "source_table",
+                "title": "Tenant A only",
+                "rows": [],
+            },
+        },
+        headers=headers_a,
+    )
+    assert created.status_code == 200
+    artifact_id = created.json()["id"]
+
+    assert artifact_id not in {
+        row["id"] for row in client_without_org_override.get("/artifacts", headers=headers_b).json()
+    }
+    assert (
+        client_without_org_override.delete(
+            f"/artifacts/{artifact_id}", headers=headers_b
+        ).status_code
+        == 200
+    )
+    assert artifact_id in {
+        row["id"] for row in client_without_org_override.get("/artifacts", headers=headers_a).json()
+    }
+
+
+def test_private_thread_is_hidden_from_another_member(client_without_org_override):
+    marker = uuid.uuid4().hex
+    org_id = f"org-{marker}"
+    headers_a = {
+        "Authorization": f"Bearer {_token(org_id, sub=f'member-a-{marker}', role='member')}"
+    }
+    headers_b = {
+        "Authorization": f"Bearer {_token(org_id, sub=f'member-b-{marker}', role='member')}"
+    }
+
+    created = client_without_org_override.post(
+        "/threads", json={"title": "Private thread"}, headers=headers_a
+    )
+    assert created.status_code == 200
+    thread_id = created.json()["id"]
+
+    other_member_get = client_without_org_override.get(
+        f"/threads/{thread_id}", headers=headers_b
+    )
+    assert other_member_get.status_code == 404
+    assert thread_id not in {
+        row["id"] for row in client_without_org_override.get("/threads", headers=headers_b).json()
+    }

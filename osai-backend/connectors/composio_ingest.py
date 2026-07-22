@@ -13,8 +13,11 @@ from __future__ import annotations
 import asyncio
 import base64
 import hashlib
+import ipaddress
 import logging
+import socket
 from typing import Any
+from urllib.parse import urlsplit
 
 import httpx
 from sqlalchemy.orm import Session
@@ -85,6 +88,48 @@ def _find_url(data: Any) -> str | None:
     return None
 
 
+async def _download_url_allowed(url: str) -> bool:
+    """Fail closed for provider-returned URLs before making a server-side request.
+
+    Require HTTPS, an operator-approved host, and only globally routable DNS
+    answers. Redirects remain disabled by httpx, so a trusted temporary URL
+    cannot bounce the fetch toward an internal or metadata service.
+    """
+    try:
+        parsed = urlsplit(url)
+        host = (parsed.hostname or "").casefold().rstrip(".")
+        if (
+            parsed.scheme.casefold() != "https"
+            or not host
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.port not in (None, 443)
+        ):
+            return False
+    except ValueError:
+        return False
+
+    allowed = settings.composio_download_host_list
+    if not any(
+        host == entry or (entry.startswith(".") and host.endswith(entry)) for entry in allowed
+    ):
+        return False
+    if host in {"metadata", "metadata.google.internal"} or host.startswith("metadata."):
+        return False
+
+    try:
+        infos = await asyncio.to_thread(
+            socket.getaddrinfo,
+            host,
+            443,
+            type=socket.SOCK_STREAM,
+        )
+        addresses = {ipaddress.ip_address(info[4][0]) for info in infos}
+    except (OSError, ValueError):
+        return False
+    return bool(addresses) and all(address.is_global for address in addresses)
+
+
 async def _transcribe_media(client: ComposioClient, fid: str, name: str, org_id: str) -> str | None:
     """Download a Drive media file via Composio and transcribe it with Whisper
     (Groq by default; OpenAI-compatible). Best-effort: returns None (caller falls
@@ -122,6 +167,8 @@ async def _transcribe_media(client: ComposioClient, fid: str, name: str, org_id:
             except Exception:  # noqa: BLE001
                 pass
     if audio is None and (url := _find_url(data)):
+        if not await _download_url_allowed(url):
+            return None
         try:
             async with httpx.AsyncClient(timeout=60) as h:
                 async with h.stream("GET", url) as r:
@@ -235,6 +282,31 @@ async def purge_connector_data(
     return removed
 
 
+def _record_ingest_failure(
+    session: Session,
+    *,
+    org_id: str,
+    toolkit: str,
+    error: str,
+) -> dict[str, Any]:
+    """Rollback partial relational work, then persist one actionable failure."""
+    session.rollback()
+    native_key = to_native_key(toolkit)
+    account = ensure_connector_account(session, org_id, native_key)
+    account.auth_state = "error"
+    error = error[:2000]
+    record_sync_result(
+        session,
+        org_id=org_id,
+        connector_key=native_key,
+        status="failed",
+        documents_seen=0,
+        documents_indexed=0,
+        error=error,
+    )
+    return {"status": "failed", "error": error, "documents_indexed": 0}
+
+
 async def ingest_composio_toolkit(
     org_id: str,
     toolkit: str,
@@ -247,21 +319,28 @@ async def ingest_composio_toolkit(
     client = client or get_default_composio_client()
     qdrant_store = qdrant_store or get_default_qdrant_store()
     if not client.available():
-        return {"status": "failed", "error": "Composio not configured", "documents_indexed": 0}
+        return _record_ingest_failure(
+            session,
+            org_id=org_id,
+            toolkit=toolkit,
+            error="Composio not configured",
+        )
 
     fetcher = _FETCHERS.get(toolkit)
     if fetcher is None:
-        return {
-            "status": "failed",
-            "error": f"Ingestion not implemented for toolkit {toolkit!r}",
-            "documents_indexed": 0,
-        }
+        return _record_ingest_failure(
+            session,
+            org_id=org_id,
+            toolkit=toolkit,
+            error=f"Ingestion not implemented for toolkit {toolkit!r}",
+        )
 
     native_key = to_native_key(toolkit)
     # Everything below records a sync run no matter how it ends. Any unhandled
     # error here previously vanished (the background caller swallows exceptions),
     # so /sync-runs showed nothing at all — the user saw "Sync started" and then
     # silence. Now a failure always leaves a visible, explained failed run.
+    stage = "account reconciliation"
     try:
         # Reconnect handling: if the org reconnected this toolkit with a
         # *different* external account, purge the previous account's documents so
@@ -269,8 +348,9 @@ async def ingest_composio_toolkit(
         await _handle_account_change(
             session, client, org_id, toolkit, native_key, qdrant_store
         )
+        stage = "provider fetch"
         documents = await fetcher(client, org_id, limit)
-
+        stage = "document indexing"
         if documents:
             # Tier rules are keyed by the native connector key, so a
             # Composio-ingested doc is classified the same way a natively-synced
@@ -291,21 +371,22 @@ async def ingest_composio_toolkit(
         # one request per document blows the limit (429) on any real sync. The
         # per-batch cap bounds memory so a big sync can't OOM the small instance.
         pending_chunks: list[dict[str, Any]] = []
-        pending_stamps: list[tuple[str, str]] = []  # (source_id, content_hash)
+        pending_doc_ids: set[str] = set()
+        document_hashes: dict[str, str] = {}
+        failed_doc_ids: set[str] = set()
 
         async def _flush() -> None:
-            nonlocal embedded, vector_error
+            nonlocal vector_error
             if not pending_chunks:
                 return
             try:
                 await qdrant_store.upsert_chunks(list(pending_chunks))
-                for sid, h in pending_stamps:
-                    _set_embedded_hash(session, sid, h)
-                embedded += len(pending_stamps)
             except Exception as exc:  # noqa: BLE001 — vectors shouldn't block sync
-                vector_error = f"{vector_error}; {exc}" if vector_error else str(exc)
+                logger.warning("Composio vector batch failed for %s: %s", toolkit, exc)
+                vector_error = "Vector indexing failed; retry the sync."
+                failed_doc_ids.update(pending_doc_ids)
             pending_chunks.clear()
-            pending_stamps.clear()
+            pending_doc_ids.clear()
 
         for document in documents:
             await asyncio.sleep(0)
@@ -326,41 +407,41 @@ async def ingest_composio_toolkit(
                 _set_embedded_hash(session, document.source_id, content_hash)
                 skipped_unchanged += 1
                 continue
-            pending_chunks.extend(chunks_for_documents([document]))
-            pending_stamps.append((document.source_id, content_hash))
-            if len(pending_chunks) >= _EMBED_BATCH_CHUNKS:
-                await _flush()
+            document_hashes[document.source_id] = content_hash
+            for chunk in chunks_for_documents([document]):
+                pending_chunks.append(chunk)
+                pending_doc_ids.add(document.source_id)
+                if len(pending_chunks) == _EMBED_BATCH_CHUNKS:
+                    await _flush()
         await _flush()
+        for source_id, content_hash in document_hashes.items():
+            if source_id in failed_doc_ids:
+                continue
+            _set_embedded_hash(session, source_id, content_hash)
+            embedded += 1
     except Exception as exc:  # noqa: BLE001 — always leave a visible failed run
-        logger.error("Composio ingest %s failed: %s", toolkit, exc)
-        try:
-            session.rollback()  # clear any poisoned transaction before recording
-            record_sync_result(
-                session,
-                org_id=org_id,
-                connector_key=native_key,
-                status="failed",
-                documents_seen=0,
-                documents_indexed=0,
-                error=str(exc)[:500],
-            )
-        except Exception:  # noqa: BLE001 — never mask the original failure
-            session.rollback()
-        return {"status": "failed", "error": str(exc), "documents_indexed": 0}
+        logger.exception("Composio %s failed during %s", toolkit, stage)
+        return _record_ingest_failure(
+            session,
+            org_id=org_id,
+            toolkit=toolkit,
+            error=f"{stage.capitalize()} failed: {exc}",
+        )
 
+    sync_status = "partial" if vector_error or not documents else "succeeded"
     record_sync_result(
         session,
         org_id=org_id,
         # Attribute to the native connector key so the single Integrations card
         # reflects the connection/sync (Composio `googledrive` -> `google_drive`).
         connector_key=to_native_key(toolkit),
-        status="succeeded" if documents else "partial",
+        status=sync_status,
         documents_seen=len(documents),
         documents_indexed=indexed,
         error=vector_error,
     )
     return {
-        "status": "succeeded",
+        "status": sync_status,
         "toolkit": toolkit,
         "documents_seen": len(documents),
         "documents_indexed": indexed,
@@ -493,7 +574,7 @@ async def _text_from_download_url(data: Any) -> str:
     """Composio delivers exported file content as a temporary URL (R2), not
     inline — fetch it with a hard size cap. Only called for text exports."""
     url = _find_url(data)
-    if not url:
+    if not url or not await _download_url_allowed(url):
         return ""
     try:
         async with httpx.AsyncClient(timeout=60) as h:
@@ -707,6 +788,7 @@ _FETCHERS = {
     "slack": _fetch_slack,
     "gmail": _fetch_gmail,
 }
+SUPPORTED_INGESTION_TOOLKITS = frozenset(_FETCHERS)
 
 
 async def sync_all_connections(

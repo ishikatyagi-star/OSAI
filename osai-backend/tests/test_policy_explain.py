@@ -77,6 +77,10 @@ async def test_citations_carry_access_and_routing_explanations():
     with (
         patch("memory.retriever.get_default_qdrant_store", return_value=qdrant),
         patch("memory.retriever.default_embedding_provider", emb),
+        patch(
+            "memory.retriever._authoritative_document_hits",
+            side_effect=lambda candidate_hits, _org_id: candidate_hits,
+        ),
         patch("memory.org_memory.fetch_relevant", return_value=[]),
         # Default routing policy: red never goes to cloud.
     ):

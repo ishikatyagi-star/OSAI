@@ -45,7 +45,12 @@ _UNFILLABLE_TOOL = {
 
 async def test_live_read_executes_matching_read_tool():
     client = _FakeClient(tools=[_WRITE_TOOL, _UNFILLABLE_TOOL, _LIST_TOOL])
-    ctx = await live_read_context("org-1", "what are the open linear issues?", client=client)
+    ctx = await live_read_context(
+        "org-1",
+        "what are the open linear issues?",
+        requester_permissions=["org:admin"],
+        client=client,
+    )
     assert "Fix login bug" in ctx
     assert "LINEAR_LIST_ISSUES" in ctx
     # Only the safe, fillable read tool ran — never the write tool.
@@ -63,14 +68,37 @@ async def test_live_read_skips_unmentioned_and_inactive_apps():
         ],
     )
     # Linear is mentioned but not ACTIVE; hubspot is active but not mentioned.
-    ctx = await live_read_context("org-1", "what are the open linear issues?", client=client)
+    ctx = await live_read_context(
+        "org-1",
+        "what are the open linear issues?",
+        requester_permissions=["org:admin"],
+        client=client,
+    )
     assert ctx == ""
     assert client.executed == []
 
 
 async def test_live_read_never_runs_write_tools():
     client = _FakeClient(tools=[_WRITE_TOOL])
-    ctx = await live_read_context("org-1", "create a linear issue for the outage", client=client)
+    ctx = await live_read_context(
+        "org-1",
+        "create a linear issue for the outage",
+        requester_permissions=["org:admin"],
+        client=client,
+    )
+    assert ctx == ""
+    assert client.executed == []
+
+
+async def test_live_read_skips_provider_when_cloud_egress_is_unclassified():
+    client = _FakeClient(tools=[_LIST_TOOL])
+    ctx = await live_read_context(
+        "org-1",
+        "what are the open linear issues?",
+        requester_permissions=["org:admin"],
+        cloud_egress_allowed=False,
+        client=client,
+    )
     assert ctx == ""
     assert client.executed == []
 

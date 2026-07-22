@@ -1,7 +1,7 @@
 """LLM text-generation entrypoint.
 
-Provider-aware: routes to OpenRouter (OpenAI-compatible) when an OpenRouter key
-is configured, otherwise Gemini. Embeddings remain Gemini-only (see
+Provider-aware: routes to the configured OpenAI-compatible endpoint when
+`OSAI_LLM_API_KEY` is set, otherwise Gemini. Embeddings remain Gemini-only (see
 memory/embeddings.py). Call sites import `generate` / `generate_json` from here.
 """
 

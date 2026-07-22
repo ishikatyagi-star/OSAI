@@ -20,11 +20,11 @@
   {
     "id": "qa-03",
     "category": "qa",
-    "question": "Which connector handles meeting transcripts?",
-    "expected": "Zoom",
+    "question": "Which connector indexes email messages?",
+    "expected": "Gmail",
     "match_mode": "contains",
-    "tags": ["connector", "meetings"],
-    "notes": "Zoom connector ingests meeting transcripts"
+    "tags": ["connector", "email"],
+    "notes": "Gmail indexes messages from the connected account"
   },
   {
     "id": "qa-04",

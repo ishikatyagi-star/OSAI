@@ -2,8 +2,8 @@ from collections.abc import Generator
 from typing import Annotated
 
 import jwt
-from fastapi import Cookie, Depends, Header, HTTPException, status
-from sqlalchemy import create_engine
+from fastapi import Cookie, Depends, Header, HTTPException, Request, status
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 
 from config import settings
@@ -13,6 +13,7 @@ from config import settings
 # token-theft blast radius (SEC-009). The Authorization header path is retained
 # for API clients and tests.
 SESSION_COOKIE = "osai_session"
+_SAFE_HTTP_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 
 # statement_timeout: one runaway query must not wedge the single web process
 # (free tier runs everything in-process). SQLite (tests) rejects `options`.
@@ -22,6 +23,15 @@ _connect_args = (
     else {}
 )
 engine = create_engine(settings.database_url, pool_pre_ping=True, connect_args=_connect_args)
+
+
+if engine.dialect.name == "sqlite":
+
+    @event.listens_for(engine, "connect")
+    def _enable_sqlite_foreign_keys(dbapi_connection, _connection_record) -> None:
+        dbapi_connection.execute("PRAGMA foreign_keys=ON")
+
+
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
 
 
@@ -99,16 +109,41 @@ async def get_claims(
     return claims
 
 
-async def require_admin(
-    claims: Annotated[dict, Depends(get_claims)],
-) -> dict:
-    """Gate an endpoint to org admins. Revocation is already enforced by
-    get_claims; this adds the role check."""
-    if claims.get("role") != "admin":
+def assert_writable_org(org_id: str | None) -> None:
+    """Reject every mutation targeting the shared public demo workspace."""
+    if org_id == settings.default_org_id:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Admin role required."
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="The demo workspace is read-only.",
         )
-    return claims
+
+
+async def require_admin(
+    request: Request,
+    db: Annotated[Session, Depends(get_db)],
+    claims: Annotated[dict | None, Depends(get_optional_claims)],
+    x_org_id: str | None = Header(default=None),
+) -> dict:
+    """Gate an endpoint to current org admins.
+
+    The JWT role is only a snapshot from sign-in time. Read the current user so
+    a demotion takes effect immediately instead of leaving admin access alive
+    until the token expires. Unsafe requests targeting the shared demo org are
+    rejected for both its anonymous header identity and valid demo-admin JWTs.
+    """
+    if request.method.upper() not in _SAFE_HTTP_METHODS:
+        assert_writable_org(claims.get("org_id") if claims else x_org_id)
+    if claims is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required."
+        )
+    from db.models import User
+
+    user_id = claims.get("sub")
+    user = db.get(User, user_id) if user_id else None
+    if user is None or user.role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin role required.")
+    return {**claims, "org_id": user.org_id, "role": user.role}
 
 
 async def get_org_id(
@@ -126,9 +161,7 @@ async def get_org_id(
         return claims["org_id"]
     if x_org_id == settings.default_org_id:  # public demo sample data only
         return settings.default_org_id
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required."
-    )
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required.")
 
 
 async def require_writable_org(
@@ -145,20 +178,14 @@ async def require_writable_org(
     drive writes or side effects there: mutating settings, running workflows,
     triggering syncs, executing SQL, or confirming connector actions (SEC-003).
 
-    Outside local dev the shared demo org is read-only *even with a valid JWT*
-    (e.g. a leaked/seeded demo-org token) — demo isolation is a property of the
-    org, not of how the caller authenticated. Local dev signs into seeded
-    demo-org users and still needs writes, so the env gate keeps that working."""
+    The shared demo org is read-only *even with a valid JWT* (e.g. a
+    leaked/seeded demo-org token) and in local development. Demo isolation is a
+    property of the org, not of how the caller authenticated."""
     claims = _claims_from(authorization, session_cookie)
     org_id = claims.get("org_id") if claims else None
-    if org_id and (org_id != settings.default_org_id or settings.env == "local"):
+    if org_id:
+        assert_writable_org(org_id)
         _assert_current(db, claims)
         return org_id
-    if org_id == settings.default_org_id or x_org_id == settings.default_org_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="The demo workspace is read-only.",
-        )
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required."
-    )
+    assert_writable_org(x_org_id)
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required.")

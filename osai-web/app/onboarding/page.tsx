@@ -3,7 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, CheckCircle2, Loader2, Plug, Sparkles } from "lucide-react";
-import { login, onboardOrg } from "@/lib/api";
+import { getAuthConfig, login, onboardOrg } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -23,9 +23,28 @@ export default function OnboardingPage() {
   const [orgError, setOrgError] = useState<string | null>(null);
 
   useEffect(() => {
-    setPhase(localStorage.getItem("osai_org_id") ? "done" : "org");
-    setReady(true);
-  }, []);
+    if (localStorage.getItem("osai_org_id")) {
+      setPhase("done");
+      setReady(true);
+      return;
+    }
+    let active = true;
+    void getAuthConfig(true)
+      .then((config) => {
+        if (!active) return;
+        if (!config.email_login_enabled) {
+          router.replace("/login");
+          return;
+        }
+        setReady(true);
+      })
+      .catch(() => {
+        if (active) router.replace("/login");
+      });
+    return () => {
+      active = false;
+    };
+  }, [router]);
 
   async function handleCreateOrg(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

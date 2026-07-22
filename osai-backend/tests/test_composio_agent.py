@@ -7,6 +7,8 @@ tool-call loop, and the iteration cap.
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import connectors.composio_agent as agent
 
 
@@ -53,6 +55,7 @@ def _script_llm(monkeypatch, turns):
     async def _fake_chat(messages, tools, model=None):
         i = calls["n"]
         calls["n"] += 1
+        _fake_chat.last_messages = messages
         _fake_chat.last_tools = tools  # noqa: SLF001 — test introspection
         return turns[min(i, len(turns) - 1)]
 
@@ -124,3 +127,26 @@ async def test_agent_returns_none_without_active_apps(monkeypatch):
 
     _script_llm(monkeypatch, [{"content": "x", "tool_calls": []}])
     assert await agent.run_composio_agent("org-1", "hi", client=_NoApps()) is None
+
+
+async def test_agent_bounds_untrusted_question_and_history(monkeypatch):
+    fake = _FakeComposio()
+    chat = _script_llm(monkeypatch, [{"content": "grounded", "tool_calls": []}])
+    history = [
+        SimpleNamespace(role="user", content=str(index) * 3000)
+        for index in range(6)
+    ]
+
+    answer = await agent.run_composio_agent(
+        "org-1",
+        "q" * 5000,
+        client=fake,
+        history=history,
+    )
+
+    assert answer == "grounded"
+    messages = chat.last_messages
+    assert "untrusted data" in messages[0]["content"]
+    assert len(messages) == 6  # system + four bounded history turns + question
+    assert all(len(message["content"]) <= 2000 for message in messages[1:-1])
+    assert len(messages[-1]["content"]) == 4000

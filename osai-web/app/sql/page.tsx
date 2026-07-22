@@ -6,6 +6,7 @@ import {
   addSqlSource,
   deleteSqlSource,
   executeSqlQuery,
+  getSession,
   listSqlSources,
   planSqlQuery,
   saveArtifact,
@@ -29,11 +30,13 @@ import {
  * The LLM proposes the query; nothing runs until you approve it - and
  * execution is read-only, single-statement, row-capped. */
 export default function SqlPage() {
+  const demo = isDemo();
   const [sources, setSources] = useState<SqlSourceRow[]>([]);
   const [sourceId, setSourceId] = useState<string>("");
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
   const [newDsn, setNewDsn] = useState("");
+  const [addError, setAddError] = useState("");
   const [question, setQuestion] = useState("");
   const [sql, setSql] = useState("");
   const [plannedSourceId, setPlannedSourceId] = useState<string | null>(null);
@@ -49,7 +52,9 @@ export default function SqlPage() {
   const [pendingDelete, setPendingDelete] = useState<SqlSourceRow | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState("");
-  const demo = isDemo();
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [accessLoading, setAccessLoading] = useState(!demo);
+  const [accessError, setAccessError] = useState("");
 
   function clearPlanState() {
     setSql("");
@@ -80,7 +85,31 @@ export default function SqlPage() {
   }
 
   useEffect(() => {
-    reloadSources();
+    let cancelled = false;
+    if (demo) {
+      void reloadSources();
+      return () => {
+        cancelled = true;
+      };
+    }
+    getSession(true)
+      .then((session) => {
+        if (cancelled) return;
+        const admin = !!session?.is_admin;
+        setIsAdmin(admin);
+        setAccessLoading(false);
+        if (admin) void reloadSources();
+        else setLoadingSources(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setAccessError("Your workspace role could not be verified. Reload the page to try again.");
+        setAccessLoading(false);
+        setLoadingSources(false);
+      });
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -106,7 +135,7 @@ export default function SqlPage() {
   async function handleAdd() {
     if (!newName.trim() || !newDsn.trim()) return;
     setBusy("add");
-    setError(null);
+    setAddError("");
     try {
       await addSqlSource({ name: newName, dsn: newDsn });
       setAdding(false);
@@ -114,7 +143,7 @@ export default function SqlPage() {
       setNewDsn("");
       await reloadSources();
     } catch {
-      setError("Could not add the source. Verify the read-only connection details and try again.");
+      setAddError("Could not add the source. Verify the read-only connection details and try again.");
     } finally {
       setBusy(null);
     }
@@ -194,9 +223,18 @@ export default function SqlPage() {
             and only runs what you approve - read-only, where the data lives.
           </p>
         </div>
-        <Button onClick={() => setAdding((v) => !v)} disabled={demo} title={demo ? "Data connections are disabled in the shared demo" : undefined}>
-          <Plus size={14} /> Add source
-        </Button>
+        {(demo || isAdmin) && (
+          <Button
+            onClick={() => {
+              setAdding((value) => !value);
+              setAddError("");
+            }}
+            disabled={demo}
+            title={demo ? "Data connections are disabled in the shared demo" : undefined}
+          >
+            <Plus size={14} /> Add source
+          </Button>
+        )}
       </div>
 
       {adding && (
@@ -223,8 +261,16 @@ export default function SqlPage() {
                 </Button>
               </span>
             </label>
+            {addError && <p className="error-text" role="alert">{addError}</p>}
             <div className="flex justify-end gap-2">
-              <Button variant="ghost" onClick={() => setAdding(false)} disabled={busy === "add"}>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setAdding(false);
+                  setAddError("");
+                }}
+                disabled={busy === "add"}
+              >
                 Cancel
               </Button>
               <Button onClick={handleAdd} disabled={busy === "add" || !newName.trim() || !newDsn.trim()}>
@@ -235,7 +281,15 @@ export default function SqlPage() {
         </div>
       )}
 
-      {loadError ? (
+      {accessLoading ? (
+        <div className="card async-state" role="status" aria-live="polite">Checking workspace access...</div>
+      ) : accessError ? (
+        <div className="card async-state" role="alert">{accessError}</div>
+      ) : !demo && !isAdmin ? (
+        <div className="card async-state" role="status">
+          Only workspace admins can connect and query live databases.
+        </div>
+      ) : loadError ? (
         <div className="card async-state" role="alert">
           <div>
             <p className="error-text" style={{ marginBottom: 12 }}>{loadError}</p>

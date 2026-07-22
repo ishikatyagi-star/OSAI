@@ -16,11 +16,13 @@ import uuid
 
 import pytest
 from fastapi import HTTPException
+from pydantic import ValidationError
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from db.models import Base, Org, User
-from db.repositories import count_admins, update_member
+from api.routes.team import InviteCreate, MemberUpdate
+from db.models import Base, Invite, Org, User
+from db.repositories import count_admins, create_invite, update_member
 
 
 def _session():
@@ -125,6 +127,30 @@ def test_unknown_roles_are_rejected(bad_role):
 
     assert exc.value.status_code == 422
     assert session.get(User, member_id).role == "member"  # unchanged
+
+
+@pytest.mark.parametrize("bad_role", ["manager", "superuser", "Admin", ""])
+def test_unknown_invite_roles_never_reach_persistence(bad_role):
+    session = _session()
+    _add_user(session, "admin")
+
+    with pytest.raises(HTTPException) as exc:
+        create_invite(session, "org-A", "invitee@example.com", role=bad_role)
+
+    assert exc.value.status_code == 422
+    assert session.query(Invite).count() == 0
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        lambda: InviteCreate(email="invitee@example.com", role="manager"),
+        lambda: MemberUpdate(role="manager"),
+    ],
+)
+def test_team_route_payloads_reject_unknown_roles(payload):
+    with pytest.raises(ValidationError):
+        payload()
 
 
 # --- The other route that can remove the last admin: deleting your account ----

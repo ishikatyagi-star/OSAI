@@ -27,6 +27,25 @@ test("Try Demo stores no osai_token key (QA E-03)", () => {
   assert.match(demoPage, /localStorage\.removeItem\("osai_token"\)/);
 });
 
+test("demo traffic omits real credentials while auth cookie endpoints force include", () => {
+  assert.match(
+    api,
+    /localStorage\.getItem\("osai_org_id"\) === "demo-org"[\s\S]*?return "omit";/
+  );
+  assert.ok(
+    (api.match(/credentials: getRequestCredentials\(\)/g) ?? []).length >= 4,
+    "GET, PATCH, DELETE, and upload requests must use demo-aware credentials"
+  );
+  assert.match(api, /credentials: RequestCredentials = getRequestCredentials\(\)/);
+  const loginCall = api.slice(api.indexOf("export function login"), api.indexOf("export function getAuthConfig"));
+  const sessionCall = api.slice(api.indexOf("export function setSessionCookie"), api.indexOf("export async function clearServerSessionCookie"));
+  const logoutCall = api.slice(api.indexOf("export async function clearServerSessionCookie"), api.indexOf("export async function logout"));
+  assert.match(loginCall, /"\/auth\/login",\s*credentials,\s*POST_TIMEOUT_MS,\s*"include"/);
+  assert.match(sessionCall, /"\/auth\/session",\s*\{ token \},\s*POST_TIMEOUT_MS,\s*"include"/);
+  assert.match(logoutCall, /"\/auth\/logout",\s*\{\},\s*DEFAULT_TIMEOUT_MS,\s*"include"/);
+  assert.match(demoPage, /clearServerSessionCookie\(\)\.catch/);
+});
+
 test("signing into a real org clears demo flags and legacy token (SHE-5)", () => {
   const markSignedIn = api.slice(api.indexOf("export function markSignedIn"));
   assert.match(markSignedIn, /removeItem\("osai_demo"\)/);

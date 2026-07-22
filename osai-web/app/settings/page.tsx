@@ -4,7 +4,16 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Database, FlaskConical, Users, ChevronRight, Trash2, LogOut, type LucideIcon } from "lucide-react";
-import { clearSession, deleteAccount, getSession, logoutAllSessions, resetWorkspaceContent, mintSlackAskToken, revokeSlackAskToken } from "@/lib/api";
+import {
+  clearServerSessionCookie,
+  clearSession,
+  deleteAccount,
+  getSession,
+  logoutAllSessions,
+  mintSlackAskToken,
+  resetWorkspaceContent,
+  revokeSlackAskToken,
+} from "@/lib/api";
 import { isDemo } from "@/lib/demo";
 import {
   Dialog,
@@ -59,6 +68,7 @@ export default function SettingsPage() {
   const [deleting, setDeleting] = useState(false);
   const [signOutAllOpen, setSignOutAllOpen] = useState(false);
   const [signingOutAll, setSigningOutAll] = useState(false);
+  const [signOutAllError, setSignOutAllError] = useState("");
   const [resetMsg, setResetMsg] = useState("");
   const [resetError, setResetError] = useState("");
   const [resetConfirm, setResetConfirm] = useState("");
@@ -148,8 +158,13 @@ export default function SettingsPage() {
     try {
       await deleteAccount();
       router.replace("/login");
-    } catch {
-      setDeleteError("Your account was not deleted. Please try again or contact support.");
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "";
+      setDeleteError(
+        detail.includes("only admin")
+          ? "You are the workspace's only admin. Promote another member in Team before deleting your account."
+          : "Your account was not deleted. Please try again or contact support."
+      );
     } finally {
       setDeleting(false);
     }
@@ -157,14 +172,23 @@ export default function SettingsPage() {
 
   async function handleSignOutEverywhere() {
     setSigningOutAll(true);
+    setSignOutAllError("");
     try {
-      await logoutAllSessions();
-    } catch {
-      // Even if the revoke call fails, drop this device's session so the button
-      // never leaves the user believing they're signed out when they aren't.
-      clearSession();
-    } finally {
+      try {
+        await logoutAllSessions();
+      } catch {
+        await clearServerSessionCookie();
+        clearSession();
+        router.replace("/login?reason=logout_all_failed");
+        return;
+      }
       router.replace("/login");
+    } catch {
+      setSignOutAllError(
+        "No sessions were confirmed signed out. Check your connection and try again."
+      );
+    } finally {
+      setSigningOutAll(false);
     }
   }
 
@@ -205,7 +229,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Slack /ask slash command */}
-      <div className="card" style={{ marginTop: 24, marginBottom: 12 }}>
+      {isAdmin && <div className="card" style={{ marginTop: 24, marginBottom: 12 }}>
         <h2 style={{ margin: 0 }}>Ask from Slack</h2>
         <p className="meta" style={{ margin: "4px 0 12px", lineHeight: 1.5 }}>
           Create a token, then add a Slack slash command (e.g. /ask) whose Request URL
@@ -227,7 +251,7 @@ export default function SettingsPage() {
             Revoke
           </button>
         </div>
-      </div>
+      </div>}
 
       {/* Danger Zone separator */}
       <div style={{ position: "relative", margin: "36px 0 18px", display: "flex", alignItems: "center", gap: 12 }}>
@@ -239,7 +263,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Danger zone - clear seeded/ingested content */}
-      <div
+      {isAdmin && <div
         className="card"
         style={{ borderColor: "color-mix(in srgb, var(--red) 35%, var(--border))" }}
       >
@@ -265,7 +289,7 @@ export default function SettingsPage() {
             </button>
           </div>
         </div>
-      </div>
+      </div>}
 
       <div
         className="card"
@@ -284,7 +308,7 @@ export default function SettingsPage() {
               Revoke every active session on all devices. Use this if you&apos;ve lost a device or
               suspect your account is compromised. You&apos;ll need to sign in again here too.
             </p>
-            <button className="btn" onClick={() => setSignOutAllOpen(true)}>
+            <button className="btn" onClick={() => { setSignOutAllError(""); setSignOutAllOpen(true); }}>
               Sign out everywhere
             </button>
           </div>
@@ -344,11 +368,17 @@ export default function SettingsPage() {
               your account will be signed out and will need to sign in again.
             </DialogDescription>
           </DialogHeader>
+          {signOutAllError && <p className="error-text" role="alert">{signOutAllError}</p>}
           <DialogFooter>
             <button className="btn" onClick={() => setSignOutAllOpen(false)} disabled={signingOutAll}>
               Cancel
             </button>
-            <button className="btn btn-danger" onClick={handleSignOutEverywhere} disabled={signingOutAll}>
+            <button
+              className="btn btn-danger"
+              aria-label="Sign out everywhere"
+              onClick={handleSignOutEverywhere}
+              disabled={signingOutAll}
+            >
               {signingOutAll ? "Signing out…" : "Sign out everywhere"}
             </button>
           </DialogFooter>
@@ -368,6 +398,11 @@ export default function SettingsPage() {
             <input className="search-input" value={deleteConfirm} onChange={(event) => setDeleteConfirm(event.target.value)} autoComplete="off" />
           </label>
           {deleteError && <p className="error-text" role="alert">{deleteError}</p>}
+          {deleteError.includes("only admin") && (
+            <Link href="/team" className="btn" onClick={() => setDeleteDialogOpen(false)}>
+              Open Team
+            </Link>
+          )}
           <DialogFooter>
             <button type="button" className="btn" onClick={() => setDeleteDialogOpen(false)} disabled={deleting}>
               Cancel

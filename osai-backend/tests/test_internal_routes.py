@@ -32,8 +32,18 @@ def test_run_due_is_404_without_configured_token():
     assert resp.status_code == 404
 
 
+def test_run_due_is_404_when_external_cron_is_disabled(monkeypatch):
+    monkeypatch.setattr(settings, "automations_cron_token", "s3cret")
+    monkeypatch.setattr(settings, "automations_cron_enabled", False)
+    client = TestClient(app)
+
+    resp = client.post("/internal/automations/run-due", headers={"X-Cron-Token": "s3cret"})
+    assert resp.status_code == 404
+
+
 def test_run_due_rejects_bad_token_and_accepts_good(monkeypatch):
     monkeypatch.setattr(settings, "automations_cron_token", "s3cret")
+    monkeypatch.setattr(settings, "automations_cron_enabled", True)
     client = TestClient(app)
 
     resp = client.post("/internal/automations/run-due", headers={"X-Cron-Token": "wrong"})

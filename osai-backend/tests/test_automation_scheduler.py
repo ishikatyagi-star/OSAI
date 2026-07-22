@@ -78,6 +78,16 @@ def test_manual_paused_draft_and_disabled_are_never_due():
     assert list_due_automations(session, now=NOW) == []
 
 
+def test_scheduler_heartbeat_records_queue_proof(monkeypatch):
+    monkeypatch.setattr(
+        "workers.scheduler_health.write_scheduler_heartbeat",
+        lambda: "2026-07-21T00:00:00+00:00",
+    )
+    from workers.tasks.automations import scheduler_heartbeat
+
+    assert scheduler_heartbeat()["recorded_at"] == "2026-07-21T00:00:00+00:00"
+
+
 async def test_beat_task_runs_due_automations_and_isolates_failures(monkeypatch):
     """_run_due executes every due automation via the shared runner; one failing
     automation must not stop the others."""

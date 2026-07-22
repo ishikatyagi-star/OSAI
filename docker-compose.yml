@@ -1,8 +1,26 @@
 services:
+  migrate:
+    build:
+      context: ./osai-backend
+    command: uv run alembic upgrade head
+    restart: "no"
+    volumes:
+      - ./osai-backend:/app
+      - /app/.venv
+    env_file:
+      - ./osai-backend/.env
+    environment:
+      - OSAI_DATABASE_URL=postgresql+psycopg://osai:osai@postgres:5432/osai
+      - OSAI_REDIS_URL=redis://redis:6379/0
+      - OSAI_QDRANT_URL=http://qdrant:6333
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   api:
     build:
       context: ./osai-backend
-    command: uv run uvicorn api.main:app --host 0.0.0.0 --port 8000
+    command: uv run uvicorn api.main:app --no-proxy-headers --host 0.0.0.0 --port 8000
     volumes:
       - ./osai-backend:/app
       - /app/.venv
@@ -12,19 +30,38 @@ services:
       - OSAI_DATABASE_URL=postgresql+psycopg://osai:osai@postgres:5432/osai
       - OSAI_REDIS_URL=redis://redis:6379/0
       - OSAI_QDRANT_URL=http://qdrant:6333
+      - OSAI_AUTOMATIONS_CRON_ENABLED=false
     ports:
       - "8000:8000"
     depends_on:
-      - postgres
-      - redis
-      - qdrant
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - uv
+        - run
+        - python
+        - -c
+        - from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/health/ready', timeout=5).read()
+      interval: 10s
+      timeout: 8s
+      retries: 6
+      start_period: 10s
   worker:
     build:
       context: ./osai-backend
-    # -B runs the beat scheduler in-process (fine for a single worker node);
-    # -Q makes the worker consume the routed queues, which it previously
-    # didn't — tasks routed to ingest/extract/execute sat unconsumed.
-    command: uv run celery -A workers.celery_app worker -B -Q celery,ingest,extract,execute --loglevel=info
+    # -B runs the recurring-automation schedule in-process (fine for one worker
+    # node). The execute queue carries both its heartbeat and scheduled runs.
+    # Composio ingestion still uses an API BackgroundTask and is not worker
+    # offload until a real producer/task contract is implemented.
+    command: uv run celery -A workers.celery_app worker -B -Q execute --loglevel=info
     volumes:
       - ./osai-backend:/app
       - /app/.venv
@@ -34,10 +71,17 @@ services:
       - OSAI_DATABASE_URL=postgresql+psycopg://osai:osai@postgres:5432/osai
       - OSAI_REDIS_URL=redis://redis:6379/0
       - OSAI_QDRANT_URL=http://qdrant:6333
+      - OSAI_AUTOMATIONS_CRON_ENABLED=false
+      - OSAI_AUTOMATIONS_BEAT_ENABLED=true
     depends_on:
-      - postgres
-      - redis
-      - qdrant
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
   postgres:
     image: postgres:17-alpine
     environment:
@@ -45,19 +89,38 @@ services:
       POSTGRES_PASSWORD: osai
       POSTGRES_DB: osai
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
   qdrant:
     image: qdrant/qdrant:v1.14.1
     ports:
-      - "6333:6333"
+      - "127.0.0.1:6333:6333"
     volumes:
       - qdrantdata:/qdrant/storage
+    healthcheck:
+      # The pinned Qdrant image has Bash but intentionally omits curl/wget.
+      test: ["CMD-SHELL", "bash -c ':> /dev/tcp/127.0.0.1/6333'"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
 
 volumes:
   pgdata:

@@ -137,6 +137,8 @@ async def live_read_context(
     org_id: str,
     question: str,
     *,
+    requester_permissions: list[str],
+    cloud_egress_allowed: bool = True,
     client: ComposioClient | None = None,
 ) -> str:
     """Best-effort live read from the first connected app the question names.
@@ -145,6 +147,16 @@ async def live_read_context(
     app matches, no safe read tool exists, or anything fails — callers treat
     this as optional enrichment, never a hard dependency.
     """
+    # Provider responses do not yet carry a data-tier classification. A caller
+    # targeting a cloud-capable model must explicitly withhold them until that
+    # provenance exists.
+    if not cloud_egress_allowed:
+        return ""
+    # Composio connections are currently org-scoped, not resource-scoped. Until
+    # per-connection ACLs exist, keep live reads admin-only; members still use
+    # indexed RAG, where permissions and clearance are enforced per document.
+    if "org:admin" not in requester_permissions and "role:admin" not in requester_permissions:
+        return ""
     client = client or get_default_composio_client()
     if not client.available():
         return ""

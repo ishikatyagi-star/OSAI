@@ -3,11 +3,17 @@ from fastapi.testclient import TestClient
 from api.main import app
 
 
-def test_health() -> None:
+def test_health(monkeypatch) -> None:
+    monkeypatch.setenv("OSAI_BUILD_SHA", "portable-build")
+    monkeypatch.setenv("RENDER_GIT_COMMIT", "render-build")
     client = TestClient(app)
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
+    assert response.json()["build_sha"] == "render-build"
+
+    monkeypatch.delenv("RENDER_GIT_COMMIT")
+    assert client.get("/health/live").json()["build_sha"] == "portable-build"
 
 
 def test_integrations_fallback_without_database() -> None:

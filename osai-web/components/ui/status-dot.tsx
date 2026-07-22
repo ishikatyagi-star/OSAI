@@ -20,6 +20,7 @@ function StatusDot({ state, className, ...props }: StatusDotProps) {
   return (
     <span
       className={cn("status-dot", modifier, className)}
+      role="img"
       aria-label={state}
       {...props}
     />

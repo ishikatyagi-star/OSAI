@@ -1,6 +1,5 @@
 "use client";
 
-import * as React from "react";
 import { AlertTriangle } from "lucide-react";
 import type { AgentAction, AskUiArtifact, SourceCitation } from "@/lib/types";
 import { MarkdownLite } from "./markdown-lite";
@@ -30,12 +29,12 @@ export type AskTurn = {
 
 export function MessageBubble({
   turn,
-  busyActionId,
+  busyActions,
   onApprove,
   onDismiss,
 }: {
   turn: AskTurn;
-  busyActionId?: string | null;
+  busyActions?: Record<string, "approve" | "dismiss">;
   onApprove: (turnId: string, action: AgentAction) => void;
   onDismiss: (turnId: string, action: AgentAction) => void;
 }) {
@@ -90,7 +89,7 @@ export function MessageBubble({
               <ActionCard
                 key={a.id}
                 action={a}
-                busy={busyActionId === a.id}
+                busyOperation={busyActions?.[a.id] ?? null}
                 onApprove={(action) => onApprove(turn.id, action)}
                 onDismiss={(action) => onDismiss(turn.id, action)}
               />

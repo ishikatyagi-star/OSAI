@@ -2,70 +2,14 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from db.models import ActionItemRecord, Base, SourceDocumentRecord, WorkflowRun
+from db.models import ActionItemRecord, Base, WorkflowRun
 from db.repositories import seed_demo_data
 from workers.tasks.extract import extract_action_items
-from workers.tasks.ingest import download_and_transcribe
-
-
-def test_download_and_transcribe_with_extract_task_chain() -> None:
-    # 1. Setup in-memory SQLite DB
-    engine = create_engine("sqlite+pysqlite:///:memory:")
-    Base.metadata.create_all(engine)
-    TestSessionLocal = sessionmaker(bind=engine)
-
-    # Seed orgs & connectors
-    with TestSessionLocal() as session:
-        seed_demo_data(session)
-
-    # 2. Patch database SessionLocal and Qdrant store to run locally
-    with (
-        patch("workers.tasks.ingest.SessionLocal", TestSessionLocal),
-        patch("workers.tasks.extract.SessionLocal", TestSessionLocal),
-        patch("workers.tasks.extract.extract_action_items") as mock_extract_task,
-        patch("memory.qdrant_store.get_default_qdrant_store") as mock_qdrant_store,
-    ):
-        mock_qdrant = MagicMock()
-
-        # mock upsert_chunks to be async
-        async def mock_upsert(chunks):
-            return len(chunks)
-
-        mock_qdrant.upsert_chunks.side_effect = mock_upsert
-        mock_qdrant_store.return_value = mock_qdrant
-
-        # Call download_and_transcribe synchronously
-        result = download_and_transcribe(
-            meeting_id="meeting-123",
-            download_url="http://example.com/audio.m4a",
-            topic="Daily Standup",
-            org_id="demo-org",
-        )
-
-        assert result["status"] == "success"
-        run_id = result["workflow_run_id"]
-        assert run_id.startswith("workflow-")
-
-        # 3. Check DB records
-        with TestSessionLocal() as session:
-            # Source document is persisted
-            doc = session.get(SourceDocumentRecord, "zoom:meeting:meeting-123")
-            assert doc is not None
-            assert doc.title == "Daily Standup"
-            assert "Anish" in doc.text
-
-            # Workflow run is initialized in "processing" state
-            run = session.get(WorkflowRun, run_id)
-            assert run is not None
-            assert run.status == "processing"
-
-        # Verify extract task was enqueued
-        mock_extract_task.delay.assert_called_once_with(run_id)
 
 
 def test_extract_action_items_task() -> None:
@@ -119,6 +63,9 @@ def test_extract_action_items_task() -> None:
 
         result = extract_action_items("workflow-abc")
         assert result["status"] == "success"
+        call = mock_workflow_runner.call_args.kwargs
+        assert call["actor_user_id"] is None
+        assert call["viewer_is_admin"] is False
 
         # 3. Check run status update and action item persistence in DB
         with TestSessionLocal() as session:

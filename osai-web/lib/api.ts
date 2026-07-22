@@ -3,11 +3,16 @@ import type {
   AskRequest,
   AskResponse,
   ConfirmActionResult,
+  DataRouting,
+  DismissActionResult,
   EvalRun,
   Integration,
+  SearchRequest,
+  SearchResponse,
   SyncRun,
   WorkflowRun,
 } from "./types";
+import { DataRoutingValidationError, parseDataRouting } from "./data-routing";
 
 // The API origin (Render in prod, localhost in dev). Used only for full-URL
 // browser navigations that must hit the API domain directly - the Google OAuth
@@ -33,6 +38,21 @@ function getHeaders(extraHeaders: Record<string, string> = {}): Record<string, s
   return headers;
 }
 
+// The public demo and a real signed-in workspace can exist in the same browser.
+// Never attach a stale real-session cookie to demo traffic: the backend gives an
+// authenticated cookie precedence over X-Org-Id, which would otherwise let the
+// demo UI read or write the customer's real org. Auth endpoints that explicitly
+// create or clear the cookie opt back into "include" below.
+function getRequestCredentials(): RequestCredentials {
+  if (
+    typeof window !== "undefined" &&
+    localStorage.getItem("osai_org_id") === "demo-org"
+  ) {
+    return "omit";
+  }
+  return "include";
+}
+
 // Network requests are bounded by a timeout so a slow/unreachable backend can
 // never leave the UI hanging on a spinner - on timeout or error we resolve to
 // the provided fallback (typically demo data or null).
@@ -43,6 +63,17 @@ const DEFAULT_TIMEOUT_MS = 8000;
 // backend past 8s, and aborting there paints a false "check your connection"
 // error over a healthy backend.
 const SLOW_LOAD_TIMEOUT_MS = 20000;
+
+export class ApiError extends Error {
+  constructor(
+    public readonly status: number,
+    public readonly detail: string,
+    message: string
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
 
 // A 401 means the session cookie is missing/expired/revoked. Drop the local
 // auth flag and send the user back to sign in.
@@ -67,24 +98,33 @@ async function apiGet<T>(
   path: string,
   fallback: T,
   timeoutMs: number = DEFAULT_TIMEOUT_MS,
-  throwOnError = false
+  throwOnError = false,
+  notFoundIsFallback = false
 ): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(`${API_BASE_URL}${path}`, {
       cache: "no-store",
-      credentials: "include",
+      credentials: getRequestCredentials(),
       headers: getHeaders(),
       signal: controller.signal,
     });
     if (!res.ok) {
+      if (res.status === 404 && notFoundIsFallback) return fallback;
       handleUnauthorized(res.status);
+      const detail = await res.text();
       // Swallowing to a fallback keeps list pages resilient, but a silent 500
       // is indistinguishable from an empty workspace. Surface it so a broken
       // backend is diagnosable in the console instead of looking like "no data".
       console.warn(`GET ${path} failed (${res.status}); using fallback.`);
-      if (throwOnError) throw new Error(`GET ${path} failed (${res.status})`);
+      if (throwOnError) {
+        throw new ApiError(
+          res.status,
+          detail,
+          `GET ${path} failed (${res.status}): ${detail}`
+        );
+      }
       return fallback;
     }
     return (await res.json()) as T;
@@ -103,11 +143,13 @@ async function apiGet<T>(
 // forever. On timeout the abort surfaces as a thrown error, which callers
 // (e.g. Ask) turn into an honest error or demo fallback.
 const POST_TIMEOUT_MS = 30000;
+const THREAD_TURN_TIMEOUT_MS = 2500;
 
 async function apiPost<TBody, TResult>(
   path: string,
   body: TBody,
-  timeoutMs: number = POST_TIMEOUT_MS
+  timeoutMs: number = POST_TIMEOUT_MS,
+  credentials: RequestCredentials = getRequestCredentials()
 ): Promise<TResult> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -117,13 +159,17 @@ async function apiPost<TBody, TResult>(
       headers: getHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify(body),
       cache: "no-store",
-      credentials: "include",
+      credentials,
       signal: controller.signal,
     });
     if (!res.ok) {
       handleUnauthorized(res.status);
       const detail = await res.text();
-      throw new Error(`POST ${path} failed (${res.status}): ${detail}`);
+      throw new ApiError(
+        res.status,
+        detail,
+        `POST ${path} failed (${res.status}): ${detail}`
+      );
     }
     return (await res.json()) as TResult;
   } finally {
@@ -144,13 +190,17 @@ async function apiPatch<TBody, TResult>(
       headers: getHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify(body),
       cache: "no-store",
-      credentials: "include",
+      credentials: getRequestCredentials(),
       signal: controller.signal,
     });
     if (!res.ok) {
       handleUnauthorized(res.status);
       const detail = await res.text();
-      throw new Error(`PATCH ${path} failed (${res.status}): ${detail}`);
+      throw new ApiError(
+        res.status,
+        detail,
+        `PATCH ${path} failed (${res.status}): ${detail}`
+      );
     }
     return (await res.json()) as TResult;
   } finally {
@@ -169,12 +219,13 @@ async function apiDelete<TResult>(
       method: "DELETE",
       headers: getHeaders(),
       cache: "no-store",
-      credentials: "include",
+      credentials: getRequestCredentials(),
       signal: controller.signal,
     });
     if (!res.ok) {
       handleUnauthorized(res.status);
-      throw new Error(`DELETE ${path} failed (${res.status})`);
+      const detail = await res.text();
+      throw new Error(`DELETE ${path} failed (${res.status}): ${detail}`);
     }
     return (await res.json()) as TResult;
   } finally {
@@ -209,7 +260,12 @@ export type OrgOnboardResponse = {
 };
 
 export function login(credentials: LoginCredentials): Promise<LoginSession> {
-  return apiPost<LoginCredentials, LoginSession>("/auth/login", credentials);
+  return apiPost<LoginCredentials, LoginSession>(
+    "/auth/login",
+    credentials,
+    POST_TIMEOUT_MS,
+    "include"
+  );
 }
 
 // Whether "Continue with Google" is available on this backend.
@@ -247,8 +303,47 @@ export type SessionInfo = {
 // control that 403s. Never a security boundary - the server gates every route.
 // Returns null when unauthenticated (401) or the backend can't be reached, so
 // callers fail closed to the non-admin view.
-export function getSession(): Promise<SessionInfo | null> {
-  return apiGet<SessionInfo | null>("/auth/session", null);
+export function getSession(strict = false): Promise<SessionInfo | null> {
+  return apiGet<SessionInfo | null>("/auth/session", null, DEFAULT_TIMEOUT_MS, strict);
+}
+
+export type DeploymentCapabilities = {
+  environment: string;
+  scheduler: boolean;
+  automation_cadences: string[];
+  connectors: boolean;
+  sql_sources: boolean;
+  workflow_execution: boolean;
+  semantic_embeddings: boolean;
+  embedding_model: string;
+  google_oauth: boolean;
+  email_login: boolean;
+  zoom_webhook: boolean;
+};
+
+const SAFE_CAPABILITY_FALLBACK: DeploymentCapabilities = {
+  environment: "unknown",
+  scheduler: false,
+  automation_cadences: ["manual"],
+  connectors: false,
+  sql_sources: false,
+  workflow_execution: false,
+  semantic_embeddings: false,
+  embedding_model: "unknown",
+  google_oauth: false,
+  email_login: false,
+  zoom_webhook: false,
+};
+
+// Deployment truth for optional runtime features. Callers that control an
+// action should request strict mode so an outage cannot look like a capability.
+export function getCapabilities(strict = false): Promise<DeploymentCapabilities> {
+  return apiGet<DeploymentCapabilities>(
+    "/capabilities",
+    SAFE_CAPABILITY_FALLBACK,
+    DEFAULT_TIMEOUT_MS,
+    strict
+  );
 }
 
 // Clear local, non-sensitive session state (cached org/user + the "authed"
@@ -296,13 +391,29 @@ export function markSignedIn(fields: {
 // Exchange a JWT (from the OAuth redirect fragment) for an httpOnly session
 // cookie on this origin, so the token never has to live in localStorage.
 export function setSessionCookie(token: string) {
-  return apiPost<{ token: string }, { ok: boolean }>("/auth/session", { token });
+  return apiPost<{ token: string }, { ok: boolean }>(
+    "/auth/session",
+    { token },
+    POST_TIMEOUT_MS,
+    "include"
+  );
+}
+
+// Clear only the server-side session cookie. Demo entry uses this as a
+// best-effort cleanup while preserving the local demo identity it just set.
+export async function clearServerSessionCookie(): Promise<void> {
+  await apiPost<Record<string, never>, { ok: boolean }>(
+    "/auth/logout",
+    {},
+    DEFAULT_TIMEOUT_MS,
+    "include"
+  );
 }
 
 // Sign out of this device: clear the server cookie, then local state.
 export async function logout(): Promise<void> {
   try {
-    await apiPost<Record<string, never>, { ok: boolean }>("/auth/logout", {});
+    await clearServerSessionCookie();
   } finally {
     clearSession();
   }
@@ -326,7 +437,7 @@ export async function logoutAllSessions(): Promise<void> {
 // (not the /api proxy): the OAuth state cookie set here has to be first-party to
 // the API domain, which is where Google redirects the callback.
 export function googleSignInUrl(): string {
-  return `${API_ORIGIN}/auth/google/start`;
+  return new URL(`${API_ORIGIN}/auth/google/start`).toString();
 }
 
 export function onboardOrg(payload: OrgOnboardPayload): Promise<OrgOnboardResponse> {
@@ -355,6 +466,34 @@ export type TeamMember = {
   status: string;
 };
 
+export type MemberRemovalAssetCounts = {
+  automations: number;
+  private_threads: number;
+  shared_threads: number;
+  workflow_runs: number;
+};
+
+export type MemberRemovalBlockerCounts = {
+  owned_uploads: number;
+  document_access_grants: number;
+  private_memories: number;
+  ask_exchanges: number;
+  pending_connector_actions: number;
+};
+
+export type MemberRemovalImpact = {
+  member_id: string;
+  member_email: string;
+  member_display_name: string;
+  assets: MemberRemovalAssetCounts;
+  blockers: MemberRemovalBlockerCounts;
+  preserved: { saved_artifacts: number };
+  total_assets: number;
+  total_blockers: number;
+  requires_transfer: boolean;
+  blocked: boolean;
+};
+
 export type Department = { id: string; name: string; color: string; members: number };
 
 export type TeamInvite = {
@@ -371,6 +510,15 @@ export function getTeamMembers(strict = false) {
   return apiGet<TeamMember[]>("/team/members", [], DEFAULT_TIMEOUT_MS, strict);
 }
 
+export function getMemberRemovalImpact(userId: string, strict = false) {
+  return apiGet<MemberRemovalImpact | null>(
+    `/team/members/${userId}/removal-impact`,
+    null,
+    DEFAULT_TIMEOUT_MS,
+    strict
+  );
+}
+
 export function getDepartments(strict = false) {
   return apiGet<Department[]>("/team/departments", [], DEFAULT_TIMEOUT_MS, strict);
 }
@@ -380,6 +528,17 @@ export function createDepartment(name: string, color?: string) {
     name,
     color,
   });
+}
+
+export function renameDepartment(id: string, name: string) {
+  return apiPatch<{ name: string }, Pick<Department, "id" | "name" | "color">>(
+    `/team/departments/${id}`,
+    { name }
+  );
+}
+
+export function removeDepartment(id: string) {
+  return apiDelete<{ deleted: boolean }>(`/team/departments/${id}`);
 }
 
 export function getInvites(strict = false) {
@@ -403,6 +562,10 @@ export function createInvite(
   });
 }
 
+export function revokeInvite(id: string) {
+  return apiDelete<{ revoked: boolean }>(`/team/invites/${id}`);
+}
+
 export function updateMember(
   userId: string,
   patch: { role?: string; department_id?: string | null; data_tier?: string }
@@ -413,7 +576,56 @@ export function updateMember(
   );
 }
 
+export function removeTeamMember(userId: string, transferToUserId?: string) {
+  if (!transferToUserId) {
+    return apiDelete<{ deleted: boolean }>(`/team/members/${userId}`);
+  }
+  return apiDelete<{ deleted: boolean }>(
+    `/team/members/${userId}?transfer_to_user_id=${encodeURIComponent(transferToUserId)}`
+  );
+}
+
 // ─── Integrations ────────────────────────────────────────────────────────────
+
+// Data-routing reads and writes validate the JSON response before exposing it
+// to the UI. A transport success with an unknown shape is not a saved policy.
+export async function getDataRouting(): Promise<DataRouting> {
+  try {
+    const payload = await apiGet<unknown>(
+      "/settings/data-routing",
+      null,
+      DEFAULT_TIMEOUT_MS,
+      true
+    );
+    return parseDataRouting(payload);
+  } catch (error) {
+    if (
+      error instanceof DataRoutingValidationError ||
+      (error instanceof ApiError &&
+        error.status === 503 &&
+        error.detail.includes("Stored data-routing settings are invalid."))
+    ) {
+      throw new DataRoutingValidationError("Stored data-routing policy is invalid");
+    }
+    throw error;
+  }
+}
+
+export async function patchDataRouting(
+  routing: DataRouting,
+  expectedRouting: DataRouting | null
+): Promise<DataRouting> {
+  const validated = parseDataRouting(routing);
+  const expected = expectedRouting === null ? null : parseDataRouting(expectedRouting);
+  const payload = await apiPatch<
+    { routing: DataRouting; expected_routing: DataRouting | null },
+    unknown
+  >(
+    "/settings/data-routing",
+    { routing: validated, expected_routing: expected }
+  );
+  return parseDataRouting(payload);
+}
 
 export function getIntegrations(strict = false) {
   return apiGet<Integration[]>("/integrations", [], SLOW_LOAD_TIMEOUT_MS, strict);
@@ -431,7 +643,7 @@ export const COMPOSIO_TOOLKIT: Record<string, string> = {
   notion: "notion",
   google_drive: "googledrive",
   slack: "slack",
-  freshdesk: "freshdesk",
+  gmail: "gmail",
 };
 
 // One app in the Composio catalog (browse/search from the Add-connector dialog).
@@ -449,8 +661,7 @@ export type ComposioToolkitPage = {
   next_cursor?: string | null;
 };
 
-// Browse the full Composio app catalog: everything the org can connect,
-// searchable and cursor-paginated (not just Sheldon's native connectors).
+// Browse the Composio connectors whose content Sheldon can ingest.
 export function listComposioToolkits(search?: string, cursor?: string) {
   const params = new URLSearchParams();
   if (search) params.set("search", search);
@@ -458,7 +669,9 @@ export function listComposioToolkits(search?: string, cursor?: string) {
   const qs = params.toString();
   return apiGet<ComposioToolkitPage>(
     `/integrations/composio/toolkits${qs ? `?${qs}` : ""}`,
-    { items: [], next_cursor: null }
+    { items: [], next_cursor: null },
+    DEFAULT_TIMEOUT_MS,
+    true
   );
 }
 
@@ -525,6 +738,42 @@ export function getSyncRuns(strict = false) {
   return apiGet<SyncRun[]>("/sync-runs", [], DEFAULT_TIMEOUT_MS, strict);
 }
 
+export type SyncRunAggregate = {
+  total_runs: number;
+  status_counts: Record<string, number>;
+  documents_seen: number;
+  documents_indexed: number;
+};
+
+export type SyncRunPage = {
+  items: SyncRun[];
+  next_cursor: string | null;
+  summary: SyncRunAggregate & { by_connector: Record<string, SyncRunAggregate> };
+  as_of: string;
+};
+
+export function getSyncRunPage(limit = 25, cursor?: string, strict = false) {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (cursor) params.set("cursor", cursor);
+  return apiGet<SyncRunPage>(
+    `/sync-runs/page?${params}`,
+    {
+      items: [],
+      next_cursor: null,
+      summary: {
+        total_runs: 0,
+        status_counts: {},
+        documents_seen: 0,
+        documents_indexed: 0,
+        by_connector: {},
+      },
+      as_of: "",
+    },
+    DEFAULT_TIMEOUT_MS,
+    strict
+  );
+}
+
 // ─── Workflows ───────────────────────────────────────────────────────────────
 
 export function getWorkflowRuns(strict = false) {
@@ -532,7 +781,13 @@ export function getWorkflowRuns(strict = false) {
 }
 
 export function getWorkflowRun(id: string, strict = false) {
-  return apiGet<WorkflowRun | null>(`/workflows/${id}`, null, DEFAULT_TIMEOUT_MS, strict);
+  return apiGet<WorkflowRun | null>(
+    `/workflows/${id}`,
+    null,
+    DEFAULT_TIMEOUT_MS,
+    strict,
+    true
+  );
 }
 
 export function postWorkflow(
@@ -564,6 +819,17 @@ function currentOrgId(orgId?: string) {
   );
 }
 
+export function searchOsai(
+  query: string,
+  opts: { orgId?: string; departmentId?: string | null } = {}
+): Promise<SearchResponse> {
+  return apiPost<SearchRequest, SearchResponse>("/search", {
+    org_id: currentOrgId(opts.orgId),
+    query,
+    department_id: opts.departmentId ?? null,
+  });
+}
+
 export function askOsai(
   question: string,
   opts: {
@@ -571,14 +837,20 @@ export function askOsai(
     history?: AskRequest["history"];
     orgId?: string;
     departmentId?: string | null;
+    intent?: AskRequest["intent"];
+    threadId?: string | null;
+    requestId?: string | null;
   } = {}
 ): Promise<AskResponse> {
   const body: AskRequest = {
     org_id: currentOrgId(opts.orgId),
     question,
+    intent: opts.intent ?? "ask",
     conversation_id: opts.conversationId ?? null,
     history: opts.history,
     department_id: opts.departmentId ?? null,
+    thread_id: opts.threadId ?? null,
+    request_id: opts.requestId ?? null,
   };
   return apiPost<AskRequest, AskResponse>("/ask", body);
 }
@@ -600,6 +872,21 @@ export type DashboardMetrics = {
   documents_by_connector: Record<string, number>;
   documents_by_tier: Record<string, number>;
   connectors_connected: number;
+  connector_statuses?: Array<{
+    key: string;
+    auth_state: string;
+    last_sync: string | null;
+    sync_error: string | null;
+  }>;
+  pending_decisions?: number;
+  pending_actions?: number;
+  recent_decisions?: Array<{
+    id: string;
+    title: string;
+    status: "proposed" | "approved" | "rejected";
+    owner: string | null;
+    date: string;
+  }>;
   sync_runs_total: number;
   sync_runs_succeeded: number;
   last_sync_at: string | null;
@@ -618,6 +905,10 @@ export function getDashboardMetrics(strict = false) {
     documents_by_connector: {},
     documents_by_tier: {},
     connectors_connected: 0,
+    connector_statuses: [],
+    pending_decisions: 0,
+    pending_actions: 0,
+    recent_decisions: [],
     sync_runs_total: 0,
     sync_runs_succeeded: 0,
     last_sync_at: null,
@@ -788,10 +1079,12 @@ export function getAccessMap(strict = false) {
   }, DEFAULT_TIMEOUT_MS, strict);
 }
 
-// ─── Evals (Phase 6 - GET /evals) ─────────────────────────────────────────────
+// ─── Evals (explicit admin POST /evals) ───────────────────────────────────────
 
-export function getEvalRun(strict = false) {
-  return apiGet<EvalRun | null>("/evals", null, DEFAULT_TIMEOUT_MS, strict);
+export function runEvalSuite() {
+  // A full fixture run performs several model calls. It is deliberately an
+  // explicit mutation with a longer bound, never a page-load GET.
+  return apiPost<Record<string, never>, EvalRun>("/evals", {}, 180000);
 }
 
 // ─── Knowledge base uploads (POST /documents/upload) ─────────────────────────
@@ -827,7 +1120,7 @@ export async function uploadDocuments(
     headers: getHeaders(),
     body: form,
     cache: "no-store",
-    credentials: "include",
+    credentials: getRequestCredentials(),
   });
   if (!res.ok) {
     handleUnauthorized(res.status);
@@ -860,17 +1153,54 @@ export function updateDocumentAccess(
 export type AppNotification = {
   id: string;
   type: string;
-  payload: { document_id?: string; title?: string; shared_by?: string };
+  payload: { document_id?: string; thread_id?: string; title?: string; shared_by?: string; mentioned_by?: string };
   read: boolean;
   created_at: string | null;
 };
 
-export function getNotifications() {
-  return apiGet<AppNotification[]>("/notifications", []);
+export type NotificationPage = {
+  items: AppNotification[];
+  next_cursor: string | null;
+  total: number;
+  unread_count: number;
+};
+
+export function getNotifications(unreadOnly = true, strict = false) {
+  return apiGet<AppNotification[]>(`/notifications?unread_only=${unreadOnly}`, [], DEFAULT_TIMEOUT_MS, strict);
+}
+
+export function getNotificationPage(
+  limit = 25,
+  cursor?: string,
+  unreadOnly = false,
+  strict = false
+) {
+  const query = new URLSearchParams({ limit: String(limit), unread_only: String(unreadOnly) });
+  if (cursor) query.set("cursor", cursor);
+  return apiGet<NotificationPage>(
+    `/notifications/page?${query}`,
+    { items: [], next_cursor: null, total: 0, unread_count: 0 },
+    DEFAULT_TIMEOUT_MS,
+    strict
+  );
+}
+
+export function dismissAgentAction(
+  actionId: string,
+  conversationId: string
+): Promise<DismissActionResult> {
+  return apiPost<{ conversation_id: string }, DismissActionResult>(
+    `/ask/actions/${actionId}/dismiss`,
+    { conversation_id: conversationId }
+  );
 }
 
 export function markNotificationRead(id: string) {
   return apiPost<Record<string, never>, AppNotification>(`/notifications/${id}/read`, {});
+}
+
+export function markAllNotificationsRead() {
+  return apiPost<Record<string, never>, { updated: number }>("/notifications/read-all", {});
 }
 
 // ─── Threads (persisted Ask conversations) ───────────────────────────────────
@@ -896,7 +1226,11 @@ export type ThreadTurnRow = {
 };
 
 export function createThread(title: string) {
-  return apiPost<{ title: string }, ThreadSummary>("/threads", { title });
+  return apiPost<{ title: string }, ThreadSummary>(
+    "/threads",
+    { title },
+    THREAD_TURN_TIMEOUT_MS
+  );
 }
 
 export function listThreads(strict = false) {
@@ -909,11 +1243,12 @@ export function getThread(id: string, strict = false) {
 
 export function appendThreadTurn(
   id: string,
-  turn: { role: "user" | "assistant"; content: string; payload?: Record<string, unknown> }
+  turn: { role: "user"; content: string }
 ) {
   return apiPost<typeof turn, { id: string; recorded: boolean; mentioned: number }>(
     `/threads/${id}/turns`,
-    turn
+    turn,
+    THREAD_TURN_TIMEOUT_MS
   );
 }
 
@@ -933,6 +1268,12 @@ export type SavedArtifactRow = {
   created_at: string | null;
 };
 
+export type SavedArtifactPage = {
+  items: SavedArtifactRow[];
+  next_cursor: string | null;
+  total: number;
+};
+
 export function saveArtifact(input: {
   title: string;
   kind: string;
@@ -944,6 +1285,20 @@ export function saveArtifact(input: {
 
 export function listArtifacts(strict = false) {
   return apiGet<SavedArtifactRow[]>("/artifacts", [], DEFAULT_TIMEOUT_MS, strict);
+}
+
+export function getArtifactPage(
+  options: { limit?: number; cursor?: string | null } = {},
+  strict = false
+) {
+  const params = new URLSearchParams({ limit: String(options.limit ?? 25) });
+  if (options.cursor) params.set("cursor", options.cursor);
+  return apiGet<SavedArtifactPage>(
+    `/artifacts/page?${params.toString()}`,
+    { items: [], next_cursor: null, total: 0 },
+    DEFAULT_TIMEOUT_MS,
+    strict
+  );
 }
 
 export function deleteArtifact(id: string) {

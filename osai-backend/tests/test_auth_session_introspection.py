@@ -22,17 +22,18 @@ from db.models import Org, User
 from db.session import SessionLocal, get_claims, get_org_id, require_admin, require_writable_org
 
 client = TestClient(app)
+_AUTH_TEST_ORG_ID = "auth-session-test-org"
 
 
 def _make_user(role: str = "member", **kwargs) -> tuple[str, str]:
     """Create a user and return (user_id, freshly issued token)."""
     uid = f"user-{uuid.uuid4()}"
     with SessionLocal() as s:
-        if s.get(Org, "demo-org") is None:
-            s.add(Org(id="demo-org", name="demo"))
+        if s.get(Org, _AUTH_TEST_ORG_ID) is None:
+            s.add(Org(id=_AUTH_TEST_ORG_ID, name="Auth session test"))
         user = User(
             id=uid,
-            org_id="demo-org",
+            org_id=_AUTH_TEST_ORG_ID,
             email=f"{uid}@t.test",
             display_name="Test Person",
             role=role,
@@ -65,7 +66,7 @@ def test_returns_identity_and_permissions(_real_auth):
     uid, token = _make_user(role="admin", data_tier="amber", permissions=["org:admin"])
     body = _get(token).json()
     assert body["user_id"] == uid
-    assert body["org_id"] == "demo-org"
+    assert body["org_id"] == _AUTH_TEST_ORG_ID
     assert body["role"] == "admin"
     assert body["is_admin"] is True
     assert body["data_tier"] == "amber"
@@ -97,6 +98,22 @@ def test_role_comes_from_the_database_not_the_stale_token(_real_auth):
     body = _get(token).json()  # same token, which still claims role=admin
     assert body["role"] == "member"
     assert body["is_admin"] is False
+
+
+def test_demotion_revokes_admin_routes_immediately(_real_auth):
+    """A stale role claim must not retain access to any require_admin route."""
+    uid, token = _make_user(role="admin")
+    with SessionLocal() as s:
+        s.get(User, uid).role = "member"
+        s.commit()
+
+    resp = client.post(
+        "/team/departments",
+        json={"name": "Must not be created"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 403
+    assert resp.json()["detail"] == "Admin role required."
 
 
 def test_revoked_token_is_rejected(_real_auth):

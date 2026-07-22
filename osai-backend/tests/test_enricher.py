@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from db.models import ActionItemRecord, Base, WorkflowRun
+from db.models import ActionItemRecord, Base, SourceDocumentRecord, WorkflowRun
 from db.repositories import seed_demo_data
 from workflows.enricher import get_workflow_context
 from workflows.prompts.action_items import build_extraction_prompt
@@ -29,6 +29,7 @@ def test_get_workflow_context_db_retrieval() -> None:
             WorkflowRun(
                 id="run-1",
                 org_id="demo-org",
+                created_by="user-1",
                 kind="meeting_action_items",
                 status="completed",
                 input_text="Sample raw transcript",
@@ -46,6 +47,19 @@ def test_get_workflow_context_db_retrieval() -> None:
                 status="needs_review",
             )
         )
+        session.add(
+            SourceDocumentRecord(
+                id="doc-project-plan",
+                org_id="demo-org",
+                source_type="notion",
+                external_id="project-plan",
+                title="OSAI Project Plan",
+                url="http://notion.so/osai",
+                text="The main goal is to ship Zoom, Notion, and Slack connections.",
+                permissions=["source:all"],
+                data_tier="normal",
+            )
+        )
         session.commit()
 
     # 2. Patch Qdrant and default_embedding_provider to mock search results
@@ -57,10 +71,13 @@ def test_get_workflow_context_db_retrieval() -> None:
         mock_hit = MagicMock()
         mock_hit.score = 0.92
         mock_hit.payload = {
+            "source_document_id": "doc-project-plan",
             "title": "OSAI Project Plan",
             "text": "The main goal is to ship Zoom, Notion, and Slack connections.",
             "source_type": "notion",
             "url": "http://notion.so/osai",
+            "permissions": ["source:all"],
+            "data_tier": "normal",
         }
 
         # Mock search method
@@ -81,6 +98,7 @@ def test_get_workflow_context_db_retrieval() -> None:
                 org_id="demo-org",
                 query_text="documentation",
                 session=session,
+                actor_user_id="user-1",
             )
 
             # Assert Qdrant search parsed correctly
@@ -89,6 +107,7 @@ def test_get_workflow_context_db_retrieval() -> None:
             assert doc["title"] == "OSAI Project Plan"
             assert doc["source_type"] == "notion"
             assert doc["confidence"] == 0.92
+            assert doc["data_tier"] == "normal"
 
             # Assert DB action items fetched correctly via join
             assert len(context["action_items"]) == 1
@@ -130,10 +149,8 @@ def test_build_extraction_prompt_formatting() -> None:
     assert "Default destination for extracted items: notion" in prompt
 
 
-@patch("workflows.runner.run_action_item_workflow")
-def test_workflows_runner_with_empty_context_fallback(mock_runner) -> None:
+def test_workflows_runner_with_empty_context_fallback() -> None:
     # Test that runner executes successfully even if DB session is None or Qdrant fails
-    mock_runner.return_value = MagicMock()
     from api.schemas.workflow_run import WorkflowRunCreate
 
     req = WorkflowRunCreate(
@@ -142,4 +159,16 @@ def test_workflows_runner_with_empty_context_fallback(mock_runner) -> None:
         destination="manual",
         data_tier="normal",
     )
-    asyncio.run(run_action_item_workflow(run_id="run-1", request=req, db=None))
+    with (
+        patch("workflows.enricher.get_workflow_context_async") as mock_context,
+        patch("workflows.runner.settings.gemini_api_key", None),
+        patch(
+            "workflows.runner.load_data_routing",
+            return_value={"normal": {"llm_allowed": True}},
+        ),
+    ):
+        mock_context.return_value = {"documents": [], "action_items": []}
+        response = asyncio.run(
+            run_action_item_workflow(run_id="run-1", request=req, db=None)
+        )
+    assert response.status == "needs_review"

@@ -19,15 +19,22 @@ from uuid import uuid4
 
 from agent.hermes_client import _correlation_id, hermes_enabled, run_via_hermes
 from agent.tools import available_action_tools, build_payload, internal_tools, tool_specs
-from api.schemas.agent import AgentAction, AskRequest, AskResponse, ConfirmActionResult
+from api.schemas.agent import (
+    AgentAction,
+    AskRequest,
+    AskResponse,
+    ConfirmActionResult,
+    DismissActionResult,
+)
 from api.schemas.connector import ConnectorAction
-from api.schemas.search import SearchRequest
+from api.schemas.search import MAX_SEARCH_QUERY_CHARS, SearchRequest
 from config import settings
 from connectors.registry import connector_registry
 from db.repositories import (
     claim_proposed_action,
     discard_proposed_action,
-    load_proposed_action,
+    dismiss_proposed_action,
+    load_action_for_resolution,
     save_proposed_action,
 )
 from memory.retriever import retrieve_answer
@@ -40,6 +47,28 @@ logger = logging.getLogger("osai.agent")
 _PROPOSED: dict[str, dict] = {}
 
 
+def _unclassified_connector_cloud_allowed(
+    org_id: str,
+    requester_permissions: list[str],
+) -> bool:
+    """Fail closed for org-scoped connector reads without document-level tiers.
+
+    Composio connections are currently shared by the organization, and live tool
+    results do not carry per-document ACL or tier metadata. Treat that data as
+    red and expose it to a cloud model only for a current admin whose workspace
+    explicitly allows red-tier cloud processing.
+    """
+    if not {"org:admin", "role:admin"}.intersection(requester_permissions):
+        return False
+    from llm.policy import cloud_llm_allowed, load_data_routing
+
+    return cloud_llm_allowed(load_data_routing(org_id), "red")
+
+
+# Ask accepts a larger prompt than the retrieval providers should receive. Keep
+# the full question for reasoning/action planning, while bounding only the RAG
+# fan-out so the public Ask contract does not accidentally inherit /search's
+# smaller request limit.
 def _forget_proposed(action_id: str) -> None:
     _PROPOSED.pop(action_id, None)
     try:
@@ -136,7 +165,7 @@ async def run_ask(
     rag = await retrieve_answer(
         SearchRequest(
             org_id=request.org_id,
-            query=request.question,
+            query=request.question[:MAX_SEARCH_QUERY_CHARS],
             requester_permissions=requester_permissions or [],
             requester_tier=requester_tier,
             requester_user_id=user_id,
@@ -152,10 +181,16 @@ async def run_ask(
     answer = rag.answer
     via: str = "osai"
 
+    requester_permissions = requester_permissions or []
+    unclassified_cloud_allowed = _unclassified_connector_cloud_allowed(
+        request.org_id,
+        requester_permissions,
+    )
+
     # Preferred grounding path (flagged): let the LLM call the org's connected
     # Composio read tools directly. Scales to any connector with no per-app code.
     # If it produces a grounded answer, use it as-is and skip Hermes.
-    if settings.composio_agent_enabled:
+    if settings.composio_agent_enabled and unclassified_cloud_allowed:
         from connectors.composio_agent import run_composio_agent
 
         agent_answer = None
@@ -167,11 +202,20 @@ async def run_ask(
         except Exception:  # noqa: BLE001 — best-effort; fall through to RAG/Hermes
             pass
         if agent_answer:
-            actions = await _plan_actions(request, agent_answer, user_id=user_id)
+            actions = await _plan_actions(
+                request,
+                agent_answer,
+                user_id=user_id,
+                # Live provider responses have no finer provenance yet.
+                source_tiers=["red"],
+            )
             return AskResponse(
                 conversation_id=conversation_id,
                 answer=agent_answer,
-                citations=rag.citations,
+                # Provider tool results have no document-level provenance yet.
+                # Never attach unrelated RAG citations: downstream delivery
+                # derives egress tiers from this field and must fail closed.
+                citations=[],
                 actions_taken=actions,
                 enough_context=True,
                 model_route=f"composio-agent:{settings.llm_model}",
@@ -184,12 +228,18 @@ async def run_ask(
     # apps without an ingestion fetcher aren't dead ends. Bounded and
     # best-effort: a slow/failed live read must not delay Ask.
     live_context = ""
-    if hermes_enabled():
+    if hermes_enabled() and unclassified_cloud_allowed:
         from connectors.composio_live import live_read_context
 
         try:
             live_context = await asyncio.wait_for(
-                live_read_context(request.org_id, request.question), timeout=20
+                live_read_context(
+                    request.org_id,
+                    request.question,
+                    requester_permissions=requester_permissions,
+                    cloud_egress_allowed=True,
+                ),
+                timeout=20,
             )
         except Exception:  # noqa: BLE001 — enrichment only
             pass
@@ -201,6 +251,8 @@ async def run_ask(
     # case keep the honest, grounded RAG response ("No relevant context found…")
     # instead of a made-up one. Fabricated data is worse than an empty result.
     grounded = rag.enough_context or bool(live_context)
+    answer_citations = rag.citations
+    answer_source_tiers = [citation.data_tier for citation in rag.citations]
     if hermes_enabled() and grounded:
         # Connector/environment awareness is injected inside run_via_hermes
         # (environment_preamble); the plain-RAG fallback below stays untouched —
@@ -210,13 +262,23 @@ async def run_ask(
             request.question,
             request.org_id,
             user_id=user_id,
-            permissions=requester_permissions or [],
+            permissions=requester_permissions,
+            requester_tier=requester_tier,
             history=request.history,
             extra_context=live_context,
+            # The policy gate above classifies live provider content as red and
+            # requires an admin plus explicit red-tier cloud permission.
+            extra_context_cloud_safe=bool(live_context),
         )
         if hermes_answer:
             answer = hermes_answer
             via = "hermes"
+            if live_context:
+                # The answer may now contain unclassified provider data. Until
+                # live results carry real citations, treat the whole answer as
+                # red and expose no unrelated retrieval provenance.
+                answer_citations = []
+                answer_source_tiers = ["red"]
         else:
             logger.warning(
                 "Hermes is configured but fell back to the in-house agent "
@@ -225,7 +287,12 @@ async def run_ask(
             )
 
     # 3. Plan actions (proposed, never auto-executed) over the final answer.
-    actions = await _plan_actions(request, answer, user_id=user_id)
+    actions = await _plan_actions(
+        request,
+        answer,
+        user_id=user_id,
+        source_tiers=answer_source_tiers,
+    )
 
     if via == "hermes":
         model_route = "hermes"
@@ -238,7 +305,7 @@ async def run_ask(
     return AskResponse(
         conversation_id=conversation_id,
         answer=answer,
-        citations=rag.citations,
+        citations=answer_citations,
         actions_taken=actions,
         # Grounded by retrieved context OR fresh live data; drives the
         # "limited context" banner, which shouldn't show when live data answered.
@@ -254,11 +321,22 @@ async def confirm_action(
     conversation_id: str,
     caller_org_id: str | None = None,
     caller_user_id: str | None = None,
-    caller_role: str | None = None,
+    caller_is_admin: bool = False,
 ) -> ConfirmActionResult:
     # Fast path (same process), then durable store (another worker / after a
     # restart between propose and confirm).
-    proposed = _PROPOSED.get(action_id) or load_proposed_action(action_id)
+    proposed = _PROPOSED.get(action_id)
+    if proposed is None:
+        state, proposed = load_action_for_resolution(action_id)
+        if state == "unavailable":
+            return ConfirmActionResult(
+                id=action_id,
+                status="failed",
+                message="Approval could not be verified right now. Please try again.",
+                error="approval_unavailable",
+            )
+        if state != "proposed":
+            proposed = None
     if proposed is None:
         return ConfirmActionResult(
             id=action_id,
@@ -282,7 +360,7 @@ async def confirm_action(
     # user), which keeps webhook- and test-driven confirms working.
     if (
         caller_user_id is not None
-        and caller_role != "admin"
+        and not caller_is_admin
         and proposed.get("user_id") not in (None, caller_user_id)
     ):
         return ConfirmActionResult(
@@ -292,12 +370,57 @@ async def confirm_action(
             error="not_approver",
         )
 
+    if proposed.get("provider") != "internal":
+        from llm.policy import connector_egress_allowed, load_data_routing
+
+        routing = load_data_routing(proposed["org_id"])
+        if not connector_egress_allowed(
+            routing,
+            proposed.get("source_tiers"),
+            proposed.get("tool"),
+        ):
+            # Legacy and user-authored no-citation actions have no trustworthy
+            # provenance. Absence is intentionally unknown, so they remain
+            # unclaimed and can only be retried after a newly sourced proposal.
+            return ConfirmActionResult(
+                id=action_id,
+                status="failed",
+                message="Delivery blocked by data-routing policy; review it in Sheldon.",
+                error="delivery_policy_blocked",
+            )
+
     # Single-consume guard: atomically claim the action before any execution so
     # two concurrent confirms can't both drive the same real side effect (SEC-007).
-    # The loser gets "already handled"; a failed execution has still consumed the
-    # proposal, so the user re-asks rather than risking a duplicate send.
-    if claim_proposed_action(action_id) == "taken":
-        _PROPOSED.pop(action_id, None)
+    # Every non-claimed outcome returns before execution. A failed execution has
+    # still consumed the proposal, so the user re-asks rather than risking a
+    # duplicate send.
+    claim = claim_proposed_action(action_id)
+    if claim != "claimed":
+        # A temporary store outage can be retried once the durable claim is
+        # available again. Every other outcome is terminal for the local cache.
+        if claim != "unavailable":
+            _PROPOSED.pop(action_id, None)
+        if claim == "expired":
+            return ConfirmActionResult(
+                id=action_id,
+                status="failed",
+                message="This approval expired. Ask OSAI to propose the action again.",
+                error="approval_expired",
+            )
+        if claim == "absent":
+            return ConfirmActionResult(
+                id=action_id,
+                status="failed",
+                message="This approval was not saved. Ask OSAI to propose the action again.",
+                error="approval_not_persisted",
+            )
+        if claim == "unavailable":
+            return ConfirmActionResult(
+                id=action_id,
+                status="failed",
+                message="Approval could not be verified right now. Please try again.",
+                error="approval_unavailable",
+            )
         return ConfirmActionResult(
             id=action_id,
             status="failed",
@@ -324,11 +447,18 @@ async def confirm_action(
                 external_url=result.url,
                 message=f"Executed via {proposed['tool']}.",
             )
+        logger.warning(
+            "Action %s connector %s returned %s: %s",
+            action_id,
+            proposed["tool"],
+            result.status,
+            result.error,
+        )
         return ConfirmActionResult(
             id=action_id,
             status="failed",
-            message=f"{proposed['tool']} returned {result.status}.",
-            error=result.error,
+            message="Connector action failed.",
+            error="connector_action_failed",
         )
     except KeyError:
         return ConfirmActionResult(
@@ -340,8 +470,79 @@ async def confirm_action(
     except Exception as exc:  # noqa: BLE001
         logger.error("Action %s execution failed: %s", action_id, exc)
         return ConfirmActionResult(
-            id=action_id, status="failed", message="Execution error.", error=str(exc)
+            id=action_id,
+            status="failed",
+            message="Connector execution failed.",
+            error="connector_execution_failed",
         )
+
+
+def dismiss_action(
+    action_id: str,
+    caller_org_id: str | None = None,
+    caller_user_id: str | None = None,
+    caller_is_admin: bool = False,
+) -> DismissActionResult:
+    """Revoke a proposed action without allowing a confirm race to execute it."""
+    proposed = _PROPOSED.get(action_id)
+    state = "proposed"
+    if proposed is None:
+        state, proposed = load_action_for_resolution(action_id)
+    if state == "unavailable":
+        return DismissActionResult(
+            id=action_id,
+            status="failed",
+            message="Approval could not be verified right now. Please try again.",
+            error="approval_unavailable",
+        )
+    if proposed is None:
+        return DismissActionResult(
+            id=action_id,
+            status="failed",
+            message="Action not found or already handled.",
+            error="unknown_action",
+        )
+    if caller_org_id is not None and proposed.get("org_id") != caller_org_id:
+        return DismissActionResult(
+            id=action_id,
+            status="failed",
+            message="This action does not belong to your workspace.",
+            error="org_mismatch",
+        )
+    if (
+        caller_user_id is not None
+        and not caller_is_admin
+        and proposed.get("user_id") not in (None, caller_user_id)
+    ):
+        return DismissActionResult(
+            id=action_id,
+            status="failed",
+            message="Only the requesting user or a workspace admin can dismiss this action.",
+            error="not_approver",
+        )
+
+    outcome = dismiss_proposed_action(action_id)
+    if outcome in ("dismissed", "already_dismissed", "absent"):
+        _PROPOSED.pop(action_id, None)
+        return DismissActionResult(
+            id=action_id,
+            status="skipped",
+            message="Action dismissed.",
+        )
+    if outcome == "unavailable":
+        return DismissActionResult(
+            id=action_id,
+            status="failed",
+            message="Approval could not be verified right now. Please try again.",
+            error="approval_unavailable",
+        )
+    _PROPOSED.pop(action_id, None)
+    return DismissActionResult(
+        id=action_id,
+        status="failed",
+        message="Action not found or already handled.",
+        error="already_handled",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -350,7 +551,10 @@ async def confirm_action(
 
 
 async def _plan_actions(
-    request: AskRequest, answer: str, user_id: str | None = None
+    request: AskRequest,
+    answer: str,
+    user_id: str | None = None,
+    source_tiers: list[str | None] | None = None,
 ) -> list[AgentAction]:
     from connectors.composio_tool import get_default_composio_client
 
@@ -359,10 +563,23 @@ async def _plan_actions(
     composio = get_default_composio_client()
     if settings.gemini_api_key or settings.llm_api_key:
         try:
-            return await _llm_plan(request, answer, tools, user_id=user_id)
+            return await _llm_plan(
+                request,
+                answer,
+                tools,
+                user_id=user_id,
+                source_tiers=source_tiers,
+            )
         except Exception as exc:  # noqa: BLE001 — degrade to heuristic on any LLM failure
             logger.info("LLM action planning unavailable (%s); using heuristic.", exc)
-    return _heuristic_plan(request, answer, tools, composio, user_id=user_id)
+    return _heuristic_plan(
+        request,
+        answer,
+        tools,
+        composio,
+        user_id=user_id,
+        source_tiers=source_tiers,
+    )
 
 
 def _record(
@@ -373,6 +590,7 @@ def _record(
     payload: dict,
     summary: str,
     user_id: str | None = None,
+    source_tiers: list[str | None] | None = None,
 ) -> AgentAction:
     """Build a proposed action and stash its execution descriptor for confirm."""
     action = AgentAction(
@@ -392,11 +610,12 @@ def _record(
         "payload": payload,
         "summary": summary,
         "user_id": user_id,
+        "source_tiers": list(source_tiers or []),
     }
     _PROPOSED[action.id] = descriptor  # fast path within this process
     try:
         save_proposed_action(action.id, descriptor)  # durable across workers/restart
-    except Exception:  # noqa: BLE001 — durability is best-effort; in-process still works
+    except Exception:  # noqa: BLE001 - confirmation fails closed without durability
         logger.warning("Could not persist proposed action %s", action.id)
     return action
 
@@ -419,21 +638,31 @@ def _remember_resolution(proposed: dict) -> None:
 
 
 async def _llm_plan(
-    request: AskRequest, answer: str, tools: dict, user_id: str | None = None
+    request: AskRequest,
+    answer: str,
+    tools: dict,
+    user_id: str | None = None,
+    source_tiers: list[str | None] | None = None,
 ) -> list[AgentAction]:
     from llm.gemini import generate_json
 
+    intent = (
+        "The user selected Take action. Treat that as explicit action intent, but only "
+        "propose an available action with sufficient parameters; never guess missing "
+        "targets or destructive details.\n"
+        if request.intent == "action"
+        else ""
+    )
     history_block = ""
     if request.history:
-        turns = "\n".join(
-            f"{m.role}: {m.content}" for m in request.history[-10:]
-        )
+        turns = "\n".join(f"{m.role}: {m.content}" for m in request.history[-10:])
         history_block = f"Conversation so far:\n{turns}\n\n"
     prompt = (
         "You decide whether the user's request implies an action in an external "
         "tool. Available tools (JSON schemas):\n"
         f"{json.dumps(tool_specs(request.org_id))}\n\n"
         f"{history_block}"
+        f"{intent}"
         f"User request: {request.question}\n"
         f"Known answer/context: {answer[:1500]}\n\n"
         "If the request is to set up a recurring task/automation but details are "
@@ -464,6 +693,7 @@ async def _llm_plan(
                 payload,
                 item.get("summary", spec["description"]),
                 user_id=user_id,
+                source_tiers=source_tiers,
             )
         )
     return actions
@@ -480,7 +710,12 @@ def _infer_cadence(q: str) -> str | None:
 
 
 def _heuristic_plan(
-    request: AskRequest, answer: str, tools: dict, composio, user_id: str | None = None
+    request: AskRequest,
+    answer: str,
+    tools: dict,
+    composio,
+    user_id: str | None = None,
+    source_tiers: list[str | None] | None = None,
 ) -> list[AgentAction]:
     q = request.question.lower()
     summary_src = request.question.strip()
@@ -503,6 +738,7 @@ def _heuristic_plan(
                     ),
                     f"Create a {cadence} automation: {summary_src[:80]}",
                     user_id=user_id,
+                    source_tiers=source_tiers,
                 )
             ]
         return []
@@ -518,6 +754,8 @@ def _heuristic_plan(
                 "COMPOSIO_SEARCH_DUCK_DUCK_GO_SEARCH",
                 {"query": summary_src[:200]},
                 f"Search the web: {summary_src[:80]}",
+                user_id=user_id,
+                source_tiers=source_tiers,
             )
         ]
     if "create_freshdesk_ticket" in tools and any(
@@ -534,6 +772,8 @@ def _heuristic_plan(
                     {"subject": summary_src[:120], "description": answer[:1000]},
                 ),
                 f"Open a Freshdesk ticket: {summary_src[:80]}",
+                user_id=user_id,
+                source_tiers=source_tiers,
             )
         ]
     if "post_slack_message" in tools and any(
@@ -550,6 +790,8 @@ def _heuristic_plan(
                     {"channel": "general", "text": summary_src[:500]},
                 ),
                 "Post a Slack message to #general",
+                user_id=user_id,
+                source_tiers=source_tiers,
             )
         ]
     if "create_notion_page" in tools and any(
@@ -566,6 +808,8 @@ def _heuristic_plan(
                     {"title": summary_src[:120], "description": answer[:1000]},
                 ),
                 f"Create a Notion page: {summary_src[:80]}",
+                user_id=user_id,
+                source_tiers=source_tiers,
             )
         ]
     return []
@@ -573,6 +817,7 @@ def _heuristic_plan(
 
 def _execute_internal(action_id: str, proposed: dict) -> ConfirmActionResult:
     """Execute an internal (OSAI-object) action: create/update an automation."""
+    from db.models import Automation, User
     from db.repositories import create_automation, update_automation
     from db.session import SessionLocal
 
@@ -581,10 +826,19 @@ def _execute_internal(action_id: str, proposed: dict) -> ConfirmActionResult:
     try:
         with SessionLocal() as session:
             if action == "create_automation":
+                owner_id = proposed.get("user_id")
+                owner = session.get(User, owner_id) if owner_id else None
+                if owner is None or owner.org_id != proposed["org_id"]:
+                    return ConfirmActionResult(
+                        id=action_id,
+                        status="failed",
+                        message="An automation needs a current workspace owner.",
+                        error="automation_owner_required",
+                    )
                 auto = create_automation(
                     session,
                     org_id=proposed["org_id"],
-                    user_id=proposed.get("user_id"),
+                    user_id=owner.id,
                     name=payload.get("name") or "OSAI automation",
                     prompt=payload.get("prompt") or "",
                     cadence=payload.get("cadence") or "manual",
@@ -600,6 +854,22 @@ def _execute_internal(action_id: str, proposed: dict) -> ConfirmActionResult:
                     ),
                 )
             if action == "update_automation":
+                actor_id = proposed.get("user_id")
+                actor = session.get(User, actor_id) if actor_id else None
+                existing = session.get(Automation, payload.get("automation_id", ""))
+                if (
+                    actor is None
+                    or actor.org_id != proposed["org_id"]
+                    or existing is None
+                    or existing.org_id != proposed["org_id"]
+                    or existing.user_id != actor.id
+                ):
+                    return ConfirmActionResult(
+                        id=action_id,
+                        status="failed",
+                        message="Automation not found in this workspace.",
+                        error="automation_missing",
+                    )
                 auto = update_automation(
                     session,
                     proposed["org_id"],
@@ -626,12 +896,15 @@ def _execute_internal(action_id: str, proposed: dict) -> ConfirmActionResult:
     except Exception as exc:  # noqa: BLE001
         logger.error("Internal action %s failed: %s", action_id, exc)
         return ConfirmActionResult(
-            id=action_id, status="failed", message="Execution error.", error=str(exc)
+            id=action_id,
+            status="failed",
+            message="Internal action failed.",
+            error="internal_action_failed",
         )
     return ConfirmActionResult(
         id=action_id,
         status="failed",
-        message=f"Unknown internal action {action!r}.",
+        message="Unknown internal action.",
         error="unknown_internal_action",
     )
 
@@ -641,13 +914,14 @@ async def _execute_composio(action_id: str, proposed: dict) -> ConfirmActionResu
 
     client = get_default_composio_client()
     try:
-        result = await client.execute(
-            proposed["action"], proposed["payload"], proposed["org_id"]
-        )
+        result = await client.execute(proposed["action"], proposed["payload"], proposed["org_id"])
     except Exception as exc:  # noqa: BLE001
         logger.error("Composio execute %s failed: %s", proposed["action"], exc)
         return ConfirmActionResult(
-            id=action_id, status="failed", message="Composio execution error.", error=str(exc)
+            id=action_id,
+            status="failed",
+            message="Composio execution failed.",
+            error="composio_execution_failed",
         )
     _forget_proposed(action_id)
     if result.get("successful"):
@@ -657,9 +931,14 @@ async def _execute_composio(action_id: str, proposed: dict) -> ConfirmActionResu
             status="executed",
             message=f"Executed {proposed['action']} via Composio.",
         )
+    logger.warning(
+        "Composio action %s failed: %s",
+        proposed["action"],
+        result.get("error"),
+    )
     return ConfirmActionResult(
         id=action_id,
         status="failed",
-        message=f"Composio {proposed['action']} did not succeed.",
-        error=str(result.get("error")),
+        message="Composio action failed.",
+        error="composio_action_failed",
     )

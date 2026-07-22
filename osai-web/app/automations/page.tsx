@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -22,6 +22,8 @@ import {
   createAutomation,
   deleteAutomation,
   getAutomations,
+  getCapabilities,
+  getIntegrations,
   getWorkflowRuns,
   postWorkflow,
   mintAutomationToken,
@@ -47,11 +49,28 @@ import {
 } from "@/components/ui/dialog";
 
 const CADENCES = ["manual", "hourly", "daily", "weekly"] as const;
-const CADENCE_OPTIONS = CADENCES.map((value) => ({
-  value,
-  label: value === "manual" ? "On demand" : `${value} (scheduler required)`,
-  disabled: value !== "manual",
-}));
+type CadenceOption = { value: string; label: string; disabled?: boolean };
+
+function cadenceOptionsFor(available: readonly string[]): CadenceOption[] {
+  const enabled = new Set(available);
+  return CADENCES.map((value) => {
+    const label = value === "manual"
+      ? "On demand"
+      : `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
+    return {
+      value,
+      label: enabled.has(value) ? label : `${label} (scheduler unavailable)`,
+      disabled: !enabled.has(value),
+    };
+  });
+}
+
+const WORKFLOW_DESTINATIONS = [
+  { value: "manual", label: "Manual Review" },
+  { value: "notion", label: "Notion" },
+  { value: "freshdesk", label: "Freshdesk" },
+  { value: "slack", label: "Slack" },
+] as const;
 
 const DEMO_AUTOMATIONS: Automation[] = [
   {
@@ -268,10 +287,12 @@ function RunCard({
 
 function EditAutomationForm({
   automation,
+  cadenceOptions,
   onSaved,
   onCancel,
 }: {
   automation: Automation;
+  cadenceOptions: CadenceOption[];
   onSaved: (updated?: Automation) => void;
   onCancel: () => void;
 }) {
@@ -335,7 +356,7 @@ function EditAutomationForm({
           aria-label="Automation cadence"
           value={cadence}
           onValueChange={setCadence}
-          options={CADENCE_OPTIONS}
+          options={cadenceOptions}
         />
         <Select
           aria-label="Automation status"
@@ -394,6 +415,9 @@ export default function AutomationsPage() {
   const [name, setName] = useState("");
   const [prompt, setPrompt] = useState("");
   const [cadence, setCadence] = useState<string>("manual");
+  const [availableCadences, setAvailableCadences] = useState<string[]>(["manual"]);
+  const [capabilitiesLoading, setCapabilitiesLoading] = useState(true);
+  const [capabilitiesLoadError, setCapabilitiesLoadError] = useState("");
   const [automationLoading, setAutomationLoading] = useState(true);
   const [automationLoadError, setAutomationLoadError] = useState("");
   const [creating, setCreating] = useState(false);
@@ -482,8 +506,75 @@ export default function AutomationsPage() {
   const [runsLoadError, setRunsLoadError] = useState("");
   const [inputText, setInputText] = useState("");
   const [destination, setDestination] = useState("manual");
+  const [destinationOptions, setDestinationOptions] = useState<
+    Array<{ value: string; label: string }>
+  >([WORKFLOW_DESTINATIONS[0]]);
+  const [destinationsLoading, setDestinationsLoading] = useState(true);
+  const [destinationsLoadError, setDestinationsLoadError] = useState("");
   const [extracting, setExtracting] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  const cadenceOptions = cadenceOptionsFor(availableCadences);
+  const recurringAvailable = availableCadences.some((value) => value !== "manual");
+
+  const loadCapabilities = useCallback(() => {
+    setCapabilitiesLoading(true);
+    setCapabilitiesLoadError("");
+    if (isDemo()) {
+      setAvailableCadences(["manual"]);
+      setCadence("manual");
+      setCapabilitiesLoading(false);
+      return;
+    }
+    getCapabilities(true)
+      .then((data) => {
+        const supported = CADENCES.filter((value) =>
+          data.automation_cadences.includes(value)
+        );
+        const safe = supported.includes("manual") ? supported : ["manual", ...supported];
+        setAvailableCadences(safe);
+        setCadence((current) => safe.some((value) => value === current) ? current : "manual");
+      })
+      .catch(() => {
+        setAvailableCadences(["manual"]);
+        setCadence("manual");
+        setCapabilitiesLoadError(
+          "Scheduler availability could not be checked. Recurring cadences are disabled until the deployment responds."
+        );
+      })
+      .finally(() => setCapabilitiesLoading(false));
+  }, []);
+
+  const loadDestinations = useCallback(() => {
+    setDestinationsLoading(true);
+    setDestinationsLoadError("");
+    if (isDemo()) {
+      setDestinationOptions([...WORKFLOW_DESTINATIONS]);
+      setDestinationsLoading(false);
+      return;
+    }
+    getIntegrations(true)
+      .then((data) => {
+        const connected = new Set(
+          data.filter((item) => item.auth_state === "connected").map((item) => item.key)
+        );
+        const available = WORKFLOW_DESTINATIONS.filter(
+          (option) => option.value === "manual" || connected.has(option.value)
+        );
+        setDestinationOptions([...available]);
+        setDestination((current) =>
+          available.some((option) => option.value === current) ? current : "manual"
+        );
+      })
+      .catch(() => {
+        setDestinationOptions([WORKFLOW_DESTINATIONS[0]]);
+        setDestination("manual");
+        setDestinationsLoadError(
+          "Connected destinations could not be loaded. Manual review remains available."
+        );
+      })
+      .finally(() => setDestinationsLoading(false));
+  }, []);
 
   function refresh() {
     if (isDemo()) {
@@ -499,6 +590,7 @@ export default function AutomationsPage() {
       .finally(() => setAutomationLoading(false));
   }
   useEffect(refresh, []);
+  useEffect(() => { loadCapabilities(); }, [loadCapabilities]);
   useEffect(() => {
     if (isDemo()) {
       setRuns(DEMO_WORKFLOW_RUNS);
@@ -516,6 +608,7 @@ export default function AutomationsPage() {
     }).catch(() => setRunsLoadError("Workflow history could not be loaded. Check your connection and retry."))
       .finally(() => setRunsLoading(false));
   }, []);
+  useEffect(() => { loadDestinations(); }, [loadDestinations]);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -770,13 +863,26 @@ export default function AutomationsPage() {
                 aria-label="Automation cadence"
                 value={cadence}
                 onValueChange={setCadence}
-                options={CADENCE_OPTIONS}
+                options={cadenceOptions}
               />
             </div>
-            {cadence !== "manual" && (
+            {capabilitiesLoading && (
+              <p className="meta" role="status" style={{ marginBottom: 10, fontSize: 11 }}>
+                Checking scheduler availability...
+              </p>
+            )}
+            {capabilitiesLoadError && (
+              <p className="error-text" role="alert" style={{ marginBottom: 10 }}>
+                {capabilitiesLoadError}{" "}
+                <button type="button" className="btn btn-xs" onClick={loadCapabilities}>
+                  Retry
+                </button>
+              </p>
+            )}
+            {!capabilitiesLoading && !capabilitiesLoadError && cadence !== "manual" && (
               <p className="meta" style={{ marginBottom: 10, fontSize: 11, color: "var(--amber, var(--text-secondary))" }}>
-                Recurring cadences are not firing automatically in this deployment yet - they need the
-                background scheduler. Until then, run this automation with &quot;Run now&quot;.
+                This automation will run automatically on the {cadence}{" "}cadence. You can still use
+                &quot;Run now&quot; between scheduled runs.
               </p>
             )}
             <textarea
@@ -935,6 +1041,7 @@ export default function AutomationsPage() {
                   {editingId === a.id && (
                     <EditAutomationForm
                       automation={a}
+                      cadenceOptions={cadenceOptions}
                       onSaved={(updated) => {
                         if (updated) setItems((prev) => prev.map((item) => item.id === updated.id ? updated : item));
                         setEditingId(null);
@@ -966,10 +1073,14 @@ export default function AutomationsPage() {
             </div>
           )}
 
-          <p className="meta" style={{ marginTop: 20, fontSize: 11 }}>
-            Recurring runs on the chosen cadence require the background scheduler (Celery worker) to be
-            enabled in deployment. &quot;Run now&quot; works today.
-          </p>
+          {!capabilitiesLoading && !capabilitiesLoadError && (
+            <p className="meta" style={{ marginTop: 20, fontSize: 11 }}>
+              {recurringAvailable
+                ? "The deployment scheduler is available; recurring cadences are enabled."
+                : "The deployment scheduler is unavailable, so only on-demand runs are enabled."}
+              {" \"Run now\" works whenever the API is healthy."}
+            </p>
+          )}
         </div>
       ) : (
         <div role="tabpanel" id="automation-panel-transcript" aria-labelledby="automation-tab-transcript">
@@ -992,13 +1103,7 @@ export default function AutomationsPage() {
                   aria-label="Action item destination"
                   value={destination}
                   onValueChange={setDestination}
-                  options={[
-                    { value: "manual", label: "Manual Review" },
-                    { value: "notion", label: "Notion" },
-                    { value: "freshdesk", label: "Freshdesk" },
-                    { value: "slack", label: "Slack" },
-                    { value: "google_drive", label: "Google Drive" },
-                  ]}
+                  options={destinationOptions}
                 />
                 <button type="submit" className="btn btn-primary" disabled={extracting || !inputText.trim()}>
                   {extracting ? "Running…" : "Extract action items"}
@@ -1006,6 +1111,20 @@ export default function AutomationsPage() {
                 {!inputText.trim() && (
                   <span className="meta">Paste some text to extract action items from.</span>
                 )}
+                {destinationsLoadError ? (
+                  <span className="error-text" role="alert">
+                    {destinationsLoadError}{" "}
+                    <button type="button" className="btn btn-xs" onClick={loadDestinations}>
+                      Retry
+                    </button>
+                  </span>
+                ) : destinationsLoading ? (
+                  <span className="meta" role="status">Checking connected destinations...</span>
+                ) : destinationOptions.length === 1 ? (
+                  <span className="meta">
+                    <Link href="/integrations">Connect an integration</Link> to enable external destinations.
+                  </span>
+                ) : null}
               </div>
             </form>
           </div>

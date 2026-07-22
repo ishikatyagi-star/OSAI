@@ -11,6 +11,7 @@ from __future__ import annotations
 import pytest
 
 from api.main import app
+from api.routes.automations import get_scheduler_available
 from db.session import get_org_id, require_admin, require_writable_org
 
 
@@ -27,10 +28,14 @@ def _override_auth():
         "role": "admin",
         "sub": "test-admin",
     }
+    # Functional tests assume optional scheduler infrastructure is provisioned;
+    # dedicated tests override this to verify fail-closed behavior.
+    app.dependency_overrides[get_scheduler_available] = lambda: True
     yield
     app.dependency_overrides.pop(get_org_id, None)
     app.dependency_overrides.pop(require_writable_org, None)
     app.dependency_overrides.pop(require_admin, None)
+    app.dependency_overrides.pop(get_scheduler_available, None)
 
 
 @pytest.fixture(autouse=True)

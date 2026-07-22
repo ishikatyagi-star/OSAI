@@ -1,8 +1,22 @@
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    Float,
+    ForeignKey,
+    ForeignKeyConstraint,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, validates
 
 
 class Base(DeclarativeBase):
@@ -17,6 +31,18 @@ def now_utc() -> datetime:
     return datetime.now(UTC)
 
 
+def normalize_email(value: str) -> str:
+    """Return the canonical identity key used for every user email."""
+    return value.strip().lower()
+
+
+def utc_iso(value: datetime) -> str:
+    """Serialize database timestamps as unambiguous UTC instants."""
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=UTC)
+    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
+
+
 class Org(Base):
     __tablename__ = "orgs"
 
@@ -28,8 +54,36 @@ class Org(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
 
 
+class OAuthStateUse(Base):
+    """Durable single-use marker for signed OAuth callback state."""
+
+    __tablename__ = "oauth_state_uses"
+
+    jti_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, index=True)
+    consumed_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
+
+
+class SlackRequestUse(Base):
+    """Durable single-use marker for a signed Slack request."""
+
+    __tablename__ = "slack_request_uses"
+
+    request_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, index=True)
+    consumed_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
+
+
 class User(Base):
     __tablename__ = "users"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["org_id", "department_id"],
+            ["departments.org_id", "departments.id"],
+            name="fk_users_department_id_departments",
+            ondelete="RESTRICT",
+        ),
+    )
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
     org_id: Mapped[str] = mapped_column(String, ForeignKey("orgs.id"), index=True)
@@ -48,6 +102,15 @@ class User(Base):
     token_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
 
+    @validates("email")
+    def _normalize_email(self, _key: str, value: str) -> str:
+        return normalize_email(value)
+
+
+# The validator protects ORM writes. The expression index also protects direct
+# SQL/import paths and makes the normalized identity invariant a database rule.
+Index("uq_users_email_normalized", func.lower(func.trim(User.email)), unique=True)
+
 
 class Department(Base):
     __tablename__ = "departments"
@@ -59,12 +122,21 @@ class Department(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
 
 
+Index("uq_departments_org_id_id", Department.org_id, Department.id, unique=True)
+
+
 class Invite(Base):
-    """A pending team invitation. Auto-accepted on first sign-in by matching the
-    verified email — so an admin can add teammates with a role/department before
-    they ever log in, and they land in the same org."""
+    """A pending team invitation accepted only through its opaque, expiring link."""
 
     __tablename__ = "invites"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["org_id", "department_id"],
+            ["departments.org_id", "departments.id"],
+            name="fk_invites_department_id_departments",
+            ondelete="RESTRICT",
+        ),
+    )
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
     org_id: Mapped[str] = mapped_column(String, ForeignKey("orgs.id"), index=True)
@@ -124,6 +196,14 @@ class SyncRun(Base):
 
 class SourceDocumentRecord(Base):
     __tablename__ = "source_documents"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["org_id", "department_id"],
+            ["departments.org_id", "departments.id"],
+            name="fk_source_documents_department_id_departments",
+            ondelete="RESTRICT",
+        ),
+    )
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
     org_id: Mapped[str] = mapped_column(String, index=True)
@@ -165,6 +245,9 @@ class WorkflowRun(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
     org_id: Mapped[str] = mapped_column(String, ForeignKey("orgs.id"), index=True)
+    # Nullable only for rows created before workflow ownership was introduced.
+    # Legacy rows are intentionally visible/actionable by current admins only.
+    created_by: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     kind: Mapped[str] = mapped_column(String, index=True)
     status: Mapped[str] = mapped_column(String, index=True)
     input_text: Mapped[str] = mapped_column(Text)
@@ -186,6 +269,10 @@ class ActionItemRecord(Base):
     destination: Mapped[str] = mapped_column(String, default="manual")
     confidence: Mapped[float] = mapped_column(Float, default=0.0)
     status: Mapped[str] = mapped_column(String, default="needs_review")
+    # Stable provider key + durable claim timestamp. Once a connector call may
+    # have started, this row is never made retryable without reconciliation.
+    execution_key: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    execution_started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     external_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     executed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
@@ -232,6 +319,34 @@ class Automation(Base):
     # Outcome of the most recent delivery attempt (status + error), for honest UI.
     last_delivery: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc, onupdate=now_utc)
+
+
+class AutomationTriggerRequest(Base):
+    """Durable idempotency record for one external automation trigger."""
+
+    __tablename__ = "automation_trigger_requests"
+    __table_args__ = (
+        UniqueConstraint(
+            "automation_id",
+            "idempotency_key",
+            name="uq_automation_trigger_request_key",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
+    automation_id: Mapped[str] = mapped_column(
+        String,
+        ForeignKey("automations.id", ondelete="CASCADE"),
+        index=True,
+    )
+    org_id: Mapped[str] = mapped_column(String, ForeignKey("orgs.id"), index=True)
+    idempotency_key: Mapped[str] = mapped_column(String(128))
+    request_hash: Mapped[str] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String, default="running", index=True)
+    response: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    http_status: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc, index=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc, onupdate=now_utc)
 
 
@@ -330,6 +445,29 @@ class ThreadTurn(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc, index=True)
 
 
+class AskExchange(Base):
+    """Durable idempotency lease for one signed-in Ask request."""
+
+    __tablename__ = "ask_exchanges"
+    __table_args__ = (
+        UniqueConstraint("org_id", "user_id", "request_id", name="uq_ask_exchanges_request"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    org_id: Mapped[str] = mapped_column(String, ForeignKey("orgs.id"), index=True)
+    user_id: Mapped[str] = mapped_column(String, index=True)
+    request_id: Mapped[str] = mapped_column(String(36))
+    request_hash: Mapped[str] = mapped_column(String(64))
+    question: Mapped[str] = mapped_column(Text)
+    requested_thread_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    status: Mapped[str] = mapped_column(String, default="running", index=True)
+    lease_id: Mapped[str] = mapped_column(String(36))
+    response: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    thread_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
+
+
 class SavedArtifact(Base):
     """A pinned answer artifact (table, brief, action plan) — reusable output
     that outlives its conversation. PromptQL-style 'artifacts as memory'."""
@@ -354,11 +492,20 @@ class SqlSource(Base):
     queried where it lives, never copied into the knowledge base."""
 
     __tablename__ = "sql_sources"
+    __table_args__ = (
+        CheckConstraint(
+            "dsn LIKE 'osai-fernet-v1:%'",
+            name="ck_sql_sources_dsn_encrypted",
+        ),
+    )
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
     org_id: Mapped[str] = mapped_column(String, ForeignKey("orgs.id"), index=True)
     name: Mapped[str] = mapped_column(String)
-    dsn: Mapped[str] = mapped_column(Text)
+    # Keep the physical column name for an in-place migration, but expose only
+    # ciphertext semantics to application code so a future caller cannot mistake
+    # this value for a connection-ready DSN.
+    dsn_encrypted: Mapped[str] = mapped_column("dsn", Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
 
 

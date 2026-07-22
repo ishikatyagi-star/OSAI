@@ -29,8 +29,9 @@ class _FakeComposio:
 
 @pytest.fixture
 def _no_db(monkeypatch):
-    # Force the DB fallback to an empty list so the overlay is the only source.
-    monkeypatch.setattr(integrations_routes, "try_db", lambda name, fb, fn: [])
+    # Keep the provider overlay isolated without restoring the old fail-open
+    # `try_db` behavior: production database failures must remain truthful 503s.
+    monkeypatch.setattr(integrations_routes, "list_db_integrations", lambda _db, _org: [])
 
 
 async def test_expired_only_connection_reads_expired(monkeypatch, _no_db):

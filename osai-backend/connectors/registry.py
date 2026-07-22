@@ -4,6 +4,11 @@ from connectors.google_drive import GoogleDriveConnector
 from connectors.notion import NotionConnector
 from connectors.slack import SlackConnector
 
+# These keys may still exist in databases created by older releases, but they
+# must never be presented as usable connections. Zoom remains hard-disabled
+# until a tenant-bound authenticated ingestion design exists.
+HARD_DISABLED_CONNECTOR_KEYS = frozenset({"zoom"})
+
 
 class ConnectorRegistry:
     def __init__(self) -> None:

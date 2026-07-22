@@ -1,11 +1,15 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+MAX_SEARCH_QUERY_CHARS = 4_000
 
 
 class SearchRequest(BaseModel):
     # org_id / requester_permissions / requester_tier are resolved server-side from
     # the caller's session (see the /search route); client-supplied values ignored.
     org_id: str = ""
-    query: str
+    # Retrieval queries are intentionally smaller than the 40k Ask prompt: this
+    # text fans out across search providers and should not be a bulk-input path.
+    query: str = Field(min_length=1, max_length=MAX_SEARCH_QUERY_CHARS)
     requester_permissions: list[str] = Field(default_factory=list)
     # Caller's data-clearance tier; "red" = see-all (admin/system/demo default).
     requester_tier: str = "red"
@@ -15,6 +19,14 @@ class SearchRequest(BaseModel):
     # Optional department scope: restrict retrieval to documents attributed to
     # this department ("Ask Engineering"). None = whole org corpus.
     department_id: str | None = None
+
+    @field_validator("query")
+    @classmethod
+    def normalize_non_blank_query(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("query must contain non-whitespace characters")
+        return value
 
 
 class SourceCitation(BaseModel):

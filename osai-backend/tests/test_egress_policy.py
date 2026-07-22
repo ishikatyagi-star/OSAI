@@ -10,7 +10,11 @@ from types import SimpleNamespace
 
 from api.schemas.search import SearchRequest
 from config import settings
-from llm.policy import DEFAULT_DATA_ROUTING, cloud_llm_allowed
+from llm.policy import (
+    DEFAULT_DATA_ROUTING,
+    cloud_llm_allowed,
+    connector_egress_allowed,
+)
 
 # --- policy decisions -------------------------------------------------------
 
@@ -25,13 +29,23 @@ def test_unknown_tier_is_denied():
     assert cloud_llm_allowed(DEFAULT_DATA_ROUTING, "ultraviolet") is False
 
 
-def test_missing_tier_defaults_to_normal():
-    assert cloud_llm_allowed(DEFAULT_DATA_ROUTING, None) is True
+def test_missing_tier_is_denied():
+    assert cloud_llm_allowed(DEFAULT_DATA_ROUTING, None) is False
 
 
 def test_org_override_can_allow_amber():
-    routing = {**DEFAULT_DATA_ROUTING, "amber": {"llm_allowed": True}}
+    routing = {
+        **DEFAULT_DATA_ROUTING,
+        "amber": {**DEFAULT_DATA_ROUTING["amber"], "llm_allowed": True},
+    }
     assert cloud_llm_allowed(routing, "amber") is True
+
+
+def test_connector_egress_requires_provenance_and_every_tier_allowlist():
+    assert connector_egress_allowed(DEFAULT_DATA_ROUTING, [], "slack") is False
+    assert connector_egress_allowed(DEFAULT_DATA_ROUTING, [None], "slack") is False
+    assert connector_egress_allowed(DEFAULT_DATA_ROUTING, ["normal"], "slack") is True
+    assert connector_egress_allowed(DEFAULT_DATA_ROUTING, ["normal", "amber"], "slack") is False
 
 
 # --- retriever enforcement --------------------------------------------------
@@ -65,6 +79,9 @@ def _patch_retrieval(monkeypatch, hits):
 
     monkeypatch.setattr(retriever, "get_default_qdrant_store", lambda: _FakeStore())
     monkeypatch.setattr(retriever, "default_embedding_provider", _FakeEmbeddings())
+    monkeypatch.setattr(
+        retriever, "_authoritative_document_hits", lambda candidate_hits, _org_id: candidate_hits
+    )
     monkeypatch.setattr(org_memory, "fetch_relevant", lambda org_id, q, **kw: [])
     monkeypatch.setattr(
         retriever, "load_data_routing", lambda org_id: DEFAULT_DATA_ROUTING
@@ -166,7 +183,7 @@ async def test_hermes_context_drops_restricted_snippets(monkeypatch):
 
     async def fake_retrieve(request):
         return SearchResponse(
-            answer="safe summary",
+            answer="SECRET synthesized from restricted context",
             citations=[
                 SourceCitation(
                     source_tool="notion",
@@ -187,6 +204,84 @@ async def test_hermes_context_drops_restricted_snippets(monkeypatch):
 
     monkeypatch.setattr(policy, "load_data_routing", lambda org_id: DEFAULT_DATA_ROUTING)
 
-    ctx = await hermes_client._permitted_context("q", "demo-org", [])
+    ctx = await hermes_client._permitted_context(
+        "q",
+        "demo-org",
+        [],
+        requester_tier="red",
+        requester_user_id=None,
+    )
     assert "notion" in ctx
     assert "drive" not in ctx
+    assert "SECRET" not in ctx
+
+
+async def test_hermes_context_keeps_answer_when_all_context_is_egress_safe(monkeypatch):
+    from agent import hermes_client
+    from api.schemas.search import SearchResponse, SourceCitation
+
+    async def fake_retrieve(request):
+        return SearchResponse(
+            answer="safe synthesized answer",
+            citations=[
+                SourceCitation(
+                    source_tool="notion",
+                    source_record_title="Safe doc",
+                    data_tier="normal",
+                )
+            ],
+            enough_context=True,
+        )
+
+    monkeypatch.setattr(hermes_client, "retrieve_answer", fake_retrieve)
+    import llm.policy as policy
+
+    monkeypatch.setattr(policy, "load_data_routing", lambda org_id: DEFAULT_DATA_ROUTING)
+    ctx = await hermes_client._permitted_context(
+        "q",
+        "demo-org",
+        [],
+        requester_tier="normal",
+        requester_user_id=None,
+    )
+    assert "safe synthesized answer" in ctx
+
+
+async def test_hermes_checks_restricted_citations_beyond_snippet_cap(monkeypatch):
+    from agent import hermes_client
+    from api.schemas.search import SearchResponse, SourceCitation
+
+    async def fake_retrieve(request):
+        return SearchResponse(
+            answer="SECRET derived from the sixth citation",
+            citations=[
+                *[
+                    SourceCitation(
+                        source_tool=f"normal-{index}",
+                        source_record_title=f"Normal {index}",
+                        data_tier="normal",
+                    )
+                    for index in range(5)
+                ],
+                SourceCitation(
+                    source_tool="restricted-sixth",
+                    source_record_title="Restricted sixth",
+                    data_tier="red",
+                ),
+            ],
+            enough_context=True,
+        )
+
+    monkeypatch.setattr(hermes_client, "retrieve_answer", fake_retrieve)
+    import llm.policy as policy
+
+    monkeypatch.setattr(policy, "load_data_routing", lambda org_id: DEFAULT_DATA_ROUTING)
+    ctx = await hermes_client._permitted_context(
+        "q",
+        "demo-org",
+        [],
+        requester_tier="red",
+        requester_user_id=None,
+    )
+    assert "SECRET" not in ctx
+    assert "restricted-sixth" not in ctx

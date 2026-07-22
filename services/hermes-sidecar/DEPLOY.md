@@ -1,18 +1,33 @@
-# Hermes sidecar — deploy & validation runbook
+# Hermes sidecar — local validation and production hold
 
-Goal: stand up the Hermes sidecar, prove it actually runs, then point OSAI at it.
-OSAI stays on its in-house agent until the final step, so nothing breaks while
-you do this.
+## Current decision
 
-> ✅ **Validated end-to-end on Groq (July 2026):** local Docker build → `/health`
-> → `/run` returns a real Hermes answer → OSAI `run_ask` returns `via: "hermes"`.
-> The Groq settings below are the exact validated recipe.
+This is an experimental local/trusted-monolith spike. **Do not deploy it as a
+shared multi-tenant service.** It has been removed from `render.yaml`, and the
+Render API/worker services no longer receive Hermes sidecar URL/token wiring.
+Do not recreate the old public token-gated web service manually.
 
----
+The blocker is architectural: org/user home paths all belong to the same OS UID
+and every Hermes process has that identity. The paths separate names for
+trusted testing; they do not stop one same-UID process from accessing another
+home. Symlink rejection and private modes are defense in depth, not tenant
+containment.
 
-## 0. Model provider
+A future production design must use a private, non-public service and isolate
+each tenant with an OS/container/mount boundary (or an equivalent boundary that
+has been security reviewed). Only the target tenant's storage should be mounted
+into its Hermes runtime.
 
-**Groq (validated, uses the same key as `OSAI_LLM_API_KEY`):**
+## Historical validation
+
+A July 2026 local Docker test returned a real Groq/Hermes answer and an OSAI
+request reported `via: "hermes"`. That proves the experimental integration can
+run; it does not prove production isolation, supply-chain reproducibility,
+approved egress, lifecycle management, or safe multi-tenant concurrency.
+
+## Local provider configuration
+
+The tested Groq configuration was:
 
 ```text
 GROQ_API_KEY      = gsk_...                              (secret)
@@ -21,100 +36,69 @@ HERMES_MODEL      = llama-3.3-70b-versatile
 HERMES_BASE_URL   = https://api.groq.com/openai/v1
 HERMES_MAX_TOKENS = 8192
 HERMES_TOOLSETS   = search
+SIDECAR_AUTH_TOKEN = <local random value>
 ```
 
-Why the extra knobs: `groq` is not in hermes' built-in provider registry, so the
-sidecar registers it as a *custom provider* (OpenAI-compatible `base_url`) in
-each per-user `config.yaml`. Groq also rejects hermes' default completion cap
-(`max_tokens` error) and 413s on the full hermes toolset schema — `8192` +
-`search` fixes both. OSAI injects permission-scoped context and owns the
-action layer, so the sidecar doesn't need hermes' tools anyway.
+Only the credential selected by `HERMES_PROVIDER` is persisted or passed to
+Hermes. The sidecar will not start without `SIDECAR_AUTH_TOKEN`; there is no
+unauthenticated development override.
 
-OpenRouter / Anthropic / OpenAI also work: set `OPENROUTER_API_KEY` /
-`ANTHROPIC_API_KEY` / `OPENAI_API_KEY` + `HERMES_PROVIDER`/`HERMES_MODEL`
-(no `HERMES_BASE_URL` needed — those are built-in providers).
+`search` explicitly enables Hermes `web_search` and can send query text to an
+external search provider. It is retained here only to reproduce the historical
+test. It is a residual egress blocker, not a production recommendation.
 
-## 1. (Optional) validate locally first
+## Local validation gate
+
+Use trusted, non-sensitive data and keep the loopback-only Compose binding:
 
 ```bash
 cd services/hermes-sidecar
-GROQ_API_KEY=gsk_... HERMES_PROVIDER=groq HERMES_MODEL=llama-3.3-70b-versatile \
+GROQ_API_KEY=gsk_... HERMES_PROVIDER=groq \
+HERMES_MODEL=llama-3.3-70b-versatile \
 HERMES_BASE_URL=https://api.groq.com/openai/v1 HERMES_MAX_TOKENS=8192 \
 HERMES_TOOLSETS=search SIDECAR_AUTH_TOKEN=local-test-token \
-  docker-compose up --build -d
-# in another shell:
-curl -s localhost:8088/health
-curl -s -X POST localhost:8088/run -H 'Content-Type: application/json' \
+  docker compose up --build -d
+
+curl -s http://127.0.0.1:8088/health/ready
+# {"ok":true}
+
+curl -s -X POST http://127.0.0.1:8088/run \
+  -H 'Content-Type: application/json' \
   -H 'X-Sidecar-Token: local-test-token' \
   -d '{"prompt":"Say hello in one sentence.","org_id":"test","user_id":"u1"}'
 ```
-Expect `{"result":"<some text>"}`. If you get `{"result":null,"error":...}`, read
-the error (usually: hermes install failed in the image, or the model/key is wrong).
 
-## 2. Deploy on Render (Blueprint)
+Readiness is deliberately opaque. A `503` means at least one of these is not
+ready: authentication, supported provider, selected provider credential, model,
+Hermes CLI, or private writable/atomic storage. Inspect local logs and
+configuration rather than returning secret/configuration detail to callers.
 
-The service is defined in the repo's `render.yaml` as **`osai-hermes`**
-(Docker, root `services/hermes-sidecar`, health check `/health`, plan
-**Starter** — the hermes CLI build needs it, ~$7/mo — plus a 1 GB disk at
-`/data/hermes` so per-user memory survives deploys). Merging to `main` makes
-the Blueprint provision it automatically.
+For a local OSAI process, set both:
 
-Manual step: on the **osai-hermes** service → Environment, set
 ```text
-GROQ_API_KEY       = gsk_...       (same value as osai-api's OSAI_LLM_API_KEY)
-SIDECAR_AUTH_TOKEN = <random hex>  (e.g. `openssl rand -hex 32`)
-```
-The token gates `/run` (this service is on the public internet — without it,
-anyone with the URL burns your Groq quota). All other env vars are committed
-in `render.yaml`.
-
-## 3. Validate health
-
-```bash
-curl -s https://osai-hermes.onrender.com/health
-# → {"ok": true, "hermes_cmd": "hermes", "model": "llama-3.3-70b-versatile"}
+OSAI_HERMES_SIDECAR_URL=http://127.0.0.1:8088
+OSAI_HERMES_SIDECAR_TOKEN=local-test-token
 ```
 
-## 4. Validate a real run (the gate)
+Unset both values to return to the in-house agent.
 
-```bash
-curl -s -X POST https://osai-hermes.onrender.com/run \
-  -H 'Content-Type: application/json' -H "X-Sidecar-Token: $SIDECAR_AUTH_TOKEN" \
-  -d '{"prompt":"Summarise what you can do in one sentence.","org_id":"test","user_id":"u1"}'
-```
-- ✅ `{"result":"<real answer>"}` → Hermes works. Proceed.
-- ❌ `{"result":null,"error":"hermes CLI not installed..."}` → the Docker build's
-  install step failed; check build logs.
-- ❌ `error` about model/provider/auth → fix the env vars in step 2.
-- ❌ `result` contains an error *sentence* (e.g. "max_tokens exceeds...",
-  "Request payload too large") → hermes ran but the provider rejected the
-  request; check `HERMES_MAX_TOKENS` / `HERMES_TOOLSETS`.
+## Production exit criteria
 
-**Do not proceed past here until you get a real `result`.**
+Do not host or auto-wire this sidecar until all of the following are designed,
+implemented, tested, and security reviewed:
 
-## 5. Point OSAI at the sidecar
+1. A private-service topology with per-tenant container/UID/mount isolation.
+2. An explicit tool-free profile or approved, enforced external-egress policy.
+3. A deterministic Hermes install with pinned/digested base, apt, uv, Node, and
+   locked dependencies; no unlocked installer fallback.
+4. Blocking advisory/SBOM coverage for the installed Hermes environment, not
+   only the wrapper's hash-locked requirements.
+5. Tenant data deletion, retention, quota, backup/restore, and key-rotation
+   lifecycle behavior.
+6. Cross-instance concurrency, cancellation, timeout-descendant, capacity, and
+   recovery tests.
 
-On the **osai-api** Render service → Environment, add:
-```text
-OSAI_HERMES_SIDECAR_URL   = https://osai-hermes.onrender.com
-OSAI_HERMES_SIDECAR_TOKEN = <the same SIDECAR_AUTH_TOKEN value>
-```
-Save (redeploys). Now `/ask` **and** Automations route through per-user Hermes
-(with the user's permission-scoped context injected by OSAI, citations and the
-propose/confirm action layer still handled by OSAI).
-
-## 6. Validate end-to-end through OSAI
-
-Ask a question in the app, or hit `/ask` with a real user token. The response
-carries a `via` field:
-- `"via":"hermes"` → executed on Hermes ✅ (`model_route` is `"hermes"` too)
-- `"via":"osai"` → fell back to the in-house agent (sidecar unreachable/empty —
-  recheck steps 3–5; the API logs a warning on every silent fallback)
-
-Automations runs report the same `via` field.
-
-## Rollback (instant)
-
-Unset `OSAI_HERMES_SIDECAR_URL` on osai-api and redeploy → everything returns to
-the in-house agent. No data migration, no risk. (Suspend the osai-hermes
-service too if you want to stop the Starter charge.)
+The current Dockerfile verifies the upstream installer bytes and final Hermes
+commit, but the installer still consumes mutable inputs and may fall back to an
+unlocked dependency install. That remains explicitly unresolved in this bounded
+hardening pass.

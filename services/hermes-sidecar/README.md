@@ -1,69 +1,98 @@
-# Hermes sidecar (spike)
+# Hermes sidecar (experimental local spike)
 
-A thin HTTP wrapper that lets OSAI's multi-tenant backend use
-[Hermes Agent](https://github.com/NousResearch/hermes-agent) without giving up
-per-org data isolation.
+This directory contains a thin HTTP wrapper around
+[Hermes Agent](https://github.com/NousResearch/hermes-agent) for local,
+trusted-monolith experiments.
 
-## Why a sidecar
+> **Do not deploy this shared service for multi-tenant production.** The
+> repository's `render.yaml` intentionally does not provision it or wire the
+> API/worker to it.
 
-Hermes Agent is designed as a **single-operator** agent (its own memory store,
-skills, model routing; CLI-first). OSAI is a **multi-tenant SaaS**. Running one
-shared Hermes across orgs risks leaking org A's memory/answers into org B. The
-sidecar pattern keeps Hermes as a separate process and lets OSAI:
+## Security boundary
 
-- pass the `org_id` explicitly on every call,
-- isolate state with a **per-org `HERMES_HOME`** (separate memory/skills dir),
-- keep auth, permissions, and tenant routing in OSAI (the boundary), not Hermes.
+Each request uses an org/user-namespaced `HERMES_HOME`, but all homes and all
+Hermes subprocesses run as the same OS UID. The directories are namespace
+separation for trusted local testing, **not** a security boundary between
+tenants. Modes `0700`/`0600`, atomic generated-file replacement, symlink
+rejection, and per-home locking reduce accidental cross-talk; they cannot
+contain a compromised same-UID process or eliminate filesystem races against
+one.
 
-This mirrors how OSAI already runs gbrain/UltraContext as sidecars.
+The wrapper also:
+
+- always requires `SIDECAR_AUTH_TOKEN` and timing-safe token comparison;
+- validates filesystem path segments and rejects observed symlink components;
+- writes and passes only the credential selected by `HERMES_PROVIDER`;
+- gives Hermes a strict child environment that excludes the sidecar token,
+  other provider keys, and unrelated platform secrets;
+- serializes same-home subprocesses through a bounded 64-stripe lock pool while
+  allowing different stripes to run concurrently; and
+- returns stable failures without exposing provider/CLI stderr.
+
+A production design needs a private, non-public service plus a real tenant
+boundary: for example, a separate container/UID and mount namespace per tenant
+with only that tenant's storage mounted. A bearer token and different home path
+inside one shared UID are not equivalent.
 
 ## API
 
-- `GET /health` → `{ ok: true }`
-- `POST /run` `{ "prompt": str, "org_id": str }` → `{ "result": str | null, "error"?: str }`
+- `GET /health` returns liveness: `{ "ok": true }`.
+- `GET /health/ready` returns only `{ "ok": boolean }`. Readiness requires the
+  auth token, a supported provider, that provider's selected credential, a
+  model, the Hermes CLI, and a successful private atomic storage probe.
+- `POST /run` accepts `{ "prompt": str, "org_id": str, "user_id"?: str }` and
+  requires `X-Sidecar-Token`.
 
-Hermes invocation is real: it runs `hermes -z "<prompt>"` (single prompt in,
-final response text out) in a per-user `HERMES_HOME`, and seeds provider keys
-into `$HERMES_HOME/.env`. Install uses the official script
-(`curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash`).
+Hermes runs as an argv list (`hermes -z <prompt> ...`), not through a shell.
+Provider/model configuration is generated in the namespaced home. Only the
+selected provider key is written to that home's `.env` and passed to the child.
 
-## Run (Docker)
+## Dependency and image status
+
+The wrapper's complete Python dependency graph is generated from
+`requirements.in`, hash-locked in `requirements.txt`, installed with
+`pip --require-hashes`, checked with `pip check`, and scanned by a blocking
+current-advisory audit in sidecar CI.
+
+That does **not** make the complete image reproducible. The Dockerfile verifies
+the upstream installer bytes and final Hermes Git commit, but the pinned
+installer still downloads mutable uv/Node inputs and can fall back from a
+locked sync to unlocked installation. The Python base tag and apt packages also
+float. The installer-created Hermes environment is not covered by the wrapper
+requirements audit. Fix those supply-chain boundaries before considering a
+hosted deployment.
+
+## External egress
+
+The configured `search` toolset is not inert: in the pinned Hermes source it
+enables `web_search`, which can send query text to an external search backend.
+OSAI's model/connector routing does not make that search egress approved. The
+current spike retains `search` only to reproduce the tested request-size
+configuration; an explicit tool-free Hermes profile and egress review are
+prerequisites for hosting it.
+
+## Run locally
+
+Use only trusted, non-sensitive test data. Compose binds the service to
+loopback and always requires an auth token.
 
 ```bash
 cd services/hermes-sidecar
-OPENROUTER_API_KEY=sk-... HERMES_MODEL=anthropic/claude-sonnet-4 \
+SIDECAR_AUTH_TOKEN=local-test-token \
+GROQ_API_KEY=gsk_... \
+HERMES_PROVIDER=groq \
+HERMES_MODEL=llama-3.3-70b-versatile \
+HERMES_BASE_URL=https://api.groq.com/openai/v1 \
+HERMES_MAX_TOKENS=8192 \
   docker compose up --build
 ```
 
-Then point OSAI at it (Render env, or local):
+For a local OSAI process only:
 
+```text
+OSAI_HERMES_SIDECAR_URL=http://127.0.0.1:8088
+OSAI_HERMES_SIDECAR_TOKEN=local-test-token
 ```
-OSAI_HERMES_SIDECAR_URL=http://localhost:8088   # or the deployed sidecar URL
-```
 
-When set, OSAI's **Automations** "Run now" runs via **per-user** Hermes
-(`agent/hermes_client.py` → this `/run`): OSAI first injects the user's
-permission-scoped org context into the prompt, then calls Hermes. If the sidecar
-is unreachable/empty it **falls back to OSAI's in-house agent**. Unset = in-house
-agent only (default).
-
-## Permission model
-
-OSAI is the boundary. It retrieves only what the requesting user is permitted to
-see (`requester_permissions`) and injects that as context — Hermes never gets
-broad access to the org store. Each user also gets an isolated `HERMES_HOME`.
-
-## What still needs you (can't be done from the repo)
-
-1. **Deploy this sidecar** (a Render service / any box with Docker) and set
-   `OSAI_HERMES_SIDECAR_URL` on the OSAI backend.
-2. **Provide a model provider + key** (`OPENROUTER_API_KEY` / `ANTHROPIC_API_KEY`
-   / `OPENAI_API_KEY` + `HERMES_MODEL`).
-3. **Validate end-to-end** once deployed (`GET /health`, then a test `/run`)
-   before pointing the demo at it. hermes-agent has not been run end-to-end from
-   the repo, so confirm the install + a real run on your box first.
-4. **Scale/ops** later: per-user `HERMES_HOME` persists per user — decide storage
-   and long-running-vs-per-task before scaling.
-
-Feature-flagged off until `OSAI_HERMES_SIDECAR_URL` is set, so production is
-unaffected until you deliberately enable it.
+See [DEPLOY.md](DEPLOY.md) for the local validation gate and the production
+architecture work that remains blocked.

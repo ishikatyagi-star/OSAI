@@ -5,8 +5,9 @@ from __future__ import annotations
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from api.schemas.connector import SourceDocument
 from connectors.composio_ingest import ingest_composio_toolkit
-from db.models import Base, ConnectorAccount, SourceDocumentRecord
+from db.models import Base, ConnectorAccount, SourceDocumentRecord, SyncRun
 
 
 class _FakeComposio:
@@ -62,6 +63,17 @@ def _session():
     return sessionmaker(bind=engine)()
 
 
+def _assert_durable_failure(session, result, message: str) -> None:
+    assert result["status"] == "failed"
+    assert message.lower() in result["error"].lower()
+    run = session.query(SyncRun).one()
+    assert run.status == "failed"
+    assert run.error == result["error"]
+    account = session.query(ConnectorAccount).one()
+    assert account.auth_state == "error"
+    assert account.last_error == result["error"]
+
+
 async def test_notion_ingestion_indexes_documents():
     session = _session()
     result = await ingest_composio_toolkit(
@@ -107,6 +119,75 @@ async def test_unsupported_toolkit_is_rejected():
     )
     assert result["status"] == "failed"
     assert "not implemented" in result["error"].lower()
+    run = session.query(SyncRun).one()
+    assert run.status == "failed"
+    assert "not implemented" in (run.error or "").lower()
+
+
+class _UnavailableComposio(_FakeComposio):
+    def available(self):
+        return False
+
+
+class _FailingComposio(_FakeComposio):
+    async def execute(self, slug, arguments, user_id):
+        raise RuntimeError("provider unavailable")
+
+
+async def test_unconfigured_composio_records_failed_sync_run():
+    session = _session()
+    result = await ingest_composio_toolkit(
+        "demo-org",
+        "notion",
+        session,
+        client=_UnavailableComposio(),
+        qdrant_store=_FakeQdrant(),
+    )
+    _assert_durable_failure(session, result, "not configured")
+
+
+async def test_provider_fetch_failure_records_failed_sync_run():
+    session = _session()
+    result = await ingest_composio_toolkit(
+        "demo-org",
+        "notion",
+        session,
+        client=_FailingComposio(),
+        qdrant_store=_FakeQdrant(),
+    )
+    _assert_durable_failure(session, result, "provider unavailable")
+
+
+async def test_account_reconciliation_failure_rolls_back_and_records_failure(monkeypatch):
+    from connectors import composio_ingest as ingest_module
+
+    session = _session()
+
+    async def fail_after_partial_write(*args, **kwargs):
+        session.add(
+            SourceDocumentRecord(
+                id="partial-doc",
+                org_id="demo-org",
+                source_type="notion",
+                external_id="partial",
+                title="Partial",
+                text="must roll back",
+            )
+        )
+        session.flush()
+        raise RuntimeError("identity reconciliation failed")
+
+    monkeypatch.setattr(ingest_module, "_handle_account_change", fail_after_partial_write)
+    result = await ingest_module.ingest_composio_toolkit(
+        "demo-org",
+        "notion",
+        session,
+        client=_FakeComposio(),
+        qdrant_store=_FakeQdrant(),
+    )
+
+    _assert_durable_failure(session, result, "identity reconciliation failed")
+    assert session.get(SourceDocumentRecord, "partial-doc") is None
 
 
 class _FakeComposioWithConnections(_FakeComposio):
@@ -229,3 +310,90 @@ async def test_failed_ingest_records_a_visible_sync_run():
     assert len(runs) == 1
     assert runs[0].status == "failed"
     assert "db boom" in (runs[0].error or "")
+
+
+async def test_provider_download_url_requires_allowlist_and_public_https(monkeypatch):
+    import connectors.composio_ingest as ing
+
+    monkeypatch.setattr(ing.settings, "composio_download_hosts", "")
+    assert not await ing._download_url_allowed("https://files.example.test/object")
+
+    monkeypatch.setattr(ing.settings, "composio_download_hosts", "files.example.test")
+
+    def _private_dns(*_args, **_kwargs):
+        return [(ing.socket.AF_INET, ing.socket.SOCK_STREAM, 6, "", ("127.0.0.1", 443))]
+
+    monkeypatch.setattr(ing.socket, "getaddrinfo", _private_dns)
+    assert not await ing._download_url_allowed("https://files.example.test/object")
+    assert not await ing._download_url_allowed("http://files.example.test/object")
+    assert not await ing._download_url_allowed("https://user@files.example.test/object")
+
+    def _public_dns(*_args, **_kwargs):
+        return [
+            (ing.socket.AF_INET, ing.socket.SOCK_STREAM, 6, "", ("93.184.216.34", 443))
+        ]
+
+    monkeypatch.setattr(ing.socket, "getaddrinfo", _public_dns)
+    assert await ing._download_url_allowed("https://files.example.test/object")
+
+
+async def test_embedding_provider_batches_never_exceed_cap(monkeypatch):
+    import connectors.composio_ingest as ing
+
+    async def _large_document(_client, org_id, _limit):
+        return [
+            SourceDocument(
+                source_id="notion:large",
+                source_type="notion",
+                org_id=org_id,
+                external_id="large",
+                title="Large",
+                text="x" * (4_000 * (ing._EMBED_BATCH_CHUNKS + 2)),
+                permissions=["source:all"],
+            )
+        ]
+
+    class _BatchQdrant:
+        def __init__(self):
+            self.batch_sizes: list[int] = []
+
+        async def upsert_chunks(self, chunks):
+            self.batch_sizes.append(len(chunks))
+            return len(chunks)
+
+    monkeypatch.setitem(ing._FETCHERS, "notion", _large_document)
+    session = _session()
+    qdrant = _BatchQdrant()
+
+    result = await ingest_composio_toolkit(
+        "demo-org", "notion", session, client=_FakeComposio(), qdrant_store=qdrant
+    )
+
+    assert result["status"] == "succeeded"
+    assert result["documents_embedded"] == 1
+    assert len(qdrant.batch_sizes) == 2
+    assert max(qdrant.batch_sizes) <= ing._EMBED_BATCH_CHUNKS
+
+
+async def test_vector_failure_is_partial_not_success():
+    class _FailingQdrant:
+        async def upsert_chunks(self, _chunks):
+            raise RuntimeError("private provider detail")
+
+    session = _session()
+    result = await ingest_composio_toolkit(
+        "demo-org",
+        "notion",
+        session,
+        client=_FakeComposio(),
+        qdrant_store=_FailingQdrant(),
+    )
+
+    assert result["status"] == "partial"
+    assert result["documents_indexed"] == 1
+    assert result["documents_embedded"] == 0
+    assert result["vector_error"] == "Vector indexing failed; retry the sync."
+    assert "private provider detail" not in result["vector_error"]
+    run = session.query(SyncRun).one()
+    assert run.status == "partial"
+    assert run.error == result["vector_error"]

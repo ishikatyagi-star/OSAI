@@ -68,7 +68,7 @@ async def run_due(x_cron_token: str | None = Header(default=None)) -> dict[str, 
     interval has elapsed, so an aggressive or duplicated schedule cannot
     double-run anything.
     """
-    if not settings.automations_cron_token:
+    if not settings.automations_cron_enabled or not settings.automations_cron_token:
         # Indistinguishable from a route that doesn't exist.
         raise HTTPException(status_code=404, detail="Not found")
     if not hmac.compare_digest(x_cron_token or "", settings.automations_cron_token):

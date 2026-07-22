@@ -33,8 +33,12 @@ def test_user_clearance_admin_is_red(monkeypatch):
 
     import db.repositories as repo
 
-    admin = SimpleNamespace(role="admin", data_tier="normal", token_version=0)
-    member = SimpleNamespace(role="member", data_tier="amber", token_version=0)
+    admin = SimpleNamespace(
+        org_id="demo-org", role="admin", data_tier="normal", token_version=0
+    )
+    member = SimpleNamespace(
+        org_id="demo-org", role="member", data_tier="amber", token_version=0
+    )
 
     class _Session:
         def __init__(self, user):
@@ -43,7 +47,11 @@ def test_user_clearance_admin_is_red(monkeypatch):
         def get(self, _model, _id):
             return self._user
 
-    assert repo.user_clearance(_Session(admin), {"sub": "u1"}) == "red"
-    assert repo.user_clearance(_Session(member), {"sub": "u2"}) == "amber"
+    assert repo.user_clearance(
+        _Session(admin), {"sub": "u1", "org_id": "demo-org"}
+    ) == "red"
+    assert repo.user_clearance(
+        _Session(member), {"sub": "u2", "org_id": "demo-org"}
+    ) == "amber"
     # No authenticated user (demo/system) → see-all.
     assert repo.user_clearance(_Session(None), None) == "red"

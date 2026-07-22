@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from api.schemas.connector import DataTier
 
@@ -17,9 +17,17 @@ class ActionItem(BaseModel):
 class WorkflowRunCreate(BaseModel):
     # Resolved server-side from the caller's session; any body value is ignored.
     org_id: str = ""
-    input_text: str
+    # Long enough for realistic meeting transcripts while bounding one LLM request.
+    input_text: str = Field(min_length=1, max_length=100_000, strict=True)
     destination: Literal["notion", "freshdesk", "slack", "manual"] = "manual"
     data_tier: DataTier = "normal"
+
+    @field_validator("input_text")
+    @classmethod
+    def reject_blank_input(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("input_text must contain non-whitespace characters")
+        return value
 
 
 class WorkflowRunResponse(BaseModel):

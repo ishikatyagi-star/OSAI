@@ -7,10 +7,10 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from db.models import DecisionRecord
-from db.repositories import try_db
+from db.models import DecisionRecord, utc_iso
 from db.session import get_db, get_org_id, require_writable_org
 from memory.org_memory import record_memory
 
@@ -62,24 +62,27 @@ def _serialize(d: DecisionRecord) -> dict:
         "source": d.source,
         "identifiedBy": d.identified_by,
         "tags": d.tags or [],
-        "date": d.decided_at.isoformat(),
-        "updated_at": d.updated_at.isoformat() if d.updated_at else None,
+        "date": utc_iso(d.decided_at),
+        "updated_at": utc_iso(d.updated_at) if d.updated_at else None,
     }
 
 
 @router.get("")
 async def list_decisions(db: DbSession, org_id: OrgId) -> list[dict]:
-    return try_db(
-        "list_decisions",
-        [],
-        lambda: [
+    try:
+        return [
             _serialize(d)
             for d in db.query(DecisionRecord)
             .filter(DecisionRecord.org_id == org_id)
             .order_by(DecisionRecord.decided_at.desc())
             .all()
-        ],
-    )
+        ]
+    except SQLAlchemyError as exc:
+        logger.exception("Could not list decisions (org=%s)", org_id)
+        raise HTTPException(
+            status_code=503,
+            detail="Decisions are temporarily unavailable.",
+        ) from exc
 
 
 @router.post("")

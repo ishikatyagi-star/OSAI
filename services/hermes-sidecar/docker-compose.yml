@@ -5,7 +5,8 @@ services:
   hermes-sidecar:
     build: .
     ports:
-      - "8088:8088"
+      # Local/trusted-monolith spike only; never publish on all host interfaces.
+      - "127.0.0.1:8088:8088"
     environment:
       # One of these, matching your chosen provider/model:
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
@@ -18,10 +19,7 @@ services:
       - HERMES_BASE_URL=${HERMES_BASE_URL:-}
       - HERMES_MAX_TOKENS=${HERMES_MAX_TOKENS:-}
       - HERMES_TOOLSETS=${HERMES_TOOLSETS:-search}
-      # Required (main.py fails closed without it) — this listens on a public
-      # port. (main.py also accepts SIDECAR_ALLOW_UNAUTHENTICATED_RUN=1 as an
-      # explicit escape hatch, but that's for direct `docker run`/`uvicorn`
-      # use, not this compose file — it stays required here on purpose.)
+      # Always required. There is no unauthenticated development override.
       - SIDECAR_AUTH_TOKEN=${SIDECAR_AUTH_TOKEN:?Set SIDECAR_AUTH_TOKEN for /run auth}
     volumes:
       - hermes_data:/data/hermes

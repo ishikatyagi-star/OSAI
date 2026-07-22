@@ -47,6 +47,10 @@ const RUN_TONE: Record<SyncRun["status"], string> = {
 export function ConnectorManager({
   integration,
   demo,
+  canManage,
+  canOAuthConnect,
+  canSync,
+  canDisconnect,
   open,
   onOpenChange,
   recentRuns,
@@ -61,6 +65,10 @@ export function ConnectorManager({
 }: {
   integration: Integration | null;
   demo: boolean;
+  canManage: boolean;
+  canOAuthConnect: boolean;
+  canSync: boolean;
+  canDisconnect: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   recentRuns: SyncRun[];
@@ -93,7 +101,8 @@ export function ConnectorManager({
   // An expired connection still has a Composio account to revoke, so it must
   // remain disconnectable, otherwise the card is stuck (can't sync, can't
   // remove). Disconnect is offered for both connected and expired states.
-  const disconnectable = connected || integration?.auth_state === "expired";
+  const disconnectable =
+    (connected || integration?.auth_state === "expired") && canDisconnect;
 
   async function runHealthcheck(key: string) {
     const requestId = ++healthRequestRef.current;
@@ -131,7 +140,7 @@ export function ConnectorManager({
 
   // Auto health-check + load synced files whenever a connected connector opens.
   useEffect(() => {
-    if (open && integration && integration.auth_state === "connected") {
+    if (open && integration && integration.auth_state === "connected" && canSync) {
       if (demo) {
         healthRequestRef.current += 1;
         docsRequestRef.current += 1;
@@ -158,7 +167,7 @@ export function ConnectorManager({
       healthRequestRef.current += 1;
       docsRequestRef.current += 1;
     };
-  }, [open, integration, demo]);
+  }, [open, integration, demo, canSync]);
 
   if (!integration) return null;
 
@@ -176,7 +185,11 @@ export function ConnectorManager({
             <div>
               <DialogTitle>{brandText(meta?.label ?? integration.display_name)}</DialogTitle>
               <DialogDescription>
-                {connected
+                {!canSync && !canOAuthConnect
+                  ? "Legacy connection unavailable"
+                  : integration.auth_state === "expired"
+                    ? "Connection expired"
+                  : connected
                   ? integration.account_email
                     ? `Connected as ${integration.account_email}`
                     : "Connected"
@@ -226,7 +239,7 @@ export function ConnectorManager({
         </section>
 
         {/* Health */}
-        {connected && (
+        {connected && canSync && (
           <section className="rounded-lg border border-border bg-background/40 p-3">
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -280,7 +293,7 @@ export function ConnectorManager({
         )}
 
         {/* Recent syncs */}
-        {connected && (
+        {connected && canSync && (
           <section>
             <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               Recent syncs
@@ -313,7 +326,7 @@ export function ConnectorManager({
         )}
 
         {/* Synced files */}
-        {connected && (
+        {connected && canSync && (
           <section className="rounded-lg border border-border bg-background/40 p-3">
             <p className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               <FileText className="size-3.5" /> Synced files{demo || docsLoading || docsError ? "" : ` (${docs.length})`}
@@ -328,7 +341,9 @@ export function ConnectorManager({
               <p className="text-xs text-destructive" role="alert">{docsError}</p>
             ) : docs.length === 0 ? (
               <p className="text-xs text-muted-foreground">
-                Nothing indexed yet - click “Sync now” to pull in this source.
+                {canSync
+                  ? "Nothing indexed yet - click \"Sync now\" to pull in this source."
+                  : "This legacy connector is unavailable for indexing."}
               </p>
             ) : (
               <ul className="max-h-52 space-y-1 overflow-y-auto">
@@ -353,10 +368,10 @@ export function ConnectorManager({
           </section>
         )}
 
-        <Separator />
+        {canManage && <Separator />}
 
-        {/* Actions */}
-        <div className="flex items-center justify-between gap-2">
+        {/* Admin-only actions; the API remains the security boundary. */}
+        {canManage ? <div className="flex items-center justify-between gap-2">
           {disconnectable ? (
             <Button
               variant="ghost"
@@ -365,17 +380,26 @@ export function ConnectorManager({
               disabled={demo || connectionBusy}
               title={demo ? "Connection changes are disabled in the shared demo workspace." : undefined}
               onClick={() => onToggleConnection(integration.key, false)}
+              aria-label={`Disconnect ${brandText(meta?.label ?? integration.display_name)}`}
             >
               {connectionBusy ? <Loader2 className="size-3.5 animate-spin" /> : <Plug className="size-3.5" />}
               {connectionBusy ? "Disconnecting..." : "Disconnect"}
             </Button>
-          ) : (
+          ) : !connected && canOAuthConnect ? (
             <span className="text-xs text-muted-foreground">
               Authorize to start indexing this source.
             </span>
+          ) : connected && canSync ? (
+            <span className="text-xs text-muted-foreground">
+              Connection settings are managed by your deployment administrator.
+            </span>
+          ) : (
+            <span className="text-xs text-muted-foreground">
+              This legacy connector is unavailable for indexing.
+            </span>
           )}
 
-          {connected ? (
+          {connected && canSync ? (
             <Button
               size="sm"
               disabled={syncing}
@@ -391,18 +415,23 @@ export function ConnectorManager({
                 </>
               )}
             </Button>
-          ) : (
+          ) : canOAuthConnect ? (
             <Button
               size="sm"
               disabled={demo || connectionBusy}
               title={demo ? "External connections are disabled in the shared demo workspace." : undefined}
               onClick={() => onToggleConnection(integration.key, true)}
+              aria-label={`${integration.auth_state === "expired" ? "Reconnect" : "Connect"} ${brandText(meta?.label ?? integration.display_name)}`}
             >
               {connectionBusy ? <Loader2 className="size-3.5 animate-spin" /> : <PlugZap className="size-3.5" />}
-              {connectionBusy ? "Opening..." : "Connect"}
+              {connectionBusy ? "Opening..." : integration.auth_state === "expired" ? "Reconnect" : "Connect"}
             </Button>
-          )}
-        </div>
+          ) : null}
+        </div> : (
+          <p className="text-xs text-muted-foreground">
+            Only workspace admins can sync or change this connection.
+          </p>
+        )}
         {syncMessage && (
           <p
             className="-mt-2 text-[12px] inline-flex items-center gap-1.5"
@@ -431,7 +460,7 @@ export function ConnectorManager({
             {brandText(syncMessage)}
           </p>
         )}
-        {!connected && (
+        {!connected && canManage && canOAuthConnect && (
           <p className="-mt-2 text-[11px] text-muted-foreground">
             Connect redirects you to {meta?.label ?? "the provider"} to authorize
             access. Sheldon indexes and searches your content; it never edits or

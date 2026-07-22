@@ -437,6 +437,10 @@ h2 em {
   color: var(--el-body) !important;
 }
 
+.out-num {
+  color: var(--el-muted) !important;
+}
+
 .landing-university .hero {
   align-items: flex-start !important;
 }

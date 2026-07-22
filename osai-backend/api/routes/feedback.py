@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from db.models import AnswerFeedback
+from db.models import AnswerFeedback, utc_iso
 from db.repositories import try_db
 from db.session import get_db, get_optional_claims, get_org_id, require_admin, require_writable_org
 from memory.org_memory import record_memory
@@ -109,7 +109,7 @@ async def list_feedback(
                 "comment": r.comment,
                 "wrong_sources": r.wrong_sources,
                 "retrieval_trace": r.retrieval_trace,
-                "created_at": r.created_at.isoformat(),
+                "created_at": utc_iso(r.created_at),
             }
             for r in q.limit(min(max(limit, 1), 500)).all()
         ]

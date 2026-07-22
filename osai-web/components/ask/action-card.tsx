@@ -15,18 +15,19 @@ import { brandText, cn } from "@/lib/utils";
  */
 export function ActionCard({
   action,
-  busy,
+  busyOperation,
   onApprove,
   onDismiss,
 }: {
   action: AgentAction;
-  busy?: boolean;
+  busyOperation?: "approve" | "dismiss" | null;
   onApprove: (action: AgentAction) => void;
   onDismiss: (action: AgentAction) => void;
 }) {
   const meta = CONNECTOR_META[action.tool];
   const ConnectorIcon = meta?.icon;
   const isPending = action.status === "proposed" && action.requires_confirmation;
+  const busy = busyOperation != null;
 
   const statusBadge = {
     proposed: <Badge variant="warning">Needs approval</Badge>,
@@ -68,7 +69,9 @@ export function ActionCard({
             <span className="text-xs font-semibold text-muted-foreground">
               {meta?.label ?? action.tool} · <span className="capitalize">{action.action.replaceAll("_", " ")}</span>
             </span>
-            {statusBadge}
+            <span aria-live="polite" aria-atomic="true">
+              {statusBadge}
+            </span>
           </div>
           <p className="ask-action-summary mt-1.5 text-sm leading-relaxed text-foreground/90">{brandText(action.summary)}</p>
 
@@ -84,7 +87,9 @@ export function ActionCard({
           )}
 
           {action.error && (
-            <p className="mt-2 text-xs text-destructive">{brandText(action.error)}</p>
+            <p role="alert" className="mt-2 text-xs text-destructive">
+              {brandText(action.error)}
+            </p>
           )}
 
           {action.external_url && (
@@ -107,7 +112,7 @@ export function ActionCard({
                 onClick={() => onApprove(action)}
                 disabled={busy}
               >
-                {busy ? (
+                {busyOperation === "approve" ? (
                   <>
                     <Loader2 className="size-3.5 animate-spin" /> Approving…
                   </>
@@ -124,7 +129,13 @@ export function ActionCard({
                 onClick={() => onDismiss(action)}
                 disabled={busy}
               >
-                Dismiss
+                {busyOperation === "dismiss" ? (
+                  <>
+                    <Loader2 className="size-3.5 animate-spin" /> Dismissing{"\u2026"}
+                  </>
+                ) : (
+                  "Dismiss"
+                )}
               </Button>
             </div>
           )}

@@ -48,6 +48,8 @@ class ConnectorAction(BaseModel):
     action_type: str
     payload: dict[str, Any] = Field(default_factory=dict)
     data_tier: DataTier = "normal"
+    # Stable across safe retries; providers that support deduplication consume it.
+    idempotency_key: str | None = None
 
 
 class ActionResult(BaseModel):

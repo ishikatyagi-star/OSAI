@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   BarChart3,
+  Bell,
   Bookmark,
   Clock,
   LayoutDashboard,
@@ -20,11 +21,14 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
-import { clearSession } from "@/lib/api";
+import { getNotificationPage, logout } from "@/lib/api";
+import { isDemo } from "@/lib/demo";
+import { NOTIFICATIONS_CHANGED_EVENT } from "@/lib/notification-events";
 import { brandText } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
@@ -63,6 +67,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/graph", icon: Share2, label: "Org Graph" },
       { href: "/team", icon: Users, label: "Team" },
       { href: "/automations", icon: Clock, label: "Automations" },
+      { href: "/notifications", icon: Bell, label: "Notifications" },
     ],
   },
   {
@@ -82,7 +87,15 @@ function navItemIsActive(pathname: string, href: string) {
   return pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
 }
 
-function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
+function NavLinks({
+  pathname,
+  unreadCount,
+  onNavigate,
+}: {
+  pathname: string;
+  unreadCount: number;
+  onNavigate?: () => void;
+}) {
   return NAV_GROUPS.map((group, groupIdx) => (
     <div key={group.label}>
       {groupIdx > 0 && <div className="sidebar-group-divider" />}
@@ -90,6 +103,7 @@ function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () 
       {group.items.map((item) => {
         const active = navItemIsActive(pathname, item.href);
         const Icon = item.icon;
+        const badge = item.href === "/notifications" ? unreadCount : item.badge;
         return (
           <Link
             key={item.href}
@@ -102,7 +116,11 @@ function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () 
               <Icon size={16} strokeWidth={1.75} />
             </span>
             <span>{item.label}</span>
-            {item.badge ? <span className="sidebar-nav-badge">{item.badge}</span> : null}
+            {badge ? (
+              <span className="sidebar-nav-badge" aria-label={`${badge} unread notifications`}>
+                {badge > 99 ? "99+" : badge}
+              </span>
+            ) : null}
           </Link>
         );
       })}
@@ -115,16 +133,48 @@ export default function Sidebar() {
   const router = useRouter();
   const [userName, setUserName] = useState("");
   const [orgName, setOrgName] = useState("");
+  const [unreadCount, setUnreadCount] = useState(0);
   const [mobileOpen, setMobileOpen] = useState(false);
   useEffect(() => {
     setUserName(brandText(localStorage.getItem("osai_user_name") || "You"));
     setOrgName(brandText(localStorage.getItem("osai_org_name") || "Your workspace"));
   }, []);
+  useEffect(() => {
+    if (isDemo()) return;
+    let cancelled = false;
+    const loadUnread = async () => {
+      try {
+        const page = await getNotificationPage(1, undefined, true, true);
+        if (!cancelled) setUnreadCount(page.unread_count);
+      } catch {
+        // The full notifications page surfaces load failures; keep navigation usable.
+      }
+    };
+    void loadUnread();
+    const onNotificationsChanged = (event: Event) => {
+      const count = (event as CustomEvent<{ unreadCount?: number }>).detail?.unreadCount;
+      if (typeof count === "number") setUnreadCount(count);
+      else void loadUnread();
+    };
+    window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, onNotificationsChanged);
+    const timer = window.setInterval(() => void loadUnread(), 30_000);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, onNotificationsChanged);
+      window.clearInterval(timer);
+    };
+  }, []);
   const initial = (userName || "U").trim().charAt(0).toUpperCase();
 
-  function handleSignOut() {
-    clearSession();
-    router.replace("/login");
+  async function handleSignOut() {
+    try {
+      await logout();
+    } catch {
+      // Local session state is cleared by logout() even when the server is
+      // unreachable. Avoid an unhandled event-handler rejection on the way out.
+    } finally {
+      router.replace("/login");
+    }
   }
 
   return (
@@ -139,8 +189,11 @@ export default function Sidebar() {
             <Menu size={20} aria-hidden="true" />
           </button>
         </DialogTrigger>
-        <DialogContent className="mobile-nav-panel">
+        <DialogContent className="mobile-nav-panel left-0 top-0 translate-x-0 translate-y-0">
           <DialogTitle className="sr-only">Navigation</DialogTitle>
+          <DialogDescription className="sr-only">
+            Navigate between Sheldon workspace pages.
+          </DialogDescription>
           <Link
             href="/dashboard"
             className="mobile-nav-brand"
@@ -158,7 +211,7 @@ export default function Sidebar() {
             <span>Sheldon</span>
           </Link>
           <nav className="mobile-nav-list" aria-label="Primary navigation">
-            <NavLinks pathname={pathname} onNavigate={() => setMobileOpen(false)} />
+            <NavLinks pathname={pathname} unreadCount={unreadCount} onNavigate={() => setMobileOpen(false)} />
           </nav>
           <div className="mobile-nav-footer">
             <div>
@@ -191,7 +244,7 @@ export default function Sidebar() {
 
       {/* Nav */}
       <nav className="sidebar-nav" aria-label="Primary navigation">
-        <NavLinks pathname={pathname} />
+        <NavLinks pathname={pathname} unreadCount={unreadCount} />
       </nav>
 
       {/* Footer */}

@@ -25,10 +25,10 @@ FIXTURES: list[Fixture] = [
         "expected": ["red", "local", "ollama"],
     },
     {
-        "id": "qa-linear",
+        "id": "qa-slack-alert-routing",
         "category": "qa",
-        "question": "How does OSAI integrate with Linear?",
-        "expected": ["linear", "issue", "assignee"],
+        "question": "Where are urgent Freshdesk ticket alerts sent?",
+        "expected": ["slack", "operations"],
     },
     {
         "id": "qa-freshdesk-sla",
@@ -55,9 +55,9 @@ FIXTURES: list[Fixture] = [
         "expected": ["onboard", "docker", "8000"],
     },
     {
-        "id": "ownership-zoom",
+        "id": "ownership-webhook",
         "category": "ownership",
-        "question": "Who owns the Zoom webhook task?",
+        "question": "Who owns the webhook endpoint task?",
         "expected": ["anish"],
     },
     {

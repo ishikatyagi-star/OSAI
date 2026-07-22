@@ -2,3 +2,32 @@
 # (all CSS/JS/assets inlined). Mark it generated so GitHub Linguist excludes it
 # from the language breakdown and collapses it in diffs.
 osai-web/public/osai.html linguist-generated=true
+
+# Keep source and configuration diffs stable across Windows development and
+# Linux CI/deploy hosts. This applies on the next checkout/add; it deliberately
+# does not rewrite the current working tree during QA.
+* text=auto
+*.py text eol=lf
+*.pyi text eol=lf
+*.js text eol=lf
+*.mjs text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+*.sh text eol=lf
+*.ps1 text eol=crlf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.db binary

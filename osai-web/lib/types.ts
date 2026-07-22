@@ -15,6 +15,9 @@ export type Integration = {
   account_email?: string | null;
   previous_account_email?: string | null;
   last_reconnected_at?: string | null;
+  // Server-reported connection management. Native credentials are deployment-
+  // managed; only Composio connections can be revoked from this UI.
+  source?: "native" | "composio";
 };
 
 export type SyncRun = {
@@ -98,11 +101,17 @@ export type SearchResponse = {
   enough_context: boolean;
 };
 
-export type DataRouting = {
-  normal: { allowed_connectors: string[]; llm_allowed: boolean };
-  amber: { allowed_connectors: string[]; llm_allowed: boolean };
-  red: { allowed_connectors: string[]; llm_allowed: boolean };
+export type SearchRequest = {
+  org_id: string;
+  query: string;
+  department_id?: string | null;
 };
+
+export type {
+  DataRouting,
+  DataRoutingTier,
+  DataRoutingTierPolicy,
+} from "./data-routing";
 
 export type ApproveResult = {
   item_id: string;
@@ -139,9 +148,12 @@ export type AgentAction = {
 export type AskRequest = {
   org_id: string;
   question: string;
+  intent?: "ask" | "action";
   conversation_id?: string | null;
   history?: ChatMessage[];
   department_id?: string | null;
+  thread_id?: string | null;
+  request_id?: string | null;
 };
 
 export type AskResponse = {
@@ -155,12 +167,21 @@ export type AskResponse = {
   // Which engine answered: in-house RAG ("osai") or the Hermes sidecar ("hermes").
   via: "osai" | "hermes";
   ui_artifacts?: AskUiArtifact[];
+  thread_id?: string | null;
+  persistence_status?: "not_requested" | "saved";
 };
 
 export type ConfirmActionResult = {
   id: string;
   status: "executed" | "failed";
   external_url: string | null;
+  message: string;
+  error: string | null;
+};
+
+export type DismissActionResult = {
+  id: string;
+  status: "skipped" | "failed";
   message: string;
   error: string | null;
 };
@@ -203,7 +224,7 @@ export type GraphEdge = {
   source_tool: string | null;
 };
 
-// ─── Evals (Phase 6 - GET /evals) ────────────────────────────────────────────
+// ─── Evals (Phase 6 - explicit admin POST /evals) ────────────────────────────
 
 export type EvalCategory = "ticket_triage" | "ownership" | "routing" | "qa";
 

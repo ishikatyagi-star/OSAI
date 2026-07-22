@@ -15,6 +15,14 @@ import asyncio
 from workers.celery_app import celery_app
 
 
+@celery_app.task(name="workers.tasks.automations.scheduler_heartbeat")
+def scheduler_heartbeat() -> dict[str, str]:
+    """Prove beat and the routed automation queue reached this worker."""
+    from workers.scheduler_health import write_scheduler_heartbeat
+
+    return {"recorded_at": write_scheduler_heartbeat()}
+
+
 @celery_app.task(name="workers.tasks.automations.run_due_automations")
 def run_due_automations() -> dict[str, object]:
     """Beat entrypoint: run everything that's due, one automation at a time."""

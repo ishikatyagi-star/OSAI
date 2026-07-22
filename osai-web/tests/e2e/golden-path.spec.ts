@@ -28,7 +28,9 @@ test("golden path: login → demo → dashboard → ask → integrations", async
   // Integrations page renders its cards.
   await page.goto("/integrations");
   await expect(page.getByRole("heading", { name: /integrations/i })).toBeVisible();
-  await expect(page.getByRole("button", { name: /add connector/i })).toBeVisible();
+  const addConnector = page.getByRole("button", { name: /add connector/i });
+  await expect(addConnector).toBeVisible();
+  await expect(addConnector).toBeDisabled();
 });
 
 test("crashed route shows the error boundary, not a blank page", async ({ page }) => {

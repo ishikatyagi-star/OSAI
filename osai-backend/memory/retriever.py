@@ -3,9 +3,15 @@
 from __future__ import annotations
 
 import logging
+from types import SimpleNamespace
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from api.schemas.search import SearchRequest, SearchResponse, SourceCitation
 from config import settings
+from db.models import SourceDocumentRecord
+from db.session import SessionLocal
 from llm.policy import cloud_llm_allowed, load_data_routing
 from memory.embeddings import default_embedding_provider
 from memory.qdrant_store import get_default_qdrant_store
@@ -67,6 +73,78 @@ def _access_reason(
     return f"Matches your access grant: {', '.join(shared)}"
 
 
+def _authoritative_document_hits(
+    hits: list, org_id: str, *, session: Session | None = None
+) -> list:
+    """Replace Qdrant policy metadata with the current Postgres document row.
+
+    Qdrant is a search index, not an authorization source. A failed payload
+    update must not leave a revoked or deleted document retrievable.
+    """
+    document_ids = {
+        payload.get("source_document_id")
+        for hit in hits
+        if isinstance((payload := getattr(hit, "payload", None)), dict)
+        and isinstance(payload.get("source_document_id"), str)
+    }
+    if not document_ids:
+        return []
+
+    def load_records(db: Session) -> list[SourceDocumentRecord]:
+        return list(
+            db.scalars(
+                select(SourceDocumentRecord).where(
+                    SourceDocumentRecord.org_id == org_id,
+                    SourceDocumentRecord.id.in_(document_ids),
+                )
+            ).all()
+        )
+
+    try:
+        if session is not None:
+            records = load_records(session)
+        else:
+            with SessionLocal() as db:
+                records = load_records(db)
+    except Exception:  # noqa: BLE001 - authorization cannot fall back to stale index data
+        logger.exception("Postgres document revalidation failed; dropping Qdrant hits")
+        return []
+
+    by_id = {record.id: record for record in records}
+    validated = []
+    for hit in hits:
+        payload = getattr(hit, "payload", None)
+        if not isinstance(payload, dict):
+            continue
+        record = by_id.get(payload.get("source_document_id"))
+        permissions = record.permissions if record is not None else None
+        tier = record.data_tier if record is not None else None
+        if (
+            record is None
+            or not isinstance(permissions, list)
+            or not all(isinstance(grant, str) for grant in permissions)
+            or tier not in _TIER_ORDER
+        ):
+            continue
+        validated.append(
+            SimpleNamespace(
+                score=getattr(hit, "score", 0.0),
+                payload={
+                    **payload,
+                    "org_id": record.org_id,
+                    "source_document_id": record.id,
+                    "source_type": record.source_type,
+                    "title": record.title,
+                    "url": record.url,
+                    "permissions": permissions,
+                    "data_tier": tier,
+                    "department_id": record.department_id,
+                },
+            )
+        )
+    return validated
+
+
 async def retrieve_answer(request: SearchRequest) -> SearchResponse:
     from memory.org_memory import fetch_relevant
 
@@ -90,13 +168,9 @@ async def retrieve_answer(request: SearchRequest) -> SearchResponse:
     # and look like a hallucination. Keep only hits above a similarity floor.
     hits = [h for h in hits if float(getattr(h, "score", 0.0)) >= settings.retrieval_min_score]
 
-    # Relative cutoff on top of the absolute floor: cosine scores cluster, so
-    # when the best hit is strong, a hit barely over the floor is filler that
-    # gets cited as a ~70% "source" despite saying nothing about the query
-    # (observed: untranscribed video files cited on a document question).
-    if hits:
-        best = max(float(getattr(h, "score", 0.0)) for h in hits)
-        hits = [h for h in hits if float(getattr(h, "score", 0.0)) >= best - 0.08]
+    # Qdrant can lag a committed access change. Revalidate every hit against
+    # Postgres and use only its current org, grants, tier, and scope metadata.
+    hits = _authoritative_document_hits(hits, request.org_id)
 
     # Data governance: drop chunks the requester isn't permitted to see — both by
     # permission grant and by data-clearance tier (a member never sees documents
@@ -117,6 +191,12 @@ async def retrieve_answer(request: SearchRequest) -> SearchResponse:
             for h in hits
             if (h.payload or {}).get("department_id") == request.department_id
         ]
+
+    # Rank only within the requester's authorized scope. A stronger revoked hit
+    # must not suppress a legitimate connector result through the relative cutoff.
+    if hits:
+        best = max(float(getattr(h, "score", 0.0)) for h in hits)
+        hits = [h for h in hits if float(getattr(h, "score", 0.0)) >= best - 0.08]
 
     if not hits and not memories:
         return SearchResponse(

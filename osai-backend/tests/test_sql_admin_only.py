@@ -23,16 +23,17 @@ from db.models import Org, User
 from db.session import SessionLocal, get_org_id, require_admin, require_writable_org
 
 client = TestClient(app)
+_TEST_ORG_ID = "sql-auth-test-org"
 
 
 def _token_for(role: str) -> str:
     uid = f"user-{uuid.uuid4()}"
     with SessionLocal() as s:
-        if s.get(Org, "demo-org") is None:
-            s.add(Org(id="demo-org", name="demo"))
+        if s.get(Org, _TEST_ORG_ID) is None:
+            s.add(Org(id=_TEST_ORG_ID, name="SQL auth test"))
         user = User(
             id=uid,
-            org_id="demo-org",
+            org_id=_TEST_ORG_ID,
             email=f"{uid}@t.test",
             display_name="T",
             role=role,
@@ -96,9 +97,10 @@ def test_anonymous_cannot_reach_the_sql_surface(_real_auth):
 def test_listed_sources_never_expose_the_dsn_password(_real_auth):
     """'Never return stored DSN passwords' — the list is the one place a stored
     credential could leak back out."""
+    from sqlalchemy.engine import make_url
+
     from api.routes.sql import _mask
 
-    assert _mask("postgresql://alice:sup3rs3cret@db.host:5432/warehouse") == (
-        "postgresql://alice:***@db.host:5432/warehouse"
-    )
-    assert "sup3rs3cret" not in _mask("postgresql://alice:sup3rs3cret@db.host:5432/warehouse")
+    masked = _mask("postgresql://alice:sup3rs3cret@db.host:5432/warehouse")
+    assert make_url(masked).password == "***"
+    assert "sup3rs3cret" not in masked

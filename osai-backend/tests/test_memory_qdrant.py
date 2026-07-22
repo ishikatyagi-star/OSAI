@@ -10,6 +10,9 @@ class FakeQdrantClient:
     def __init__(self) -> None:
         self.created: list[str] = []
         self.upserts: list[tuple[str, list[object]]] = []
+        self.queries: list[dict] = []
+        self.deletes: list[dict] = []
+        self.payload_updates: list[dict] = []
 
     async def get_collections(self):
         return SimpleNamespace(collections=[])
@@ -19,6 +22,16 @@ class FakeQdrantClient:
 
     async def upsert(self, collection_name: str, points: list[object]) -> None:
         self.upserts.append((collection_name, points))
+
+    async def query_points(self, **kwargs):
+        self.queries.append(kwargs)
+        return SimpleNamespace(points=[])
+
+    async def delete(self, **kwargs) -> None:
+        self.deletes.append(kwargs)
+
+    async def set_payload(self, **kwargs) -> None:
+        self.payload_updates.append(kwargs)
 
 
 async def test_hash_embeddings_are_deterministic_and_normalized() -> None:
@@ -75,3 +88,62 @@ async def test_qdrant_store_upserts_points() -> None:
     collection_name, points = client.upserts[0]
     assert collection_name == "test_chunks"
     assert points[0].payload["source_document_id"] == "notion:page-1"
+
+
+def _filter_values(selector) -> dict[str, object]:
+    return {condition.key: condition.match.value for condition in selector.filter.must}
+
+
+async def test_qdrant_reads_and_document_mutations_are_org_scoped() -> None:
+    client = FakeQdrantClient()
+    store = QdrantStore(
+        collection_name="test_chunks",
+        embedding_provider=HashEmbeddingProvider(dimension=8),
+        client=client,
+    )
+
+    await store.search([0.0] * 8, "org-a")
+    await store.set_document_payload("org-a", "doc-1", {"permissions": ["user:1"]})
+    await store.delete_document("org-a", "doc-1")
+    await store.delete_source_type("org-a", "slack")
+
+    query_filter = client.queries[0]["query_filter"]
+    assert {condition.key: condition.match.value for condition in query_filter.must} == {
+        "org_id": "org-a"
+    }
+    assert _filter_values(client.payload_updates[0]["points"]) == {
+        "org_id": "org-a",
+        "source_document_id": "doc-1",
+    }
+    assert _filter_values(client.deletes[0]["points_selector"]) == {
+        "org_id": "org-a",
+        "source_document_id": "doc-1",
+    }
+    assert _filter_values(client.deletes[1]["points_selector"]) == {
+        "org_id": "org-a",
+        "source_type": "slack",
+    }
+
+
+async def test_qdrant_point_ids_are_namespaced_by_org() -> None:
+    client = FakeQdrantClient()
+    store = QdrantStore(
+        collection_name="test_chunks",
+        embedding_provider=HashEmbeddingProvider(dimension=8),
+        client=client,
+    )
+    shared = {
+        "chunk_id": "chunk-1",
+        "source_document_id": "notion:page-1",
+        "source_type": "notion",
+        "content_preview": "Shared preview",
+        "text": "The same source content",
+    }
+
+    await store.upsert_chunks(
+        [{**shared, "org_id": "org-a"}, {**shared, "org_id": "org-b"}]
+    )
+
+    _, points = client.upserts[0]
+    assert points[0].id != points[1].id
+    assert {point.payload["org_id"] for point in points} == {"org-a", "org-b"}

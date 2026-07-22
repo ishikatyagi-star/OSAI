@@ -1,9 +1,9 @@
 "use client";
 
-import * as React from "react";
 import { useState } from "react";
 import { Check, ThumbsDown, ThumbsUp } from "lucide-react";
 import { submitFeedback } from "@/lib/api";
+import { isDemo } from "@/lib/demo";
 import type { SourceCitation } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -29,12 +29,21 @@ export function FeedbackButtons({
   const [correction, setCorrection] = useState("");
   const [learned, setLearned] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const demo = isDemo();
 
   async function send(rating: "up" | "down", withComment?: string) {
     if (busy || sent) return;
+    setError("");
+    if (demo) {
+      setSent(rating);
+      setLearned(false);
+      setAskComment(false);
+      return;
+    }
     setBusy(true);
     try {
-      await submitFeedback({
+      const result = await submitFeedback({
         conversation_id: conversationId ?? null,
         query: question,
         answer,
@@ -51,12 +60,13 @@ export function FeedbackButtons({
           })),
         },
       });
+      if (!result.recorded) throw new Error("Feedback was not recorded");
       setSent(rating);
       setLearned(!!correction.trim());
       setAskComment(false);
     } catch {
-      // Feedback is best-effort; never interrupt the conversation over it.
-      setSent(rating);
+      // Keep the conversation usable, but never claim a failed write persisted.
+      setError("Feedback could not be saved. Please try again.");
     } finally {
       setBusy(false);
     }
@@ -66,7 +76,9 @@ export function FeedbackButtons({
     return (
       <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
         <Check className="size-3" />{" "}
-        {learned
+        {demo
+          ? "Demo feedback is not saved"
+          : learned
           ? "Got it - Sheldon will remember this for your whole team"
           : "Thanks - feedback recorded"}
       </span>
@@ -77,7 +89,7 @@ export function FeedbackButtons({
     "inline-flex items-center rounded-full border border-[var(--border)] p-1.5 text-muted-foreground transition-colors hover:border-[var(--border-hover)] hover:text-foreground disabled:opacity-50";
 
   return (
-    <span className="inline-flex items-center gap-1.5">
+    <span className="flex max-w-full flex-wrap items-center gap-1.5">
       <button
         type="button"
         aria-label="Good answer"
@@ -97,10 +109,11 @@ export function FeedbackButtons({
         <ThumbsDown className="size-3" strokeWidth={1.8} />
       </button>
       {askComment && (
-        <span className="inline-flex items-center gap-1">
+        <span className="flex w-full min-w-0 flex-wrap items-center gap-1">
           <input
-            className="search-input"
-            style={{ fontSize: 11, padding: "4px 8px", width: 220 }}
+            className="search-input min-w-0 flex-[1_1_180px]"
+            style={{ fontSize: 11, padding: "4px 8px" }}
+            aria-label="What was wrong?"
             placeholder="What was wrong? (optional)"
             value={comment}
             onChange={(e) => setComment(e.target.value)}
@@ -109,8 +122,9 @@ export function FeedbackButtons({
             }}
           />
           <input
-            className="search-input"
-            style={{ fontSize: 11, padding: "4px 8px", width: 220 }}
+            className="search-input min-w-0 flex-[1_1_180px]"
+            style={{ fontSize: 11, padding: "4px 8px" }}
+            aria-label="Correct answer"
             placeholder="What's the right answer? (teaches Sheldon)"
             value={correction}
             onChange={(e) => setCorrection(e.target.value)}
@@ -127,6 +141,11 @@ export function FeedbackButtons({
           >
             Send
           </button>
+        </span>
+      )}
+      {error && (
+        <span role="alert" className="basis-full text-[11px] text-[var(--red)]">
+          {error}
         </span>
       )}
     </span>

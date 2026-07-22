@@ -28,12 +28,24 @@ def _model_route() -> str:
     return "mock-fallback"
 
 
-async def run_evals(org_id: str) -> EvalRun:
+async def run_evals(
+    org_id: str,
+    *,
+    requester_permissions: list[str],
+    requester_tier: str,
+    requester_user_id: str | None,
+) -> EvalRun:
     cases: list[EvalCase] = []
     for fx in FIXTURES:
         started = time.monotonic()
         result = await retrieve_answer(
-            SearchRequest(org_id=org_id, query=fx["question"])
+            SearchRequest(
+                org_id=org_id,
+                query=fx["question"],
+                requester_permissions=requester_permissions,
+                requester_tier=requester_tier,
+                requester_user_id=requester_user_id,
+            )
         )
         latency_ms = int((time.monotonic() - started) * 1000)
         actual = result.answer or ""

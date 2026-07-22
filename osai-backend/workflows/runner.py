@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from api.schemas.workflow_run import ActionItem, WorkflowRunCreate, WorkflowRunResponse
 from config import settings
+from llm.policy import cloud_llm_allowed, load_data_routing
 from workflows.prompts.action_items import PROMPT_VERSION, build_extraction_prompt
 
 if TYPE_CHECKING:
@@ -21,12 +22,15 @@ async def run_action_item_workflow(
     db: Session | None = None,
     requester_permissions: list[str] | None = None,
     requester_tier: str = "red",
+    actor_user_id: str | None = None,
+    viewer_is_admin: bool = False,
 ) -> WorkflowRunResponse:
     """Extract action items from meeting transcript using semantic and database context.
 
     Enrichment is scoped to the initiating user's permissions/clearance so the
     extraction prompt never sees documents that user couldn't retrieve. The
-    defaults keep system-triggered runs (Zoom webhook / Celery) at see-all."""
+    system-triggered runs keep see-all document retrieval, but receive no
+    user-owned action-item history unless an actor is supplied."""
     # 1. Determine query text for context lookup (first 200 chars of transcript)
     query_text = request.input_text[:200] if request.input_text else ""
 
@@ -45,6 +49,8 @@ async def run_action_item_workflow(
                 session=db,
                 requester_permissions=requester_permissions,
                 requester_tier=requester_tier,
+                actor_user_id=actor_user_id,
+                viewer_is_admin=viewer_is_admin,
             )
             context_docs = ctx.get("documents", [])
             existing_items = ctx.get("action_items", [])
@@ -56,6 +62,8 @@ async def run_action_item_workflow(
                     session=session,
                     requester_permissions=requester_permissions,
                     requester_tier=requester_tier,
+                    actor_user_id=actor_user_id,
+                    viewer_is_admin=viewer_is_admin,
                 )
                 context_docs = ctx.get("documents", [])
                 existing_items = ctx.get("action_items", [])
@@ -63,7 +71,9 @@ async def run_action_item_workflow(
         logger.error(f"Failed to fetch context for workflow {run_id}: {exc}")
 
     # 3. Call LLM execution path or fallback
-    if request.data_tier == "red":
+    routing = load_data_routing(request.org_id)
+    prompt_tiers = [request.data_tier, *(doc.get("data_tier") for doc in context_docs)]
+    if any(not cloud_llm_allowed(routing, tier) for tier in prompt_tiers):
         return await _run_with_ollama(run_id, request, context_docs, existing_items)
     if settings.gemini_api_key:
         return await _run_with_gemini(run_id, request, context_docs, existing_items)
