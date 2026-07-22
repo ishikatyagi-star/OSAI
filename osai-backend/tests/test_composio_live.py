@@ -143,7 +143,12 @@ class _GmailClient(_FakeClient):
 
 async def test_gmail_prefers_fetch_and_skips_empty_drafts():
     client = _GmailClient()
-    ctx = await live_read_context("org-1", "summarize my unread emails", client=client)
+    ctx = await live_read_context(
+        "org-1",
+        "summarize my unread emails",
+        requester_permissions=["org:admin"],
+        client=client,
+    )
     # FETCH_EMAILS is preferred and tried first; real content is returned.
     assert "Real email" in ctx
     assert "GMAIL_FETCH_EMAILS" in ctx
