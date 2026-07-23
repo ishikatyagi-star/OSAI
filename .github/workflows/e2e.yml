@@ -33,8 +33,13 @@ jobs:
       # request-count/first-failure mocks flap (data-routing, role-truth). The
       # optimized server has no such duplicate reads and passes deterministically.
       - run: npm run build
+        env:
+          # Required for a production build; the smoke suite runs in demo mode so
+          # the value is a placeholder (no backend is actually contacted).
+          NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:8000
       - run: npm run test:e2e
         env:
+          NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:8000
           PLAYWRIGHT_PORT: "3100"
           PLAYWRIGHT_WEB_SERVER_COMMAND: npm run start -- --hostname 127.0.0.1 --port 3100
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
