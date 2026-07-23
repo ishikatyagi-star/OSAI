@@ -18,7 +18,11 @@ import json
 import logging
 from typing import Any
 
-from connectors.composio_tool import ComposioClient, get_default_composio_client
+from connectors.composio_tool import (
+    ComposioClient,
+    composio_identity,
+    get_default_composio_client,
+)
 
 logger = logging.getLogger("osai.composio.live")
 
@@ -138,6 +142,7 @@ async def live_read_context(
     question: str,
     *,
     requester_permissions: list[str],
+    user_id: str | None = None,
     cloud_egress_allowed: bool = True,
     client: ComposioClient | None = None,
 ) -> str:
@@ -160,8 +165,11 @@ async def live_read_context(
     client = client or get_default_composio_client()
     if not client.available():
         return ""
+    # Scope reads to the caller (per-user when enabled, else org-level), so a
+    # user only ever reaches their own connected accounts.
+    identity = composio_identity(org_id, user_id)
     try:
-        connections = await client.list_connections(org_id)
+        connections = await client.list_connections(identity)
     except Exception:  # noqa: BLE001 — live reads are best-effort
         return ""
     active = [
@@ -185,7 +193,7 @@ async def live_read_context(
         for spec, args in candidates[:4]:
             try:
                 res = await client.execute_capped(
-                    spec["name"], args, org_id, _MAX_RESPONSE_BYTES
+                    spec["name"], args, identity, _MAX_RESPONSE_BYTES
                 )
             except Exception as exc:  # noqa: BLE001
                 logger.warning("Live read %s failed: %s", spec["name"], exc)

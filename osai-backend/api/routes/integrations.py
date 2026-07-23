@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from api.ratelimit import INGEST_START_BUDGET, rate_limit
 from connectors.composio_ingest import SUPPORTED_INGESTION_TOOLKITS, ingest_composio_toolkit
-from connectors.composio_tool import get_default_composio_client
+from connectors.composio_tool import composio_identity, get_default_composio_client
 from connectors.registry import HARD_DISABLED_CONNECTOR_KEYS, connector_registry
 from connectors.sync_service import sync_connector
 from connectors.toolkit_map import NATIVE_TO_COMPOSIO, to_native_key
@@ -72,7 +72,9 @@ def _known_connector_key(db: Session, org_id: str, connector_key: str) -> bool:
 
 
 @router.get("")
-async def list_integrations(db: DbSession, org_id: OrgId) -> list[dict[str, object]]:
+async def list_integrations(
+    db: DbSession, org_id: OrgId, claims: OptionalClaims = None
+) -> list[dict[str, object]]:
     # Only integrations the org has actually configured. A fresh workspace gets
     # an empty list — the frontend renders its empty state pointing at the full
     # Composio catalog instead of a fixed set of native connector cards.
@@ -102,7 +104,11 @@ async def list_integrations(db: DbSession, org_id: OrgId) -> list[dict[str, obje
             # Bounded well under the frontend's fetch budget: if Composio is
             # slow the page must still render from the DB (overlay is optional),
             # not time out client-side and show a load error.
-            connections = await asyncio.wait_for(client.list_connections(org_id), timeout=4)
+            # Show the caller's own connections (per-user when enabled), so the
+            # Integrations page reflects what this person has connected, not a
+            # shared org pool.
+            identity = composio_identity(org_id, (claims or {}).get("sub"))
+            connections = await asyncio.wait_for(client.list_connections(identity), timeout=4)
             # Collapse to one connection per native key, preferring ACTIVE. A key
             # whose only connection is EXPIRED must read "expired" (needs
             # reconnect), never "connected" — otherwise the card looks healthy

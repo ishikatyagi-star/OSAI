@@ -19,7 +19,11 @@ import logging
 from typing import Any
 
 from connectors.composio_live import _is_read_tool
-from connectors.composio_tool import ComposioClient, get_default_composio_client
+from connectors.composio_tool import (
+    ComposioClient,
+    composio_identity,
+    get_default_composio_client,
+)
 from llm.gemini import chat_with_tools, tool_calling_available
 
 logger = logging.getLogger("osai.composio.agent")
@@ -135,20 +139,24 @@ async def run_composio_agent(
     org_id: str,
     question: str,
     *,
+    user_id: str | None = None,
     client: ComposioClient | None = None,
     history: list | None = None,
 ) -> str | None:
-    """Let the model call the org's connected read tools to answer `question`.
+    """Let the model call the asker's connected read tools to answer `question`.
 
-    Returns the grounded answer, or None when tool-calling isn't configured,
-    the org has no connected apps, or the loop produced nothing — callers treat
-    None as "fall through to the normal path".
+    All Composio reads are scoped to the caller's identity (per-user when
+    composio_per_user_connections is on, else org-level), so a user only ever
+    reaches their own connected accounts. Returns the grounded answer, or None
+    when tool-calling isn't configured, there are no connected apps, or the loop
+    produced nothing — callers treat None as "fall through to the normal path".
     """
     client = client or get_default_composio_client()
+    identity = composio_identity(org_id, user_id)
     if not (tool_calling_available() and client.available()):
         return None
     try:
-        connections = await client.list_connections(org_id)
+        connections = await client.list_connections(identity)
     except Exception as exc:  # noqa: BLE001
         _report("list_connections failed", exc)
         return None
@@ -201,7 +209,7 @@ async def run_composio_agent(
                 content = json.dumps({"error": f"unknown tool {name}"})
             else:
                 try:
-                    res = await client.execute(name, args, org_id)
+                    res = await client.execute(name, args, identity)
                     content = json.dumps(res.get("data"), default=str)[
                         :_MAX_TOOL_RESULT_CHARS
                     ]
