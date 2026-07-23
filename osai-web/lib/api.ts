@@ -63,21 +63,45 @@ function handleUnauthorized(status: number) {
   }
 }
 
+// Render free-tier instances spin down after ~15 min idle and take 30-60s to
+// wake. The first request after idle would otherwise abort before the server is
+// back ("couldn't reach the backend"). One fetch attempt, and on a network error
+// or timeout abort ONLY (an HTTP status means the server answered, not a cold
+// start), retry once with a long timeout so the click waits out the wake.
+const COLD_START_TIMEOUT_MS = 70000;
+
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function fetchResilient(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+  try {
+    return await fetchWithTimeout(url, init, timeoutMs);
+  } catch {
+    // Reached only on a network failure / timeout abort (a resolved Response,
+    // even a 500, does not throw). Retry once, long, to ride out a cold start.
+    return await fetchWithTimeout(url, init, COLD_START_TIMEOUT_MS);
+  }
+}
+
 async function apiGet<T>(
   path: string,
   fallback: T,
   timeoutMs: number = DEFAULT_TIMEOUT_MS,
   throwOnError = false
 ): Promise<T> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetch(`${API_BASE_URL}${path}`, {
-      cache: "no-store",
-      credentials: "include",
-      headers: getHeaders(),
-      signal: controller.signal,
-    });
+    const res = await fetchResilient(
+      `${API_BASE_URL}${path}`,
+      { cache: "no-store", credentials: "include", headers: getHeaders() },
+      timeoutMs
+    );
     if (!res.ok) {
       handleUnauthorized(res.status);
       // Swallowing to a fallback keeps list pages resilient, but a silent 500
@@ -93,8 +117,6 @@ async function apiGet<T>(
     // Network error or timeout abort - same reasoning as above.
     console.warn(`GET ${path} errored (${(err as Error)?.name ?? "error"}); using fallback.`);
     return fallback;
-  } finally {
-    clearTimeout(timer);
   }
 }
 
@@ -109,26 +131,23 @@ async function apiPost<TBody, TResult>(
   body: TBody,
   timeoutMs: number = POST_TIMEOUT_MS
 ): Promise<TResult> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const res = await fetch(`${API_BASE_URL}${path}`, {
+  const res = await fetchResilient(
+    `${API_BASE_URL}${path}`,
+    {
       method: "POST",
       headers: getHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify(body),
       cache: "no-store",
       credentials: "include",
-      signal: controller.signal,
-    });
-    if (!res.ok) {
-      handleUnauthorized(res.status);
-      const detail = await res.text();
-      throw new Error(`POST ${path} failed (${res.status}): ${detail}`);
-    }
-    return (await res.json()) as TResult;
-  } finally {
-    clearTimeout(timer);
+    },
+    timeoutMs
+  );
+  if (!res.ok) {
+    handleUnauthorized(res.status);
+    const detail = await res.text();
+    throw new Error(`POST ${path} failed (${res.status}): ${detail}`);
   }
+  return (await res.json()) as TResult;
 }
 
 async function apiPatch<TBody, TResult>(
@@ -136,50 +155,39 @@ async function apiPatch<TBody, TResult>(
   body: TBody,
   timeoutMs: number = POST_TIMEOUT_MS
 ): Promise<TResult> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const res = await fetch(`${API_BASE_URL}${path}`, {
+  const res = await fetchResilient(
+    `${API_BASE_URL}${path}`,
+    {
       method: "PATCH",
       headers: getHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify(body),
       cache: "no-store",
       credentials: "include",
-      signal: controller.signal,
-    });
-    if (!res.ok) {
-      handleUnauthorized(res.status);
-      const detail = await res.text();
-      throw new Error(`PATCH ${path} failed (${res.status}): ${detail}`);
-    }
-    return (await res.json()) as TResult;
-  } finally {
-    clearTimeout(timer);
+    },
+    timeoutMs
+  );
+  if (!res.ok) {
+    handleUnauthorized(res.status);
+    const detail = await res.text();
+    throw new Error(`PATCH ${path} failed (${res.status}): ${detail}`);
   }
+  return (await res.json()) as TResult;
 }
 
 async function apiDelete<TResult>(
   path: string,
   timeoutMs: number = POST_TIMEOUT_MS
 ): Promise<TResult> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const res = await fetch(`${API_BASE_URL}${path}`, {
-      method: "DELETE",
-      headers: getHeaders(),
-      cache: "no-store",
-      credentials: "include",
-      signal: controller.signal,
-    });
-    if (!res.ok) {
-      handleUnauthorized(res.status);
-      throw new Error(`DELETE ${path} failed (${res.status})`);
-    }
-    return (await res.json()) as TResult;
-  } finally {
-    clearTimeout(timer);
+  const res = await fetchResilient(
+    `${API_BASE_URL}${path}`,
+    { method: "DELETE", headers: getHeaders(), cache: "no-store", credentials: "include" },
+    timeoutMs
+  );
+  if (!res.ok) {
+    handleUnauthorized(res.status);
+    throw new Error(`DELETE ${path} failed (${res.status})`);
   }
+  return (await res.json()) as TResult;
 }
 
 // ─── Authentication & Onboarding ─────────────────────────────────────────────
