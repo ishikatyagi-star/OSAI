@@ -117,3 +117,95 @@ async def test_live_read_still_admin_only_when_org_shared(monkeypatch):
     )
     assert ctx == ""
     assert fake.identities == []  # never even queried
+
+
+def _fk_session():
+    """SQLite session with FK enforcement, mirroring prod (the model's unique
+    constraint + connector FK)."""
+    from sqlalchemy import create_engine, event
+    from sqlalchemy.orm import sessionmaker
+
+    from db.models import Base, Org
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+
+    @event.listens_for(engine, "connect")
+    def _fk(dbapi_conn, _rec):  # noqa: ANN001
+        dbapi_conn.execute("PRAGMA foreign_keys=ON")
+
+    Base.metadata.create_all(engine)
+    s = sessionmaker(bind=engine)()
+    s.add(Org(id="org-1", name="Acme"))
+    s.commit()
+    return s
+
+
+def test_same_connector_coexists_per_user():
+    """The (org, user, connector) unique constraint lets each user hold their own
+    Gmail connection without colliding — the whole point of per-user accounts."""
+    from db.repositories import ensure_connector_account
+
+    s = _fk_session()
+    a = ensure_connector_account(s, "org-1", "gmail", "user-1")
+    b = ensure_connector_account(s, "org-1", "gmail", "user-2")
+    s.commit()
+    assert a.id != b.id
+    assert (a.user_id, b.user_id) == ("user-1", "user-2")
+    # An org-level (shared) row can also coexist, keyed by empty user_id.
+    org_level = ensure_connector_account(s, "org-1", "gmail", "")
+    s.commit()
+    assert org_level.user_id == ""
+    # Re-requesting the same owner returns the same row, not a duplicate.
+    assert ensure_connector_account(s, "org-1", "gmail", "user-1").id == a.id
+
+
+class _FakeIngestGmail:
+    """Minimal Composio client that returns a real GMAIL_FETCH_EMAILS shape so the
+    gmail fetcher produces indexable docs."""
+
+    def available(self):
+        return True
+
+    async def connection_identity(self, toolkit, user_id):
+        return None  # no account-change handling in this test
+
+    async def execute(self, slug, args, identity):
+        if slug == "GMAIL_FETCH_EMAILS":
+            return {
+                "data": {
+                    "messages": [
+                        {
+                            "messageId": "m1",
+                            "subject": "Q3 plan",
+                            "sender": "boss@acme.com",
+                            "messageText": "Here is the quarterly plan.",
+                        }
+                    ]
+                }
+            }
+        return {"successful": False, "data": None, "error": "unknown"}
+
+
+async def test_ingest_tags_personal_docs_owner_scoped(monkeypatch):
+    """With per-user on, ingested docs are person-scoped (permissions=[user:<id>])
+    so RAG returns them only to their owner — the Q2 guarantee."""
+    from connectors.composio_ingest import ingest_composio_toolkit
+    from db.models import SourceDocumentRecord
+
+    monkeypatch.setattr(settings, "composio_per_user_connections", True)
+    s = _fk_session()
+
+    class _Q:
+        async def upsert_chunks(self, chunks):
+            return len(chunks)
+
+        async def delete_document(self, *a, **k):
+            return None
+
+    await ingest_composio_toolkit(
+        "org-1", "gmail", s, client=_FakeIngestGmail(), qdrant_store=_Q(), owner_user_id="user-1"
+    )
+    docs = s.query(SourceDocumentRecord).all()
+    assert docs
+    for d in docs:
+        assert d.permissions == ["user:user-1"]  # owner-only, not source:all

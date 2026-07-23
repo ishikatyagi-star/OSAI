@@ -24,7 +24,11 @@ from sqlalchemy.orm import Session
 
 from api.schemas.connector import SourceDocument
 from config import settings
-from connectors.composio_tool import ComposioClient, get_default_composio_client
+from connectors.composio_tool import (
+    ComposioClient,
+    composio_identity,
+    get_default_composio_client,
+)
 from connectors.toolkit_map import to_native_key
 from db.models import SourceDocumentRecord, now_utc
 from db.repositories import (
@@ -211,18 +215,23 @@ async def _handle_account_change(
     toolkit: str,
     native_key: str,
     qdrant_store: QdrantStore,
+    *,
+    composio_user_id: str | None = None,
+    owner_user_id: str = "",
 ) -> None:
     """Detect a reconnect with a different external account and purge the old
     account's indexed data. Records the account identity (id + email) on the
-    ConnectorAccount so the UI can show who's connected and what changed."""
+    ConnectorAccount so the UI can show who's connected and what changed. Scoped
+    to the connection owner (composio_user_id for the provider read, owner_user_id
+    for the DB account row)."""
     try:
-        identity = await client.connection_identity(toolkit, org_id)
+        identity = await client.connection_identity(toolkit, composio_user_id or org_id)
     except Exception:  # noqa: BLE001 — identity is best-effort; never block sync
         identity = None
     if not identity or not identity.get("id"):
         return
 
-    account = ensure_connector_account(session, org_id, native_key)
+    account = ensure_connector_account(session, org_id, native_key, owner_user_id)
     config = dict(account.config or {})
     prev_id = config.get("account_external_id")
     new_id = identity["id"]
@@ -315,7 +324,14 @@ async def ingest_composio_toolkit(
     client: ComposioClient | None = None,
     qdrant_store: QdrantStore | None = None,
     limit: int = 25,
+    owner_user_id: str = "",
 ) -> dict[str, Any]:
+    # Owner of the connection (empty = org-level/shared). Gated by the flag in one
+    # place: callers may always pass the owner, but it only takes effect under
+    # per-user connections. Reads then use this user's Composio identity and the
+    # indexed docs are scoped to them (person-scoped) — searchable only by owner.
+    owner = owner_user_id if settings.composio_per_user_connections else ""
+    identity = composio_identity(org_id, owner or None)
     client = client or get_default_composio_client()
     qdrant_store = qdrant_store or get_default_qdrant_store()
     if not client.available():
@@ -346,10 +362,16 @@ async def ingest_composio_toolkit(
         # *different* external account, purge the previous account's documents so
         # counts and Ask reflect only the currently-connected account.
         await _handle_account_change(
-            session, client, org_id, toolkit, native_key, qdrant_store
+            session, client, org_id, toolkit, native_key, qdrant_store,
+            composio_user_id=identity, owner_user_id=owner,
         )
         stage = "provider fetch"
-        documents = await fetcher(client, org_id, limit)
+        documents = await fetcher(client, identity, limit)
+        # Scope a per-user connection's documents to their owner (person-scoped),
+        # so RAG returns them only to that user — even admins can't see them.
+        if owner and documents:
+            for doc in documents:
+                doc.permissions = [f"user:{owner}"]
         stage = "document indexing"
         if documents:
             # Tier rules are keyed by the native connector key, so a
@@ -439,6 +461,7 @@ async def ingest_composio_toolkit(
         documents_seen=len(documents),
         documents_indexed=indexed,
         error=vector_error,
+        user_id=owner,
     )
     return {
         "status": sync_status,
@@ -798,14 +821,19 @@ async def sync_all_connections(
     client: ComposioClient | None = None,
     qdrant_store: QdrantStore | None = None,
     limit: int = 25,
+    owner_user_id: str = "",
 ) -> dict[str, Any]:
-    """Auto-detect every active Composio connection for an org and ingest each
-    one that OSAI knows how to read. Idempotent — safe to call on every connect."""
+    """Auto-detect every active Composio connection for the caller and ingest each
+    one OSAI can read. Scoped to the owner (per-user when enabled, else org-level).
+    Idempotent — safe to call on every connect."""
     client = client or get_default_composio_client()
     if not client.available():
         return {"status": "skipped", "reason": "composio not configured", "synced": []}
 
-    connections = await client.list_connections(org_id)
+    # composio_identity gates on the flag: per-user identity when enabled, else
+    # org_id. Ingest re-gates the owner for document scoping.
+    identity = composio_identity(org_id, owner_user_id or None)
+    connections = await client.list_connections(identity)
     synced: list[dict[str, Any]] = []
     for conn in connections:
         toolkit = conn.get("toolkit")
@@ -816,7 +844,13 @@ async def sync_all_connections(
             continue
         synced.append(
             await ingest_composio_toolkit(
-                org_id, toolkit, session, client=client, qdrant_store=qdrant_store, limit=limit
+                org_id,
+                toolkit,
+                session,
+                client=client,
+                qdrant_store=qdrant_store,
+                limit=limit,
+                owner_user_id=owner_user_id,
             )
         )
     return {"status": "ok", "synced": synced}

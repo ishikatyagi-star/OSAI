@@ -232,11 +232,12 @@ async def connect(toolkit: str, org_id: WriteOrgId, _admin: AdminOnly) -> dict:
     return result
 
 
-async def _sync_in_background(org_id: str) -> None:
-    """Run post-connect ingestion off the callback request path."""
+async def _sync_in_background(org_id: str, owner_user_id: str = "") -> None:
+    """Run post-connect ingestion off the callback request path, scoped to the
+    connecting user (per-user when enabled, else org-level)."""
     with SessionLocal() as db:
         try:
-            await sync_all_connections(org_id, db)
+            await sync_all_connections(org_id, db, owner_user_id=owner_user_id)
         except Exception:  # noqa: BLE001 - background sync is best-effort
             pass
 
@@ -266,7 +267,11 @@ async def callback(
 
     client = get_default_composio_client()
     if client.available():
-        background_tasks.add_task(_sync_in_background, payload["org_id"])
+        # The OAuth state binds the connecting admin; ingest their connection
+        # under their own ownership (per-user when enabled).
+        background_tasks.add_task(
+            _sync_in_background, payload["org_id"], payload["admin_id"]
+        )
     base = settings.frontend_redirect.rstrip("/")
     return RedirectResponse(url=f"{base}/integrations?connected=1")
 
@@ -276,8 +281,8 @@ async def callback(
     dependencies=[Depends(rate_limit(*INGEST_START_BUDGET))],
 )
 async def sync(org_id: WriteOrgId, db: DbSession, _admin: AdminOnly) -> dict:
-    """Auto-detect all connected apps for the org and ingest them (idempotent)."""
-    return await sync_all_connections(org_id, db)
+    """Auto-detect the caller's connected apps and ingest them (idempotent)."""
+    return await sync_all_connections(org_id, db, owner_user_id=_admin.get("sub", ""))
 
 
 @router.get("/connections")

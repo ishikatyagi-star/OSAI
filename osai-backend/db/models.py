@@ -166,6 +166,13 @@ class ConnectorAccount(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
     org_id: Mapped[str] = mapped_column(String, ForeignKey("orgs.id"), index=True)
     connector_key: Mapped[str] = mapped_column(String, ForeignKey("connectors.key"), index=True)
+    # Owner of this connection. Empty string = org-level (shared) connection;
+    # a user id = a per-user connection (composio_per_user_connections). The
+    # same connector can exist once per user in an org, so uniqueness includes
+    # the owner. Empty (not NULL) so the constraint applies to org-level rows too.
+    user_id: Mapped[str] = mapped_column(
+        String, nullable=False, server_default="", default="", index=True
+    )
     auth_state: Mapped[str] = mapped_column(String, default="not_configured")
     scopes: Mapped[list[str]] = mapped_column(JSON, default=list)
     config: Mapped[dict] = mapped_column(JSON, default=dict)
@@ -177,6 +184,12 @@ class ConnectorAccount(Base):
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc, onupdate=now_utc)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "org_id", "user_id", "connector_key", name="uq_connector_accounts_org_user_key"
+        ),
+    )
 
 
 class SyncRun(Base):

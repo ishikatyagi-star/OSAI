@@ -226,16 +226,16 @@ async def list_connector_documents(
 _INFLIGHT_INGESTS: set[tuple[str, str]] = set()
 
 
-async def _ingest_composio_in_background(org_id: str, slug: str) -> None:
+async def _ingest_composio_in_background(org_id: str, slug: str, owner_user_id: str = "") -> None:
     """Run a Composio re-ingest off the request path, with its own DB session.
 
     A full re-sync (25 files + media transcription + embeddings) easily exceeds
     the client's request timeout; run inline it left the UI stuck on "Syncing…"
     and the request was cancelled before ingest_composio_toolkit could record a
     sync run — so /sync-runs showed nothing. As a background task it always runs
-    to completion and records its result.
+    to completion and records its result. Scoped to the connection owner.
     """
-    key = (org_id, slug)
+    key = (org_id, owner_user_id, slug)
     if key in _INFLIGHT_INGESTS:
         return
     _INFLIGHT_INGESTS.add(key)
@@ -245,7 +245,7 @@ async def _ingest_composio_in_background(org_id: str, slug: str) -> None:
                 # ingest_composio_toolkit always records a sync run (success or a
                 # visible failed run), so a swallowed error here can't leave
                 # /sync-runs empty.
-                await ingest_composio_toolkit(org_id, slug, db)
+                await ingest_composio_toolkit(org_id, slug, db, owner_user_id=owner_user_id)
             except Exception:  # noqa: BLE001 — never crash the background worker
                 pass
     finally:
@@ -275,9 +275,12 @@ async def trigger_sync(
     client = get_default_composio_client()
     if client.available():
         slug = NATIVE_TO_COMPOSIO.get(connector_key, connector_key)
+        owner_user_id = _admin.get("sub", "")
         statuses: set[str] = set()
         try:
-            connections = await client.list_connections(org_id)
+            # Scope to the caller's own connection (per-user when enabled).
+            identity = composio_identity(org_id, owner_user_id)
+            connections = await client.list_connections(identity)
             statuses = {
                 (c.get("status") or "").upper()
                 for c in connections
@@ -288,7 +291,9 @@ async def trigger_sync(
         if "ACTIVE" in statuses:
             # Kick the ingest off in the background and return immediately so the
             # UI can show "sync started" and poll /sync-runs for the result.
-            background_tasks.add_task(_ingest_composio_in_background, org_id, slug)
+            background_tasks.add_task(
+                _ingest_composio_in_background, org_id, slug, owner_user_id
+            )
             return {
                 "connector_key": connector_key,
                 "status": "started",
