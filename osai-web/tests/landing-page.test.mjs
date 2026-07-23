@@ -50,7 +50,7 @@ test("homepage keeps its audit fixes", () => {
   assert.match(css, /\.landing-saas \.nav-mobile-menu\[open\]::before\s*,\s*\.landing-university \.nav-mobile-menu\[open\]::before\s*{/);
   assert.match(css, /@media \(max-width: 980px\)\s*{[\s\S]*?\.nav-mobile-menu\s*{\s*display: block;/);
   assert.match(css, /\.landing-saas \.loop-card\s*{[\s\S]*?min-width: 0;[\s\S]*?width: 100%;/);
-  assert.match(html, /landing-eleven\.css\?v=20260714-ui-audit/);
+  assert.match(html, /landing-eleven\.css\?v=20260723-glass-wordmark-3/);
   assert.match(universityHtml, /landing-eleven\.css\?v=20260714-ui-audit/);
   assert.doesNotMatch(html, /Explore live workflow/);
   assert.match(html, /matchMedia\('\(prefers-reduced-motion: reduce\)'\)/);
