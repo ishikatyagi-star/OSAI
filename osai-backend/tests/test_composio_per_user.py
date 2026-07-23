@@ -47,6 +47,10 @@ class _FakeClient:
         self.identities.append(identity)
         return {"successful": True, "data": {"messages": [{"sender": "a@b.com"}]}}
 
+    async def execute_capped(self, name, args, identity, max_bytes):
+        self.identities.append(identity)
+        return {"successful": True, "data": {"messages": [{"sender": "a@b.com"}]}}
+
 
 async def test_agent_scopes_reads_to_the_asker_when_per_user(monkeypatch):
     monkeypatch.setattr(settings, "composio_per_user_connections", True)
@@ -80,3 +84,36 @@ async def test_agent_scopes_reads_to_the_asker_when_per_user(monkeypatch):
     assert answer == "You have 1 email from a@b.com."
     # Every Composio call was scoped to this user's identity, not the bare org.
     assert fake.identities and all(i == "org-1__user-1" for i in fake.identities)
+
+
+async def test_live_read_allows_non_admin_for_own_data_when_per_user(monkeypatch):
+    """With per-user connections, a non-admin can live-read — but only their own
+    account (identity is scoped to them). Admin-only is dropped because the
+    org-shared-leak reason no longer applies."""
+    from connectors.composio_live import live_read_context
+
+    monkeypatch.setattr(settings, "composio_per_user_connections", True)
+    fake = _FakeClient()
+    ctx = await live_read_context(
+        "org-1",
+        "summarize my emails",
+        requester_permissions=[],  # NOT an admin
+        user_id="user-1",
+        client=fake,
+    )
+    assert ctx  # got data
+    assert all(i == "org-1__user-1" for i in fake.identities)  # only their own
+
+
+async def test_live_read_still_admin_only_when_org_shared(monkeypatch):
+    """With per-user off (org-shared connections), a non-admin is still blocked —
+    reading the shared connection would expose another member's data."""
+    from connectors.composio_live import live_read_context
+
+    monkeypatch.setattr(settings, "composio_per_user_connections", False)
+    fake = _FakeClient()
+    ctx = await live_read_context(
+        "org-1", "summarize my emails", requester_permissions=[], user_id="user-1", client=fake
+    )
+    assert ctx == ""
+    assert fake.identities == []  # never even queried
