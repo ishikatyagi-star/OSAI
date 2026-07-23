@@ -1,0 +1,81 @@
+name: production-canary
+
+on:
+  pull_request:
+    paths:
+      - "scripts/production_canary.py"
+      - "scripts/test_production_canary.py"
+      - "osai-backend/api/routes/health.py"
+      - "osai-web/app/build-info/route.ts"
+      - "osai-web/public/saas.html"
+      - "osai-web/app/layout.tsx"
+      - "osai-web/next.config.ts"
+      - ".github/workflows/production-canary.yml"
+      - ".github/workflows/ci.yml"
+      - ".github/workflows/web-ci.yml"
+  schedule:
+    # Offset from the hour boundary, where scheduled Actions are most delayed.
+    - cron: "17 * * * *"
+  workflow_dispatch:
+    inputs:
+      web_url:
+        description: Web origin to check
+        required: false
+        type: string
+      api_url:
+        description: API origin to check
+        required: false
+        type: string
+      expected_build_sha:
+        description: Expected frontend/backend commit SHA (defaults to the workflow commit)
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-canary
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+
+      - name: Test canary validators without network access
+        run: python -m unittest scripts.test_production_canary
+
+  smoke:
+    if: github.event_name != 'pull_request'
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      OSAI_CANARY_WEB_URL: ${{ inputs.web_url || vars.OSAI_CANARY_WEB_URL || 'https://trysheldon.vercel.app' }}
+      OSAI_CANARY_API_URL: ${{ inputs.api_url || vars.OSAI_CANARY_API_URL || 'https://osai-api-ema6.onrender.com' }}
+      OSAI_CANARY_EXPECTED_BUILD_SHA: ${{ inputs.expected_build_sha || vars.OSAI_CANARY_EXPECTED_BUILD_SHA || github.sha }}
+      OSAI_CANARY_REQUIRE_BUILD_ID: "1"
+      OSAI_CANARY_TIMEOUT_SECONDS: "120"
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+
+      - name: Check production twice and record cold/warm timings
+        run: |
+          python scripts/production_canary.py | tee /tmp/production-canary.txt
+          {
+            echo "## Production canary"
+            echo '```text'
+            cat /tmp/production-canary.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

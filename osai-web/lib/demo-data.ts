@@ -2,7 +2,7 @@
 // fully populated for recordings and stakeholder demos.
 
 import type { Integration, SyncRun, WorkflowRun, SearchResponse, DataRouting } from "./types";
-import type { Department, TeamMember } from "./api";
+import type { Department, SavedArtifactRow, TeamMember } from "./api";
 
 export const DEMO_INTEGRATIONS: Integration[] = [
   {
@@ -42,11 +42,11 @@ export const DEMO_INTEGRATIONS: Integration[] = [
     sync_error: null,
   },
   {
-    key: "zoom",
-    display_name: "Zoom",
-    capabilities: ["webhook", "transcribe"],
+    key: "gmail",
+    display_name: "Gmail",
+    capabilities: ["sync", "search"],
     auth_state: "connected",
-    scopes: ["webhook"],
+    scopes: ["gmail.readonly"],
     last_sync: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
     sync_error: null,
   },
@@ -156,7 +156,7 @@ export const DEMO_WORKFLOW_RUNS: WorkflowRun[] = [
         title: "Write API documentation for the new webhook endpoint",
         owner: "dev@company.com",
         due_date: "2026-06-10",
-        source_quote: "Dev: I will write up the API docs for the Zoom webhook.",
+        source_quote: "Dev: I will write up the API docs for the ingestion webhook.",
         destination: "notion",
         confidence: 0.91,
         status: "needs_review",
@@ -362,7 +362,7 @@ export const DEMO_DOCS_PER_CONNECTOR: Record<string, number> = {
   slack: 302,
   google_drive: 98,
   freshdesk: 47,
-  zoom: 12,
+  gmail: 12,
 };
 
 export const DEMO_DEPARTMENTS: Department[] = [
@@ -574,10 +574,10 @@ export const DEMO_BOARD_TASKS: BoardTask[] = [
   { id: "bt-6",  title: "Encrypt Red-tier databases on Qdrant",                   priority: "high",     type: "action-item", assignee: "Yash K.",  source: "Freshdesk", dueDate: null,      column: "done" },
   { id: "bt-7",  title: "Map VPC security groups for Ollama services",            priority: "high",     type: "action-item", assignee: "Yash K.",  source: "Drive",     dueDate: null,      column: "done" },
   { id: "bt-8",  title: "Clean up sprint board and archive completed tickets",    priority: "low",      type: "action-item", assignee: "Ishika T.", source: "Notion",   dueDate: "Jun 12",  column: "pending" },
-  { id: "bt-9",  title: "Send follow-up email to Meridian Corp with Q3 timeline", priority: "high",    type: "follow-up",   assignee: "Anish M.", source: "Zoom",      dueDate: "Jun 9",   column: "overdue" },
+  { id: "bt-9",  title: "Send follow-up email to Meridian Corp with Q3 timeline", priority: "high",    type: "follow-up",   assignee: "Anish M.", source: "Gmail",     dueDate: "Jun 9",   column: "overdue" },
   { id: "bt-10", title: "Run database migration script on staging",               priority: "high",     type: "action-item", assignee: "Sarah R.", source: "Notion",    dueDate: "Jun 10",  column: "pending" },
   { id: "bt-11", title: "Prepare competitor positioning slide for board deck",    priority: "medium",   type: "follow-up",   assignee: "Sarah R.", source: "Drive",     dueDate: "Jun 10",  column: "overdue" },
-  { id: "bt-12", title: "Deploy Zoom webhook integration to production",          priority: "medium",   type: "action-item", assignee: "Yash K.",  source: "Zoom",      dueDate: null,      column: "done" },
+  { id: "bt-12", title: "Deploy Gmail ingestion worker to production",             priority: "medium",   type: "action-item", assignee: "Yash K.",  source: "Gmail",     dueDate: null,      column: "done" },
   { id: "bt-13", title: "Finalise investor update deck with KPIs",                priority: "critical", type: "action-item", assignee: "Priya S.", source: "Notion",    dueDate: "Jun 11",  column: "overdue" },
   { id: "bt-14", title: "Set up Okta SSO prototype in staging environment",       priority: "high",     type: "action-item", assignee: "Dev T.",   source: "Notion",    dueDate: "Jun 20",  column: "pending" },
   { id: "bt-15", title: "Conduct security audit on connector credential storage", priority: "critical", type: "blocker",     assignee: "Yash K.",  source: "Notion",    dueDate: "Jun 9",   column: "overdue" },
@@ -604,7 +604,7 @@ export const DEMO_ASK_ANSWERS: Record<string, AskResponse> = {
   default: {
     conversation_id: "conv-demo",
     answer:
-      "I can answer questions across everything Sheldon has indexed - Notion, Slack, Google Drive, Freshdesk and Zoom transcripts - and take actions in your connected tools. Try one of the suggested prompts to see a cited answer, and ask me to *open a ticket* or *post to Slack* to see an action-confirmation card.",
+      "I can answer questions across everything Sheldon has indexed - Notion, Slack, Google Drive, Gmail and Freshdesk - and take actions in your connected tools. Try one of the suggested prompts to see a cited answer, and ask me to *open a ticket* or *post to Slack* to see an action-confirmation card.",
     citations: [],
     actions_taken: [],
     enough_context: true,
@@ -692,7 +692,7 @@ export const DEMO_GRAPH_ENTITIES: GraphEntity[] = [
   { id: "ent-yash", type: "person", label: "Yash K.", summary: "Engineering - owns infra & security", source_tool: "notion", attributes: { email: "yash@company.com", department: "Engineering" }, degree: 5 },
   { id: "ent-ishika", type: "person", label: "Ishika T.", summary: "Product & backend", source_tool: "notion", attributes: { email: "ishika@company.com", department: "Product" }, degree: 4 },
   { id: "ent-sarah", type: "person", label: "Sarah R.", summary: "Eng lead", source_tool: "slack", attributes: { email: "sarah@company.com", department: "Engineering" }, degree: 3 },
-  { id: "ent-anish", type: "person", label: "Anish M.", summary: "Sales / partnerships", source_tool: "zoom", attributes: { email: "anish@company.com", department: "Sales" }, degree: 2 },
+  { id: "ent-anish", type: "person", label: "Anish M.", summary: "Sales / partnerships", source_tool: "gmail", attributes: { email: "anish@company.com", department: "Sales" }, degree: 2 },
   { id: "ent-eng", type: "department", label: "Engineering", summary: "Infra, connectors, RAG pipeline", source_tool: null, attributes: {}, degree: 4 },
   { id: "ent-product", type: "department", label: "Product", summary: "Roadmap & design", source_tool: null, attributes: {}, degree: 3 },
   { id: "ent-vpc", type: "project", label: "VPC Security Setup", summary: "Harden Ollama + Qdrant networking", source_tool: "notion", attributes: { status: "done" }, degree: 3 },
@@ -707,18 +707,18 @@ export const DEMO_GRAPH_EDGES: GraphEdge[] = [
   { id: "e1", source_id: "ent-yash", target_id: "ent-eng", type: "works_at", label: "works in", confidence: 0.98, source_tool: "notion" },
   { id: "e2", source_id: "ent-sarah", target_id: "ent-eng", type: "works_at", label: "works in", confidence: 0.97, source_tool: "slack" },
   { id: "e3", source_id: "ent-ishika", target_id: "ent-product", type: "works_at", label: "works in", confidence: 0.96, source_tool: "notion" },
-  { id: "e4", source_id: "ent-anish", target_id: "ent-product", type: "works_at", label: "collaborates with", confidence: 0.72, source_tool: "zoom" },
+  { id: "e4", source_id: "ent-anish", target_id: "ent-product", type: "works_at", label: "collaborates with", confidence: 0.72, source_tool: "gmail" },
   { id: "e5", source_id: "ent-yash", target_id: "ent-vpc", type: "owns", label: "owns", confidence: 0.95, source_tool: "notion" },
   { id: "e6", source_id: "ent-vpc", target_id: "ent-tkt-101", type: "references", label: "tracked in", confidence: 0.9, source_tool: "freshdesk" },
   { id: "e7", source_id: "ent-ishika", target_id: "ent-q3", type: "owns", label: "owns", confidence: 0.88, source_tool: "notion" },
   { id: "e8", source_id: "ent-q3", target_id: "ent-dec-sso", type: "references", label: "includes", confidence: 0.8, source_tool: "notion" },
   { id: "e9", source_id: "ent-yash", target_id: "ent-dec-qdrant", type: "decided", label: "decided", confidence: 0.85, source_tool: "notion" },
   { id: "e10", source_id: "ent-sarah", target_id: "ent-q3", type: "references", label: "contributes to", confidence: 0.7, source_tool: "slack" },
-  { id: "e11", source_id: "ent-anish", target_id: "ent-tkt-204", type: "references", label: "raised", confidence: 0.65, source_tool: "zoom" },
+  { id: "e11", source_id: "ent-anish", target_id: "ent-tkt-204", type: "references", label: "raised", confidence: 0.65, source_tool: "gmail" },
   { id: "e12", source_id: "ent-vpc", target_id: "ent-dec-qdrant", type: "references", label: "depends on", confidence: 0.6, source_tool: "notion" },
 ];
 
-// ─── Evals demo (fallback for GET /evals) ────────────────────────────────────
+// ─── Evals demo (read-only fixture; live runs require an admin POST) ─────────
 
 export const DEMO_EVAL_RUN: EvalRun = {
   run_id: "eval_2026_06_11",
@@ -737,8 +737,8 @@ export const DEMO_EVAL_RUN: EvalRun = {
     { id: "route-02", category: "routing", question: "Which channel gets SLA-breach alerts?", expected: "#operations", actual: "#ops", passed: false, score: 0.55, latency_ms: 1380, notes: "Returned an alias, not the canonical channel name." },
     { id: "qa-01", category: "qa", question: "What replaced pgvector?", expected: "Qdrant", actual: "Qdrant", passed: true, score: 0.98, latency_ms: 1320, notes: null },
     { id: "qa-02", category: "qa", question: "What is the onboarding day-1 task?", expected: "Read onboarding guide + set up Docker", actual: "Set up Docker environment", passed: false, score: 0.62, latency_ms: 1600, notes: "Partial - missed the onboarding-guide step." },
-    { id: "qa-03", category: "qa", question: "Which connector handles meeting transcripts?", expected: "Zoom", actual: "Zoom", passed: true, score: 0.96, latency_ms: 1280, notes: null },
-    { id: "own-03", category: "ownership", question: "Who raised the Meridian Corp escalation?", expected: "Anish", actual: "Unclear from context", passed: false, score: 0.4, latency_ms: 1720, notes: "Low retrieval confidence on the Zoom transcript." },
+    { id: "qa-03", category: "qa", question: "Which connector indexes email?", expected: "Gmail", actual: "Gmail", passed: true, score: 0.96, latency_ms: 1280, notes: null },
+    { id: "own-03", category: "ownership", question: "Who raised the Meridian Corp escalation?", expected: "Anish", actual: "Unclear from context", passed: false, score: 0.4, latency_ms: 1720, notes: "Low retrieval confidence on the Gmail thread." },
     { id: "triage-03", category: "ticket_triage", question: "How many open SLA escalations exist?", expected: "2", actual: "2", passed: true, score: 0.93, latency_ms: 1510, notes: null },
     { id: "route-03", category: "routing", question: "Where do meeting action items get pushed?", expected: "Notion / Slack per destination", actual: "Notion or Slack", passed: true, score: 0.88, latency_ms: 1450, notes: null },
     { id: "qa-04", category: "qa", question: "What is the default LLM route?", expected: "gemini-2.0-flash", actual: "Gemini 2.0 Flash", passed: true, score: 0.95, latency_ms: 1300, notes: null },
@@ -749,3 +749,73 @@ export const DEMO_EVAL_RUN: EvalRun = {
     { id: "qa-06", category: "qa", question: "Name the three data-routing tiers.", expected: "Normal, Amber, Red", actual: "Normal, Amber, Red", passed: true, score: 0.99, latency_ms: 1230, notes: null },
   ],
 };
+
+// Pinned artifacts for the demo workspace. The demo has no backend rows to list,
+// so without these the Artifacts page reads as broken ("nothing pinned yet") when
+// it is really the headline feature: an answer you keep, export and re-ask about.
+// Shapes mirror buildOpenUiArtifacts output, one per kind, so the demo shows the
+// range (summary metrics, a cited source table, an action plan).
+export const DEMO_ARTIFACTS: SavedArtifactRow[] = [
+  {
+    id: "demo-artifact-sla",
+    thread_id: null,
+    title: "Open SLA escalations",
+    kind: "answer_summary",
+    created_by_name: "Admin",
+    created_at: "2026-07-13T09:24:00Z",
+    data: {
+      id: "demo-artifact-sla",
+      kind: "answer_summary",
+      title: "Open SLA escalations",
+      subtitle: "Rolled up from Freshdesk and Slack, refreshed at last sync.",
+      metrics: [
+        { label: "Open", value: "7", tone: "warning" },
+        { label: "Breaching in 4h", value: "2", tone: "danger" },
+        { label: "Resolved this week", value: "18", tone: "success" },
+      ],
+      rows: [
+        { label: "Enterprise billing sync failing", value: "Breaching", meta: "Freshdesk #102", tone: "danger" },
+        { label: "Redis connection pool errors", value: "4h left", meta: "Freshdesk #98", tone: "warning" },
+        { label: "SSO redirect loop", value: "On track", meta: "Freshdesk #91", tone: "neutral" },
+      ],
+    },
+  },
+  {
+    id: "demo-artifact-vpc",
+    thread_id: null,
+    title: "Where VPC ownership is documented",
+    kind: "source_table",
+    created_by_name: "Admin",
+    created_at: "2026-07-12T16:05:00Z",
+    data: {
+      id: "demo-artifact-vpc",
+      kind: "source_table",
+      title: "Where VPC ownership is documented",
+      subtitle: "Every source Sheldon used to answer, with confidence.",
+      rows: [
+        { label: "VPC and Ollama Security Setup", value: "Notion", meta: "Updated 3 days ago", confidence: 0.94 },
+        { label: "Map VPC security groups", value: "Owned by yash@osai.local", meta: "Task", confidence: 0.88 },
+        { label: "#infra scoping thread", value: "Slack", meta: "12 replies", confidence: 0.71 },
+      ],
+    },
+  },
+  {
+    id: "demo-artifact-onboarding",
+    thread_id: null,
+    title: "Pilot onboarding plan",
+    kind: "action_plan",
+    created_by_name: "Admin",
+    created_at: "2026-07-11T11:40:00Z",
+    data: {
+      id: "demo-artifact-onboarding",
+      kind: "action_plan",
+      title: "Pilot onboarding plan",
+      subtitle: "Drafted by Sheldon. Every step still needs your approval to run.",
+      rows: [
+        { label: "Connect Freshdesk and Notion", value: "Done", meta: "Step 1", tone: "success" },
+        { label: "Invite the pilot team", value: "In progress", meta: "Step 2", tone: "info" },
+        { label: "Schedule the kickoff demo", value: "Needs approval", meta: "Step 3", tone: "warning" },
+      ],
+    },
+  },
+];

@@ -1,4 +1,3 @@
-import * as React from "react";
 import { Lock } from "lucide-react";
 import { CONNECTOR_META } from "@/lib/connector-meta";
 import type { SourceCitation } from "@/lib/types";

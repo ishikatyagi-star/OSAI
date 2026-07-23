@@ -447,7 +447,13 @@ export default function DecisionsPage() {
               </td>
               <td>
                 <div style={{ display: "flex", gap: 6 }}>
-                  <button className="btn-ghost btn btn-xs" onClick={() => openEditDecision(d)}>Edit</button>
+                  <button
+                    className="btn-ghost btn btn-xs"
+                    onClick={() => openEditDecision(d)}
+                    aria-label={`Edit decision: ${d.title}`}
+                  >
+                    Edit
+                  </button>
                   <button
                     className="btn-ghost btn btn-danger btn-xs"
                     onClick={() => { setWriteError(""); setPendingDelete(d); }}

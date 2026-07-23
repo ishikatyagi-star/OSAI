@@ -57,6 +57,18 @@ def test_stale_runs_are_due_per_cadence():
     assert due == {hourly.id, weekly.id}
 
 
+def test_due_selection_survives_aware_now_vs_naive_last_run():
+    # Production regression: now_utc() is tz-AWARE while last_run_at is stored in
+    # a tz-naive column. The comparison must not raise (it 500'd the whole cron
+    # tick before). Mirror prod by passing an aware `now` and a naive stored ts.
+    session = _sessionmaker()()
+    stale = _auto(session, cadence="hourly", last_run_at=NOW - timedelta(hours=2))
+    _auto(session, cadence="hourly", last_run_at=NOW - timedelta(minutes=5))  # not due
+    aware_now = datetime(2026, 7, 11, 12, 0, tzinfo=UTC)
+    due = {d.id for d in list_due_automations(session, now=aware_now)}
+    assert due == {stale.id}
+
+
 def test_manual_paused_draft_and_disabled_are_never_due():
     session = _sessionmaker()()
     _auto(session, cadence="manual")
@@ -64,6 +76,16 @@ def test_manual_paused_draft_and_disabled_are_never_due():
     _auto(session, status="draft")
     _auto(session, enabled=False)
     assert list_due_automations(session, now=NOW) == []
+
+
+def test_scheduler_heartbeat_records_queue_proof(monkeypatch):
+    monkeypatch.setattr(
+        "workers.scheduler_health.write_scheduler_heartbeat",
+        lambda: "2026-07-21T00:00:00+00:00",
+    )
+    from workers.tasks.automations import scheduler_heartbeat
+
+    assert scheduler_heartbeat()["recorded_at"] == "2026-07-21T00:00:00+00:00"
 
 
 async def test_beat_task_runs_due_automations_and_isolates_failures(monkeypatch):
@@ -90,9 +112,9 @@ async def test_beat_task_runs_due_automations_and_isolates_failures(monkeypatch)
     monkeypatch.setattr(runner, "execute_automation", fake_execute)
     monkeypatch.setattr(db_session, "SessionLocal", maker)
 
-    from workers.tasks.automations import _run_due
-
-    result = await _run_due()
+    # The loop moved to agent/automation_runner (shared by the Celery beat task
+    # and the /internal cron endpoint); patch its collaborators on that module.
+    result = await runner.run_due_automations()
     assert set(result["ran"]) == {a1_id, a3_id}
     assert result["failed"] == [a2_id]
     assert executed and len(executed) == 2

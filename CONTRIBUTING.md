@@ -16,19 +16,19 @@ npm install
 npm run dev
 ```
 
-**Backend:** see `OSAI_EXECUTION_PLAN.md` §4.3.
+**Backend:** follow [README.md](README.md#run-the-backend-locally); deployment-specific setup is in [docs/deploy.md](docs/deploy.md).
 
 ---
 
 ## Branch & PR workflow
 
-Per `OSAI_PARALLEL_PLAN.md` §1–2:
+Use short-lived branches and keep each pull request focused:
 
 1. **Branch from main:** `git checkout main && git pull`
 2. **Name your branch:** `be/<task>` (backend) or `fe/<task>` (frontend)
    - e.g. `be/p1-ask-endpoint`, `fe/p1-chat-ui`
 3. **Stay in your lane:**
-   - Backend → only touch `osai-backend/`, `infra/`, `docker-compose.yml`
+   - Backend → only touch `osai-backend/`, `docker-compose.yml`, and backend deployment config
    - Frontend → only touch `osai-web/`, `docs/design-system.md`, `evals/fixtures/`
    - If you must cross lanes, do it in a **separate tiny PR** and message the other person first.
 4. **Commit often, PRs small** (1–2 days of work max).
@@ -62,7 +62,7 @@ Per `OSAI_PARALLEL_PLAN.md` §1–2:
 |---|---|
 | `osai-backend/` | Ishika (backend) |
 | `osai-web/` | Co-founder (frontend) |
-| `infra/`, `docker-compose.yml` | Ishika |
+| `docker-compose.yml`, `render.yaml` | Ishika |
 | `docs/api-contract.md` | Ishika writes, both review |
 | `docs/design-system.md`, `docs/deploy.md` | Co-founder |
 | `evals/fixtures/` | Co-founder (domain scenarios) |
@@ -72,7 +72,7 @@ Per `OSAI_PARALLEL_PLAN.md` §1–2:
 
 ## Contract-first development
 
-The frontend and backend work in parallel via **contract-first** (see `OSAI_PARALLEL_PLAN.md` §3):
+The frontend and backend work in parallel via **contract-first** development:
 
 1. Before building an endpoint, the backend commits the request/response shape to `docs/api-contract.md`.
 2. The frontend builds against that shape using mock/demo data.
@@ -91,6 +91,6 @@ The frontend and backend work in parallel via **contract-first** (see `OSAI_PARA
 ## Questions?
 
 Open an issue or message in the team channel. When in doubt, check:
-- `OSAI_EXECUTION_PLAN.md` — the authoritative detailed plan
-- `OSAI_PARALLEL_PLAN.md` — who does what when
-- `docs/api-contract.md` — the shared API interface
+- [README.md](README.md) — local setup and current capability summary
+- [docs/deploy.md](docs/deploy.md) — deployment configuration
+- [docs/api-contract.md](docs/api-contract.md) — the shared API interface

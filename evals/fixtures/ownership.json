@@ -24,7 +24,7 @@
     "expected": "Anish",
     "match_mode": "contains",
     "tags": ["person", "ticket", "escalation"],
-    "notes": "Source: Zoom transcript — flagged by Anish in sales call"
+    "notes": "Source: Gmail thread — flagged by Anish in a customer follow-up"
   },
   {
     "id": "own-04",

@@ -1,0 +1,89 @@
+name: hermes-sidecar-ci
+
+on:
+  pull_request:
+    paths:
+      - "services/hermes-sidecar/**"
+      - "osai-backend/tests/test_hermes_sidecar.py"
+      - "render.yaml"
+      - ".github/workflows/hermes-sidecar-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "services/hermes-sidecar/**"
+      - "osai-backend/tests/test_hermes_sidecar.py"
+      - "render.yaml"
+      - ".github/workflows/hermes-sidecar-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  container-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Audit and validate the hash-locked wrapper dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          check_venv="${RUNNER_TEMP}/hermes-wrapper-check"
+          audit_venv="${RUNNER_TEMP}/hermes-wrapper-audit"
+          python3 -m venv "$check_venv"
+          "$check_venv/bin/python" -m pip install \
+            --disable-pip-version-check \
+            --require-hashes \
+            --requirement services/hermes-sidecar/requirements.txt
+          "$check_venv/bin/python" -m pip check
+
+          # This is a blocking current-advisory audit of the wrapper lock only.
+          # The upstream installer-created Hermes environment is tracked as a
+          # separate unresolved reproducibility/audit boundary.
+          python3 -m venv "$audit_venv"
+          "$audit_venv/bin/python" -m pip install \
+            --disable-pip-version-check \
+            pip-audit==2.9.0
+          "$audit_venv/bin/python" -m pip_audit \
+            --require-hashes \
+            --disable-pip \
+            --requirement services/hermes-sidecar/requirements.txt
+
+      - name: Build pinned sidecar image
+        run: docker build --tag osai-hermes-ci services/hermes-sidecar
+
+      - name: Verify unprivileged runtime and HTTP boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          container_id="$(docker run --detach --rm \
+            --publish 127.0.0.1:18088:8088 \
+            --env SIDECAR_AUTH_TOKEN=ci-only-sidecar-token \
+            --env HERMES_MODEL=ci-smoke-model \
+            --env HERMES_PROVIDER=groq \
+            --env GROQ_API_KEY=ci-dummy-provider-key \
+            osai-hermes-ci)"
+          cleanup() {
+            docker rm --force "$container_id" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:18088/health/ready \
+              | grep --quiet '"ok":true'; then
+              break
+            fi
+            if [ "$attempt" = 30 ]; then
+              docker logs "$container_id"
+              exit 1
+            fi
+            sleep 1
+          done
+
+          test "$(docker exec "$container_id" id -u)" = "10001"
+          docker exec "$container_id" test -x /usr/local/bin/hermes
+          docker exec "$container_id" test -w /data/hermes
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' \
+            --request POST --header 'Content-Type: application/json' \
+            --data '{"prompt":"x","org_id":"ci"}' \
+            http://127.0.0.1:18088/run)" = "401"

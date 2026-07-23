@@ -1,0 +1,34 @@
+# Scheduled-automation ticker. The free-tier deploy has no Celery worker, so
+# this schedule POSTs the authed /internal/automations/run-due endpoint; each
+# call runs only automations whose cadence interval has elapsed (idempotent,
+# safe to over-fire). Same caveats as keep-alive.yml: GitHub delays scheduled
+# runs under load and disables them after 60 days of repo inactivity — treat as
+# best-effort until a real worker is deployed.
+#
+# Requires the AUTOMATIONS_CRON_TOKEN repo secret to match the
+# OSAI_AUTOMATIONS_CRON_TOKEN env var on the Render service. Without either,
+# the endpoint 404s and this workflow just logs the failure.
+name: automations-cron
+
+on:
+  schedule:
+    # Every 15 minutes, offset off the contended top-of-hour slots (see
+    # keep-alive.yml for the measured reasoning).
+    - cron: "4,19,34,49 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Run due automations
+        run: |
+          code=$(curl -s -o /tmp/body -w "%{http_code}" --max-time 540 \
+            -X POST "https://osai-api-ema6.onrender.com/internal/automations/run-due" \
+            -H "X-Cron-Token: ${{ secrets.AUTOMATIONS_CRON_TOKEN }}")
+          echo "HTTP $code"
+          cat /tmp/body
+          # 404 = token not configured server-side yet; don't page on that,
+          # but fail visibly on auth mismatch or server errors.
+          if [ "$code" != "200" ] && [ "$code" != "404" ]; then exit 1; fi

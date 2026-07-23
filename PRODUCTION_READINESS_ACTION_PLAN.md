@@ -1,11 +1,18 @@
 # OSAI — Production Readiness Audit & Action Plan
 
+> [!WARNING]
+> **Historical snapshot (2026-07-04).** This document preserves the evidence and
+> proposed work from that audit; it is not the current source of truth. Many
+> findings and deployment assumptions have since changed. Verify every item
+> against the current code, tests, [README](README.md), and
+> [deployment guide](docs/deploy.md) before acting.
+
 **Prepared by:** Senior-engineer + product-design audit pass (Fable 5)
 **Date:** 2026-07-04
 **Repo audited:** `/Users/ishikatyagi/Documents/Projects/Osai/OSAI` (backend `osai-backend/`, frontend `osai-web/`)
 **Method:** Full code read of backend routes/services and frontend pages; backend lint (`ruff` — clean) and test suite (`pytest` — 50 passed, 1 failed, 2 skipped); frontend `tsc --noEmit` (clean); live run of API (`:8000`) + web (`:3000`) against Dockerized Postgres/Redis/Qdrant; manual browser walkthrough of every core screen at desktop + mobile widths; and direct `curl` probing of the API to reproduce auth/isolation behavior.
 
-> **How to use this document (for the execution agent — Opus):** This is the single source of truth. Each item is self-contained: it names the exact files, the observed problem, why it matters, concrete fix steps, and acceptance criteria. You have repo access but no memory of this investigation — do not assume any context beyond what is written here. Work the phases in [§7 Suggested Execution Order](#7-suggested-execution-order). Items are labeled `SEV-###` for cross-reference. **Anything marked `[INFERRED]` was reasoned from code but not independently reproduced — verify before acting.** Everything else was reproduced live.
+> **Historical use only:** Item IDs are retained for cross-reference to the July 4 audit. The observations and suggested order below describe that snapshot, not the current branch. Anything marked `[INFERRED]` was reasoned from code but not independently reproduced at audit time.
 
 ---
 
@@ -118,15 +125,15 @@ OSAI is an ambitious, genuinely functional product: a RAG-over-connected-tools "
 
 ---
 
-### SEV-005 — Production (Render free) deploy runs ingestion synchronously with no worker → real syncs time out / OOM
+### SEV-005 — Production ingestion still runs in the API process → real syncs can time out / OOM
 - **Category:** Deployment / Integration
 - **Severity:** Blocker for real (non-demo) ingestion at any volume
-- **Location:** `render.yaml` (no `type: worker` service; comment explicitly says the worker is omitted and "the demo runs fully synchronously in the API"); `osai-backend/api/routes/integrations.py::_ingest_composio_in_background` and `api/routes/composio.py::_sync_in_background` (use FastAPI `BackgroundTasks`, which run **in the same web process/dyno**, not a separate worker); `workers/` Celery app exists but is not deployed on Render.
+- **Location:** `render.yaml` now defines a paid worker for recurring automations, but `osai-backend/api/routes/integrations.py::_ingest_composio_in_background` and `api/routes/composio.py::_sync_in_background` still use FastAPI `BackgroundTasks`, which run **in the same web process/dyno**. The placeholder ingest/execute task names are not producers or real offload.
 - **What's wrong:** On the free Render plan there is one web instance and no Celery worker. "Background" ingestion is FastAPI `BackgroundTasks` running inside the single web dyno. A real Composio sync (up to 25 files + media download + Whisper transcription + embeddings) is heavy; the code has already been patched twice (per commit history and inline comments) to dodge request-timeout/OOM 502s by deferring work to `BackgroundTasks`, but that still consumes the one web process's memory and CPU, and free-tier RAM is tight (the code even rejects >25MB media pre-emptively to avoid OOM). Under real load or larger corpora this will fail intermittently — which matches the "intermittent errors during integration testing" symptom reported.
 - **Why it matters:** Ingestion is the core value loop. If it flakes under real data, the product doesn't work for actual customers, and the failures are non-deterministic (hard to debug, bad demo surprise).
 - **Fix instructions:**
   1. **Short term (pilot):** Keep synchronous/`BackgroundTasks` ingestion but (a) enforce and document hard caps (file count, per-file size, total bytes) and (b) ensure every sync path records a `SyncRun` with a clear `partial`/`failed` status and error so the UI never silently hangs. Confirm `sync-runs` reflects in-flight and failed runs (it currently shows a `not_started` seed fallback — make sure real runs supersede it).
-  2. **Real fix:** Add a `type: worker` service to a paid Render plan (or another host) running `celery -A workers.celery_app worker`, wire the existing `workers/tasks/*` and route the heavy ingest through Celery (`.delay(...)`) instead of `BackgroundTasks`. Redis is already provisioned (`osai-redis`). The Zoom webhook path already uses `download_and_transcribe.delay(...)` — extend the same pattern to Composio ingest.
+  2. **Real fix:** Implement a real Composio ingest Celery task plus producer, idempotency, retries, and terminal failure recording; then add its queue to the paid worker. The current hosted command intentionally consumes only `execute` because that is the only queue with an end-to-end producer/task contract. Redis is already provisioned (`osai-redis`).
   3. Add memory headroom / a bigger instance for the web service, or move ingestion entirely off the web dyno.
 - **Acceptance criteria:**
   - A sync of a realistic corpus (e.g. 25 files including a media file) completes without a 502 and without OOM-killing the web process.
@@ -277,7 +284,7 @@ OSAI is an ambitious, genuinely functional product: a RAG-over-connected-tools "
 
 - **SEV-307 — `test-file.md`, `test-file2.md`, `test-file3.md` committed at repo root.** Stray scratch files (`OSAI/test-file*.md`). Remove. **Accept:** repo root has no stray test scratch files.
 
-- **SEV-308 — Zoom webhook signature check bypass when secret unset.** `api/routes/webhooks.py::verify_zoom_signature` returns `True` (bypass) with a warning if `OSAI_ZOOM_WEBHOOK_SECRET` is unset, and the webhook triggers a Celery task using `settings.default_org_id`. In production this means anyone can POST fabricated "recording.completed" events to ingest arbitrary content into the default org if the secret isn't set. **Fix:** in non-local env, require the secret (reject webhooks if unset) rather than bypassing. **Accept:** production rejects unsigned Zoom webhooks; local dev can still bypass with a logged warning.
+- **SEV-308 — Resolved by disablement.** The Zoom route is now an unconditional hidden 404, its capability is false, mock/download/transcription worker behavior was removed, and legacy Zoom env vars cannot enable it or block startup. A future Zoom integration still requires tenant-bound OAuth/webhook authentication and live contract tests before reintroduction.
 
 ---
 
@@ -288,7 +295,7 @@ OSAI is an ambitious, genuinely functional product: a RAG-over-connected-tools "
 | D1 | **Secrets management** | Partial | `render.yaml` marks keys `sync: false` (good). Verify all are actually set in the live Render env, especially `OSAI_JWT_SECRET` (SEV-002). Confirm no secret is committed (`.env` is gitignored; `git ls-files` shows only `.env.example` — good). |
 | D2 | **Tenant isolation** | ❌ Blocked | SEV-001, SEV-101, SEV-102 must be closed before a second real customer. |
 | D3 | **JWT secret guard** | ❌ | SEV-002 — refuse to boot insecurely in prod. |
-| D4 | **Async worker** | ❌ (free tier) | SEV-005 — add Celery worker (paid) or enforce hard caps + reliable SyncRun status for the pilot. |
+| D4 | **Async worker** | Partial | A paid worker, beat, routed scheduler heartbeat, and recurring automation execution are defined. SEV-005 remains for real ingestion offload, retry/backlog visibility, and deployed proof. |
 | D5 | **CORS** | OK-ish | `api/main.py` uses `allow_origins=settings.allowed_origin_list` with `allow_credentials=True` — good (not wildcard). Ensure `OSAI_ALLOWED_ORIGINS` is set to the exact Vercel URL in prod (no trailing slash). |
 | D6 | **Error boundaries + 404** | ❌ | SEV-105. |
 | D7 | **Health check** | OK | `/health` exists and Render `healthCheckPath: /health` is wired. |
@@ -300,7 +307,7 @@ OSAI is an ambitious, genuinely functional product: a RAG-over-connected-tools "
 | D13 | **Cold-start UX** | Handled | Free Render web cold-starts are mitigated in-app (login retries `/auth/config` 3×, longer timeouts). Document the first-load delay; consider a paid instance for demos. |
 | D14 | **Submodules** | Check | `services/gbrain` and `services/hermes` are git submodules. Ensure the prod OSAI-API build doesn't require them and `git submodule update --init` is documented (README covers gbrain). |
 | D16 | **Hermes sidecar (launch-critical)** | ❌ | SEV-401 — confirmed in scope for launch. Must be deployed (paid Render Docker service + persistent disk at `/data/hermes`), pass the `services/hermes-sidecar/DEPLOY.md` step-4 gate, be wired via `OSAI_HERMES_SIDECAR_URL`, and have monitoring on the `via` field so a silent fallback to the in-house agent is caught. Depends on SEV-001. Not yet run end-to-end. |
-| D15 | **Zoom webhook secret** | ❌ | SEV-308 — require in prod. |
+| D15 | **Zoom integration** | Disabled | SEV-308 is closed by a hard 404. Keep unavailable until a tenant-bound authenticated design is implemented and tested. |
 | D17 | **Database (Supabase)** | Partial | Postgres migrated from Render to Supabase. `OSAI_DATABASE_URL` is now a dashboard secret (URL-encode the password: `@`→`%40`, `!`→`%21`; append `?sslmode=require`). Alembic DSN `%`-escape fix is in `db/migrations/env.py`. **Free-tier Supabase pauses after ~7 days idle** — before launch, upgrade to a paid plan or add a keep-alive ping (e.g. a scheduled hit to `/health` that runs a trivial query) so the pilot API doesn't silently go down. Retire the old Render Postgres (delete the `databases:` block in `render.yaml`) once the deployed app is verified against Supabase and pilot data is confirmed migrated. |
 
 ---
@@ -341,7 +348,7 @@ Work top-to-bottom. Each phase should end green (`ruff`, `pytest`, `tsc`, app bo
 2. **SEV-002** — JWT secret startup guard for non-local env.
 3. **SEV-102** — Gate password-less `/auth/login` to local/demo; make Google OAuth the prod auth path.
 4. **SEV-101** — Rate-limit + validate `/orgs` and `/auth/login`.
-5. **SEV-308** — Require Zoom webhook secret in prod.
+5. **SEV-308** — Closed by hard-disablement; do not re-enable the legacy route.
 6. **SEV-108** — Fix the stale auth test; get the suite green. Add a cross-org isolation regression test.
 > **Gate:** unauthenticated probes to the five endpoints return 401; cross-org body `org_id` is ignored; `pytest` all green.
 

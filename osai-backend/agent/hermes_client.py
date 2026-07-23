@@ -14,7 +14,7 @@ import logging
 
 import httpx
 
-from api.schemas.search import SearchRequest
+from api.schemas.search import MAX_SEARCH_QUERY_CHARS, SearchRequest
 from config import settings
 from memory.retriever import retrieve_answer
 
@@ -26,13 +26,26 @@ def _correlation_id(org_id: str, user_id: str | None) -> str:
     return hashlib.sha256(f"{org_id}:{user_id or ''}".encode()).hexdigest()[:12]
 
 
-async def _permitted_context(prompt: str, org_id: str, permissions: list[str]) -> str:
+async def _permitted_context(
+    prompt: str,
+    org_id: str,
+    permissions: list[str],
+    *,
+    requester_tier: str,
+    requester_user_id: str | None,
+) -> str:
     """Retrieve org context the user is permitted to see, to inject into the
     Hermes prompt. Enforcement stays in OSAI: Hermes only ever receives text this
     user is cleared for (the retriever filters by `requester_permissions`)."""
     try:
         res = await retrieve_answer(
-            SearchRequest(org_id=org_id, query=prompt, requester_permissions=permissions)
+            SearchRequest(
+                org_id=org_id,
+                query=prompt[:MAX_SEARCH_QUERY_CHARS],
+                requester_permissions=permissions,
+                requester_tier=requester_tier,
+                requester_user_id=requester_user_id,
+            )
         )
     except Exception:  # noqa: BLE001 — context is best-effort
         return ""
@@ -42,10 +55,19 @@ async def _permitted_context(prompt: str, org_id: str, permissions: list[str]) -
     from llm.policy import cloud_llm_allowed, load_data_routing
 
     routing = load_data_routing(org_id)
-    parts = [res.answer or ""]
-    for c in res.citations[:5]:
+    eligible_citations = []
+    restricted_context_present = False
+    for c in res.citations:
         if not cloud_llm_allowed(routing, getattr(c, "data_tier", None)):
+            restricted_context_present = True
             continue
+        eligible_citations.append(c)
+
+    # A locally synthesized answer may itself contain material derived from a
+    # restricted citation. If any retrieved context is not approved for cloud
+    # egress, do not forward that answer to the cloud-capable sidecar.
+    parts = [] if restricted_context_present else [res.answer or ""]
+    for c in eligible_citations[:5]:
         title = getattr(c, "title", None) or getattr(c, "source_tool", "")
         snippet = getattr(c, "snippet", None) or getattr(c, "content_preview", "")
         if title or snippet:
@@ -68,10 +90,12 @@ async def run_via_hermes(
     prompt: str,
     org_id: str,
     *,
-    user_id: str | None = None,
-    permissions: list[str] | None = None,
+    user_id: str | None,
+    permissions: list[str],
+    requester_tier: str,
     history: list | None = None,
     extra_context: str = "",
+    extra_context_cloud_safe: bool = False,
     timeout: float = 120.0,
 ) -> str | None:
     """Run a prompt through the *per-user* Hermes sidecar. Carries org_id +
@@ -88,15 +112,20 @@ async def run_via_hermes(
     from agent.context import environment_preamble
 
     parts = [await environment_preamble(org_id)]
-    if extra_context:
+    if extra_context and extra_context_cloud_safe:
         parts.append(extra_context)
 
     # Ground Hermes in the user's permitted org context (enforced here in OSAI).
-    context = await _permitted_context(prompt, org_id, permissions or [])
+    context = await _permitted_context(
+        prompt,
+        org_id,
+        permissions,
+        requester_tier=requester_tier,
+        requester_user_id=user_id,
+    )
     if context:
         parts.append(
-            "Context from your organization (only what you are permitted to see):\n"
-            f"{context}"
+            f"Context from your organization (only what you are permitted to see):\n{context}"
         )
     # Recent conversation, so clarifying answers accumulate across turns.
     if history:
@@ -112,7 +141,8 @@ async def run_via_hermes(
         "prompt": augmented,
         "org_id": org_id,
         "user_id": user_id,
-        "permissions": permissions or [],
+        "permissions": permissions,
+        "requester_tier": requester_tier,
     }
     headers = (
         {"X-Sidecar-Token": settings.hermes_sidecar_token}

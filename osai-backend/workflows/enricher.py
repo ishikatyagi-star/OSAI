@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from db.models import ActionItemRecord, WorkflowRun
 from memory.embeddings import default_embedding_provider
 from memory.qdrant_store import get_default_qdrant_store
-from memory.retriever import _tier_visible, _visible
+from memory.retriever import _authoritative_document_hits, _tier_visible, _visible
 
 logger = logging.getLogger("osai.workflows.enricher")
 
@@ -24,13 +24,15 @@ async def get_workflow_context_async(
     limit_items: int = 10,
     requester_permissions: list[str] | None = None,
     requester_tier: str = "red",
+    actor_user_id: str | None = None,
+    viewer_is_admin: bool = False,
 ) -> dict[str, list[dict]]:
     """Retrieve related chunks semantically from Qdrant and recent action items from DB.
 
     Enrichment context lands in the extraction prompt, so it must pass the same
     governance filter as retrieval (`_visible` + clearance tier) for the user who
-    initiated the workflow. Defaults keep system context (Zoom webhook / Celery,
-    no initiating user) at see-all, matching the retriever's stance."""
+    initiated the workflow. System context (Zoom webhook / Celery, no initiating
+    user) retains document access but cannot read user-owned action items."""
     documents = []
 
     # 1. Retrieve related chunks from Qdrant
@@ -43,6 +45,7 @@ async def get_workflow_context_async(
 
             # Query Qdrant
             hits = await qdrant.search(query_vector, org_id, limit=limit_chunks)
+            hits = _authoritative_document_hits(hits, org_id, session=session)
             hits = [
                 h
                 for h in hits
@@ -61,6 +64,7 @@ async def get_workflow_context_async(
                         "source_type": payload.get("source_type", "unknown"),
                         "url": payload.get("url"),
                         "confidence": float(hit.score),
+                        "data_tier": payload.get("data_tier") or "normal",
                     }
                 )
             logger.info(f"Retrieved {len(documents)} related chunks from Qdrant.")
@@ -70,14 +74,22 @@ async def get_workflow_context_async(
     # 2. Retrieve recent action items from Postgres
     action_items = []
     try:
-        stmt = (
-            select(ActionItemRecord)
-            .join(WorkflowRun, ActionItemRecord.workflow_run_id == WorkflowRun.id)
-            .where(WorkflowRun.org_id == org_id)
-            .order_by(desc(ActionItemRecord.created_at))
-            .limit(limit_items)
+        stmt = select(ActionItemRecord).join(
+            WorkflowRun, ActionItemRecord.workflow_run_id == WorkflowRun.id
+        ).where(WorkflowRun.org_id == org_id)
+        if not viewer_is_admin:
+            stmt = (
+                stmt.where(WorkflowRun.created_by == actor_user_id)
+                if actor_user_id
+                else None
+            )
+        rows = (
+            session.scalars(
+                stmt.order_by(desc(ActionItemRecord.created_at)).limit(limit_items)
+            ).all()
+            if stmt is not None
+            else []
         )
-        rows = session.scalars(stmt).all()
         for item in rows:
             action_items.append(
                 {
@@ -105,6 +117,8 @@ def get_workflow_context(
     limit_items: int = 10,
     requester_permissions: list[str] | None = None,
     requester_tier: str = "red",
+    actor_user_id: str | None = None,
+    viewer_is_admin: bool = False,
 ) -> dict[str, list[dict]]:
     """Synchronous wrapper to retrieve context for Celery and other sync workflows."""
     try:
@@ -123,6 +137,8 @@ def get_workflow_context(
                 limit_items=limit_items,
                 requester_permissions=requester_permissions,
                 requester_tier=requester_tier,
+                actor_user_id=actor_user_id,
+                viewer_is_admin=viewer_is_admin,
             )
         )
     except Exception as exc:

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, Check, Download, Info, RotateCw } from "lucide-react";
-import { getSyncRuns, getDashboardMetrics } from "@/lib/api";
+import { getDashboardMetrics, getSyncRunPage, type SyncRunPage } from "@/lib/api";
 import { DEMO_SYNC_RUNS, DEMO_STATS } from "@/lib/demo-data";
 import { isDemo } from "@/lib/demo";
 import { CONNECTOR_META, getConnectorIcon } from "@/lib/connector-meta";
@@ -25,25 +25,34 @@ export default function SyncRunsPage() {
   // dashboard/analytics/integration cards. NOT the sum of historical runs (which
   // double-counts re-syncs and old, since-removed accounts).
   const [activeDocs, setActiveDocs] = useState<number | null>(null);
+  const [summary, setSummary] = useState<SyncRunPage["summary"] | null>(null);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState("");
+  const [loadMoreError, setLoadMoreError] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
     setLoadError("");
+    setLoadMoreError("");
     if (isDemo()) {
       setRuns(DEMO_SYNC_RUNS);
+      setSummary(null);
+      setNextCursor(null);
       setActiveDocs(DEMO_STATS.documentsIndexed);
       setLoading(false);
       return;
     }
     try {
       const [runsResult, metricsResult] = await Promise.allSettled([
-        getSyncRuns(true),
+        getSyncRunPage(25, undefined, true),
         getDashboardMetrics(true),
       ]);
       if (runsResult.status === "rejected") throw runsResult.reason;
-      setRuns(runsResult.value);
+      setRuns(runsResult.value.items);
+      setSummary(runsResult.value.summary);
+      setNextCursor(runsResult.value.next_cursor);
       setActiveDocs(metricsResult.status === "fulfilled" ? metricsResult.value.total_documents : null);
     } catch {
       setLoadError("Sync activity could not be loaded. Check your connection and retry.");
@@ -54,15 +63,49 @@ export default function SyncRunsPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  async function loadMore() {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    setLoadMoreError("");
+    try {
+      const page = await getSyncRunPage(25, nextCursor, true);
+      setRuns((current) => [...current, ...page.items]);
+      setSummary(page.summary);
+      setNextCursor(page.next_cursor);
+    } catch {
+      setLoadMoreError("More sync runs could not be loaded. Retry when your connection is stable.");
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
   const demo = isDemo();
   const display = (runs.length ? runs : demo ? DEMO_SYNC_RUNS : [])
     .slice()
     .sort((a, b) => Date.parse(b.started_at) - Date.parse(a.started_at));
 
-  const totalDocs = display.reduce((sum, r) => sum + (r.documents_indexed ?? 0), 0);
+  const totalRuns = demo ? display.length : summary?.total_runs ?? 0;
+  const totalDocs = demo
+    ? display.reduce((sum, r) => sum + (r.documents_indexed ?? 0), 0)
+    : summary?.documents_indexed ?? 0;
   const knowledgeBaseDocs = demo ? DEMO_STATS.documentsIndexed : activeDocs;
-  const succeeded = display.filter((r) => r.status === "succeeded").length;
-  const failed = display.filter((r) => r.status === "failed").length;
+  const succeeded = demo
+    ? display.filter((r) => r.status === "succeeded").length
+    : summary?.status_counts.succeeded ?? 0;
+  const failed = demo
+    ? display.filter((r) => r.status === "failed").length
+    : summary?.status_counts.failed ?? 0;
+  const sourceRows = demo
+    ? Object.entries(DEMO_STATS.docsPerConnector).map(([key, documents]) => ({
+        key,
+        runs: display.filter((run) => run.connector_key === key).length,
+        documents,
+      }))
+    : Object.entries(summary?.by_connector ?? {}).map(([key, aggregate]) => ({
+        key,
+        runs: aggregate.total_runs,
+        documents: aggregate.documents_indexed,
+      }));
 
   return (
     <div>
@@ -94,9 +137,9 @@ export default function SyncRunsPage() {
       {/* Summary stats - dashboard stat-card styling; color reserved for status */}
       <div className="stats-grid stats-grid--auto">
         {[
-          { label: "Total runs", value: display.length, color: "var(--text-primary)" },
-          { label: "Succeeded", value: succeeded, color: "var(--green)" },
-          { label: "Failed", value: failed, color: failed > 0 ? "var(--red)" : "var(--text-primary)" },
+          { label: "Total runs (all time)", value: totalRuns, color: "var(--text-primary)" },
+          { label: "Succeeded (all time)", value: succeeded, color: "var(--green)" },
+          { label: "Failed (all time)", value: failed, color: failed > 0 ? "var(--red)" : "var(--text-primary)" },
           { label: "Docs indexed (all runs)", value: totalDocs.toLocaleString(), color: "var(--text-primary)" },
           { label: "Active in knowledge base", value: knowledgeBaseDocs === null ? "Unavailable" : knowledgeBaseDocs.toLocaleString(), color: "var(--text-primary)" },
         ].map((s) => (
@@ -108,28 +151,31 @@ export default function SyncRunsPage() {
       </div>
 
       {/* Per-connector summary */}
-      <div style={{ marginBottom: 28, display: demo ? "block" : "none" }}>
+      <div style={{ marginBottom: 28 }}>
         <h2 style={{ marginBottom: 12 }}>Source Breakdown</h2>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          {Object.entries(DEMO_STATS.docsPerConnector).map(([key, count]) => {
+          {sourceRows.map(({ key, runs: sourceRuns, documents }) => {
             const meta = CONNECTOR_META[key];
-            if (!meta) return null;
-            const Icon = meta.icon;
+            const Icon = getConnectorIcon(key);
             return (
               <div key={key} className="connector-pill">
                 <Icon size={14} strokeWidth={1.8} />
-                <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{meta.label}</span>
+                <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{meta?.label ?? key}</span>
                 <span className="badge badge-grey" style={{ fontSize: 10 }}>
-                  {count.toLocaleString()} docs
+                  {sourceRuns.toLocaleString()} run{sourceRuns === 1 ? "" : "s"} · {documents.toLocaleString()} indexed
                 </span>
               </div>
             );
           })}
+          {sourceRows.length === 0 && <p className="meta">No source activity yet.</p>}
         </div>
       </div>
 
       {/* Timeline */}
-      <h2 style={{ marginBottom: 16 }}>Activity Timeline</h2>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
+        <h2>Activity Timeline</h2>
+        <span className="meta">Showing {display.length.toLocaleString()} of {totalRuns.toLocaleString()} runs</span>
+      </div>
       {display.length === 0 && (
         <div className="empty-state mascot-empty-state">
           <SheldonMascot state="syncing" size={88} />
@@ -252,6 +298,15 @@ export default function SyncRunsPage() {
           );
         })}
       </div>
+      {loadMoreError && <p className="error-text" role="alert" style={{ marginTop: 16 }}>{loadMoreError}</p>}
+      {nextCursor && (
+        <div style={{ display: "flex", justifyContent: "center", marginTop: 20 }}>
+          <button type="button" className="btn" onClick={loadMore} disabled={loadingMore} aria-busy={loadingMore}>
+            <RotateCw className={`size-3.5${loadingMore ? " animate-spin" : ""}`} aria-hidden="true" />
+            {loadingMore ? "Loading…" : loadMoreError ? "Retry loading more" : "Load more"}
+          </button>
+        </div>
+      )}
         </>
       )}
     </div>

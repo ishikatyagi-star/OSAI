@@ -11,20 +11,31 @@ from __future__ import annotations
 import pytest
 
 from api.main import app
-from db.session import get_org_id, require_admin
+from api.routes.automations import get_scheduler_available
+from db.session import get_org_id, require_admin, require_writable_org
 
 
 @pytest.fixture(autouse=True)
 def _override_auth():
     app.dependency_overrides[get_org_id] = lambda: "demo-org"
+    # require_writable_org gates state-changing routes against the anonymous demo
+    # workspace (SEC-003). In tests it resolves to the org like get_org_id so the
+    # functional suite can exercise those routes as an authenticated member; the
+    # demo-block itself is covered by tests that deliberately skip this override.
+    app.dependency_overrides[require_writable_org] = lambda: "demo-org"
     app.dependency_overrides[require_admin] = lambda: {
         "org_id": "demo-org",
         "role": "admin",
         "sub": "test-admin",
     }
+    # Functional tests assume optional scheduler infrastructure is provisioned;
+    # dedicated tests override this to verify fail-closed behavior.
+    app.dependency_overrides[get_scheduler_available] = lambda: True
     yield
     app.dependency_overrides.pop(get_org_id, None)
+    app.dependency_overrides.pop(require_writable_org, None)
     app.dependency_overrides.pop(require_admin, None)
+    app.dependency_overrides.pop(get_scheduler_available, None)
 
 
 @pytest.fixture(autouse=True)

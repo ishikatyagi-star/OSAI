@@ -12,10 +12,17 @@ agent simply has no Composio tools.
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any
 
 import httpx
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_random_exponential,
+)
 
 from config import settings
 
@@ -27,6 +34,21 @@ logger = logging.getLogger("osai.composio")
 TOOLKIT_SCOPES: dict[str, list[str]] = {
     "googledrive": ["https://www.googleapis.com/auth/drive.readonly"],
 }
+
+# Toolkit logo URLs rarely change; cache them for the process lifetime so the
+# Integrations page doesn't re-hit Composio's toolkit endpoint on every load.
+_TOOLKIT_LOGO_CACHE: dict[str, str | None] = {}
+
+# Retry transient network failures on read-only Composio calls so one blip
+# doesn't fail a whole page load or sync. Write-capable paths (execute,
+# execute_capped) are deliberately NOT retried: a timed-out write may have
+# landed, and retrying it could double-run a real side effect.
+_network_retry = retry(
+    retry=retry_if_exception_type((httpx.TimeoutException, httpx.TransportError)),
+    stop=stop_after_attempt(3),
+    wait=wait_random_exponential(multiplier=0.5, max=4),
+    reraise=True,
+)
 
 
 class ComposioClient:
@@ -40,6 +62,7 @@ class ComposioClient:
     def _headers(self) -> dict[str, str]:
         return {"x-api-key": self.api_key or "", "Content-Type": "application/json"}
 
+    @_network_retry
     async def list_tools(
         self, toolkits: list[str] | None = None, limit: int = 20
     ) -> list[dict[str, Any]]:
@@ -60,6 +83,7 @@ class ComposioClient:
                     specs.append(_to_spec(tool))
         return specs
 
+    @_network_retry
     async def list_toolkits(
         self,
         limit: int = 50,
@@ -111,6 +135,46 @@ class ComposioClient:
             ]
         return {"items": out, "next_cursor": body.get("next_cursor")}
 
+    @_network_retry
+    async def toolkit_logo(self, slug: str) -> str | None:
+        """Logo URL for a toolkit, from Composio's toolkit detail endpoint.
+        Cached per slug for the process lifetime; failures cache None so a bad
+        slug doesn't add a round-trip to every Integrations load."""
+        key = (slug or "").lower()
+        if not key:
+            return None
+        if key in _TOOLKIT_LOGO_CACHE:
+            return _TOOLKIT_LOGO_CACHE[key]
+        logo: str | None = None
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.get(
+                    f"{self.base_url}/api/v3/toolkits/{key}",
+                    headers=self._headers(),
+                )
+            if resp.status_code == 200:
+                logo = (resp.json().get("meta") or {}).get("logo")
+        except httpx.HTTPError:
+            logo = None
+        _TOOLKIT_LOGO_CACHE[key] = logo
+        return logo
+
+    async def _supports_managed_oauth(self, client: httpx.AsyncClient, toolkit: str) -> bool:
+        """True if Composio can run a managed OAuth flow for this toolkit (so a
+        one-click Connect yields a redirect). API-key-only toolkits return an
+        empty managed-auth-scheme list and must not attempt the OAuth link."""
+        try:
+            resp = await client.get(
+                f"{self.base_url}/api/v3/toolkits/{toolkit.lower()}",
+                headers=self._headers(),
+            )
+            if resp.status_code != 200:
+                return True  # unknown -> don't block; let the link call decide
+            schemes = resp.json().get("composio_managed_auth_schemes") or []
+            return any((s or "").upper() == "OAUTH2" for s in schemes)
+        except httpx.HTTPError:
+            return True  # network blip -> don't block on a best-effort probe
+
     async def _ensure_auth_config(self, client: httpx.AsyncClient, toolkit: str) -> str | None:
         """Return an auth_config id for a toolkit, creating a managed one if needed.
 
@@ -156,6 +220,18 @@ class ComposioClient:
         """Start an OAuth connection. Returns {redirect_url, connected_account_id}.
         callback_url is where Composio sends the user after authorizing."""
         async with httpx.AsyncClient(timeout=30) as client:
+            # One-click connect only works for toolkits Composio can OAuth on our
+            # behalf. API-key apps (Perplexity, many data APIs) have no managed
+            # OAuth flow, so the link call would dead-end with an opaque error.
+            # Detect and return a specific, honest signal instead.
+            if not await self._supports_managed_oauth(client, toolkit):
+                return {
+                    "error": "needs_api_key",
+                    "message": (
+                        "This app connects with an API key rather than one-click "
+                        "sign-in, which isn't supported yet."
+                    ),
+                }
             auth_config_id = await self._ensure_auth_config(client, toolkit)
             if not auth_config_id:
                 return {"error": f"Could not get auth config for {toolkit}"}
@@ -176,6 +252,7 @@ class ComposioClient:
             "expires_at": body.get("expires_at"),
         }
 
+    @_network_retry
     async def list_connections(self, user_id: str) -> list[dict[str, Any]]:
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.get(
@@ -208,24 +285,34 @@ class ComposioClient:
             return {"id": c.get("id"), "email": c.get("email")}
         return None
 
+    @_network_retry
     async def disconnect(self, toolkit: str, user_id: str) -> dict[str, Any]:
-        """Revoke this org's connected account(s) for a toolkit at Composio, so a
-        later Connect starts a fresh OAuth handshake. Returns {deleted: N}."""
-        connections = await self.list_connections(user_id)
+        """Revoke ALL of this org's connected accounts for a toolkit at Composio,
+        so a later Connect starts a fresh OAuth handshake. Returns {deleted: N}.
+
+        Queries filtered by toolkit_slug rather than the general list_connections:
+        the unfiltered list truncates/dedupes and leaves orphaned (often expired)
+        accounts behind, which keep the Integrations card alive — the user then
+        can't actually disconnect. A thorough revoke must remove every one."""
         target = toolkit.lower()
-        ids = [
-            c["id"]
-            for c in connections
-            if c.get("id") and (c.get("toolkit") or "").lower() == target
-        ]
-        deleted = 0
         async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.get(
+                f"{self.base_url}/api/v3/connected_accounts",
+                headers=self._headers(),
+                params={"user_ids": user_id, "toolkit_slug": target, "limit": 100},
+            )
+            ids = (
+                [x["id"] for x in resp.json().get("items", []) if x.get("id")]
+                if resp.status_code == 200
+                else []
+            )
+            deleted = 0
             for cid in ids:
-                resp = await client.delete(
+                d = await client.delete(
                     f"{self.base_url}/api/v3/connected_accounts/{cid}",
                     headers=self._headers(),
                 )
-                if resp.status_code in (200, 204):
+                if d.status_code in (200, 204):
                     deleted += 1
         return {"deleted": deleted}
 
@@ -246,6 +333,42 @@ class ComposioClient:
                 "error": f"HTTP {resp.status_code}: {resp.text[:200]}",
             }
         body = resp.json()
+        return {
+            "successful": body.get("successful", body.get("error") is None),
+            "data": body.get("data"),
+            "error": body.get("error"),
+        }
+
+    async def execute_capped(
+        self, slug: str, arguments: dict[str, Any], user_id: str, max_bytes: int
+    ) -> dict[str, Any]:
+        """Like execute(), but streams the response and aborts once it exceeds
+        max_bytes. For tools that inline file content (e.g. GOOGLEDRIVE_DOWNLOAD_FILE)
+        the response is roughly the file itself — buffering it unbounded has
+        OOM-killed the 512MB prod instance mid-sync."""
+        async with httpx.AsyncClient(timeout=60) as client:
+            async with client.stream(
+                "POST",
+                f"{self.base_url}/api/v3/tools/execute/{slug}",
+                headers=self._headers(),
+                json={"arguments": arguments, "user_id": user_id},
+            ) as resp:
+                if resp.status_code != 200:
+                    return {
+                        "successful": False,
+                        "data": None,
+                        "error": f"HTTP {resp.status_code}",
+                    }
+                buf = bytearray()
+                async for chunk in resp.aiter_bytes():
+                    buf.extend(chunk)
+                    if len(buf) > max_bytes:
+                        return {
+                            "successful": False,
+                            "data": None,
+                            "error": f"response exceeded {max_bytes} bytes; skipped",
+                        }
+        body = json.loads(bytes(buf))
         return {
             "successful": body.get("successful", body.get("error") is None),
             "data": body.get("data"),

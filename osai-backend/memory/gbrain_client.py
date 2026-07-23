@@ -1,7 +1,7 @@
-"""Python client for the gbrain knowledge-graph sidecar.
+"""Python adapter for the gbrain knowledge-graph CLI.
 
-gbrain is a Bun/TypeScript service (vendored at services/gbrain). We talk to it
-by invoking its CLI with `--json` and a per-org GBRAIN_HOME. Pages + the
+gbrain is a Bun/TypeScript project (vendored at services/gbrain). We invoke its
+CLI with `--json` and a per-org GBRAIN_HOME. Pages + the
 self-wiring typed graph + keyword search work without any LLM key; vector/hybrid
 search and synthesis require an embedding key (configured on gbrain separately).
 

@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Sheldon - Turn company context into workflows that move</title>
-<meta name="description" content="Connect company knowledge, route work to the right owner, and review every action before it reaches an external tool." />
+<title>Sheldon - Run your company on autopilot</title>
+<meta name="description" content="Sheldon absorbs your company's context, remembers every decision and exception, and executes the work end to end." />
 <link rel="canonical" href="https://trysheldon.vercel.app/" />
 <link rel="icon" href="/brand/sheldon-ai-logo.png" />
 <link rel="apple-touch-icon" href="/brand/sheldon-ai-logo.png" />
@@ -73,6 +73,13 @@
   }
 
   a { color: var(--accent-blue); text-decoration: none; }
+
+  .landing-saas a:focus-visible,
+  .landing-saas summary:focus-visible {
+    outline: 3px solid var(--el-ink);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
 
   ::selection { background: rgba(0,153,255,0.3); color: #fff; }
 
@@ -169,6 +176,16 @@
     min-height: 44px;
   }
   .nav-signin:hover { color: var(--ink-muted) !important; }
+
+  .hero-kicker {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    padding: 10px 16px;
+    background: var(--el-surface-strong);
+    border: 1px solid var(--el-hairline);
+    border-radius: var(--r-pill);
+  }
 
   /* ---------- SECTION SCAFFOLD ---------- */
   section { padding: 96px 30px; }
@@ -268,6 +285,7 @@
     color: var(--ink-muted);
     max-width: 460px;
     line-height: 1.4;
+    margin-bottom: 24px;
   }
 
   /* ---------- PROBLEM ---------- */
@@ -302,19 +320,68 @@
   }
 
   /* ---------- AGENTIC LOOP ---------- */
-  .loop-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
-    margin-top: 56px;
-  }
-  .loop-card {
-    background: var(--surface-1);
-    border: 1px solid var(--hairline);
-    border-radius: var(--r-xl);
-    padding: 26px;
+  .loop-orbit {
+    --orbit-size: 650px;
     position: relative;
+    display: block;
+    width: min(100%, 980px);
+    min-height: 920px;
+    margin: 56px auto 0;
+    isolation: isolate;
   }
+
+  .loop-orbit::before {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    top: 50%;
+    left: 50%;
+    width: var(--orbit-size);
+    aspect-ratio: 1;
+    transform: translate(-50%, -50%);
+    border: 1px solid var(--el-hairline);
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at 38% 34%, rgba(167, 229, 211, 0.25), transparent 30%),
+      radial-gradient(circle at 68% 58%, rgba(244, 197, 168, 0.24), transparent 34%),
+      radial-gradient(circle, rgba(255, 255, 255, 0.58), rgba(245, 245, 245, 0.12) 62%, transparent 63%);
+  }
+
+  .loop-node {
+    position: absolute;
+    top: calc(50% + var(--node-y));
+    left: calc(50% + var(--node-x));
+    z-index: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 60px;
+    column-gap: 12px;
+    width: 290px;
+    min-width: 0;
+    height: 280px;
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid var(--el-hairline);
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(41, 37, 36, 0.06);
+    transform: translate(-50%, -50%);
+  }
+
+  .loop-node-ingest { --node-x: 0px; --node-y: -320px; }
+  .loop-node-decide { --node-x: 304.338px; --node-y: -98.885px; }
+  .loop-node-act { --node-x: 188.091px; --node-y: 258.885px; }
+  .loop-node-update { --node-x: -188.091px; --node-y: 258.885px; }
+  .loop-node-audit { --node-x: -304.338px; --node-y: -98.885px; }
+
+  .loop-orbit .loop-mascot {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+    align-self: end;
+    width: 60px;
+    height: auto;
+  }
+
+  .loop-node > :not(.loop-mascot) { grid-column: 1; min-width: 0; }
+
   .loop-step {
     font-size: 12px;
     font-weight: 600;
@@ -335,63 +402,219 @@
     font-size: 12px;
     font-weight: 600;
   }
-  .loop-card h3 { margin-bottom: 10px; font-size: 18px; }
-  .loop-card p { font-size: 14px; line-height: 1.5; color: var(--ink-muted); }
+  .loop-node h3 { margin-bottom: 8px; font-size: 18px; overflow-wrap: anywhere; }
+  .loop-node p { font-size: 16px; line-height: 1.5; color: var(--el-body); overflow-wrap: anywhere; }
 
-  .loop-card.repeat {
-    grid-column: 1 / -1;
-    background: var(--surface-2);
-    display: flex;
-    align-items: center;
-    gap: 18px;
-    flex-wrap: wrap;
+  .loop-hub {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    z-index: 2;
+    display: grid;
+    place-items: center;
+    width: 190px;
+    aspect-ratio: 1;
+    padding: 28px;
+    justify-self: center;
+    text-align: center;
+    background: var(--el-ink);
+    color: var(--el-canvas);
+    border: 8px solid rgba(255, 255, 255, 0.72);
+    border-radius: 50%;
+    box-shadow: 0 18px 42px rgba(41, 37, 36, 0.18);
+    transform: translate(-50%, -50%);
   }
-  .loop-card.repeat .loop-step { margin-bottom: 0; }
-  .loop-card.repeat p { flex: 1; min-width: 260px; font-size: 16px; color: var(--ink); }
+
+  @media (min-width: 981px) {
+    .loop-node.fade-up { transform: translate(-50%, calc(-50% + 22px)); }
+    .loop-node.fade-up.visible { transform: translate(-50%, -50%); }
+    .loop-hub.fade-up { transform: translate(-50%, calc(-50% + 22px)); }
+    .loop-hub.fade-up.visible { transform: translate(-50%, -50%); }
+  }
+
+  .loop-hub span {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    opacity: 0.68;
+  }
+
+  .loop-hub strong {
+    font-family: var(--el-serif, Georgia, serif);
+    font-size: 23px;
+    font-weight: 400;
+    line-height: 1.08;
+  }
+
+  .loop-arrow {
+    position: absolute;
+    top: calc(50% + var(--arrow-y));
+    left: calc(50% + var(--arrow-x));
+    z-index: 3;
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    background: var(--el-canvas);
+    border: 1px solid var(--el-hairline);
+    border-radius: 50%;
+    color: var(--el-ink);
+    font-size: 18px;
+    transform: translate(-50%, -50%);
+  }
+
+  .loop-arrow-top { --arrow-x: 188.091px; --arrow-y: -258.885px; }
+  .loop-arrow-right { --arrow-x: 304.338px; --arrow-y: 98.885px; }
+  .loop-arrow-bottom { --arrow-x: 0px; --arrow-y: 320px; }
+  .loop-arrow-left { --arrow-x: -304.338px; --arrow-y: 98.885px; }
+  .loop-arrow-return { --arrow-x: -188.091px; --arrow-y: -258.885px; }
 
   /* ---------- USE CASES ---------- */
-  .grid-4 {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 16px;
+  .saas-memory-map {
+    position: relative;
+    min-height: 470px;
     margin-top: 56px;
   }
-  .uc-card {
-    background: var(--surface-1);
-    border: 1px solid var(--hairline);
-    border-radius: var(--r-xl);
-    padding: 26px;
-    transition: border-color 0.15s, transform 0.15s;
+
+  .signal-grid {
+    position: relative;
+    z-index: 2;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
   }
-  .uc-card:hover { border-color: #333; transform: translateY(-3px); }
-  .uc-kicker {
+
+  .signal-card {
+    min-width: 0;
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.82);
+    border: 1px solid var(--el-hairline-strong);
+    border-radius: 16px;
+    box-shadow: 0 10px 28px rgba(12, 10, 9, 0.04);
+  }
+
+  .signal-card h3 {
+    margin-bottom: 14px;
+    font-size: 15px;
+    line-height: 1.3;
+  }
+
+  .signal-list {
+    display: grid;
+    gap: 10px;
+    list-style: none;
+  }
+
+  .signal-list li {
+    display: grid;
+    grid-template-columns: 30px minmax(0, 1fr);
+    align-items: center;
+    gap: 9px;
+    color: var(--el-body);
+    font-size: 14px;
+    line-height: 1.35;
+  }
+
+  .source-mark {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    background: var(--el-surface-strong);
+    border: 1px solid var(--el-hairline);
+    border-radius: 8px;
+    color: var(--el-ink);
     font-size: 12px;
-    color: var(--accent-blue);
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    margin-bottom: 18px;
-    display: flex; align-items: center; gap: 8px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
   }
-  .uc-kicker::before { content: ''; width: 18px; height: 1px; background: var(--accent-blue); }
-  .uc-card h3 { font-size: 19px; margin-bottom: 12px; }
-  .uc-card p { font-size: 14px; line-height: 1.5; color: var(--ink-muted); }
+
+  .memory-connectors {
+    position: absolute;
+    inset: 142px 0 76px;
+    z-index: 1;
+    width: 100%;
+    height: calc(100% - 218px);
+    overflow: visible;
+    pointer-events: none;
+  }
+
+  .memory-connectors path {
+    fill: none;
+    stroke: var(--el-muted);
+    stroke-width: 1.5;
+    stroke-dasharray: 4 6;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .memory-connectors circle {
+    fill: var(--el-ink);
+  }
+
+  .memory-hub {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    z-index: 3;
+    display: grid;
+    justify-items: center;
+    gap: 8px;
+    width: 160px;
+    transform: translateX(-50%);
+    text-align: center;
+  }
+
+  .memory-hub img {
+    width: 72px;
+    height: 72px;
+    border: 1px solid rgba(12, 10, 9, 0.08);
+    border-radius: 18px;
+    box-shadow: 0 12px 28px rgba(12, 10, 9, 0.14);
+  }
+
+  .memory-hub strong {
+    font-size: 14px;
+    line-height: 1.2;
+  }
+
+  .memory-hub span {
+    color: var(--el-muted);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
 
   /* ---------- INSIDE Sheldon (features) ---------- */
   .feat-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1px;
     margin-top: 56px;
-  }
-  .feat-card {
-    background: var(--surface-1);
-    border: 1px solid var(--hairline);
+    overflow: hidden;
+    background: var(--el-hairline);
+    border: 1px solid var(--el-hairline);
     border-radius: var(--r-xl);
-    padding: 28px;
   }
-  .feat-card.span2 { grid-column: span 2; }
+  .landing-saas .feat-grid { gap: 1px; }
+  .landing-saas .feat-card {
+    min-height: 220px;
+    padding: 32px;
+    background: var(--el-canvas);
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .feat-index {
+    display: block;
+    margin-bottom: 36px;
+    color: var(--el-muted);
+    font-family: var(--el-serif, Georgia, serif);
+    font-size: 17px;
+  }
   .feat-card h3 { font-size: 19px; margin-bottom: 12px; }
-  .feat-card p { font-size: 14.5px; line-height: 1.55; color: var(--ink-muted); }
+  .feat-card p { font-size: 16px; line-height: 1.55; color: var(--ink-muted); }
 
   /* ---------- OUTCOMES ---------- */
   .out-grid {
@@ -467,9 +690,17 @@
   }
   .final-inner { position: relative; z-index: 1; max-width: 680px; margin: 0 auto; }
   .final h2 { margin-bottom: 22px; }
+  .final-signoff {
+    display: block;
+    margin-top: 20px;
+    font-family: var(--el-sans, var(--font));
+    font-size: clamp(13px, 1.4vw, 16px);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
   .final .lead { margin: 0 auto 36px; max-width: 560px; }
   .final-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
-  .final-note { margin-top: 22px; font-size: 13px; color: var(--ink-muted); }
 
   /* ---------- FOOTER ---------- */
   footer {
@@ -517,6 +748,14 @@
   .fade-up.visible { opacity: 1; transform: translateY(0); }
 
   /* ---------- RESPONSIVE ---------- */
+  @media (min-width: 981px) and (max-width: 1050px) {
+    .landing-saas nav { padding-inline: 20px !important; }
+    .landing-saas .nav-links { gap: 10px !important; }
+    .landing-saas .nav-links a { padding-inline: 2px; font-size: 14px !important; }
+    .landing-saas .nav-right { gap: 8px; }
+    .landing-saas .nav-right .btn { padding-inline: 14px; }
+  }
+
   @media (max-width: 980px) {
     nav { padding: 0 20px; }
     .nav-links { display: none; }
@@ -524,17 +763,101 @@
     .hero { padding-top: 120px; }
     .hero-inner { grid-template-columns: 1fr; gap: 44px; }
     .two-col { grid-template-columns: 1fr; gap: 36px; }
-    .loop-grid, .feat-grid, .out-grid { grid-template-columns: 1fr 1fr; }
-    .grid-4 { grid-template-columns: 1fr 1fr; }
-    .feat-card.span2 { grid-column: span 2; }
+    .feat-grid, .out-grid { grid-template-columns: 1fr 1fr; }
+    .loop-orbit {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      min-height: 0;
+      gap: 36px;
+      padding: 0;
+    }
+    .loop-orbit::before,
+    .loop-arrow { display: none; }
+    .loop-node,
+    .loop-node-ingest,
+    .loop-node-act {
+      position: relative;
+      inset: auto;
+      width: 100%;
+      height: auto;
+      min-height: 154px;
+      transform: none;
+    }
+    .loop-node::after {
+      content: '↓';
+      position: absolute;
+      left: 50%;
+      bottom: -33px;
+      z-index: 3;
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      transform: translateX(-50%);
+      background: var(--el-canvas);
+      border: 1px solid var(--el-hairline);
+      border-radius: 50%;
+      font-size: 13px;
+    }
+    .loop-hub {
+      order: 6;
+      position: relative;
+      inset: auto;
+      align-self: center;
+      width: min(190px, 70vw);
+      margin-bottom: 48px;
+      transform: none;
+    }
+    .loop-hub::after {
+      content: '↻ Back to ingest';
+      position: absolute;
+      left: 50%;
+      bottom: -44px;
+      width: max-content;
+      transform: translateX(-50%);
+      color: var(--el-body);
+      font-family: var(--el-sans, var(--font));
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .saas-memory-map {
+      min-height: 0;
+    }
+    .signal-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .memory-connectors {
+      display: none;
+    }
+    .memory-hub {
+      position: relative;
+      bottom: auto;
+      left: auto;
+      margin: 56px auto 0;
+      transform: none;
+    }
+    .memory-hub::before {
+      content: '';
+      position: absolute;
+      top: -40px;
+      left: 50%;
+      width: 1px;
+      height: 28px;
+      background: repeating-linear-gradient(to bottom, var(--el-muted) 0 4px, transparent 4px 8px);
+    }
     .footer-inner { grid-template-columns: 1fr; }
     .footer-cols { justify-content: flex-start; gap: 48px; }
   }
 
   @media (max-width: 560px) {
-    .loop-grid, .feat-grid, .out-grid, .grid-4, .team-grid { grid-template-columns: 1fr; }
-    .feat-card.span2 { grid-column: span 1; }
-    .loop-card.repeat { grid-column: 1 / -1; }
+    .feat-grid, .out-grid, .team-grid { grid-template-columns: 1fr; }
+    .landing-saas .feat-grid { grid-template-columns: 1fr; }
+    .landing-saas .feat-card { min-height: 190px; }
+    .signal-grid { grid-template-columns: 1fr; }
+    .signal-card { padding: 18px; }
     h1 { font-size: 44px; }
   }
 </style>
@@ -544,25 +867,33 @@
 
 <!-- NAV -->
 <nav>
-  <a href="#top" class="nav-logo"><img src="/brand/sheldon-ai-logo.png" alt="" width="32" height="32" />Sheldon</a>
+  <a href="#top" class="nav-logo"><img src="/brand/sheldon-ai-logo.png" alt="" width="38" height="38" />Sheldon</a>
   <div class="nav-links">
-    <a href="#loop">The Agentic Loop</a>
-    <a href="#use-cases">Use Cases</a>
+    <a href="#top">Home</a>
+    <a href="#problem">Problem</a>
+    <a href="#loop">Loop</a>
+    <a href="#use-cases">Workflows</a>
+    <a href="#features">Features</a>
     <a href="#outcomes">Outcomes</a>
     <a href="#team">Team</a>
+    <a href="#demo">Contact</a>
   </div>
   <details class="nav-mobile-menu">
     <summary role="button" aria-label="Navigation menu" aria-controls="mobile-navigation" aria-expanded="false">Menu</summary>
     <div class="nav-mobile-links" id="mobile-navigation">
-      <a href="#loop">The Agentic Loop</a>
-      <a href="#use-cases">Use Cases</a>
+      <a href="#top">Home</a>
+      <a href="#problem">Problem</a>
+      <a href="#loop">Loop</a>
+      <a href="#use-cases">Workflows</a>
+      <a href="#features">Features</a>
       <a href="#outcomes">Outcomes</a>
       <a href="#team">Team</a>
+      <a href="#demo">Contact</a>
       <a href="/login">Sign in</a>
     </div>
   </details>
   <div class="nav-right">
-    <a href="/login" class="nav-signin">Sign in</a>
+    <a href="/login" class="nav-signin nav-signin-btn">Sign in</a>
     <a href="/demo" class="btn btn-primary">Try a Demo</a>
   </div>
 </nav>
@@ -573,9 +904,9 @@
   <div class="hero-glow"></div>
   <div class="wrap hero-inner">
     <div class="hero-left">
-      <span class="eyebrow dot">AI operations workspace</span>
-      <h1>Turn company context into workflows that move.</h1>
-      <p class="hero-sub">Connect the knowledge your team already has, route work to the right owner, and review every action before it reaches an external tool.</p>
+      <span class="eyebrow hero-kicker">AI-native Operating System.</span>
+      <h1>Run your company on autopilot.</h1>
+      <p class="hero-sub">Sheldon absorbs your company's context, remembers every decision and exception, then executes the work end to end, learning from every outcome.</p>
       <p class="hero-micro">Built for fast-moving teams that want to scale execution without losing context.</p>
       <div class="hero-actions">
         <a href="/demo" class="btn btn-primary btn-lg">Try a Demo</a>
@@ -589,7 +920,7 @@
 </section>
 
 <!-- THE PROBLEM -->
-<section class="problem">
+<section class="problem" id="problem">
   <div class="wrap">
     <div class="section-head fade-up">
       <span class="eyebrow">The problem</span>
@@ -603,7 +934,7 @@
       <ul class="line-list fade-up">
         <li>Coordination becomes a full-time job at scale.</li>
         <li>Work gets stuck between functions, not inside them.</li>
-        <li>Teams spend too much time moving work and not enough time finishing it.</li>
+        <li>Teams spend too much time moving work and not enough time doing it.</li>
         <li>Systems store information, but they do not execute the workflow.</li>
       </ul>
     </div>
@@ -615,49 +946,48 @@
   <div class="wrap">
     <div class="section-head fade-up">
       <span class="eyebrow">The agentic loop</span>
-      <h2>An AI-native operating system that runs itself.</h2>
+      <h2 id="loop-title">Sheldon acts like an AI-native operating system that runs your company.</h2>
     </div>
-    <div class="loop-grid">
-      <div class="loop-card fade-up">
+    <div class="loop-orbit" role="region" aria-labelledby="loop-title">
+      <article class="loop-node loop-node-ingest fade-up">
         <div class="loop-step"><span class="loop-num">1</span>Ingest</div>
         <img class="loop-mascot" src="/brand/sheldon-ai-mascot-ingesting-web.webp" alt="" width="240" height="240" loading="lazy">
-        <h3>Absorb messy context</h3>
-        <p>We absorb messy context from your existing channels - forms, emails, chat, and internal tools.</p>
-      </div>
-      <div class="loop-card fade-up">
+        <h3>Absorb company context</h3>
+        <p>Sheldon reads the signals already moving through your CRM, inbox, docs, chat, and support tools.</p>
+      </article>
+      <article class="loop-node loop-node-decide fade-up">
         <div class="loop-step"><span class="loop-num">2</span>Decide</div>
         <img class="loop-mascot" src="/brand/sheldon-ai-mascot-orchestrating-web.webp" alt="" width="240" height="240" loading="lazy">
-        <h3>Reason over workflows</h3>
-        <p>Sheldon reasons over workflows rather than just following static rules, determining stakeholders and required context.</p>
-      </div>
-      <div class="loop-card fade-up">
+        <h3>Choose the next best action</h3>
+        <p>It applies your policies, past decisions, and live business state to decide what should happen next.</p>
+      </article>
+      <article class="loop-node loop-node-act fade-up">
         <div class="loop-step"><span class="loop-num">3</span>Act</div>
         <img class="loop-mascot" src="/brand/sheldon-ai-mascot-handoff-web.webp" alt="" width="240" height="240" loading="lazy">
-        <h3>Execute in your tools</h3>
-        <p>We execute directly inside the tools your team already uses, triggering next steps and requesting approvals.</p>
-      </div>
-      <div class="loop-card fade-up">
+        <h3>Agents execute the work</h3>
+        <p>Sheldon's agents update tools, coordinate handoffs, request approvals, and carry the workflow to completion.</p>
+      </article>
+      <article class="loop-node loop-node-update fade-up">
         <div class="loop-step"><span class="loop-num">4</span>Update</div>
         <img class="loop-mascot" src="/brand/sheldon-ai-mascot-syncing-web.webp" alt="" width="240" height="240" loading="lazy">
-        <h3>Sync your system of record</h3>
-        <p>Each action is seamlessly synced to your system of record, eliminating manual supervision.</p>
-      </div>
-      <div class="loop-card fade-up">
+        <h3>Update the system of record</h3>
+        <p>Sheldon writes the completed action and current state back to the tools your team trusts.</p>
+      </article>
+      <article class="loop-node loop-node-audit fade-up">
         <div class="loop-step"><span class="loop-num">5</span>Audit</div>
         <img class="loop-mascot" src="/brand/sheldon-ai-mascot-approving-web.webp" alt="" width="240" height="240" loading="lazy">
-        <h3>Full transparency</h3>
-        <p>Full transparency ensures that humans can verify the steps and trust the outcome.</p>
+        <h3>Keep every action auditable</h3>
+        <p>Humans can review what happened, why it happened, and the context behind every decision.</p>
+      </article>
+      <div class="loop-hub fade-up">
+        <span>Company brain</span>
+        <strong>Every cycle makes Sheldon smarter.</strong>
       </div>
-      <div class="loop-card fade-up">
-        <div class="loop-step"><span class="loop-num" aria-hidden="true">∞</span>Loop</div>
-        <img class="loop-mascot" src="/brand/sheldon-ai-mascot-learning-web.webp" alt="" width="240" height="240" loading="lazy">
-        <h3>The loop improves</h3>
-        <p>Capture outcomes, exceptions, and decisions as reusable context.</p>
-      </div>
-      <div class="loop-card repeat fade-up">
-        <div class="loop-step"><span class="loop-num" aria-hidden="true">↻</span>The loop repeats</div>
-        <p>Every completed workflow becomes context for the next one. Every day, the system gets smarter and your company runs faster.</p>
-      </div>
+      <span class="loop-arrow loop-arrow-top" aria-hidden="true">↘</span>
+      <span class="loop-arrow loop-arrow-right" aria-hidden="true">↓</span>
+      <span class="loop-arrow loop-arrow-bottom" aria-hidden="true">←</span>
+      <span class="loop-arrow loop-arrow-left" aria-hidden="true">↑</span>
+      <span class="loop-arrow loop-arrow-return" aria-hidden="true">↗</span>
     </div>
   </div>
 </section>
@@ -666,62 +996,101 @@
 <section class="use-cases" id="use-cases">
   <div class="wrap">
     <div class="section-head fade-up">
-      <span class="eyebrow">Where we start</span>
-      <h2>High-friction workflows with clear business impact.</h2>
-      <p class="lead" style="margin-top:20px;">Start with the workflows that consume the most coordination time, involve the most cross-functional handoffs, and are easiest to measure.</p>
+      <span class="eyebrow">SaaS workflows</span>
+      <h2>Sheldon learns <span style="color:var(--el-muted);">while your SaaS runs.</span></h2>
+      <p class="lead" style="margin-top:20px;">Every customer conversation, product signal, support issue, and business decision becomes shared memory your whole company can act on.</p>
     </div>
-    <div class="grid-4">
-      <div class="uc-card fade-up">
-        <div class="uc-kicker">Revenue Operations</div>
-        <h3>Deal desk &amp; approvals</h3>
-        <p>Discount approvals, quote exceptions, contract redlines, handoff coordination, and deal desk workflows that span Sales, Finance, and Legal.</p>
+    <div class="saas-memory-map">
+      <div class="signal-grid" role="list">
+        <article class="signal-card fade-up" role="listitem">
+          <h3>Revenue</h3>
+          <ul class="signal-list">
+            <li><span class="source-mark" aria-hidden="true">CRM</span><span>Enterprise trial reached activation</span></li>
+            <li><span class="source-mark" aria-hidden="true">Mail</span><span>Legal asked for security docs</span></li>
+            <li><span class="source-mark" aria-hidden="true">Call</span><span>Pricing objection surfaced</span></li>
+          </ul>
+        </article>
+        <article class="signal-card fade-up" role="listitem">
+          <h3>Customer success</h3>
+          <ul class="signal-list">
+            <li><span class="source-mark" aria-hidden="true">Help</span><span>Priority ticket linked to renewal</span></li>
+            <li><span class="source-mark" aria-hidden="true">Use</span><span>Workspace adoption fell 18%</span></li>
+            <li><span class="source-mark" aria-hidden="true">Call</span><span>Onboarding blocker captured</span></li>
+          </ul>
+        </article>
+        <article class="signal-card fade-up" role="listitem">
+          <h3>Product &amp; engineering</h3>
+          <ul class="signal-list">
+            <li><span class="source-mark" aria-hidden="true">Issue</span><span>Request attached to $42k ARR</span></li>
+            <li><span class="source-mark" aria-hidden="true">Code</span><span>Fix merged and release tagged</span></li>
+            <li><span class="source-mark" aria-hidden="true">Ops</span><span>Incident linked to affected accounts</span></li>
+          </ul>
+        </article>
+        <article class="signal-card fade-up" role="listitem">
+          <h3>Finance &amp; operations</h3>
+          <ul class="signal-list">
+            <li><span class="source-mark" aria-hidden="true">Bill</span><span>Usage threshold crossed</span></li>
+            <li><span class="source-mark" aria-hidden="true">Deal</span><span>Renewal terms approved</span></li>
+            <li><span class="source-mark" aria-hidden="true">Docs</span><span>New policy replaces old guidance</span></li>
+          </ul>
+        </article>
       </div>
-      <div class="uc-card fade-up">
-        <div class="uc-kicker">Customer Operations</div>
-        <h3>Escalations &amp; renewals</h3>
-        <p>Escalations, implementation tasks, renewal coordination, account exceptions, and cross-functional customer requests that require multiple teams to stay aligned.</p>
-      </div>
-      <div class="uc-card fade-up">
-        <div class="uc-kicker">Finance &amp; Procurement</div>
-        <h3>Vendors &amp; approvals</h3>
-        <p>Reimbursements, vendor onboarding, purchasing approvals, invoice exceptions, and budget requests with multiple dependencies and stakeholders.</p>
-      </div>
-      <div class="uc-card fade-up">
-        <div class="uc-kicker">People Operations</div>
-        <h3>Hiring &amp; access</h3>
-        <p>Hiring workflows, onboarding, offboarding, leave approvals, access provisioning, and internal requests that touch HR, IT, and managers.</p>
+      <svg class="memory-connectors" viewBox="0 0 1000 260" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M125 0 C125 92 420 126 500 236"></path>
+        <path d="M375 0 C375 96 464 132 500 236"></path>
+        <path d="M625 0 C625 96 536 132 500 236"></path>
+        <path d="M875 0 C875 92 580 126 500 236"></path>
+        <circle cx="250" cy="94" r="4"></circle>
+        <circle cx="420" cy="112" r="4"></circle>
+        <circle cx="580" cy="112" r="4"></circle>
+        <circle cx="750" cy="94" r="4"></circle>
+      </svg>
+      <div class="memory-hub">
+        <img src="/brand/sheldon-ai-logo.png" alt="" width="72" height="72" loading="lazy">
+        <strong>Sheldon</strong>
+        <span>Shared company memory</span>
       </div>
     </div>
   </div>
 </section>
 
 <!-- INSIDE Sheldon -->
-<section class="inside">
+<section class="inside" id="features">
   <div class="wrap">
     <div class="section-head fade-up">
       <span class="eyebrow">Product features</span>
-      <h2>One place to see, steer, and improve execution.</h2>
+      <h2>One brain to remember. A team of agents to execute.</h2>
     </div>
     <div class="feat-grid">
-      <div class="feat-card span2 fade-up">
-        <h3>Unified operational queue</h3>
-        <p>See every live workflow across teams, with current status, blockers, owners, deadlines, and risk signals in one place.</p>
+      <div class="feat-card fade-up">
+        <span class="feat-index">01</span>
+        <h3>Your company's operating brain</h3>
+        <p>Sheldon remembers the decisions, policies, exceptions, account history, and unwritten rules your team relies on to get work right.</p>
       </div>
       <div class="feat-card fade-up">
-        <h3>Workflow memory</h3>
-        <p>Sheldon keeps context from previous requests, decisions, exceptions, and outcomes so your company does not have to start from zero every time.</p>
+        <span class="feat-index">02</span>
+        <h3>Agents that do the work</h3>
+        <p>Sheldon's agents take action across your tools, coordinate handoffs, chase missing inputs, and keep going until the workflow is complete.</p>
       </div>
       <div class="feat-card fade-up">
-        <h3>Human-in-the-loop control</h3>
-        <p>Step in when needed, approve exceptions, override automations, and keep humans focused on judgment-heavy decisions rather than repetitive coordination.</p>
+        <span class="feat-index">03</span>
+        <h3>One operational queue</h3>
+        <p>See every live workflow, owner, blocker, deadline, and risk signal in one place instead of piecing status together across tools.</p>
       </div>
       <div class="feat-card fade-up">
-        <h3>Real-time state tracking</h3>
-        <p>Know where every workflow stands, what changed, what is blocked, and what needs attention without digging through multiple tools.</p>
+        <span class="feat-index">04</span>
+        <h3>Human approval gates</h3>
+        <p>Set the decisions that require human judgment. Review exceptions, approve sensitive actions, and override an agent at any point.</p>
       </div>
       <div class="feat-card fade-up">
-        <h3>Continuous improvement</h3>
-        <p>As the AI-native operating system sees more workflows, it gets better at routing, escalation logic, and decision support - turning operations into a compounding system.</p>
+        <span class="feat-index">05</span>
+        <h3>Live system state</h3>
+        <p>Every action updates the systems your team already trusts, so the CRM, helpdesk, project tracker, and finance stack stay current.</p>
+      </div>
+      <div class="feat-card fade-up">
+        <span class="feat-index">06</span>
+        <h3>Execution that compounds</h3>
+        <p>Every outcome teaches Sheldon how your company works, improving routing, escalation, and decision quality with each completed workflow.</p>
       </div>
     </div>
   </div>
@@ -751,7 +1120,7 @@
     <div class="section-head fade-up">
       <span class="eyebrow">Who we are</span>
       <h2>Built by people who have lived inside operational chaos.</h2>
-      <p class="lead" style="margin-top:22px;">We've spent the last few years inside fast-moving companies across product, operations, automation, and go-to-market. We've seen how much execution depends on the invisible labor of context transfer, follow-ups, and internal coordination. Sheldon comes from that firsthand experience - and from the belief that the next great AI-native operating systems for companies will not just store work. They will move it.</p>
+      <p class="lead" style="margin-top:22px;">We've spent the last few years inside fast-moving companies across product, operations, automation, and go-to-market. We've seen how much execution depends on the invisible labor of context transfer, follow-ups, and internal coordination. Sheldon comes from that firsthand experience - and from the belief that the next great AI-native operating systems for companies will not just store work. They will do it.</p>
     </div>
     <div class="team-grid">
       <div class="team-card fade-up">
@@ -768,10 +1137,10 @@
         <div class="team-name">Yash</div>
         <div class="team-role">GTM &amp; Sales</div>
         <ul class="team-bullets">
-          <li>Worked with founders across three early-stage startups in Ed-Tech and SaaS</li>
-          <li>Led user activations for Perplexity</li>
-          <li>Wharton WGHS Global Semifinalist; Microsoft GenAI Hackathon runner-up</li>
-          <li>Ranked #2 on Dean's List at Masters' Union</li>
+          <li>Worked across growth with founders in EdTech, SaaS, and B2B AI agents</li>
+          <li>Led user activations for Perplexity's Comet Browser</li>
+          <li>Wharton WGHS Global Semifinalist; Microsoft GenAI Hackathon runner-up; EY CAFTA runner-up</li>
+          <li>Dean's List at Master's Union</li>
         </ul>
       </div>
     </div>
@@ -783,13 +1152,12 @@
   <div class="final-glow"></div>
   <div class="final-inner fade-up">
     <span class="eyebrow">Get in touch</span>
-    <h2>Bring autopilot to one workflow first.</h2>
+    <h2>Got work?<br>Shall be done.<span class="final-signoff">Signed, Sheldon.</span></h2>
     <p class="lead">Pick one workflow that is slowing your team down. We'll help map it, redesign it, and show how Sheldon can run it end to end.</p>
     <div class="final-actions">
       <a href="/demo" class="btn btn-primary btn-lg">Try a Demo</a>
       <a href="https://calendar.google.com/calendar/u/0/appointments/schedules/AcZssZ3qwSMjKMhXKW7-NFO0ZqHthdvO6MUio_sAy1UUk1qHU4jbXD6AZhcx5zOzlLeyxFFBdP923DBN" target="_blank" rel="noopener noreferrer" aria-label="Book a Call (opens in a new tab)" class="btn btn-secondary btn-lg">Book a Call</a>
     </div>
-    <p class="final-note">We respond within 24 hours.</p>
   </div>
 </section>
 
@@ -798,8 +1166,8 @@
 <footer id="site-footer">
   <div class="footer-inner">
     <div class="footer-brand">
-      <span class="nav-logo"><img src="/brand/sheldon-ai-logo.png" alt="" width="32" height="32" />Sheldon</span>
-      <p class="footer-tag">The AI-native operating system for modern companies.</p>
+      <span class="nav-logo"><img src="/brand/sheldon-ai-logo.png" alt="" width="38" height="38" />Sheldon</span>
+      <p class="footer-tag">An AI-native operating system that runs your company on autopilot.</p>
     </div>
     <div class="footer-cols">
       <div class="footer-col">
@@ -817,7 +1185,7 @@
     </div>
   </div>
   <div class="footer-bottom">
-    <span>Sheldon · AI-native operating system · 2026</span>
+    <span>Run your company on autopilot.</span>
     <span>Early stage · Building with operators</span>
   </div>
   <div class="footer-wordmark" aria-hidden="true" data-word="sheldon">sheldon</div>

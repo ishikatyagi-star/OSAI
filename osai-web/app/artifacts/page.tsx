@@ -4,10 +4,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Bookmark, Download, MessageSquarePlus, Trash2 } from "lucide-react";
-import { deleteArtifact, listArtifacts, type SavedArtifactRow } from "@/lib/api";
-import { OpenUiArtifacts } from "@/components/ask/openui-artifacts";
-import type { AskUiArtifact } from "@/lib/types";
+import { deleteArtifact, getArtifactPage, type SavedArtifactRow } from "@/lib/api";
+import { OpenUiArtifacts, parseAskUiArtifact } from "@/components/ask/openui-artifacts";
 import { Button } from "@/components/ui/button";
+import { DEMO_ARTIFACTS } from "@/lib/demo-data";
 import { isDemo } from "@/lib/demo";
 import {
   Dialog,
@@ -25,6 +25,10 @@ export default function ArtifactsPage() {
   const [rows, setRows] = useState<SavedArtifactRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [total, setTotal] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState("");
   const [mutationError, setMutationError] = useState("");
   const [pendingDelete, setPendingDelete] = useState<SavedArtifactRow | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
@@ -33,12 +37,20 @@ export default function ArtifactsPage() {
     setLoading(true);
     setLoadError("");
     if (isDemo()) {
-      setRows([]);
+      // Show sample artifacts rather than an empty state: the demo has no saved
+      // rows of its own, and "nothing pinned yet" reads as broken for the one
+      // page whose whole point is what a pinned answer looks like.
+      setRows(DEMO_ARTIFACTS);
+      setNextCursor(null);
+      setTotal(DEMO_ARTIFACTS.length);
       setLoading(false);
       return;
     }
     try {
-      setRows(await listArtifacts(true));
+      const page = await getArtifactPage({ limit: 25 }, true);
+      setRows(page.items);
+      setNextCursor(page.next_cursor);
+      setTotal(page.total);
     } catch {
       setLoadError("Saved artifacts could not be loaded. Check your connection and retry.");
     } finally {
@@ -50,12 +62,35 @@ export default function ArtifactsPage() {
     reload();
   }, []);
 
+  async function loadMore() {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    setLoadMoreError("");
+    try {
+      const page = await getArtifactPage({ limit: 25, cursor: nextCursor }, true);
+      setRows((current) => {
+        const existing = new Set(current.map((row) => row.id));
+        return [...current, ...page.items.filter((row) => !existing.has(row.id))];
+      });
+      setNextCursor(page.next_cursor);
+      setTotal(page.total);
+    } catch {
+      setLoadMoreError("More saved artifacts could not be loaded. Please retry.");
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
   function exportMarkdown(a: SavedArtifactRow) {
-    const art = a.data as unknown as AskUiArtifact;
+    const art = parseAskUiArtifact(a.data);
     const lines: string[] = [`# ${a.title}`, ""];
-    if (art.subtitle) lines.push(art.subtitle, "");
-    for (const m of art.metrics ?? []) lines.push(`- **${m.label}**: ${m.value}`);
-    if (art.rows?.length) {
+    if (!art) {
+      lines.push("_This saved artifact uses an unsupported legacy format._");
+    } else if (art.subtitle) {
+      lines.push(art.subtitle, "");
+    }
+    for (const m of art?.metrics ?? []) lines.push(`- **${m.label}**: ${m.value}`);
+    if (art?.rows?.length) {
       lines.push("", "| Item | Value | Meta |", "|---|---|---|");
       for (const r of art.rows) lines.push(`| ${r.label} | ${r.value} | ${r.meta ?? ""} |`);
     }
@@ -76,11 +111,18 @@ export default function ArtifactsPage() {
 
   async function remove(id: string) {
     if (deleteBusy) return;
+    if (isDemo()) {
+      // The demo's artifacts are local samples and the backend is read-only, so
+      // say that plainly instead of surfacing a "try again" that never succeeds.
+      setMutationError("Saved artifacts are read-only in the shared demo.");
+      return;
+    }
     setDeleteBusy(true);
     setMutationError("");
     try {
       await deleteArtifact(id);
       setRows((current) => current.filter((row) => row.id !== id));
+      setTotal((current) => Math.max(0, current - 1));
       setPendingDelete(null);
     } catch {
       setMutationError("The artifact could not be deleted. Please try again.");
@@ -122,6 +164,9 @@ export default function ArtifactsPage() {
         </div>
       ) : (
         <div className="grid gap-4">
+          <p className="text-xs text-muted-foreground" role="status">
+            Showing {rows.length} of {total} saved artifact{total === 1 ? "" : "s"}.
+          </p>
           {rows.map((a) => (
             <div key={a.id} className="card" style={{ padding: "12px 16px" }}>
               <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
@@ -147,9 +192,17 @@ export default function ArtifactsPage() {
                   </Button>
                 </div>
               </div>
-              <OpenUiArtifacts artifacts={[a.data as unknown as AskUiArtifact]} />
+              <OpenUiArtifacts artifacts={[a.data]} />
             </div>
           ))}
+          {loadMoreError && <p className="error-text" role="alert">{loadMoreError}</p>}
+          {nextCursor && (
+            <div className="flex justify-center">
+              <Button type="button" variant="outline" onClick={loadMore} disabled={loadingMore}>
+                {loadingMore ? "Loading..." : "Load more"}
+              </Button>
+            </div>
+          )}
         </div>
       )}
 

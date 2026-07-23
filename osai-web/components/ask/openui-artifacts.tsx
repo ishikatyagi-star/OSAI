@@ -40,6 +40,106 @@ const TONE_TO_TAG: Record<
   danger: "danger",
 };
 
+const ARTIFACT_KINDS = new Set<AskUiArtifact["kind"]>([
+  "answer_summary",
+  "source_table",
+  "action_plan",
+  "context_gap",
+]);
+const ARTIFACT_TONES = new Set<NonNullable<AskUiArtifactMetric["tone"]>>([
+  "neutral",
+  "info",
+  "success",
+  "warning",
+  "danger",
+]);
+
+function optionalString(value: unknown) {
+  return value == null || typeof value === "string";
+}
+
+function optionalTone(value: unknown) {
+  return value == null || ARTIFACT_TONES.has(value as NonNullable<AskUiArtifactMetric["tone"]>);
+}
+
+/** Parse persisted JSON defensively so one legacy row cannot crash the page. */
+export function parseAskUiArtifact(value: unknown): AskUiArtifact | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const artifact = value as Record<string, unknown>;
+  if (
+    typeof artifact.id !== "string" ||
+    typeof artifact.title !== "string" ||
+    !ARTIFACT_KINDS.has(artifact.kind as AskUiArtifact["kind"]) ||
+    !optionalString(artifact.subtitle)
+  ) {
+    return null;
+  }
+
+  const rawMetrics = artifact.metrics;
+  if (
+    rawMetrics != null &&
+    (!Array.isArray(rawMetrics) ||
+      rawMetrics.some(
+        (metric) =>
+          !metric ||
+          typeof metric !== "object" ||
+          typeof metric.label !== "string" ||
+          typeof metric.value !== "string" ||
+          !optionalTone(metric.tone)
+      ))
+  ) {
+    return null;
+  }
+
+  const rawRows = artifact.rows;
+  if (
+    rawRows != null &&
+    (!Array.isArray(rawRows) ||
+      rawRows.some(
+        (row) =>
+          !row ||
+          typeof row !== "object" ||
+          typeof row.label !== "string" ||
+          typeof row.value !== "string" ||
+          !optionalString(row.meta) ||
+          !optionalString(row.href) ||
+          (row.confidence != null &&
+            (typeof row.confidence !== "number" || !Number.isFinite(row.confidence))) ||
+          !optionalTone(row.tone)
+      ))
+  ) {
+    return null;
+  }
+
+  return {
+    id: artifact.id,
+    kind: artifact.kind as AskUiArtifact["kind"],
+    title: artifact.title,
+    subtitle: typeof artifact.subtitle === "string" ? artifact.subtitle : undefined,
+    metrics: Array.isArray(rawMetrics)
+      ? rawMetrics.map((metric) => ({
+          label: metric.label as string,
+          value: metric.value as string,
+          tone: ARTIFACT_TONES.has(metric.tone as NonNullable<AskUiArtifactMetric["tone"]>)
+            ? (metric.tone as NonNullable<AskUiArtifactMetric["tone"]>)
+            : undefined,
+        }))
+      : undefined,
+    rows: Array.isArray(rawRows)
+      ? rawRows.map((row) => ({
+          label: row.label as string,
+          value: row.value as string,
+          meta: typeof row.meta === "string" ? row.meta : undefined,
+          href: typeof row.href === "string" ? row.href : undefined,
+          confidence: typeof row.confidence === "number" ? row.confidence : undefined,
+          tone: ARTIFACT_TONES.has(row.tone as NonNullable<AskUiArtifactMetric["tone"]>)
+            ? (row.tone as NonNullable<AskUiArtifactMetric["tone"]>)
+            : undefined,
+        }))
+      : undefined,
+  };
+}
+
 function formatConfidence(value: number | null | undefined) {
   if (typeof value !== "number" || Number.isNaN(value)) return "n/a";
   return `${Math.round(value * 100)}%`;
@@ -144,7 +244,7 @@ function PinButton({ artifact }: { artifact: AskUiArtifact }) {
   );
 }
 
-export function OpenUiArtifacts({ artifacts }: { artifacts?: AskUiArtifact[] }) {
+export function OpenUiArtifacts({ artifacts }: { artifacts?: unknown[] }) {
   if (!artifacts?.length) return null;
 
   return (
@@ -154,8 +254,20 @@ export function OpenUiArtifacts({ artifacts }: { artifacts?: AskUiArtifact[] }) 
         <span>OpenUI workspace</span>
       </div>
       <div className="ask-openui-grid">
-        {artifacts.map((artifact) =>
-          artifact.kind === "context_gap" ? (
+        {artifacts.map((rawArtifact, index) => {
+          const artifact = parseAskUiArtifact(rawArtifact);
+          if (!artifact) {
+            return (
+              <Callout
+                key={`unsupported-${index}`}
+                variant="warning"
+                title="Unsupported artifact"
+                description="This saved artifact uses an older or invalid format. You can still delete it from the Artifacts page."
+                className="ask-openui-callout"
+              />
+            );
+          }
+          return artifact.kind === "context_gap" ? (
             <Callout
               key={artifact.id}
               variant="warning"
@@ -176,8 +288,8 @@ export function OpenUiArtifacts({ artifacts }: { artifacts?: AskUiArtifact[] }) 
                 <PinButton artifact={artifact} />
               </div>
             </Card>
-          )
-        )}
+          );
+        })}
       </div>
     </div>
   );

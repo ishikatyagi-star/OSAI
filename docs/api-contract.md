@@ -9,7 +9,7 @@
 
 ## Conventions
 
-- **Base URL:** `NEXT_PUBLIC_API_BASE_URL` (defaults to `http://localhost:8000`).
+- **Base URL:** `NEXT_PUBLIC_API_BASE_URL` (required in production; development defaults to `http://localhost:8000`).
 - **Auth / tenancy:** authenticated requests send a JWT as `Authorization: Bearer
   <token>`, and **the org is derived from the verified JWT — it is authoritative**.
   Any `org_id` supplied in a request body is overwritten server-side, so it cannot
@@ -106,7 +106,7 @@ Response: `WorkflowRun` / `WorkflowRun[]`
       "source_quote": "Sarah: I will…", // nullable
       "destination": "notion",
       "confidence": 0.97,
-      "status": "needs_review",        // needs_review | executed
+      "status": "needs_review",        // needs_review | executing | completed | failed_preflight | outcome_unknown | cancelled
       "external_url": null,            // nullable
       "executed_at": null              // nullable
     }
@@ -123,12 +123,19 @@ Response: `ApproveResult`
 ```jsonc
 {
   "item_id": "item-q3-1",
-  "status": "executed",
+  "status": "completed",
   "destination": "notion",
   "external_url": "https://notion.so/...", // nullable
-  "message": "Created Notion page"
+  "message": "Created Notion page",
+  "reconciliation_required": false
 }
 ```
+
+Approval writes a durable execution claim/outbox before provider dispatch and
+uses one stable action-derived provider idempotency key where supported. Only
+`failed_preflight` is retryable. A timeout, provider failure after dispatch,
+lost database acknowledgement, or stale `executing` claim becomes
+`outcome_unknown`; reconcile it at the provider before any manual retry.
 
 ### `GET /settings/data-routing` · `PATCH /settings/data-routing`
 `DataRouting`: per-tier (`normal`/`amber`/`red`) `{ allowed_connectors: string[], llm_allowed: boolean }`.
@@ -233,7 +240,9 @@ workflow-approve semantics.
 
 ### `GET /graph/entities` — org knowledge graph nodes  *(Phase 4, P4-T4)*
 
-Backed by gbrain. Powers the org graph inspector.
+Uses the gbrain CLI when it is configured and the viewer can see the full org;
+otherwise it serves the permission-aware Postgres-derived graph. Powers the org
+graph inspector.
 
 ```jsonc
 // GET /graph/entities?type=person&q=yash&limit=100
@@ -309,6 +318,16 @@ Powers the eval/debug dashboard. Backed by `evals/run_evals.py`.
 - `POST /automations/{id}/run` — run now. The prompt is executed with injected
   run context: connected data sources, connectors added since last run, and
   documents ingested since `last_run_at`. Returns `{id, result, via, citations}`.
+- `POST /automations/{id}/token` and `DELETE /automations/{id}/token` rotate or
+  revoke the scoped external trigger credential.
+- `POST /automations/{id}/trigger` is a token-authenticated external run. It
+  requires `X-Trigger-Token` and a printable 8-128 character `Idempotency-Key`;
+  the optional JSON body is included in the request hash. Reusing a key with the
+  same payload replays the stored response (or returns `202` while the first
+  request is still running). A different payload returns `409` and never runs.
+  Keys/results expire after seven days, after which reuse is a new request. Each
+  accepted call removes at most 100 expired rows, keeping inline cleanup bounded.
+  Shared-demo triggers return `403`, even with a valid trigger token.
 
 Serialized shape adds `status` (legacy `enabled=false` reads as `paused`) and
 `updated_at`. The agent can also create/update automations conversationally via
@@ -323,15 +342,21 @@ These are registered in `osai-backend/api/main.py` and exercised by the test
 suite; see the route modules for exact request/response shapes.
 
 - **Threads** (`/threads`) — persisted Ask conversations (list, fetch, delete).
-- **Wiki** (`/wiki`) — curated org context entries and suggestions the agent cites.
 - **SQL** (`/sql`) — register read-only DB sources and answer questions over live
   databases; the LLM proposes SQL, nothing runs until approved, and execution is
   hard-capped read-only (`ensure_readonly_select` + `SET TRANSACTION READ ONLY` +
   Postgres `default_transaction_read_only`/`statement_timeout`).
 - **Slack Ask** (`/slack/ask/{token}`) — tokened slash-command endpoint for asking
   Sheldon from Slack.
-- **Artifacts** (`/artifacts`) — outputs pinned from Ask answers, reusable as context.
-- **Decisions** (`/decisions`), **Notifications** (`/notifications`),
+  The URL token selects the organization; it does not authenticate the caller.
+  Every request must carry a valid Slack HMAC, the signed Slack user is mapped
+  to a current same-org Sheldon account, signed requests are consumed once during
+  Slack's acceptance window, and ACL-scoped answers stay ephemeral.
+- **Artifacts** (`/artifacts`) — outputs pinned from Ask answers, reusable as context;
+  members see their own rows while current admins can manage the organization history.
+- **Notifications** (`/notifications`) — stable paged inbox, explicit per-item read,
+  and idempotent current-user `POST /notifications/read-all`.
+- **Decisions** (`/decisions`),
   **Feedback** (`/feedback`), **Team** (`/team/*`), **Composio** (`/integrations/composio/*`),
   **Documents** (`/documents/*`, incl. upload + per-doc access grants),
   **Dashboard** (`/dashboard/metrics`).

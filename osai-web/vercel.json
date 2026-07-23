@@ -10,11 +10,5 @@
         { "key": "Cache-Control", "value": "no-store" }
       ]
     }
-  ],
-  "rewrites": [
-    {
-      "source": "/api/:path*",
-      "destination": "${NEXT_PUBLIC_API_BASE_URL}/:path*"
-    }
   ]
 }

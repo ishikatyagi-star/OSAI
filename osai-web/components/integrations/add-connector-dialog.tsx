@@ -19,11 +19,7 @@ import {
 } from "@/components/ui/dialog";
 
 /**
- * Browse-and-connect dialog over the full Composio app catalog.
- *
- * The Integrations page's cards only cover Sheldon's native connectors; this
- * dialog exposes everything Composio supports (hundreds of apps) with search
- * and "load more" pagination, so users aren't limited to the default five.
+ * Browse-and-connect dialog for connectors Sheldon can ingest.
  */
 export function AddConnectorDialog({
   open,
@@ -48,17 +44,25 @@ export function AddConnectorDialog({
     const seq = ++requestSeq.current;
     setLoading(true);
     setError("");
-    const page = await listComposioToolkits(search || undefined);
-    if (seq !== requestSeq.current) return; // stale response; a newer search won
-    setItems(page.items);
-    setCursor(page.next_cursor ?? null);
-    setLoading(false);
-    if (!page.items.length) {
-      setError(
-        search
-          ? "No apps match that search."
-          : "Couldn't load the app catalog. Is Composio configured on the backend?"
-      );
+    try {
+      const page = await listComposioToolkits(search || undefined);
+      if (seq !== requestSeq.current) return; // stale response; a newer search won
+      setItems(page.items);
+      setCursor(page.next_cursor ?? null);
+      if (!page.items.length) {
+        setError(
+          search
+            ? "No apps match that search."
+            : "Couldn't load the app catalog. Is Composio configured on the backend?"
+        );
+      }
+    } catch {
+      if (seq !== requestSeq.current) return;
+      setItems([]);
+      setCursor(null);
+      setError("The app catalog couldn't be loaded. Check your connection and try again.");
+    } finally {
+      if (seq === requestSeq.current) setLoading(false);
     }
   }
 
@@ -93,7 +97,14 @@ export function AddConnectorDialog({
         // native connector cards).
         window.location.href = res.redirect_url;
       } else {
-        setError(res.error || "Couldn't start the connection. Try again.");
+        // Honest, specific messaging: API-key apps have no one-click flow, so
+        // say that plainly rather than a generic "couldn't connect".
+        setError(
+          res.error === "needs_api_key"
+            ? res.message ||
+                "This app connects with an API key rather than one-click sign-in, which isn't supported yet."
+            : res.error || "Couldn't start the connection. Try again."
+        );
         setConnecting(null);
       }
     } catch {
@@ -108,9 +119,8 @@ export function AddConnectorDialog({
         <DialogHeader className="connector-catalog-header border-b border-border">
           <DialogTitle className="text-xl">Add a connector</DialogTitle>
           <DialogDescription className="max-w-2xl leading-relaxed">
-            Search the full app catalog and connect any tool your team uses.
-            Sheldon indexes and searches its content; write actions always require
-            your approval.
+            Connect Gmail, Google Drive, Notion, or Slack. Sheldon indexes and
+            searches their content; write actions always require your approval.
           </DialogDescription>
         </DialogHeader>
 
@@ -120,7 +130,7 @@ export function AddConnectorDialog({
           />
           <Input
             autoFocus
-            placeholder="Search apps (Gmail, Jira, HubSpot, GitHub…)"
+            placeholder="Search Gmail, Google Drive, Notion, or Slack"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="h-11 rounded-xl pl-10"
@@ -136,8 +146,11 @@ export function AddConnectorDialog({
 
         <div className="connector-catalog-grid grid max-h-[min(60vh,560px)] grid-cols-1 gap-3 overflow-y-auto border-t border-border bg-muted/20 sm:grid-cols-2">
           {loading ? (
-            <div className="col-span-full flex justify-center py-12">
-              <Loader2 className="animate-spin" size={18} />
+            <div className="col-span-full flex items-center justify-center gap-2 py-12" role="status" aria-live="polite">
+              <Loader2 className="animate-spin" size={18} aria-hidden="true" />
+              <span className="text-sm text-muted-foreground">
+                {query ? "Searching apps..." : "Loading app catalog..."}
+              </span>
             </div>
           ) : (
             items.map((tk) => {
@@ -148,20 +161,7 @@ export function AddConnectorDialog({
                   className="connector-catalog-card flex min-h-[92px] items-center gap-3 rounded-xl border border-border bg-card transition-colors hover:border-border-hover"
                 >
                   <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border bg-background">
-                    {tk.logo ? (
-                      // Composio-hosted logo; plain <img> keeps remote domains out
-                      // of next.config image allowlists.
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={tk.logo}
-                        alt=""
-                        width={24}
-                        height={24}
-                        className="rounded-md"
-                      />
-                    ) : (
-                      <Plug className="size-5 text-muted-foreground" />
-                    )}
+                    <Plug className="size-5 text-muted-foreground" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-semibold text-foreground">
@@ -184,6 +184,8 @@ export function AddConnectorDialog({
                       className="min-w-[76px] shrink-0"
                       disabled={connecting !== null}
                       onClick={() => handleConnect(tk.slug)}
+                      aria-label={`Connect ${tk.name || tk.slug}`}
+                      aria-busy={connecting === tk.slug}
                     >
                       {connecting === tk.slug ? (
                         <Loader2 className="animate-spin" size={14} />

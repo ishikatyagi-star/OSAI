@@ -1,0 +1,331 @@
+"""Regression tests for the security-hardening pass (SEC-002 .. SEC-008).
+
+Each test pins a specific fix so a future refactor can't silently reopen the
+hole. The autouse auth override in conftest resolves write dependencies to the
+demo org; tests that assert the *denial* path drop the relevant override so the
+real dependency runs.
+"""
+
+from __future__ import annotations
+
+import pytest
+from fastapi.testclient import TestClient
+
+from api.main import app
+from db.session import get_org_id, require_admin, require_writable_org
+
+
+# ── SEC-002: a valid token whose user no longer exists must be rejected ────────
+def test_deleted_user_token_does_not_fail_open_to_red(monkeypatch):
+    """user_clearance/user_permissions must reject a stale principal (deleted
+    account, live JWT) rather than fall through to 'red'/[] see-all."""
+    import db.repositories as repo
+
+    class _FakeSession:
+        def get(self, _model, _pk):
+            return None  # user row is gone
+
+    claims = {"sub": "deleted-user", "org_id": "demo-org", "role": "member"}
+    with pytest.raises(Exception) as exc_clear:
+        repo.user_clearance(_FakeSession(), claims)
+    with pytest.raises(Exception) as exc_perm:
+        repo.user_permissions(_FakeSession(), claims)
+    # 401 on both paths (HTTPException carries status_code).
+    assert getattr(exc_clear.value, "status_code", None) == 401
+    assert getattr(exc_perm.value, "status_code", None) == 401
+
+
+def test_system_context_still_sees_all():
+    """No sub (public demo / system context) is unchanged: red clearance, []."""
+    import db.repositories as repo
+
+    assert repo.user_clearance(object(), None) == "red"
+    assert repo.user_permissions(object(), None) == []
+
+
+# ── SEC-003: the anonymous demo workspace is read-only ─────────────────────────
+@pytest.fixture
+def demo_client():
+    """Exercise the real require_writable_org against the public demo header."""
+    app.dependency_overrides.pop(require_writable_org, None)
+    app.dependency_overrides.pop(get_org_id, None)
+    yield TestClient(app)
+    app.dependency_overrides[require_writable_org] = lambda: "demo-org"
+    app.dependency_overrides[get_org_id] = lambda: "demo-org"
+
+
+@pytest.mark.parametrize(
+    "method,path,body",
+    [
+        ("post", "/workflows", {"input_text": "hi"}),
+        ("post", "/automations", {"name": "n", "prompt": "p", "cadence": "manual"}),
+        ("post", "/sql/execute", {"source_id": "x", "sql": "select 1"}),
+        ("post", "/ask/actions/act-1/confirm", {"conversation_id": "c1"}),
+        ("post", "/ask/actions/act-1/dismiss", {"conversation_id": "c1"}),
+        # QA ISSUE-001: every remaining mutation route reachable by the anonymous
+        # demo identity must refuse with 403, not reach validation/lookup.
+        ("post", "/integrations/notion/sync", None),
+        ("post", "/artifacts", {"title": "t"}),
+        ("delete", "/artifacts/a1", None),
+        ("post", "/decisions", {"title": "t"}),
+        ("patch", "/decisions/d1", {"title": "t"}),
+        ("delete", "/decisions/d1", None),
+        ("post", "/threads", {"title": "t"}),
+        ("post", "/threads/t1/turns", {"role": "user", "content": "hi"}),
+        ("patch", "/threads/t1", {"shared": True}),
+        ("post", "/notifications/n1/read", None),
+        ("post", "/notifications/read-all", None),
+        ("post", "/feedback", {"query": "q", "answer": "a", "rating": "up"}),
+        ("post", "/settings/slack-ask-token", None),
+        ("delete", "/settings/slack-ask-token", None),
+        ("patch", "/documents/d1/access", {"visibility": "org"}),
+    ],
+)
+def test_demo_workspace_rejects_writes(demo_client, method, path, body):
+    # client.request() rather than client.delete(): DELETE has no json kwarg.
+    resp = demo_client.request(method.upper(), path, json=body, headers={"X-Org-Id": "demo-org"})
+    assert resp.status_code == 403, (path, resp.status_code)
+
+
+def test_demo_upload_rejected(demo_client):
+    """Multipart upload — the second route QA proved writable in production."""
+    resp = demo_client.post(
+        "/documents/upload",
+        files={"file": ("smoke.txt", b"demo", "text/plain")},
+        headers={"X-Org-Id": "demo-org"},
+    )
+    assert resp.status_code == 403
+
+
+def test_demo_org_jwt_cannot_write_outside_local(demo_client, monkeypatch):
+    """Demo isolation is a property of the org, not the auth method: outside
+    local dev even a *valid* demo-org JWT (seeded/leaked) must not write."""
+    import jwt as pyjwt
+
+    from config import settings as cfg
+
+    monkeypatch.setattr(cfg, "env", "production")
+    token = pyjwt.encode(
+        {"sub": "seeded-demo-admin", "org_id": "demo-org", "role": "admin"},
+        cfg.jwt_secret,
+        algorithm="HS256",
+    )
+    resp = demo_client.post(
+        "/decisions", json={"title": "x"}, headers={"Authorization": f"Bearer {token}"}
+    )
+    assert resp.status_code == 403
+
+
+# ── SEC-008: connector state changes are admin-only ────────────────────────────
+@pytest.fixture
+def member_client():
+    """A non-admin member: require_admin runs for real, get_org_id resolved."""
+    app.dependency_overrides.pop(require_admin, None)
+    app.dependency_overrides[get_org_id] = lambda: "demo-org"
+    app.dependency_overrides[require_writable_org] = lambda: "demo-org"
+    yield TestClient(app)
+    app.dependency_overrides[require_admin] = lambda: {
+        "org_id": "demo-org",
+        "role": "admin",
+        "sub": "test-admin",
+    }
+
+
+def test_member_cannot_trigger_sync(member_client):
+    # No Authorization header → require_admin → 401 (not silently allowed).
+    resp = member_client.post("/integrations/notion/sync")
+    assert resp.status_code in (401, 403)
+
+
+def test_member_cannot_read_invite_links(member_client):
+    resp = member_client.get("/team/invites")
+    assert resp.status_code in (401, 403)
+
+
+# ── SEC-007: concurrent confirms consume the action exactly once ───────────────
+def test_claim_proposed_action_is_single_shot():
+    """The DB claim returns 'claimed' once, then 'taken' — the guard that stops
+    two confirms double-executing the same connector side effect."""
+    import uuid
+
+    from db.repositories import claim_proposed_action, save_proposed_action
+
+    action_id = f"act-{uuid.uuid4()}"
+    save_proposed_action(
+        action_id,
+        {"org_id": "demo-org", "tool": "freshdesk", "action": "create_ticket"},
+    )
+    assert claim_proposed_action(action_id) == "claimed"
+    assert claim_proposed_action(action_id) == "taken"
+
+
+def test_claim_absent_action_reports_absent():
+    from db.repositories import claim_proposed_action
+
+    assert claim_proposed_action("nope-does-not-exist") == "absent"
+
+
+# ── SEC-002 (depth): token_version revocation ─────────────────────────────────
+def test_stale_token_version_is_rejected():
+    """A token whose `tv` predates the user's current generation is refused even
+    though the user still exists and the signature is valid."""
+    import db.repositories as repo
+
+    class _Session:
+        def get(self, _model, _pk):
+            return type(
+                "U",
+                (),
+                {
+                    "org_id": "demo-org",
+                    "token_version": 3,
+                    "role": "member",
+                    "data_tier": "normal",
+                },
+            )()
+
+    # Matching generation → fine.
+    repo.assert_token_current(_Session(), {"sub": "u1", "org_id": "demo-org", "tv": 3})
+    # Stale generation → 401.
+    with pytest.raises(Exception) as exc:
+        repo.assert_token_current(_Session(), {"sub": "u1", "org_id": "demo-org", "tv": 2})
+    assert getattr(exc.value, "status_code", None) == 401
+
+
+_AUTH_TEST_ORG_ID = "security-auth-test-org"
+
+
+def _seed_member_with_token() -> str:
+    """Create a fresh non-demo member and return a freshly issued session JWT.
+    Shared by the revocation and cookie-auth tests (kills the Sonar-flagged
+    duplicated setup block)."""
+    import uuid
+
+    from api.routes.auth import _issue_token
+    from db.models import Org, User
+    from db.session import SessionLocal
+
+    uid = f"user-{uuid.uuid4()}"
+    with SessionLocal() as s:
+        if s.get(Org, _AUTH_TEST_ORG_ID) is None:
+            s.add(Org(id=_AUTH_TEST_ORG_ID, name="Security auth test"))
+        s.add(
+            User(
+                id=uid,
+                org_id=_AUTH_TEST_ORG_ID,
+                email=f"{uid}@t.test",
+                display_name="t",
+                role="member",
+                token_version=0,
+            )
+        )
+        s.commit()
+        return _issue_token(s.get(User, uid))
+
+
+def test_logout_all_revokes_outstanding_tokens():
+    """POST /auth/logout-all bumps the generation so previously issued tokens
+    (carrying the old tv) stop being accepted."""
+    from db.repositories import assert_token_current
+    from db.session import SessionLocal, _decode_token
+
+    token = _seed_member_with_token()
+    claims = _decode_token(f"Bearer {token}")
+    assert claims["tv"] == 0
+    with SessionLocal() as s:
+        assert_token_current(s, claims)  # accepted before revocation
+
+    resp = TestClient(app).post("/auth/logout-all", headers={"Authorization": f"Bearer {token}"})
+    assert resp.status_code == 200 and resp.json()["revoked"] is True
+    assert "osai_session=" in resp.headers.get("set-cookie", "")
+    assert "Max-Age=0" in resp.headers.get("set-cookie", "")
+
+    with SessionLocal() as s:
+        with pytest.raises(Exception) as exc:
+            assert_token_current(s, claims)  # same token now stale
+        assert getattr(exc.value, "status_code", None) == 401
+
+
+@pytest.fixture
+def _real_auth():
+    """Drop the autouse auth stubs so the real get_org_id/require_writable_org
+    dependencies run — needed to exercise route-level token revocation, which the
+    constant-lambda overrides would otherwise mask."""
+    from db.session import get_org_id, require_writable_org
+
+    saved = {k: app.dependency_overrides.pop(k, None) for k in (get_org_id, require_writable_org)}
+    yield
+    for k, v in saved.items():
+        if v is not None:
+            app.dependency_overrides[k] = v
+
+
+def test_revoked_token_fails_closed_on_data_routes(_real_auth):
+    """Revocation must bite on every authenticated route, not only admin gates.
+    Regression: get_org_id/get_claims checked only the JWT signature, so a
+    logout-all'd (or deleted-user) token kept reading org data for 30 days."""
+    client = TestClient(app)
+    token = _seed_member_with_token()
+    headers = {"Authorization": f"Bearer {token}"}
+
+    assert client.get("/team/members", headers=headers).status_code == 200
+
+    assert client.post("/auth/logout-all", headers=headers).status_code == 200
+
+    # Same token on plain data routes (get_org_id) → 401, not data.
+    assert client.get("/team/members", headers=headers).status_code == 401
+    # get_claims routes too: the token that performed the revocation can't
+    # revoke again — it died with the rest of its generation.
+    assert client.post("/auth/logout-all", headers=headers).status_code == 401
+    # And via the session cookie, not just the bearer header.
+    client.cookies.set("osai_session", token)
+    assert client.get("/team/members").status_code == 401
+
+
+def test_revoked_token_refused_on_demo_capable_route(_real_auth):
+    """A revoked JWT on a demo-capable endpoint is refused (get_org_id sees the
+    dead credential first); anonymous demo access still works via X-Org-Id once
+    the credential is actually dropped."""
+    client = TestClient(app)
+    token = _seed_member_with_token()
+    headers = {"Authorization": f"Bearer {token}"}
+    client.post("/auth/logout-all", headers=headers)
+
+    resp = client.get("/integrations", headers={**headers, "X-Org-Id": "demo-org"})
+    assert resp.status_code == 401
+    assert client.get("/integrations", headers={"X-Org-Id": "demo-org"}).status_code == 200
+
+
+# ── SEC-009 (depth): httpOnly session cookie auth ─────────────────────────────
+def test_session_cookie_carries_auth_and_is_httponly():
+    """A valid JWT in the osai_session cookie authenticates a request (no
+    Authorization header), and the login response sets it httpOnly + Lax."""
+    from db.session import SESSION_COOKIE, get_claims
+
+    token = _seed_member_with_token()
+
+    # get_claims resolves the principal from the cookie alone (no header). Drop
+    # any conftest override so the real dependency runs.
+    app.dependency_overrides.pop(get_claims, None)
+    client = TestClient(app)
+    client.cookies.set(SESSION_COOKIE, token)
+    resp = client.post("/auth/logout-all")
+    assert resp.status_code == 200  # cookie authenticated the request
+
+    # No cookie, no header → rejected.
+    assert TestClient(app).post("/auth/logout-all").status_code == 401
+
+
+def test_logout_clears_the_session_cookie():
+    from db.session import SESSION_COOKIE
+
+    resp = TestClient(app).post("/auth/logout")
+    assert resp.status_code == 200
+    # The delete is expressed as a Set-Cookie that expires the cookie.
+    set_cookie = resp.headers.get("set-cookie", "")
+    assert SESSION_COOKIE in set_cookie
+
+
+def test_session_exchange_rejects_bad_token():
+    resp = TestClient(app).post("/auth/session", json={"token": "not-a-jwt"})
+    assert resp.status_code == 401

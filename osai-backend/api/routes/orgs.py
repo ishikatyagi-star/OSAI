@@ -10,6 +10,8 @@ from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session
 
 from api.ratelimit import rate_limit
+from config import settings
+from db.models import normalize_email
 from db.repositories import provision_org, reset_org_content, try_db
 from db.session import get_db, require_admin
 
@@ -27,7 +29,7 @@ class OrgCreate(BaseModel):
     @field_validator("admin_email")
     @classmethod
     def _valid_email(cls, v: str) -> str:
-        v = v.strip()
+        v = normalize_email(v)
         if not _EMAIL_RE.match(v):
             raise ValueError("must be a valid email address")
         return v
@@ -55,6 +57,11 @@ class OrgResponse(BaseModel):
 )
 async def create_org(body: OrgCreate, db: DbSession) -> OrgResponse:
     """Provision a new organization (tenant) and its initial admin user."""
+    if settings.env != "local":
+        raise HTTPException(
+            status_code=403,
+            detail="Workspace creation requires verified Google sign-in.",
+        )
     try:
 
         def _provision():

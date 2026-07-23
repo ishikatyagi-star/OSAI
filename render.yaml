@@ -1,14 +1,15 @@
-# Render Blueprint for the OSAI backend — FREE TIER.
-# Only free-eligible service types are used: web service, Postgres, Key Value.
+# Render Blueprint for the OSAI backend.
+# The API, Postgres, and Key Value services use free plans. The Celery worker
+# uses a paid Starter plan.
 # Qdrant runs on Qdrant Cloud's free tier (create a free cluster at
 # https://cloud.qdrant.io and paste its URL + API key below as secrets).
 #
 # Deploy: Render → New → Blueprint → pick this repo. After it provisions, set
-# the `sync: false` secrets in the osai-api service's Environment tab.
+# each service's `sync: false` secrets in the osai-api and osai-worker tabs.
 #
-# The Celery background worker is omitted (it needs a paid plan). The demo runs
-# fully synchronously in the API; add a `type: worker` service later if you need
-# async ingestion at scale.
+# The Celery worker runs the beat schedule and execute queue used by recurring
+# automations. Composio ingestion remains an API BackgroundTask; move that work
+# to a real Celery task before describing ingest/extract as hosted offload.
 
 # Postgres has been migrated to Supabase; OSAI_DATABASE_URL is now a
 # dashboard-managed secret (see below), NOT wired fromDatabase. This block is
@@ -33,7 +34,7 @@ services:
     runtime: docker
     dockerfilePath: ./osai-backend/Dockerfile
     dockerContext: ./osai-backend
-    healthCheckPath: /health
+    healthCheckPath: /health/ready
     plan: free
     envVars:
       # Marks this as a non-local deployment. Activates the production guards:
@@ -53,11 +54,20 @@ services:
           type: keyvalue
           name: osai-redis
           property: connectionString
+      # Uvicorn proxy parsing is disabled in the image. Render guarantees that
+      # duplicate XFF fields are combined in wire order and the first address is
+      # the original client; the app selects that first valid address.
+      - key: OSAI_RATE_LIMIT_FORWARDED_FOR_MODE
+        value: render_first
       - key: OSAI_QDRANT_URL          # your Qdrant Cloud cluster URL (https://...)
         sync: false
       - key: OSAI_QDRANT_API_KEY      # your Qdrant Cloud API key
         sync: false
-      - key: OSAI_GEMINI_API_KEY      # embeddings
+      - key: OSAI_GEMINI_API_KEY      # embeddings (used only if no Voyage key)
+        sync: false
+      - key: OSAI_VOYAGE_API_KEY      # embeddings, no-billing alt; takes precedence over Gemini
+        sync: false
+      - key: OSAI_EMBEDDING_DIMENSION # set 1024 when using Voyage (voyage-3.5-lite); recreate Qdrant collection on switch
         sync: false
       - key: OSAI_LLM_API_KEY          # Groq (text generation)
         sync: false
@@ -66,6 +76,23 @@ services:
       - key: OSAI_LLM_MODEL
         value: llama-3.3-70b-versatile
       - key: OSAI_COMPOSIO_API_KEY
+        sync: false
+      - key: OSAI_COMPOSIO_AGENT_ENABLED  # Ask grounds via LLM tool-calling over connected Composio apps
+        value: "false"                    # opt in only after connector ACL/tier-routing enforcement
+      - key: OSAI_AUTOMATIONS_CRON_TOKEN  # must match the AUTOMATIONS_CRON_TOKEN GitHub secret
+        sync: false
+      # This topology deploys Celery beat, so the API cron hook must stay hidden.
+      - key: OSAI_AUTOMATIONS_CRON_ENABLED
+        value: "false"
+      - key: OSAI_SENTRY_DSN           # error tracking; optional but strongly recommended
+        sync: false
+      - key: OSAI_SLACK_BOT_TOKEN
+        sync: false
+      - key: OSAI_SLACK_SIGNING_SECRET
+        sync: false
+      # Required before migration 0032 when SQL sources exist, and before adding
+      # any new SQL source. Keep old keys after the primary during rotation.
+      - key: OSAI_SQL_DSN_ENCRYPTION_KEYS
         sync: false
       - key: OSAI_ALLOWED_ORIGINS      # your Vercel frontend URL
         sync: false
@@ -85,50 +112,53 @@ services:
       # Session JWT signing secret — set to a strong random value.
       - key: OSAI_JWT_SECRET
         sync: false
-      # Per-user Hermes reasoning sidecar. Leave UNSET to keep OSAI on its
-      # in-house agent (default). Set to the deployed sidecar URL (see
-      # services/hermes-sidecar/DEPLOY.md) ONLY after its /run gate passes —
-      # then /ask and Automations route through Hermes with in-house fallback.
-      - key: OSAI_HERMES_SIDECAR_URL
-        sync: false
-      # Shared secret with the sidecar — set to the SAME random value as
-      # SIDECAR_AUTH_TOKEN on osai-hermes (the sidecar is publicly reachable).
-      - key: OSAI_HERMES_SIDECAR_TOKEN
-        sync: false
 
-  # Hermes reasoning sidecar (per-user hermes-agent behind a tiny HTTP API).
-  # ⚠ PAID: Docker build of the hermes CLI needs Starter or above (~$7/mo).
-  # Validated locally on Groq (services/hermes-sidecar/DEPLOY.md has the gate).
-  # After it deploys: (1) set GROQ_API_KEY in its Environment tab, (2) pass the
-  # /run gate in DEPLOY.md step 4, (3) set OSAI_HERMES_SIDECAR_URL on osai-api
-  # to this service's URL.
-  - type: web
-    name: osai-hermes
+  # Celery worker for recurring automations. The heartbeat and scheduled run
+  # tasks share the execute queue, proving beat -> queue -> worker end to end.
+  # ponytail: -B is safe for one worker instance; split beat into its own
+  # single-instance service before scaling this worker horizontally.
+  - type: worker
+    name: osai-worker
     runtime: docker
-    dockerfilePath: ./services/hermes-sidecar/Dockerfile
-    dockerContext: ./services/hermes-sidecar
-    healthCheckPath: /health
+    dockerfilePath: ./osai-backend/Dockerfile
+    dockerContext: ./osai-backend
+    dockerCommand: uv run celery -A workers.celery_app worker -B -Q execute --loglevel=info
     plan: starter
+    numInstances: 1
     envVars:
-      - key: GROQ_API_KEY              # same Groq key as OSAI_LLM_API_KEY
+      - key: OSAI_ENV
+        value: production
+      - key: OSAI_DATABASE_URL
         sync: false
-      # Require X-Sidecar-Token on /run — same value as osai-api's
-      # OSAI_HERMES_SIDECAR_TOKEN (this service is on the public internet).
-      - key: SIDECAR_AUTH_TOKEN
+      - key: OSAI_REDIS_URL
+        fromService:
+          type: keyvalue
+          name: osai-redis
+          property: connectionString
+      - key: OSAI_QDRANT_URL
         sync: false
-      - key: HERMES_PROVIDER
-        value: groq
-      - key: HERMES_MODEL
-        value: llama-3.3-70b-versatile
-      - key: HERMES_BASE_URL           # Groq is OpenAI-compatible; registered as a hermes custom provider
+      - key: OSAI_QDRANT_API_KEY
+        sync: false
+      - key: OSAI_GEMINI_API_KEY
+        sync: false
+      - key: OSAI_VOYAGE_API_KEY
+        sync: false
+      - key: OSAI_EMBEDDING_DIMENSION
+        sync: false
+      - key: OSAI_LLM_API_KEY
+        sync: false
+      - key: OSAI_LLM_BASE_URL
         value: https://api.groq.com/openai/v1
-      - key: HERMES_MAX_TOKENS         # Groq rejects hermes' default completion cap
-        value: "8192"
-      - key: HERMES_TOOLSETS           # keep the tool schema small (Groq 413s on full toolsets)
-        value: search
-      - key: HERMES_HOME_ROOT
-        value: /data/hermes
-    disk:
-      name: hermes-data                # per-user Hermes memory survives deploys
-      mountPath: /data/hermes
-      sizeGB: 1
+      - key: OSAI_LLM_MODEL
+        value: llama-3.3-70b-versatile
+      - key: OSAI_COMPOSIO_API_KEY
+        sync: false
+      # The worker is the only recurring scheduler in this Render topology.
+      - key: OSAI_AUTOMATIONS_CRON_ENABLED
+        value: "false"
+      - key: OSAI_AUTOMATIONS_BEAT_ENABLED
+        value: "true"
+      - key: OSAI_SLACK_BOT_TOKEN
+        sync: false
+      - key: OSAI_JWT_SECRET
+        sync: false

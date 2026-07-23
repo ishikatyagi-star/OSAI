@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { AlertTriangle, ArrowRight, Calendar, Check, Info, Loader2, User } from "lucide-react";
@@ -28,8 +28,13 @@ const TIER_COLORS: Record<string, string> = {
 
 function statusClass(status: string) {
   if (status === "needs_review") return "badge badge-yellow";
+  // In flight: claimed and pushing to the connector. Not green yet, because
+  // nothing has landed in the customer's tool.
+  if (status === "executing") return "badge badge-yellow";
+  // "executed" is the pre-state-machine name for "completed"; older rows keep it.
   if (["approved", "executed", "completed", "succeeded"].includes(status)) return "badge badge-green";
   if (status === "failed") return "badge badge-red";
+  // cancelled/skipped: deliberately not run, which is an outcome, not a fault.
   return "badge badge-grey";
 }
 
@@ -45,6 +50,15 @@ export default function WorkflowDetailPage() {
   const [approvalError, setApprovalError] = useState("");
   const [loadError, setLoadError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+  const approvalTriggerRef = useRef<HTMLButtonElement | null>(null);
+
+  function closeApprovalDialog() {
+    setPendingApprove(null);
+    // This controlled dialog is not mounted through DialogTrigger, so restore
+    // focus explicitly after it unmounts. Keyboard users should return to the
+    // action they were considering, not the document body.
+    window.requestAnimationFrame(() => approvalTriggerRef.current?.focus());
+  }
 
   useEffect(() => {
     if (!runId) return;
@@ -128,7 +142,7 @@ export default function WorkflowDetailPage() {
       );
     }
     return (
-      <div className="card mascot-error-state">
+      <div className="card mascot-error-state" role="status">
         <SheldonMascot state="recovering" size={104} />
         <p className="error-text">Workflow run not found.</p>
         <Link href="/automations" className="text-caption" style={{ color: "var(--accent)" }}>← Back to Automations</Link>
@@ -248,7 +262,11 @@ export default function WorkflowDetailPage() {
                   <button
                     type="button"
                     className="btn btn-primary btn-sm"
-                    onClick={() => { setApprovalError(""); setPendingApprove(item); }}
+                    onClick={(event) => {
+                      approvalTriggerRef.current = event.currentTarget;
+                      setApprovalError("");
+                      setPendingApprove(item);
+                    }}
                     disabled={approving === item.id}
                     aria-label={`Approve and execute: ${brandText(item.title)}`}
                   >
@@ -281,7 +299,7 @@ export default function WorkflowDetailPage() {
       </div>
 
       {pendingApprove && (
-        <Dialog open onOpenChange={(open) => !open && !approving && setPendingApprove(null)}>
+        <Dialog open onOpenChange={(open) => !open && !approving && closeApprovalDialog()}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Approve and execute this action?</DialogTitle>
@@ -291,7 +309,7 @@ export default function WorkflowDetailPage() {
             </DialogHeader>
             {approvalError && <p className="error-text" role="alert">{approvalError}</p>}
             <DialogFooter>
-              <button type="button" className="btn" onClick={() => setPendingApprove(null)} disabled={!!approving}>Cancel</button>
+              <button type="button" className="btn" onClick={closeApprovalDialog} disabled={!!approving}>Cancel</button>
               <button type="button" className="btn btn-primary" onClick={() => handleApprove(pendingApprove)} disabled={!!approving}>
                 {approving ? "Approving…" : "Approve action"}
               </button>

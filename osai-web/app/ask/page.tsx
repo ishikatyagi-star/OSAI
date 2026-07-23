@@ -11,17 +11,25 @@ import {
   Sparkles,
   Zap,
 } from "lucide-react";
-import { askOsai, confirmAgentAction } from "@/lib/api";
-import { DEMO_ASK_ANSWERS, DEMO_DEPARTMENTS } from "@/lib/demo-data";
+import {
+  ApiError,
+  askOsai,
+  confirmAgentAction,
+  dismissAgentAction,
+  searchOsai,
+} from "@/lib/api";
+import {
+  DEMO_ASK_ANSWERS,
+  DEMO_DEPARTMENTS,
+  DEMO_SEARCH_ANSWERS,
+} from "@/lib/demo-data";
 import { isDemo } from "@/lib/demo";
 import { buildOpenUiArtifacts } from "@/lib/openui-artifacts";
 import { cn } from "@/lib/utils";
-import type { AgentAction, AskResponse } from "@/lib/types";
+import type { AgentAction, AskResponse, SearchResponse } from "@/lib/types";
 import { MessageBubble, type AskTurn } from "@/components/ask/message-bubble";
 import { ComposerAttach } from "@/components/ask/composer-attach";
 import {
-  appendThreadTurn,
-  createThread,
   getDepartments,
   getNotifications,
   getThread,
@@ -31,12 +39,15 @@ import {
   type AppNotification,
   type Department,
   type ThreadSummary,
+  type ThreadTurnRow,
 } from "@/lib/api";
 import type { UploadedFile } from "@/components/ask/file-card";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { SheldonMascot } from "@/components/sheldon-mascot";
+import { announceNotificationsChanged } from "@/lib/notification-events";
 
 function normaliseKey(q: string) {
   return q.toLowerCase().replace(/[^a-z0-9 ]/g, "").trim();
@@ -52,13 +63,63 @@ function getDemoAnswer(question: string): AskResponse {
   return DEMO_ASK_ANSWERS.default;
 }
 
+function getDemoSearchAnswer(question: string): SearchResponse {
+  const key = normaliseKey(question);
+  for (const [k, v] of Object.entries(DEMO_SEARCH_ANSWERS)) {
+    if (k === "default") continue;
+    if (key.includes(k) || k.includes(key)) return v;
+  }
+  return DEMO_SEARCH_ANSWERS.default;
+}
+
 function uid(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function shouldRetryAsk(error: unknown) {
+  return (
+    (error instanceof Error && error.name === "AbortError") ||
+    (error instanceof ApiError && error.status === 503)
+  );
+}
+
+function hydrateThreadTurns(rows: ThreadTurnRow[]): AskTurn[] {
+  let question: string | undefined;
+  return rows.map((turn) => {
+    if (turn.role === "user") {
+      question = turn.content;
+      return { id: turn.id, role: turn.role, content: turn.content };
+    }
+    const stored = turn.payload?.ask_response;
+    const response =
+      stored && typeof stored === "object"
+        ? (stored as unknown as AskResponse)
+        : undefined;
+    return {
+      id: turn.id,
+      role: turn.role,
+      content: turn.content,
+      question,
+      conversationId: response?.conversation_id,
+      citations:
+        response?.citations ??
+        ((turn.payload?.citations as AskTurn["citations"]) ?? undefined),
+      actions: response?.actions_taken,
+      enoughContext: response?.enough_context,
+      modelRoute: response?.model_route,
+      latencyMs: response?.latency_ms,
+      artifacts: response ? buildOpenUiArtifacts(response) : undefined,
+    };
+  });
 }
 
 /** Composer modes. Each mode reframes
  *  the placeholder so the box clearly does more than chat. */
 type ComposerMode = "ask" | "search" | "action";
+const MAX_ASK_QUESTION_CHARS = 40_000;
+const MAX_SEARCH_QUERY_CHARS = 4_000;
+const MAX_HISTORY_TURNS = 10;
+const MAX_HISTORY_CONTENT_CHARS = 4_000;
 
 const COMPOSER_MODES: {
   id: ComposerMode;
@@ -111,7 +172,7 @@ const ASK_MODES: {
     label: "Summarize across tools",
     desc: "Roll up threads, tickets and docs into one answer.",
     example: "Summarise open SLA escalations in Freshdesk",
-    sources: ["Freshdesk", "Zoom"],
+    sources: ["Freshdesk", "Google Drive"],
     gradient: "ask-mode-card--magenta",
   },
   {
@@ -130,9 +191,13 @@ export default function AskPage() {
   const [turns, setTurns] = useState<AskTurn[]>([]);
   const [input, setInput] = useState("");
   const [mode, setMode] = useState<ComposerMode>("ask");
+  const inputMaxLength =
+    mode === "search" ? MAX_SEARCH_QUERY_CHARS : MAX_ASK_QUESTION_CHARS;
   const [pending, setPending] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
-  const [busyActionId, setBusyActionId] = useState<string | null>(null);
+  const [busyActions, setBusyActions] = useState<
+    Record<string, "approve" | "dismiss">
+  >({});
   // Persisted thread backing this conversation (multiplayer surface).
   const [threadId, setThreadId] = useState<string | null>(null);
   const [threadShared, setThreadShared] = useState(false);
@@ -156,6 +221,7 @@ export default function AskPage() {
   }, []);
   const threadRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const threadsTriggerRef = useRef<HTMLButtonElement>(null);
 
   // Focus the composer on mount and whenever a response finishes, so the user
   // can start (or keep) typing without clicking into the field.
@@ -177,68 +243,94 @@ export default function AskPage() {
       const q = question.trim();
       if (!q || pending) return;
 
-      const userTurn: AskTurn = { id: uid("u"), role: "user", content: q };
-      const history = turns.map((t) => ({ role: t.role, content: t.content }));
+      const requestId = crypto.randomUUID();
+      const userTurn: AskTurn = { id: requestId, role: "user", content: q };
+      const history = turns.slice(-MAX_HISTORY_TURNS).map((t) => ({
+        role: t.role,
+        content: t.content.slice(0, MAX_HISTORY_CONTENT_CHARS),
+      }));
       setTurns((prev) => [...prev, userTurn]);
       setInput("");
       setPending(true);
 
-      // Persist to the backing thread (best-effort; never blocks the answer).
-      let tid = threadId;
-      if (!tid && !isDemo()) {
-        try {
-          const t = await createThread(q.slice(0, 200));
-          tid = t.id;
-          setThreadId(t.id);
-          setThreadShared(t.shared);
-        } catch {
-          tid = null;
-        }
-      }
-      if (tid) appendThreadTurn(tid, { role: "user", content: q }).catch(() => {});
-
-      const toTurn = (res: AskResponse): AskTurn => ({
-        id: uid("a"),
-        role: "assistant",
-        content: res.answer,
-        question: q,
-        conversationId: res.conversation_id ?? conversationId,
-        citations: res.citations,
-        actions: res.actions_taken,
-        enoughContext: res.enough_context,
-        modelRoute: res.model_route,
-        latencyMs: res.latency_ms,
-        artifacts: buildOpenUiArtifacts(res),
-      });
+      const toTurn = (res: AskResponse | SearchResponse): AskTurn => {
+        const askResponse = "conversation_id" in res ? res : null;
+        return {
+          id: uid("a"),
+          role: "assistant",
+          content: res.answer,
+          question: q,
+          conversationId: askResponse?.conversation_id ?? conversationId,
+          citations: res.citations,
+          actions: askResponse?.actions_taken,
+          enoughContext: res.enough_context,
+          modelRoute: askResponse?.model_route,
+          latencyMs: askResponse?.latency_ms,
+          artifacts: askResponse ? buildOpenUiArtifacts(askResponse) : undefined,
+        };
+      };
 
       try {
-        const res = isDemo()
-          ? getDemoAnswer(q)
-          : await askOsai(q, { conversationId, history, departmentId: departmentId || null });
-        setConversationId(res.conversation_id ?? conversationId);
-        setTurns((prev) => [...prev, toTurn(res)]);
-        if (tid) {
-          appendThreadTurn(tid, {
-            role: "assistant",
-            content: res.answer,
-            payload: { citations: res.citations ?? [], model_route: res.model_route ?? null },
-          }).catch(() => {});
+        // The demo workspace answers with the live LLM over the seeded demo-org
+        // data (X-Org-Id: demo-org travels in the request), so demo questions get
+        // real, varied answers instead of a single canned reply. If the backend
+        // is slow or unreachable, the catch below falls back to the canned demo
+        // answers so the demo never hangs or errors.
+        if (mode === "search") {
+          const res = await searchOsai(q, { departmentId: departmentId || null });
+          setTurns((prev) => [...prev, toTurn(res)]);
+        } else {
+          const askOptions = {
+            conversationId,
+            history,
+            departmentId: departmentId || null,
+            intent: mode === "action" ? ("action" as const) : ("ask" as const),
+            // The signed-in server owns thread creation plus both turn writes.
+            threadId: isDemo() ? null : threadId,
+            requestId: isDemo() ? null : requestId,
+          };
+          let res: AskResponse;
+          try {
+            res = await askOsai(q, askOptions);
+          } catch (error) {
+            if (isDemo() || !shouldRetryAsk(error)) throw error;
+            // A timed-out first request may still be finishing server-side. The
+            // same key waits for/replays it instead of running the model twice.
+            res = await askOsai(q, askOptions);
+          }
+          setConversationId(res.conversation_id ?? conversationId);
+          if (res.thread_id) {
+            if (res.thread_id !== threadId) setThreadShared(false);
+            setThreadId(res.thread_id);
+          }
+          setTurns((prev) => [...prev, toTurn(res)]);
         }
-      } catch {
+      } catch (error) {
         // Live API unavailable. In demo mode, fall back to canned answers; otherwise
         // surface an honest error rather than fabricating a response.
         if (isDemo()) {
-          const demo = getDemoAnswer(q);
-          setConversationId(demo.conversation_id ?? conversationId);
-          setTurns((prev) => [...prev, toTurn(demo)]);
+          if (mode === "search") {
+            setTurns((prev) => [...prev, toTurn(getDemoSearchAnswer(q))]);
+          } else {
+            const fallback = getDemoAnswer(q);
+            setConversationId(fallback.conversation_id ?? conversationId);
+            setTurns((prev) => [...prev, toTurn(fallback)]);
+          }
         } else {
+          const invalidSearchQuery =
+            mode === "search" && error instanceof ApiError && error.status === 422;
+          const persistenceFailure =
+            mode !== "search" && error instanceof ApiError && error.status >= 409;
           setTurns((prev) => [
             ...prev,
             {
               id: uid("a"),
               role: "assistant",
-              content:
-                "I couldn't reach the Sheldon backend just now. Check your connection and try again.",
+              content: invalidSearchQuery
+                ? "Search queries must be between 1 and 4,000 characters."
+                : persistenceFailure
+                  ? "I couldn't safely save this answer. Refresh the thread and try again."
+                  : "I couldn't reach the Sheldon backend just now. Check your connection and try again.",
             },
           ]);
         }
@@ -246,7 +338,7 @@ export default function AskPage() {
         setPending(false);
       }
     },
-    [pending, turns, conversationId, departmentId, threadId]
+    [pending, turns, conversationId, departmentId, threadId, mode]
   );
 
   // Deep links (e.g. the Automations page's "Create with Sheldon") seed the
@@ -265,7 +357,7 @@ export default function AskPage() {
   }, []);
 
   async function openThread(tid: string) {
-    if (openingThreadId) return false;
+    if (pending || openingThreadId) return false;
     setOpeningThreadId(tid);
     setThreadActionError("");
     try {
@@ -274,15 +366,9 @@ export default function AskPage() {
       setThreadId(t.id);
       setThreadShared(t.shared);
       setConversationId(null);
+      setMode("ask");
       setThreadsOpen(false);
-      setTurns(
-        t.turns.map((turn) => ({
-          id: turn.id,
-          role: turn.role,
-          content: turn.content,
-          citations: (turn.payload?.citations as AskTurn["citations"]) ?? undefined,
-        }))
-      );
+      setTurns(hydrateThreadTurns(t.turns));
       return true;
     } catch {
       setThreadActionError("That thread could not be loaded. Check your connection and try again.");
@@ -310,6 +396,7 @@ export default function AskPage() {
   }
 
   async function toggleThreads() {
+    if (pending) return;
     const next = !threadsOpen;
     setThreadsOpen(next);
     if (!next) return;
@@ -373,9 +460,16 @@ export default function AskPage() {
       )
       .catch(() => setShareNotices([]));
   }, []);
-  const dismissNotice = useCallback((id: string) => {
-    setShareNotices((prev) => prev.filter((n) => n.id !== id));
-    markNotificationRead(id).catch(() => {});
+  const dismissNotice = useCallback(async (id: string) => {
+    try {
+      await markNotificationRead(id);
+      setShareNotices((prev) => prev.filter((n) => n.id !== id));
+      announceNotificationsChanged();
+      return true;
+    } catch {
+      setThreadActionError("That notification could not be marked as read. Please retry.");
+      return false;
+    }
   }, []);
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -404,9 +498,21 @@ export default function AskPage() {
     []
   );
 
+  const setActionBusy = useCallback(
+    (actionId: string, operation: "approve" | "dismiss" | null) => {
+      setBusyActions((previous) => {
+        const next = { ...previous };
+        if (operation) next[actionId] = operation;
+        else delete next[actionId];
+        return next;
+      });
+    },
+    []
+  );
+
   const handleApprove = useCallback(
     async (turnId: string, action: AgentAction) => {
-      setBusyActionId(action.id);
+      setActionBusy(action.id, "approve");
       if (isDemo()) {
         patchAction(turnId, action.id, {
           status: "executed",
@@ -417,7 +523,7 @@ export default function AskPage() {
               : `https://example.com/${action.tool}/created`,
           error: null,
         });
-        setBusyActionId(null);
+        setActionBusy(action.id, null);
         return;
       }
       try {
@@ -425,36 +531,64 @@ export default function AskPage() {
           action.id,
           conversationId ?? "conv-demo"
         );
+        const retryable = res.error === "approval_unavailable";
         patchAction(turnId, action.id, {
-          status: res.status,
-          external_url: res.external_url,
-          error: res.error,
-          requires_confirmation: false,
+          status: retryable ? "proposed" : res.status,
+          external_url: retryable ? null : res.external_url,
+          error: res.error ? res.message : null,
+          requires_confirmation: retryable,
         });
       } catch {
-        // Real workspace: never claim success or fabricate a URL. Surface the
-        // failure honestly and let the user retry.
+        // A lost response can hide a completed provider side effect. Keep this
+        // terminal so the UI never invites a duplicate confirmation.
         patchAction(turnId, action.id, {
           status: "failed",
           requires_confirmation: false,
           external_url: null,
-          error: "Couldn't complete this action. Please try again.",
+          error: "The result of this action is unknown. Check the destination before proposing it again.",
         });
       } finally {
-        setBusyActionId(null);
+        setActionBusy(action.id, null);
       }
     },
-    [conversationId, patchAction]
+    [conversationId, patchAction, setActionBusy]
   );
 
   const handleDismiss = useCallback(
-    (turnId: string, action: AgentAction) => {
-      patchAction(turnId, action.id, {
-        status: "skipped",
-        requires_confirmation: false,
-      });
+    async (turnId: string, action: AgentAction) => {
+      if (isDemo()) {
+        patchAction(turnId, action.id, {
+          status: "skipped",
+          requires_confirmation: false,
+          error: null,
+        });
+        return;
+      }
+      setActionBusy(action.id, "dismiss");
+      try {
+        const res = await dismissAgentAction(
+          action.id,
+          conversationId ?? "conv-demo"
+        );
+        const retryable = res.error === "approval_unavailable";
+        patchAction(turnId, action.id, {
+          status: retryable ? "proposed" : res.status,
+          requires_confirmation: retryable,
+          external_url: null,
+          error: res.error ? res.message : null,
+        });
+      } catch {
+        patchAction(turnId, action.id, {
+          status: "proposed",
+          requires_confirmation: true,
+          external_url: null,
+          error: "Couldn't dismiss this action. Please try again.",
+        });
+      } finally {
+        setActionBusy(action.id, null);
+      }
     },
-    [patchAction]
+    [conversationId, patchAction, setActionBusy]
   );
 
   const empty = turns.length === 0;
@@ -473,11 +607,13 @@ export default function AskPage() {
           </p>
         </div>
         <button
+          ref={threadsTriggerRef}
           className="btn"
           aria-label="Threads"
           aria-expanded={threadsOpen}
           aria-controls="ask-thread-list"
           onClick={toggleThreads}
+          disabled={pending}
         >
           Threads
         </button>
@@ -501,6 +637,7 @@ export default function AskPage() {
               setThreadId(null);
               setThreadShared(false);
             }}
+            disabled={pending}
           >
             <Plus className="size-3.5" />
             <span className="ask-new-chat-wide">New chat</span>
@@ -517,36 +654,48 @@ export default function AskPage() {
         </div>
       )}
 
-      {threadsOpen && (
-        <div id="ask-thread-list" className="mx-auto w-full max-w-3xl shrink-0 px-4 pb-2">
-          <div className="card" style={{ padding: "10px 14px", maxHeight: 280, overflowY: "auto" }}>
-            <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Threads
-            </div>
+      {/* Threads live in a right-hand slide-in drawer (Claude-style) so opening
+          the list never pushes the conversation down or eats vertical space. */}
+      <Dialog open={threadsOpen} onOpenChange={setThreadsOpen}>
+        <DialogContent
+          id="ask-thread-list"
+          aria-label="Threads"
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            threadsTriggerRef.current?.focus();
+          }}
+          className="left-auto right-0 top-0 flex h-dvh w-[340px] max-w-[85vw] translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-y-0 border-r-0 bg-[var(--bg-elevated)] p-0"
+        >
+          <div className="flex shrink-0 items-center border-b border-[var(--border)] px-4 py-3 pr-14">
+            <DialogTitle className="text-sm">Threads</DialogTitle>
+          </div>
+          <div className="flex-1 overflow-y-auto px-3 py-3">
             {threadListLoading ? (
-              <p className="text-xs text-muted-foreground" role="status">Loading threads…</p>
+              <p className="px-2 text-xs text-muted-foreground" role="status">Loading threads…</p>
             ) : threadListError ? (
-              <div role="alert">
-                <p className="error-text mb-2">{threadListError}</p>
+              <div role="alert" className="px-2">
+                <p className="error-text mb-2 text-xs">{threadListError}</p>
                 <button type="button" className="btn btn-sm" onClick={loadThreads}>Retry</button>
               </div>
             ) : threadList.length === 0 ? (
-              <p className="text-xs text-muted-foreground">
+              <p className="px-2 text-xs text-muted-foreground">
                 {isDemo() ? "Demo conversations stay in this browser session." : "No threads yet."}
               </p>
             ) : (
-              <ul className="space-y-1">
+              <ul className="space-y-0.5">
                 {threadList.map((t) => (
                   <li key={t.id}>
                     <button
                       type="button"
-                      className="w-full rounded px-2 py-1.5 text-left text-sm hover:bg-[var(--bg-surface)]"
+                      className="w-full rounded-md px-2 py-2 text-left text-sm transition-colors hover:bg-[var(--bg-hover)]"
                       onClick={() => void openThread(t.id)}
-                      disabled={openingThreadId !== null}
+                      disabled={pending || openingThreadId !== null}
                     >
-                      <span className="font-medium">{openingThreadId === t.id ? "Loading…" : t.title}</span>{" "}
-                      <span className="text-xs text-muted-foreground">
-                        {t.shared ? "· shared" : "· private"}
+                      <span className="block truncate font-medium">
+                        {openingThreadId === t.id ? "Loading…" : t.title}
+                      </span>
+                      <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                        {t.shared ? "shared" : "private"}
                         {typeof t.turns === "number" ? ` · ${t.turns} turns` : ""}
                         {t.shared && t.created_by_name ? ` · by ${t.created_by_name}` : ""}
                       </span>
@@ -556,8 +705,8 @@ export default function AskPage() {
               </ul>
             )}
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
 
       {shareNotices.length > 0 && (
         <div className="mx-auto w-full max-w-3xl shrink-0 px-4 pb-2">
@@ -576,13 +725,14 @@ export default function AskPage() {
                     <button
                       type="button"
                       className="font-semibold underline"
+                      disabled={pending}
                       onClick={async () => {
                         const tid = (n.payload as { thread_id?: string }).thread_id;
                         if (!tid) {
                           setThreadActionError("This mention does not include a valid thread link.");
                           return;
                         }
-                        if (await openThread(tid)) dismissNotice(n.id);
+                        if (await openThread(tid)) await dismissNotice(n.id);
                       }}
                     >
                       {n.payload.title ?? "a thread"}
@@ -599,7 +749,7 @@ export default function AskPage() {
               <button
                 type="button"
                 className="btn"
-                onClick={() => dismissNotice(n.id)}
+                onClick={() => void dismissNotice(n.id)}
                 aria-label="Dismiss notification"
               >
                 Got it
@@ -657,6 +807,7 @@ export default function AskPage() {
                       onChange={(e) => setInput(e.target.value)}
                       onKeyDown={handleKeyDown}
                       rows={1}
+                      maxLength={inputMaxLength}
                       placeholder={activeMode.placeholder}
                       aria-label="Ask Sheldon prompt"
                       className="max-h-44 min-h-[44px] flex-1 resize-none self-center border-0 bg-transparent px-1 py-1 text-base shadow-none outline-none focus-visible:ring-0 placeholder:text-[var(--text-muted)]"
@@ -708,6 +859,15 @@ export default function AskPage() {
                       );
                     })}
                   </TabsList>
+                  {COMPOSER_MODES.map((composerMode) => (
+                    <TabsContent
+                      key={composerMode.id}
+                      value={composerMode.id}
+                      className="sr-only"
+                    >
+                      {composerMode.placeholder}
+                    </TabsContent>
+                  ))}
                 </Tabs>
               </form>
 
@@ -775,7 +935,7 @@ export default function AskPage() {
                 <MessageBubble
                   key={t.id}
                   turn={t}
-                  busyActionId={busyActionId}
+                  busyActions={busyActions}
                   onApprove={handleApprove}
                   onDismiss={handleDismiss}
                 />
@@ -811,7 +971,8 @@ export default function AskPage() {
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
                   rows={1}
-                  placeholder="Ask a follow-up..."
+                  maxLength={inputMaxLength}
+                  placeholder={mode === "search" ? "Search again..." : "Ask a follow-up..."}
                   aria-label="Ask Sheldon follow-up prompt"
                   className="max-h-40 min-h-[40px] flex-1 resize-none self-center border-0 bg-transparent px-1 py-1.5 text-sm shadow-none outline-none focus-visible:ring-0 placeholder:text-[var(--text-muted)]"
                 />

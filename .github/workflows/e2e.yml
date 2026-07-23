@@ -1,0 +1,50 @@
+# Golden-path smoke (Playwright, demo mode — no backend needed). Runs nightly
+# and on main pushes touching the web app, so a regression that blanks a page
+# or breaks login → ask → integrations is caught within a day, not by a pilot
+# user. Kept out of PR CI to keep PR feedback fast.
+name: e2e-smoke
+
+on:
+  schedule:
+    - cron: "23 1 * * *"
+  push:
+    branches: [main]
+    paths: ["osai-web/**"]
+  workflow_dispatch: {}
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: osai-web
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: osai-web/package-lock.json
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      # Build and run the smoke suite against the PRODUCTION server, not dev.
+      # `npm run dev` double-fetches (Next dev + React strict mode), which makes
+      # request-count/first-failure mocks flap (data-routing, role-truth). The
+      # optimized server has no such duplicate reads and passes deterministically.
+      - run: npm run build
+        env:
+          # Required for a production build; the smoke suite runs in demo mode so
+          # the value is a placeholder (no backend is actually contacted).
+          NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:8000
+      - run: npm run test:e2e
+        env:
+          NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:8000
+          PLAYWRIGHT_PORT: "3100"
+          PLAYWRIGHT_WEB_SERVER_COMMAND: npm run start -- --hostname 127.0.0.1 --port 3100
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: failure()
+        with:
+          name: playwright-failure-screenshots
+          path: osai-web/output/playwright/test-results/
+          retention-days: 7

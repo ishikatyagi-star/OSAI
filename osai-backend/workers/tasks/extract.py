@@ -8,7 +8,8 @@ import logging
 import httpx
 
 from api.schemas.workflow_run import WorkflowRunCreate
-from db.models import ActionItemRecord, AuditEvent, WorkflowRun
+from db.models import ActionItemRecord, AuditEvent, User, WorkflowRun
+from db.repositories import user_clearance, user_permissions
 from db.session import SessionLocal
 from workers.celery_app import celery_app
 from workflows.runner import run_action_item_workflow
@@ -39,6 +40,18 @@ def extract_action_items(self, workflow_run_id: str) -> dict[str, str]:
             destination=run.destination,
             data_tier=run.data_tier,
         )
+        actor = session.get(User, run.created_by) if run.created_by else None
+        if actor is not None and actor.org_id != run.org_id:
+            actor = None
+        actor_claims = (
+            {
+                "sub": actor.id,
+                "org_id": actor.org_id,
+                "tv": actor.token_version or 0,
+            }
+            if actor is not None
+            else None
+        )
 
         # Run extraction using async helper
         try:
@@ -49,7 +62,15 @@ def extract_action_items(self, workflow_run_id: str) -> dict[str, str]:
                 asyncio.set_event_loop(loop)
 
             response = loop.run_until_complete(
-                run_action_item_workflow(run_id=run.id, request=req, db=session)
+                run_action_item_workflow(
+                    run_id=run.id,
+                    request=req,
+                    db=session,
+                    requester_permissions=user_permissions(session, actor_claims),
+                    requester_tier=user_clearance(session, actor_claims),
+                    actor_user_id=actor.id if actor is not None else None,
+                    viewer_is_admin=bool(actor is not None and actor.role == "admin"),
+                )
             )
         except Exception as exc:
             logger.error(f"Error running action item extraction: {exc}")

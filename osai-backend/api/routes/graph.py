@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from api.schemas.graph import GraphEdge, GraphEntity
@@ -70,11 +71,13 @@ async def list_entities(
 async def access_map(db: DbSession, org_id: OrgId) -> dict:
     """Who-can-access-what: users (by role) ↔ connectors, annotated with the
     highest data tier each user is cleared for. Powers the simplified org graph."""
-    return try_db(
-        "build_access_graph",
-        {"users": [], "connectors": [], "access": []},
-        lambda: build_access_graph(db, org_id),
-    )
+    try:
+        return build_access_graph(db, org_id)
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="The access map is temporarily unavailable.",
+        ) from exc
 
 
 @router.get("/edges", response_model=list[GraphEdge])

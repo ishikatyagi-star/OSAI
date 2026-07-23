@@ -10,6 +10,9 @@ on:
     paths:
       - "osai-web/**"
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -18,10 +21,10 @@ jobs:
         working-directory: osai-web
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "22"
           cache: npm
@@ -33,5 +36,40 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Lint
+        run: npm run lint
+
       - name: Test
         run: npm test
+
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:8000
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser tests
+        run: npm run test:e2e
+        env:
+          NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:8000
+          # Server command and Playwright's baseURL must agree on the port, or
+          # Playwright waits on the default (3210) while the server is on 3100
+          # and times out. PLAYWRIGHT_PORT drives baseURL in playwright.config.ts.
+          PLAYWRIGHT_PORT: "3100"
+          PLAYWRIGHT_WEB_SERVER_COMMAND: npm run start -- --hostname 127.0.0.1 --port 3100
+
+      - name: Upload browser-test evidence
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: playwright-report
+          path: osai-web/output/playwright/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      # High/critical dependency vulnerabilities are a release gate. Accepted
+      # findings must be documented and explicitly remediated or waived.
+      - name: Dependency audit (npm)
+        run: npm audit --audit-level=high

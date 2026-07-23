@@ -68,6 +68,7 @@ class SlackConnector(Connector):
         auth = await self.auth_status(org_id)
         if not auth.connected:
             import sys
+
             if "pytest" in sys.modules:
                 return SyncResult(connector_key=self.key, status="failed", error=auth.error)
 
@@ -118,8 +119,11 @@ class SlackConnector(Connector):
             )
         channel = action.payload.get("channel", "general")
         text = action.payload.get("text", "")
+        payload = {"channel": channel, "text": text}
+        if action.idempotency_key:
+            payload["client_msg_id"] = action.idempotency_key
         try:
-            data = await self._call("chat.postMessage", json={"channel": channel, "text": text})
+            data = await self._call("chat.postMessage", json=payload)
             if not data.get("ok"):
                 return ActionResult(
                     connector_key=self.key,

@@ -1,20 +1,38 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Check, Info, Loader2, Plus } from "lucide-react";
-import { COMPOSIO_TOOLKIT, composioConnect, composioDisconnect, getDashboardMetrics, getIntegrations, getSyncRuns, triggerSync } from "@/lib/api";
+import { AlertTriangle, Check, Info, Loader2, Plug, Plus } from "lucide-react";
+import { COMPOSIO_TOOLKIT, composioConnect, composioDisconnect, getDashboardMetrics, getIntegrations, getSession, getSyncRuns, triggerSync } from "@/lib/api";
 import { DEMO_INTEGRATIONS, DEMO_STATS, DEMO_SYNC_RUNS } from "@/lib/demo-data";
 import { isDemo } from "@/lib/demo";
-import { CONNECTOR_META, getConnectorIcon } from "@/lib/connector-meta";
+import { CONNECTOR_META } from "@/lib/connector-meta";
 import type { Integration, SyncRun } from "@/lib/types";
 import { AddConnectorDialog } from "@/components/integrations/add-connector-dialog";
 import { ConnectorManager } from "@/components/integrations/connector-manager";
+import { DataRoutingPanel } from "@/components/integrations/data-routing-panel";
 import { Button } from "@/components/ui/button";
 import { StatusDot } from "@/components/ui/status-dot";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { brandText, timeAgo } from "@/lib/utils";
 import { SheldonMascot } from "@/components/sheldon-mascot";
 
 type ConnectorFeedbackTone = "pending" | "success" | "error" | "info";
+type IntegrationTab = "connectors" | "routing";
+
+function canOAuthConnect(connectorKey: string) {
+  return Object.hasOwn(COMPOSIO_TOOLKIT, connectorKey);
+}
+
+function canSync(integration: Integration) {
+  return (
+    CONNECTOR_META[integration.key]?.availability !== "legacy-unavailable" &&
+    (integration.capabilities?.includes("sync") ?? false)
+  );
+}
+
+function canDisconnect(integration: Integration) {
+  return integration.source === "composio";
+}
 
 function ConnectorFeedback({ message, tone }: { message: string; tone: ConnectorFeedbackTone }) {
   const error = tone === "error";
@@ -61,6 +79,33 @@ export default function IntegrationsPage() {
   const [metricsAvailable, setMetricsAvailable] = useState(true);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [roleResolved, setRoleResolved] = useState(false);
+  const [roleError, setRoleError] = useState(false);
+  const [activeTab, setActiveTab] = useState<IntegrationTab>("connectors");
+
+  async function refreshSessionRole() {
+    if (isDemo()) {
+      setIsAdmin(false);
+      setRoleResolved(true);
+      setRoleError(false);
+      return false;
+    }
+    try {
+      const session = await getSession(true);
+      const admin = !!session?.is_admin;
+      setIsAdmin(admin);
+      setRoleError(false);
+      return admin;
+    } catch {
+      // Keep a previously confirmed role during a transient outage. The API is
+      // still the authorization boundary for every write.
+      setRoleError(true);
+      return null;
+    } finally {
+      setRoleResolved(true);
+    }
+  }
 
   async function loadIntegrations() {
     setLoading(true);
@@ -93,9 +138,10 @@ export default function IntegrationsPage() {
   }
 
   // Honour ?connected=1 (back from the Composio OAuth round-trip) and ?catalog=1
-  // (arriving from onboarding - open the full 1,000+ connector catalog directly).
+  // (arriving from onboarding - open the supported connector catalog directly).
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    setActiveTab(params.get("tab") === "routing" ? "routing" : "connectors");
     if (params.get("connected") === "1") {
       setJustConnected(true);
       setTimeout(() => setJustConnected(false), 6000);
@@ -106,11 +152,13 @@ export default function IntegrationsPage() {
     if (params.get("connected") === "1" || params.get("catalog") === "1") {
       // Clean the query string so a refresh doesn't re-trigger.
       window.history.replaceState({}, "", "/integrations");
+      setActiveTab("connectors");
     }
   }, []);
 
   useEffect(() => {
     loadIntegrations();
+    void refreshSessionRole();
     async function loadSyncRuns() {
       setSyncRunsLoading(true);
       setSyncRunsError("");
@@ -130,6 +178,16 @@ export default function IntegrationsPage() {
     void loadSyncRuns();
   }, []);
 
+  function changeTab(value: string) {
+    const tab: IntegrationTab = value === "routing" ? "routing" : "connectors";
+    setActiveTab(tab);
+    window.history.replaceState(
+      {},
+      "",
+      tab === "routing" ? "/integrations?tab=routing" : "/integrations"
+    );
+  }
+
   async function handleSync(key: string) {
     setSyncing((s) => ({ ...s, [key]: true }));
     setSyncMsg((m) => ({ ...m, [key]: "" }));
@@ -143,6 +201,7 @@ export default function IntegrationsPage() {
         documents_indexed?: number;
         status?: string;
         error?: string | null;
+        message?: string | null;
       };
       const indexed = Number(res.documents_indexed ?? 0);
       // Composio syncs now run in the background and return "started"; the docs
@@ -154,15 +213,24 @@ export default function IntegrationsPage() {
         [key]:
           res.status === "failed"
             ? `Sync failed - ${(res.error || "see Sync Runs for details.").split("\n")[0].slice(0, 140)}`
-            : res.status === "started"
-              ? "Sync started - files will appear in Sync Runs shortly."
-              : indexed > 0
-                ? `Indexed ${indexed} file${indexed > 1 ? "s" : ""}`
-                : "Sync complete - no new documents.",
+            : res.status === "reconnect_required"
+              ? res.message || "This connection expired. Reconnect the app to resume syncing."
+              : res.status === "started"
+                ? "Sync started - files will appear in Sync Runs shortly."
+                : indexed > 0
+                  ? `Indexed ${indexed} file${indexed > 1 ? "s" : ""}`
+                  : "Sync complete - no new documents.",
       }));
       setSyncTone((tones) => ({
         ...tones,
-        [key]: res.status === "failed" ? "error" : res.status === "started" ? "info" : "success",
+        [key]:
+          res.status === "failed"
+            ? "error"
+            : res.status === "reconnect_required"
+              ? "error"
+              : res.status === "started"
+                ? "info"
+                : "success",
       }));
       loadIntegrations();
     } catch {
@@ -225,6 +293,15 @@ export default function IntegrationsPage() {
       await handleConnectStart(key);
       return;
     }
+    const connector = integrations.find((item) => item.key === key);
+    const label = brandText(CONNECTOR_META[key]?.label ?? connector?.display_name ?? key);
+    if (
+      !window.confirm(
+        `Disconnect ${label}? This revokes the connection and removes its indexed documents from Sheldon. It does not delete anything in ${label}.`
+      )
+    ) {
+      return;
+    }
     if (connecting[key]) return;
     setConnecting((current) => ({ ...current, [key]: true }));
     // Real disconnect = revoke the Composio connection so a later Connect
@@ -268,31 +345,43 @@ export default function IntegrationsPage() {
         <div className="page-header-left">
           <h1>Integrations</h1>
           <p>
-            Connect your company tools to start indexing context. Who can see an
-            uploaded file is managed on the file itself, from Ask.
+            {activeTab === "connectors"
+              ? "Connect supported company tools to start indexing context. Who can see an uploaded file is managed on the file itself, from Ask."
+              : "Control whether each data tier may reach cloud LLMs and external connector destinations."}
           </p>
         </div>
-        <Button
-          size="lg"
-          className="min-w-[152px] shadow-sm"
-          onClick={() => setCatalogOpen(true)}
-          disabled={demo}
-          title={demo ? "External connections are disabled in the shared demo workspace." : undefined}
-        >
-          <Plus size={14} /> Add connector
-        </Button>
+        {(isAdmin || demo) && activeTab === "connectors" && (
+          <Button
+            size="lg"
+            className="min-w-[152px] shadow-sm"
+            onClick={() => setCatalogOpen(true)}
+            disabled={demo}
+            title={demo ? "External connections are disabled in the shared demo workspace." : undefined}
+          >
+            <Plus size={14} /> Add connector
+          </Button>
+        )}
       </div>
 
-      <AddConnectorDialog
-        open={catalogOpen}
-        onOpenChange={setCatalogOpen}
-        connectedKeys={integrations
-          .filter((i) => i.auth_state === "connected")
-          // Catalog entries use Composio slugs; translate native keys so
-          // already-connected apps read "Connected" in the dialog.
-          .map((i) => COMPOSIO_TOOLKIT[i.key] ?? i.key)}
-      />
+      {isAdmin && activeTab === "connectors" && (
+        <AddConnectorDialog
+          open={catalogOpen}
+          onOpenChange={setCatalogOpen}
+          connectedKeys={integrations
+            .filter((i) => i.auth_state === "connected")
+            // Catalog entries use Composio slugs; translate native keys so
+            // already-connected apps read "Connected" in the dialog.
+            .map((i) => COMPOSIO_TOOLKIT[i.key] ?? i.key)}
+        />
+      )}
 
+      <Tabs value={activeTab} onValueChange={changeTab}>
+        <TabsList aria-label="Integration settings">
+          <TabsTrigger value="connectors">Connectors</TabsTrigger>
+          <TabsTrigger value="routing">Data Routing</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="connectors">
       {loadError && (
         <div className="card async-state" role="alert">
           <div>
@@ -320,7 +409,7 @@ export default function IntegrationsPage() {
             >
               <span className="inline-flex items-start gap-1.5">
                 <Check className="mt-0.5 size-3.5 shrink-0" strokeWidth={2} />
-                <span>Connected. Your data is being indexed - click “Sync now” on the connector to pull it in.</span>
+                <span>Connected. Click “Sync now” on the connector to index its content.</span>
               </span>
             </div>
           )}
@@ -330,7 +419,7 @@ export default function IntegrationsPage() {
             <div className="stat-card">
               <div className="stat-card-label">Connected</div>
               <div className="stat-card-value">
-                {display.filter((i) => i.auth_state === "connected").length}
+                {display.filter((i) => i.auth_state === "connected" && canSync(i)).length}
               </div>
             </div>
             <div className="stat-card">
@@ -347,7 +436,7 @@ export default function IntegrationsPage() {
               <div className="stat-card-label">Synced (last 24h)</div>
               <div className="stat-card-value">
                 {display.filter((i) => {
-                  if (!i.last_sync) return false;
+                  if (!canSync(i) || !i.last_sync) return false;
                   return Date.now() - new Date(i.last_sync).getTime() < 24 * 60 * 60 * 1000;
                 }).length}
               </div>
@@ -358,9 +447,16 @@ export default function IntegrationsPage() {
             <div className="card" style={{ textAlign: "center", padding: "44px 24px", marginBottom: 16 }}>
               <SheldonMascot state="syncing" size={96} className="empty-state-mascot" />
               <p className="text-body font-semibold" style={{ marginBottom: 6 }}>No connectors yet</p>
-              <p className="meta" style={{ maxWidth: 420, margin: "0 auto" }}>
-                Add a connector to start indexing context from Notion, Google Drive, Slack, and more.
+              <p className="meta" style={{ maxWidth: 420, margin: "0 auto 16px" }}>
+                Connect Gmail, Google Drive, Notion, or Slack to start indexing context.
               </p>
+              {isAdmin ? (
+                <button type="button" className="btn btn-primary" onClick={() => setCatalogOpen(true)}>
+                  <Plus size={14} /> Browse connectors
+                </button>
+              ) : (
+                <p className="meta">Ask a workspace admin to connect a source.</p>
+              )}
             </div>
           )}
 
@@ -371,7 +467,10 @@ export default function IntegrationsPage() {
                 color: "var(--text-secondary)",
                 description: "",
               };
-              const Icon = getConnectorIcon(item.key);
+              const oauthConnectable = canOAuthConnect(item.key);
+              const syncable = canSync(item);
+              const legacyUnavailable = !oauthConnectable && !syncable;
+              const displayedState = legacyUnavailable ? "unavailable" : item.auth_state;
               const docCount = demo
                 ? DEMO_STATS.docsPerConnector[item.key] ?? 0
                 : docsByConnector[item.key] ?? 0;
@@ -384,22 +483,36 @@ export default function IntegrationsPage() {
                       className="connector-icon-badge"
                       style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)" }}
                     >
-                      <Icon size={18} strokeWidth={1.8} />
+                      <Plug size={18} strokeWidth={1.8} className="text-muted-foreground" />
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                         <h2 style={{ margin: 0 }}>{brandText(meta.label)}</h2>
-                        <StatusDot state={item.auth_state} />
+                        <StatusDot state={displayedState} />
                         <span
-                          className={`badge badge-${item.auth_state === "connected" ? "green" : item.auth_state === "error" ? "red" : "grey"}`}
+                          className={`badge badge-${
+                            displayedState === "connected"
+                              ? "green"
+                              : displayedState === "error"
+                                ? "red"
+                                : displayedState === "expired"
+                                  ? "amber"
+                                  : "grey"
+                          }`}
                         >
-                          {item.auth_state === "not_configured" ? "not connected" : item.auth_state}
+                          {displayedState === "not_configured"
+                            ? "not connected"
+                            : displayedState}
                         </span>
                       </div>
                       <p className="meta" style={{ margin: 0 }}>
-                        {item.auth_state === "connected" && item.account_email
-                          ? `Connected as ${item.account_email}`
-                          : brandText(meta.description)}
+                        {legacyUnavailable
+                          ? brandText(meta.description || "This legacy connector is unavailable for indexing.")
+                          : item.auth_state === "expired"
+                          ? "Connection expired - reconnect to resume syncing."
+                          : item.auth_state === "connected" && item.account_email
+                            ? `Connected as ${item.account_email}`
+                            : brandText(meta.description)}
                       </p>
                     </div>
                   </div>
@@ -413,24 +526,11 @@ export default function IntegrationsPage() {
                       <span className="connector-stat-label">Docs indexed</span>
                     </div>
                     <div className="connector-stat">
-                      <span className="connector-stat-value">{item.capabilities?.length ?? 0}</span>
-                      <span className="connector-stat-label">Capabilities</span>
-                    </div>
-                    <div className="connector-stat">
                       <span className="connector-stat-value">
                         {item.last_sync ? timeAgo(item.last_sync) : "-"}
                       </span>
                       <span className="connector-stat-label">Last sync</span>
                     </div>
-                  </div>
-
-                  {/* Capabilities */}
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
-                    {(item.capabilities ?? []).map((cap) => (
-                      <span key={cap} className="badge badge-grey" style={{ fontSize: 10 }}>
-                        {cap}
-                      </span>
-                    ))}
                   </div>
 
                   {item.sync_error && (
@@ -439,10 +539,20 @@ export default function IntegrationsPage() {
                       <span>{brandText(item.sync_error)}</span>
                     </p>
                   )}
+                  {legacyUnavailable && (
+                    <p className="meta" role="note" style={{ marginBottom: 12 }}>
+                      This legacy connection is unavailable for indexing.
+                    </p>
+                  )}
+                  {!legacyUnavailable && syncable && !oauthConnectable && (
+                    <p className="meta" role="note" style={{ marginBottom: 12 }}>
+                      Connection settings for this source are managed by your deployment administrator.
+                    </p>
+                  )}
 
                   {/* Actions */}
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}>
-                    {item.auth_state === "connected" ? (
+                    {isAdmin && item.auth_state === "connected" && syncable ? (
                        <button
                          type="button"
                          className="btn btn-primary btn-sm"
@@ -451,17 +561,18 @@ export default function IntegrationsPage() {
                       >
                         {syncing[item.key] ? "Syncing…" : "Sync now"}
                       </button>
-                    ) : (
+                    ) : isAdmin && oauthConnectable ? (
                        <button
                          type="button"
                          className="btn btn-primary btn-sm"
-                         disabled={!!connecting[item.key]}
-                         onClick={() => handleConnectStart(item.key)}
-                         aria-busy={!!connecting[item.key]}
+                       disabled={!!connecting[item.key]}
+                       onClick={() => handleConnectStart(item.key)}
+                       aria-busy={!!connecting[item.key]}
+                       aria-label={`Connect ${brandText(meta.label)}`}
                        >
-                         {connecting[item.key] ? "Opening…" : "Connect"}
+                         {connecting[item.key] ? "Opening…" : item.auth_state === "expired" ? "Reconnect" : "Connect"}
                       </button>
-                    )}
+                    ) : null}
                      <button
                        type="button"
                        className="btn btn-sm"
@@ -482,6 +593,10 @@ export default function IntegrationsPage() {
           <ConnectorManager
             integration={managed}
             demo={demo}
+            canManage={isAdmin}
+            canOAuthConnect={!!managed && canOAuthConnect(managed.key)}
+            canSync={!!managed && canSync(managed)}
+            canDisconnect={!!managed && canDisconnect(managed)}
             open={managedKey !== null}
             onOpenChange={(o) => setManagedKey(o ? managedKey : null)}
             recentRuns={managedRuns}
@@ -495,6 +610,18 @@ export default function IntegrationsPage() {
             onToggleConnection={handleToggleConnection}
           />
       </div>
+        </TabsContent>
+
+        <TabsContent value="routing">
+          <DataRoutingPanel
+            demo={demo}
+            isAdmin={isAdmin}
+            roleResolved={roleResolved}
+            roleError={roleError}
+            onRefreshRole={refreshSessionRole}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

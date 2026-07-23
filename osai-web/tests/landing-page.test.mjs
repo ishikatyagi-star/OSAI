@@ -49,14 +49,85 @@ test("homepage keeps its audit fixes", () => {
   assert.match(css, /\.landing-saas \.hero\s*{[^}]*min-height: auto !important;/s);
   assert.match(css, /\.landing-saas \.nav-mobile-menu\[open\]::before\s*,\s*\.landing-university \.nav-mobile-menu\[open\]::before\s*{/);
   assert.match(css, /@media \(max-width: 980px\)\s*{[\s\S]*?\.nav-mobile-menu\s*{\s*display: block;/);
-  assert.match(css, /\.landing-saas \.loop-card\s*{[\s\S]*?min-width: 0;[\s\S]*?width: 100%;/);
   assert.match(html, /landing-eleven\.css\?v=20260723-glass-wordmark-3/);
-  assert.match(universityHtml, /landing-eleven\.css\?v=20260714-ui-audit/);
+  assert.match(universityHtml, /landing-eleven\.css\?v=20260716-orbit-nav/);
   assert.doesNotMatch(html, /Explore live workflow/);
   assert.match(html, /matchMedia\('\(prefers-reduced-motion: reduce\)'\)/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
   assert.match(css, /\.prose p strong\s*{[^}]*color: var\(--el-ink\) !important;/s);
   assert.match(css, /\.out-cell p\s*{[^}]*color: var\(--el-body\) !important;/s);
+});
+
+test("homepage preserves the approved positioning and section content", () => {
+  assert.match(
+    html,
+    /<span class="eyebrow hero-kicker">AI-native Operating System\.<\/span>\s*<h1>Run your company on autopilot\.<\/h1>\s*<p class="hero-sub">Sheldon absorbs your company's context,[\s\S]*?learning from every outcome\.<\/p>/,
+  );
+  assert.doesNotMatch(html, /Turn company context into workflows that move\./);
+  assert.match(html, /Teams spend too much time moving work and not enough time doing it\./);
+  assert.match(
+    html,
+    /<p class="hero-micro">Built for fast-moving teams that want to scale execution without losing context\.<\/p>\s*<div class="hero-actions">/,
+  );
+  assert.match(html, /<h2 id="loop-title">Sheldon acts like an AI-native operating system that runs your company\.<\/h2>/);
+  assert.equal((html.match(/<article class="loop-node /g) ?? []).length, 5);
+  assert.match(html, /<span class="loop-num">4<\/span>Update/);
+  assert.match(html, /<span class="loop-num">5<\/span>Audit/);
+  assert.equal((html.match(/<article class="signal-card /g) ?? []).length, 4);
+  const memoryConnectors = html.match(/<svg class="memory-connectors"[\s\S]*?<\/svg>/)?.[0] ?? "";
+  assert.equal((memoryConnectors.match(/<path d="M/g) ?? []).length, 4);
+  assert.match(html, /Sheldon learns <span[^>]*>while your SaaS runs\.<\/span>/);
+  assert.match(html, /Shared company memory/);
+  assert.doesNotMatch(html, /class="memory-hub fade-up"/);
+  assert.equal((html.match(/<div class="feat-card /g) ?? []).length, 6);
+  assert.match(html, /One brain to remember\. A team of agents to execute\./);
+  assert.match(html, /Got work\?<br>Shall be done\.<span class="final-signoff">Signed, Sheldon\.<\/span>/);
+  assert.doesNotMatch(html, /We respond within 24 hours\./);
+  assert.match(html, /An AI-native operating system that runs your company on autopilot\.<\/p>/);
+  assert.match(html, /They will do it\.<\/p>/);
+  assert.match(html, /<a href="\/login" class="nav-signin nav-signin-btn">Sign in<\/a>/);
+  assert.match(html, /Worked across growth with founders in EdTech, SaaS, and B2B AI agents/);
+  assert.match(html, /Perplexity's Comet Browser/);
+  assert.match(html, /EY CAFTA runner-up/);
+  assert.match(html, /Dean's List at Master's Union/);
+});
+
+test("homepage keeps loop, workflow, feature, and focus layouts responsive", () => {
+  assert.match(html, /\.loop-orbit\s*{[\s\S]*?display: block;[\s\S]*?width: min\(100%, 980px\);[\s\S]*?min-height: 920px;/);
+  assert.match(html, /\.loop-node\s*{[\s\S]*?top: calc\(50% \+ var\(--node-y\)\);[\s\S]*?left: calc\(50% \+ var\(--node-x\)\);[\s\S]*?transform: translate\(-50%, -50%\);/);
+  assert.match(html, /\.loop-node-ingest\s*{\s*--node-x: 0px;\s*--node-y: -320px;/);
+  assert.match(html, /\.loop-node-decide\s*{\s*--node-x: 304\.338px;\s*--node-y: -98\.885px;/);
+  assert.match(html, /\.loop-node-act\s*{\s*--node-x: 188\.091px;\s*--node-y: 258\.885px;/);
+  assert.match(html, /\.loop-node-update\s*{\s*--node-x: -188\.091px;\s*--node-y: 258\.885px;/);
+  assert.match(html, /\.loop-node-audit\s*{\s*--node-x: -304\.338px;\s*--node-y: -98\.885px;/);
+  assert.match(html, /\.loop-node\.fade-up\.visible\s*{[^}]*transform: translate\(-50%, -50%\);/);
+  assert.match(html, /\.loop-hub\.fade-up\.visible\s*{[^}]*transform: translate\(-50%, -50%\);/);
+  assert.equal((html.match(/class="loop-arrow /g) ?? []).length, 5);
+  assert.match(html, /\.loop-arrow\s*{[\s\S]*?top: calc\(50% \+ var\(--arrow-y\)\);[\s\S]*?left: calc\(50% \+ var\(--arrow-x\)\);/);
+  assert.match(html, /\.loop-arrow-right\s*{\s*--arrow-x: 304\.338px;\s*--arrow-y: 98\.885px;/);
+  assert.match(html, /\.loop-arrow-left\s*{\s*--arrow-x: -304\.338px;\s*--arrow-y: 98\.885px;/);
+  assert.match(
+    html,
+    /loop-arrow-top"[^>]*>↘<\/span>[\s\S]*loop-arrow-right"[^>]*>↓<\/span>[\s\S]*loop-arrow-bottom"[^>]*>←<\/span>[\s\S]*loop-arrow-left"[^>]*>↑<\/span>[\s\S]*loop-arrow-return"[^>]*>↗<\/span>/,
+  );
+  assert.match(html, /\.landing-saas a:focus-visible,\s*\.landing-saas summary:focus-visible\s*{/);
+  assert.match(html, /@media \(max-width: 980px\)[\s\S]*?\.loop-orbit\s*{\s*display: flex;\s*flex-direction: column;/);
+  assert.match(html, /@media \(max-width: 980px\)[\s\S]*?\.loop-node::after\s*{[\s\S]*?content: '↓';/);
+  assert.match(html, /\.loop-hub::after\s*{[\s\S]*?Back to ingest/);
+  assert.match(html, /\.signal-grid\s*{[\s\S]*?grid-template-columns: repeat\(4, minmax\(0, 1fr\)\);/);
+  assert.match(html, /@media \(max-width: 980px\)[\s\S]*?\.signal-grid\s*{\s*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/);
+  assert.match(html, /@media \(max-width: 560px\)[\s\S]*?\.landing-saas \.feat-grid\s*{\s*grid-template-columns: 1fr;/);
+  assert.match(html, /@media \(max-width: 560px\)[\s\S]*?\.signal-grid\s*{\s*grid-template-columns: 1fr;/);
+  const requiredNavTargets = ["top", "problem", "loop", "use-cases", "features", "outcomes", "team", "demo"];
+  const desktopNav = html.match(/<div class="nav-links">([\s\S]*?)<\/div>/)?.[1] ?? "";
+  const mobileNav = html.match(/<div class="nav-mobile-links"[^>]*>([\s\S]*?)<\/div>/)?.[1] ?? "";
+  for (const target of requiredNavTargets) {
+    assert.match(html, new RegExp(`<section[^>]*id="${target}"`));
+    assert.match(desktopNav, new RegExp(`href="#${target}"`));
+    assert.match(mobileNav, new RegExp(`href="#${target}"`));
+  }
+  assert.match(css, /\.nav-logo,[\s\S]*?footer \.footer-logo\s*{[^}]*font-size: 27px !important;/);
+  assert.match(css, /\.nav-logo img,[\s\S]*?footer \.footer-logo img\s*{[^}]*width: 38px !important;[^}]*height: 38px !important;/);
 });
 
 test("website contains no share-workflow CTA", async () => {
@@ -69,6 +140,36 @@ test("website contains no share-workflow CTA", async () => {
 test("root landing route does not shadow app routes", () => {
   assert.match(nextConfig, /source:\s*["']\/["'],\s*destination:\s*["']\/landing["']/);
   assert.match(landingRoute, /public.*saas\.html/s);
+});
+
+test("homepage CTAs keep their colors while adding raised interaction states", () => {
+  assert.match(
+    css,
+    /\.landing-saas \.btn\.btn-primary\s*{[^}]*background: var\(--el-primary\) !important;[^}]*box-shadow:/s,
+  );
+  assert.match(
+    css,
+    /\.landing-saas \.btn\.btn-primary:hover\s*{[^}]*background: var\(--el-primary\) !important;[^}]*box-shadow:[^}]*transform: translateY\(-2px\);/s,
+  );
+  assert.match(
+    css,
+    /\.landing-saas \.btn\.btn-primary:active\s*{[^}]*box-shadow:[^}]*translateY\(1px\) scale\(0\.99\);/s,
+  );
+  assert.match(
+    css,
+    /\.landing-saas \.btn\.btn-primary:focus-visible\s*{[^}]*outline: 3px solid var\(--el-ink\);[^}]*outline-offset: 3px;/s,
+  );
+  assert.match(css, /\.landing-saas \.btn\.btn-secondary\s*{[^}]*box-shadow:/s);
+  assert.match(css, /\.landing-saas \.btn\.btn-secondary::before\s*{[^}]*content: "↗";/s);
+  assert.match(css, /\.landing-saas \.btn\.btn-secondary:hover\s*{[^}]*box-shadow:[^}]*translateY\(-2px\);/s);
+  assert.match(
+    css,
+    /\.landing-saas \.btn\.btn-secondary:active\s*{[^}]*box-shadow:[^}]*translateY\(1px\) scale\(0\.99\);/s,
+  );
+  assert.match(
+    css,
+    /\.landing-saas \.btn\.btn-secondary:focus-visible\s*{[^}]*outline: 3px solid var\(--el-ink\);[^}]*outline-offset: 3px;/s,
+  );
 });
 
 test("marketing pages expose only the Sheldon brand", () => {

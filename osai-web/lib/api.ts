@@ -3,28 +3,54 @@ import type {
   AskRequest,
   AskResponse,
   ConfirmActionResult,
+  DataRouting,
+  DismissActionResult,
   EvalRun,
   Integration,
+  SearchRequest,
+  SearchResponse,
   SyncRun,
   WorkflowRun,
 } from "./types";
+import { DataRoutingValidationError, parseDataRouting } from "./data-routing";
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+// The API origin (Render in prod, localhost in dev). Used only for full-URL
+// browser navigations that must hit the API domain directly - the Google OAuth
+// handshake, whose state cookie must be first-party to the API domain.
+const API_ORIGIN = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+
+// XHR/data calls go through the same-origin /api proxy (Vercel rewrite in prod,
+// next.config rewrite in dev) so the httpOnly session cookie is first-party and
+// SameSite=Lax protects writes. SSR (no window) calls the API origin directly.
+const API_BASE_URL = typeof window === "undefined" ? API_ORIGIN : "/api";
 
 // ─── Generic helpers ─────────────────────────────────────────────────────────
 
 function getHeaders(extraHeaders: Record<string, string> = {}): Record<string, string> {
   const headers: Record<string, string> = { ...extraHeaders };
   if (typeof window !== "undefined") {
-    // The backend derives the org from the signed JWT (Bearer); X-Org-Id is only
-    // honoured for the public demo workspace.
-    const token = localStorage.getItem("osai_token");
-    if (token) headers["Authorization"] = `Bearer ${token}`;
+    // Auth travels in the httpOnly session cookie (sent automatically with
+    // credentials:"include"); X-Org-Id is only honoured server-side for the
+    // public demo workspace.
     const orgId = localStorage.getItem("osai_org_id");
     if (orgId) headers["X-Org-Id"] = orgId;
   }
   return headers;
+}
+
+// The public demo and a real signed-in workspace can exist in the same browser.
+// Never attach a stale real-session cookie to demo traffic: the backend gives an
+// authenticated cookie precedence over X-Org-Id, which would otherwise let the
+// demo UI read or write the customer's real org. Auth endpoints that explicitly
+// create or clear the cookie opt back into "include" below.
+function getRequestCredentials(): RequestCredentials {
+  if (
+    typeof window !== "undefined" &&
+    localStorage.getItem("osai_org_id") === "demo-org"
+  ) {
+    return "omit";
+  }
+  return "include";
 }
 
 // Network requests are bounded by a timeout so a slow/unreachable backend can
@@ -32,20 +58,37 @@ function getHeaders(extraHeaders: Record<string, string> = {}): Record<string, s
 // the provided fallback (typically demo data or null).
 const DEFAULT_TIMEOUT_MS = 8000;
 
-// A 401 means the session token is missing/expired/invalid (e.g. an old
-// pre-JWT token). Clear it and send the user back to sign in.
+// Page-defining loads (integrations, dashboard metrics) get a longer budget:
+// a Render cold start or a sync running in the same process can push the
+// backend past 8s, and aborting there paints a false "check your connection"
+// error over a healthy backend.
+const SLOW_LOAD_TIMEOUT_MS = 20000;
+
+export class ApiError extends Error {
+  constructor(
+    public readonly status: number,
+    public readonly detail: string,
+    message: string
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
+// A 401 means the session cookie is missing/expired/revoked. Drop the local
+// auth flag and send the user back to sign in.
 //
-// Exception: the demo workspace. Its "demo-token" is not a real JWT, so any
-// admin-gated write 401s by design - that must surface as an inline "not
-// available in demo" message, not eject the whole session (QA ISSUE-002).
+// Exception: the demo workspace has no real session, so any admin-gated write
+// 401s by design - that must surface as an inline "not available in demo"
+// message, not eject the whole session (QA ISSUE-002).
 function handleUnauthorized(status: number) {
   if (status === 401 && typeof window !== "undefined") {
-    if (localStorage.getItem("osai_token") === "demo-token") return;
+    if (localStorage.getItem("osai_org_id") === "demo-org") return;
     const onPublic = ["/login", "/demo", "/auth/callback"].some((p) =>
       window.location.pathname.startsWith(p)
     );
     if (!onPublic) {
-      localStorage.removeItem("osai_token");
+      localStorage.removeItem("osai_authed");
       window.location.href = "/login";
     }
   }
@@ -55,23 +98,33 @@ async function apiGet<T>(
   path: string,
   fallback: T,
   timeoutMs: number = DEFAULT_TIMEOUT_MS,
-  throwOnError = false
+  throwOnError = false,
+  notFoundIsFallback = false
 ): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(`${API_BASE_URL}${path}`, {
       cache: "no-store",
+      credentials: getRequestCredentials(),
       headers: getHeaders(),
       signal: controller.signal,
     });
     if (!res.ok) {
+      if (res.status === 404 && notFoundIsFallback) return fallback;
       handleUnauthorized(res.status);
+      const detail = await res.text();
       // Swallowing to a fallback keeps list pages resilient, but a silent 500
       // is indistinguishable from an empty workspace. Surface it so a broken
       // backend is diagnosable in the console instead of looking like "no data".
       console.warn(`GET ${path} failed (${res.status}); using fallback.`);
-      if (throwOnError) throw new Error(`GET ${path} failed (${res.status})`);
+      if (throwOnError) {
+        throw new ApiError(
+          res.status,
+          detail,
+          `GET ${path} failed (${res.status}): ${detail}`
+        );
+      }
       return fallback;
     }
     return (await res.json()) as T;
@@ -90,11 +143,13 @@ async function apiGet<T>(
 // forever. On timeout the abort surfaces as a thrown error, which callers
 // (e.g. Ask) turn into an honest error or demo fallback.
 const POST_TIMEOUT_MS = 30000;
+const THREAD_TURN_TIMEOUT_MS = 2500;
 
 async function apiPost<TBody, TResult>(
   path: string,
   body: TBody,
-  timeoutMs: number = POST_TIMEOUT_MS
+  timeoutMs: number = POST_TIMEOUT_MS,
+  credentials: RequestCredentials = getRequestCredentials()
 ): Promise<TResult> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -104,12 +159,17 @@ async function apiPost<TBody, TResult>(
       headers: getHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify(body),
       cache: "no-store",
+      credentials,
       signal: controller.signal,
     });
     if (!res.ok) {
       handleUnauthorized(res.status);
       const detail = await res.text();
-      throw new Error(`POST ${path} failed (${res.status}): ${detail}`);
+      throw new ApiError(
+        res.status,
+        detail,
+        `POST ${path} failed (${res.status}): ${detail}`
+      );
     }
     return (await res.json()) as TResult;
   } finally {
@@ -130,12 +190,17 @@ async function apiPatch<TBody, TResult>(
       headers: getHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify(body),
       cache: "no-store",
+      credentials: getRequestCredentials(),
       signal: controller.signal,
     });
     if (!res.ok) {
       handleUnauthorized(res.status);
       const detail = await res.text();
-      throw new Error(`PATCH ${path} failed (${res.status}): ${detail}`);
+      throw new ApiError(
+        res.status,
+        detail,
+        `PATCH ${path} failed (${res.status}): ${detail}`
+      );
     }
     return (await res.json()) as TResult;
   } finally {
@@ -154,11 +219,13 @@ async function apiDelete<TResult>(
       method: "DELETE",
       headers: getHeaders(),
       cache: "no-store",
+      credentials: getRequestCredentials(),
       signal: controller.signal,
     });
     if (!res.ok) {
       handleUnauthorized(res.status);
-      throw new Error(`DELETE ${path} failed (${res.status})`);
+      const detail = await res.text();
+      throw new Error(`DELETE ${path} failed (${res.status}): ${detail}`);
     }
     return (await res.json()) as TResult;
   } finally {
@@ -193,27 +260,100 @@ export type OrgOnboardResponse = {
 };
 
 export function login(credentials: LoginCredentials): Promise<LoginSession> {
-  return apiPost<LoginCredentials, LoginSession>("/auth/login", credentials);
+  return apiPost<LoginCredentials, LoginSession>(
+    "/auth/login",
+    credentials,
+    POST_TIMEOUT_MS,
+    "include"
+  );
 }
 
 // Whether "Continue with Google" is available on this backend.
 // Uses a longer timeout than the default: the free-tier backend can cold-start
 // for 30–60s, and an 8s timeout would wrongly report Google as disabled (hiding
 // the sign-in button) on the first page load after the instance has spun down.
-export function getAuthConfig() {
+export function getAuthConfig(strict = false) {
   return apiGet<{ google_enabled: boolean; email_login_enabled: boolean }>(
     "/auth/config",
     { google_enabled: false, email_login_enabled: true },
-    60000
+    60000,
+    // strict lets the caller tell "the backend says Google is off" apart from
+    // "the backend did not answer". Swallowed to the fallback they look
+    // identical, which reports a cold-starting API as sign-in being disabled.
+    strict
   );
 }
 
-// Clear the local session (token + cached org/user). Used by sign-out and after
-// account deletion. Does not call the backend - JWTs are stateless.
+export type SessionInfo = {
+  user_id: string;
+  email: string;
+  display_name: string;
+  org_id: string;
+  org_name: string | null;
+  role: string;
+  is_admin: boolean;
+  data_tier: string;
+  permissions: string[];
+  department_id: string | null;
+};
+
+// Who the current session belongs to and what it may do. The session cookie is
+// httpOnly, so this is the only way the browser can learn its own role: use it
+// to offer the right surfaces (admin-only Data sources) rather than rendering a
+// control that 403s. Never a security boundary - the server gates every route.
+// Returns null when unauthenticated (401) or the backend can't be reached, so
+// callers fail closed to the non-admin view.
+export function getSession(strict = false): Promise<SessionInfo | null> {
+  return apiGet<SessionInfo | null>("/auth/session", null, DEFAULT_TIMEOUT_MS, strict);
+}
+
+export type DeploymentCapabilities = {
+  environment: string;
+  scheduler: boolean;
+  automation_cadences: string[];
+  connectors: boolean;
+  sql_sources: boolean;
+  workflow_execution: boolean;
+  semantic_embeddings: boolean;
+  embedding_model: string;
+  google_oauth: boolean;
+  email_login: boolean;
+  zoom_webhook: boolean;
+};
+
+const SAFE_CAPABILITY_FALLBACK: DeploymentCapabilities = {
+  environment: "unknown",
+  scheduler: false,
+  automation_cadences: ["manual"],
+  connectors: false,
+  sql_sources: false,
+  workflow_execution: false,
+  semantic_embeddings: false,
+  embedding_model: "unknown",
+  google_oauth: false,
+  email_login: false,
+  zoom_webhook: false,
+};
+
+// Deployment truth for optional runtime features. Callers that control an
+// action should request strict mode so an outage cannot look like a capability.
+export function getCapabilities(strict = false): Promise<DeploymentCapabilities> {
+  return apiGet<DeploymentCapabilities>(
+    "/capabilities",
+    SAFE_CAPABILITY_FALLBACK,
+    DEFAULT_TIMEOUT_MS,
+    strict
+  );
+}
+
+// Clear local, non-sensitive session state (cached org/user + the "authed"
+// flag). The session JWT lives in an httpOnly cookie the browser can't touch, so
+// callers that need the cookie gone must go through logout()/logoutAllSessions().
 export function clearSession() {
   if (typeof window === "undefined") return;
   for (const k of [
-    "osai_token",
+    "osai_authed",
+    "osai_token", // legacy: remove any JWT left by a pre-cookie session
     "osai_org_id",
     "osai_org_name",
     "osai_user_id",
@@ -225,15 +365,79 @@ export function clearSession() {
   }
 }
 
+// Persist the identity fields the UI reads (org/user), plus a non-sensitive flag
+// marking that a session cookie exists. The JWT itself is never stored in JS.
+export function markSignedIn(fields: {
+  orgId: string;
+  orgName?: string;
+  email?: string;
+  name?: string;
+}) {
+  if (typeof window === "undefined") return;
+  if (fields.orgId !== "demo-org") {
+    // Signing into a real org ends any demo session: stale demo flags (or a
+    // legacy token key) must not leak DEMO_* fixtures into a customer
+    // workspace (SHE-5) or keep a pre-cookie JWT around (QA E-03).
+    localStorage.removeItem("osai_demo");
+    localStorage.removeItem("osai_token");
+  }
+  localStorage.setItem("osai_authed", "1");
+  localStorage.setItem("osai_org_id", fields.orgId);
+  if (fields.orgName) localStorage.setItem("osai_org_name", fields.orgName);
+  if (fields.email) localStorage.setItem("osai_user_email", fields.email);
+  if (fields.name) localStorage.setItem("osai_user_name", fields.name);
+}
+
+// Exchange a JWT (from the OAuth redirect fragment) for an httpOnly session
+// cookie on this origin, so the token never has to live in localStorage.
+export function setSessionCookie(token: string) {
+  return apiPost<{ token: string }, { ok: boolean }>(
+    "/auth/session",
+    { token },
+    POST_TIMEOUT_MS,
+    "include"
+  );
+}
+
+// Clear only the server-side session cookie. Demo entry uses this as a
+// best-effort cleanup while preserving the local demo identity it just set.
+export async function clearServerSessionCookie(): Promise<void> {
+  await apiPost<Record<string, never>, { ok: boolean }>(
+    "/auth/logout",
+    {},
+    DEFAULT_TIMEOUT_MS,
+    "include"
+  );
+}
+
+// Sign out of this device: clear the server cookie, then local state.
+export async function logout(): Promise<void> {
+  try {
+    await clearServerSessionCookie();
+  } finally {
+    clearSession();
+  }
+}
+
 // Permanently delete the signed-in user's account, then clear the local session.
 export async function deleteAccount(): Promise<void> {
   await apiDelete<{ deleted: boolean }>("/auth/account");
   clearSession();
 }
 
-// Full URL to kick off the Google OAuth flow (browser navigates here).
+// Revoke every outstanding session for this user (sign out everywhere): bumps the
+// server-side token generation so all previously issued tokens stop working, then
+// clears this device's session.
+export async function logoutAllSessions(): Promise<void> {
+  await apiPost<Record<string, never>, { revoked: boolean }>("/auth/logout-all", {});
+  clearSession();
+}
+
+// Full URL to kick off the Google OAuth flow. Must hit the API origin directly
+// (not the /api proxy): the OAuth state cookie set here has to be first-party to
+// the API domain, which is where Google redirects the callback.
 export function googleSignInUrl(): string {
-  return `${API_BASE_URL}/auth/google/start`;
+  return new URL(`${API_ORIGIN}/auth/google/start`).toString();
 }
 
 export function onboardOrg(payload: OrgOnboardPayload): Promise<OrgOnboardResponse> {
@@ -262,6 +466,34 @@ export type TeamMember = {
   status: string;
 };
 
+export type MemberRemovalAssetCounts = {
+  automations: number;
+  private_threads: number;
+  shared_threads: number;
+  workflow_runs: number;
+};
+
+export type MemberRemovalBlockerCounts = {
+  owned_uploads: number;
+  document_access_grants: number;
+  private_memories: number;
+  ask_exchanges: number;
+  pending_connector_actions: number;
+};
+
+export type MemberRemovalImpact = {
+  member_id: string;
+  member_email: string;
+  member_display_name: string;
+  assets: MemberRemovalAssetCounts;
+  blockers: MemberRemovalBlockerCounts;
+  preserved: { saved_artifacts: number };
+  total_assets: number;
+  total_blockers: number;
+  requires_transfer: boolean;
+  blocked: boolean;
+};
+
 export type Department = { id: string; name: string; color: string; members: number };
 
 export type TeamInvite = {
@@ -278,6 +510,15 @@ export function getTeamMembers(strict = false) {
   return apiGet<TeamMember[]>("/team/members", [], DEFAULT_TIMEOUT_MS, strict);
 }
 
+export function getMemberRemovalImpact(userId: string, strict = false) {
+  return apiGet<MemberRemovalImpact | null>(
+    `/team/members/${userId}/removal-impact`,
+    null,
+    DEFAULT_TIMEOUT_MS,
+    strict
+  );
+}
+
 export function getDepartments(strict = false) {
   return apiGet<Department[]>("/team/departments", [], DEFAULT_TIMEOUT_MS, strict);
 }
@@ -287,6 +528,17 @@ export function createDepartment(name: string, color?: string) {
     name,
     color,
   });
+}
+
+export function renameDepartment(id: string, name: string) {
+  return apiPatch<{ name: string }, Pick<Department, "id" | "name" | "color">>(
+    `/team/departments/${id}`,
+    { name }
+  );
+}
+
+export function removeDepartment(id: string) {
+  return apiDelete<{ deleted: boolean }>(`/team/departments/${id}`);
 }
 
 export function getInvites(strict = false) {
@@ -310,6 +562,10 @@ export function createInvite(
   });
 }
 
+export function revokeInvite(id: string) {
+  return apiDelete<{ revoked: boolean }>(`/team/invites/${id}`);
+}
+
 export function updateMember(
   userId: string,
   patch: { role?: string; department_id?: string | null; data_tier?: string }
@@ -320,10 +576,59 @@ export function updateMember(
   );
 }
 
+export function removeTeamMember(userId: string, transferToUserId?: string) {
+  if (!transferToUserId) {
+    return apiDelete<{ deleted: boolean }>(`/team/members/${userId}`);
+  }
+  return apiDelete<{ deleted: boolean }>(
+    `/team/members/${userId}?transfer_to_user_id=${encodeURIComponent(transferToUserId)}`
+  );
+}
+
 // ─── Integrations ────────────────────────────────────────────────────────────
 
+// Data-routing reads and writes validate the JSON response before exposing it
+// to the UI. A transport success with an unknown shape is not a saved policy.
+export async function getDataRouting(): Promise<DataRouting> {
+  try {
+    const payload = await apiGet<unknown>(
+      "/settings/data-routing",
+      null,
+      DEFAULT_TIMEOUT_MS,
+      true
+    );
+    return parseDataRouting(payload);
+  } catch (error) {
+    if (
+      error instanceof DataRoutingValidationError ||
+      (error instanceof ApiError &&
+        error.status === 503 &&
+        error.detail.includes("Stored data-routing settings are invalid."))
+    ) {
+      throw new DataRoutingValidationError("Stored data-routing policy is invalid");
+    }
+    throw error;
+  }
+}
+
+export async function patchDataRouting(
+  routing: DataRouting,
+  expectedRouting: DataRouting | null
+): Promise<DataRouting> {
+  const validated = parseDataRouting(routing);
+  const expected = expectedRouting === null ? null : parseDataRouting(expectedRouting);
+  const payload = await apiPatch<
+    { routing: DataRouting; expected_routing: DataRouting | null },
+    unknown
+  >(
+    "/settings/data-routing",
+    { routing: validated, expected_routing: expected }
+  );
+  return parseDataRouting(payload);
+}
+
 export function getIntegrations(strict = false) {
-  return apiGet<Integration[]>("/integrations", [], DEFAULT_TIMEOUT_MS, strict);
+  return apiGet<Integration[]>("/integrations", [], SLOW_LOAD_TIMEOUT_MS, strict);
 }
 
 export function triggerSync(connectorKey: string) {
@@ -338,7 +643,7 @@ export const COMPOSIO_TOOLKIT: Record<string, string> = {
   notion: "notion",
   google_drive: "googledrive",
   slack: "slack",
-  freshdesk: "freshdesk",
+  gmail: "gmail",
 };
 
 // One app in the Composio catalog (browse/search from the Add-connector dialog).
@@ -356,8 +661,7 @@ export type ComposioToolkitPage = {
   next_cursor?: string | null;
 };
 
-// Browse the full Composio app catalog: everything the org can connect,
-// searchable and cursor-paginated (not just Sheldon's native connectors).
+// Browse the Composio connectors whose content Sheldon can ingest.
 export function listComposioToolkits(search?: string, cursor?: string) {
   const params = new URLSearchParams();
   if (search) params.set("search", search);
@@ -365,7 +669,9 @@ export function listComposioToolkits(search?: string, cursor?: string) {
   const qs = params.toString();
   return apiGet<ComposioToolkitPage>(
     `/integrations/composio/toolkits${qs ? `?${qs}` : ""}`,
-    { items: [], next_cursor: null }
+    { items: [], next_cursor: null },
+    DEFAULT_TIMEOUT_MS,
+    true
   );
 }
 
@@ -373,6 +679,8 @@ export type ComposioConnectResult = {
   redirect_url?: string;
   connected_account_id?: string;
   error?: string;
+  // Human-readable detail when error is a known code (e.g. "needs_api_key").
+  message?: string;
 };
 
 // Begin a real OAuth connection for a connector via Composio. Returns a
@@ -430,6 +738,42 @@ export function getSyncRuns(strict = false) {
   return apiGet<SyncRun[]>("/sync-runs", [], DEFAULT_TIMEOUT_MS, strict);
 }
 
+export type SyncRunAggregate = {
+  total_runs: number;
+  status_counts: Record<string, number>;
+  documents_seen: number;
+  documents_indexed: number;
+};
+
+export type SyncRunPage = {
+  items: SyncRun[];
+  next_cursor: string | null;
+  summary: SyncRunAggregate & { by_connector: Record<string, SyncRunAggregate> };
+  as_of: string;
+};
+
+export function getSyncRunPage(limit = 25, cursor?: string, strict = false) {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (cursor) params.set("cursor", cursor);
+  return apiGet<SyncRunPage>(
+    `/sync-runs/page?${params}`,
+    {
+      items: [],
+      next_cursor: null,
+      summary: {
+        total_runs: 0,
+        status_counts: {},
+        documents_seen: 0,
+        documents_indexed: 0,
+        by_connector: {},
+      },
+      as_of: "",
+    },
+    DEFAULT_TIMEOUT_MS,
+    strict
+  );
+}
+
 // ─── Workflows ───────────────────────────────────────────────────────────────
 
 export function getWorkflowRuns(strict = false) {
@@ -437,7 +781,13 @@ export function getWorkflowRuns(strict = false) {
 }
 
 export function getWorkflowRun(id: string, strict = false) {
-  return apiGet<WorkflowRun | null>(`/workflows/${id}`, null, DEFAULT_TIMEOUT_MS, strict);
+  return apiGet<WorkflowRun | null>(
+    `/workflows/${id}`,
+    null,
+    DEFAULT_TIMEOUT_MS,
+    strict,
+    true
+  );
 }
 
 export function postWorkflow(
@@ -469,6 +819,17 @@ function currentOrgId(orgId?: string) {
   );
 }
 
+export function searchOsai(
+  query: string,
+  opts: { orgId?: string; departmentId?: string | null } = {}
+): Promise<SearchResponse> {
+  return apiPost<SearchRequest, SearchResponse>("/search", {
+    org_id: currentOrgId(opts.orgId),
+    query,
+    department_id: opts.departmentId ?? null,
+  });
+}
+
 export function askOsai(
   question: string,
   opts: {
@@ -476,14 +837,20 @@ export function askOsai(
     history?: AskRequest["history"];
     orgId?: string;
     departmentId?: string | null;
+    intent?: AskRequest["intent"];
+    threadId?: string | null;
+    requestId?: string | null;
   } = {}
 ): Promise<AskResponse> {
   const body: AskRequest = {
     org_id: currentOrgId(opts.orgId),
     question,
+    intent: opts.intent ?? "ask",
     conversation_id: opts.conversationId ?? null,
     history: opts.history,
     department_id: opts.departmentId ?? null,
+    thread_id: opts.threadId ?? null,
+    request_id: opts.requestId ?? null,
   };
   return apiPost<AskRequest, AskResponse>("/ask", body);
 }
@@ -505,12 +872,31 @@ export type DashboardMetrics = {
   documents_by_connector: Record<string, number>;
   documents_by_tier: Record<string, number>;
   connectors_connected: number;
+  connector_statuses?: Array<{
+    key: string;
+    auth_state: string;
+    last_sync: string | null;
+    sync_error: string | null;
+  }>;
+  pending_decisions?: number;
+  pending_actions?: number;
+  recent_decisions?: Array<{
+    id: string;
+    title: string;
+    status: "proposed" | "approved" | "rejected";
+    owner: string | null;
+    date: string;
+  }>;
   sync_runs_total: number;
   sync_runs_succeeded: number;
   last_sync_at: string | null;
   members: number;
   departments: number;
   automations: number;
+  // When these counts were true. The server stamps it on every response, so a
+  // view kept from an earlier load can say how fresh it is instead of implying
+  // it is live.
+  as_of?: string;
 };
 
 export function getDashboardMetrics(strict = false) {
@@ -519,13 +905,17 @@ export function getDashboardMetrics(strict = false) {
     documents_by_connector: {},
     documents_by_tier: {},
     connectors_connected: 0,
+    connector_statuses: [],
+    pending_decisions: 0,
+    pending_actions: 0,
+    recent_decisions: [],
     sync_runs_total: 0,
     sync_runs_succeeded: 0,
     last_sync_at: null,
     members: 0,
     departments: 0,
     automations: 0,
-  }, DEFAULT_TIMEOUT_MS, strict);
+  }, SLOW_LOAD_TIMEOUT_MS, strict);
 }
 
 // ─── Automations (NL scheduled tasks) ─────────────────────────────────────────
@@ -689,10 +1079,12 @@ export function getAccessMap(strict = false) {
   }, DEFAULT_TIMEOUT_MS, strict);
 }
 
-// ─── Evals (Phase 6 - GET /evals) ─────────────────────────────────────────────
+// ─── Evals (explicit admin POST /evals) ───────────────────────────────────────
 
-export function getEvalRun(strict = false) {
-  return apiGet<EvalRun | null>("/evals", null, DEFAULT_TIMEOUT_MS, strict);
+export function runEvalSuite() {
+  // A full fixture run performs several model calls. It is deliberately an
+  // explicit mutation with a longer bound, never a page-load GET.
+  return apiPost<Record<string, never>, EvalRun>("/evals", {}, 180000);
 }
 
 // ─── Knowledge base uploads (POST /documents/upload) ─────────────────────────
@@ -728,6 +1120,7 @@ export async function uploadDocuments(
     headers: getHeaders(),
     body: form,
     cache: "no-store",
+    credentials: getRequestCredentials(),
   });
   if (!res.ok) {
     handleUnauthorized(res.status);
@@ -760,17 +1153,54 @@ export function updateDocumentAccess(
 export type AppNotification = {
   id: string;
   type: string;
-  payload: { document_id?: string; title?: string; shared_by?: string };
+  payload: { document_id?: string; thread_id?: string; title?: string; shared_by?: string; mentioned_by?: string };
   read: boolean;
   created_at: string | null;
 };
 
-export function getNotifications() {
-  return apiGet<AppNotification[]>("/notifications", []);
+export type NotificationPage = {
+  items: AppNotification[];
+  next_cursor: string | null;
+  total: number;
+  unread_count: number;
+};
+
+export function getNotifications(unreadOnly = true, strict = false) {
+  return apiGet<AppNotification[]>(`/notifications?unread_only=${unreadOnly}`, [], DEFAULT_TIMEOUT_MS, strict);
+}
+
+export function getNotificationPage(
+  limit = 25,
+  cursor?: string,
+  unreadOnly = false,
+  strict = false
+) {
+  const query = new URLSearchParams({ limit: String(limit), unread_only: String(unreadOnly) });
+  if (cursor) query.set("cursor", cursor);
+  return apiGet<NotificationPage>(
+    `/notifications/page?${query}`,
+    { items: [], next_cursor: null, total: 0, unread_count: 0 },
+    DEFAULT_TIMEOUT_MS,
+    strict
+  );
+}
+
+export function dismissAgentAction(
+  actionId: string,
+  conversationId: string
+): Promise<DismissActionResult> {
+  return apiPost<{ conversation_id: string }, DismissActionResult>(
+    `/ask/actions/${actionId}/dismiss`,
+    { conversation_id: conversationId }
+  );
 }
 
 export function markNotificationRead(id: string) {
   return apiPost<Record<string, never>, AppNotification>(`/notifications/${id}/read`, {});
+}
+
+export function markAllNotificationsRead() {
+  return apiPost<Record<string, never>, { updated: number }>("/notifications/read-all", {});
 }
 
 // ─── Threads (persisted Ask conversations) ───────────────────────────────────
@@ -796,7 +1226,11 @@ export type ThreadTurnRow = {
 };
 
 export function createThread(title: string) {
-  return apiPost<{ title: string }, ThreadSummary>("/threads", { title });
+  return apiPost<{ title: string }, ThreadSummary>(
+    "/threads",
+    { title },
+    THREAD_TURN_TIMEOUT_MS
+  );
 }
 
 export function listThreads(strict = false) {
@@ -809,60 +1243,17 @@ export function getThread(id: string, strict = false) {
 
 export function appendThreadTurn(
   id: string,
-  turn: { role: "user" | "assistant"; content: string; payload?: Record<string, unknown> }
+  turn: { role: "user"; content: string }
 ) {
   return apiPost<typeof turn, { id: string; recorded: boolean; mentioned: number }>(
     `/threads/${id}/turns`,
-    turn
+    turn,
+    THREAD_TURN_TIMEOUT_MS
   );
 }
 
 export function patchThread(id: string, patch: { shared?: boolean; title?: string }) {
   return apiPatch<typeof patch, ThreadSummary>(`/threads/${id}`, patch);
-}
-
-// ─── Org wiki (curated context) ──────────────────────────────────────────────
-
-export type WikiEntry = {
-  id: string;
-  title: string;
-  content: string;
-  status: "published" | "suggested";
-  origin: "manual" | "decision" | "correction";
-  updated_by: string | null;
-  created_at: string | null;
-  updated_at: string | null;
-};
-
-export type WikiRevisionRow = {
-  id: string;
-  title: string;
-  content: string;
-  author: string | null;
-  created_at: string | null;
-};
-
-export function getWikiEntries(strict = false) {
-  return apiGet<WikiEntry[]>("/wiki", [], DEFAULT_TIMEOUT_MS, strict);
-}
-
-export function createWikiEntry(input: { title: string; content: string }) {
-  return apiPost<typeof input, WikiEntry>("/wiki", input);
-}
-
-export function updateWikiEntry(
-  id: string,
-  patch: { title?: string; content?: string; status?: "published" }
-) {
-  return apiPatch<typeof patch, WikiEntry>(`/wiki/${id}`, patch);
-}
-
-export function deleteWikiEntry(id: string) {
-  return apiDelete<{ deleted: boolean }>(`/wiki/${id}`);
-}
-
-export function getWikiRevisions(id: string, strict = false) {
-  return apiGet<WikiRevisionRow[]>(`/wiki/${id}/revisions`, [], DEFAULT_TIMEOUT_MS, strict);
 }
 
 // ─── Saved artifacts ─────────────────────────────────────────────────────────
@@ -877,6 +1268,12 @@ export type SavedArtifactRow = {
   created_at: string | null;
 };
 
+export type SavedArtifactPage = {
+  items: SavedArtifactRow[];
+  next_cursor: string | null;
+  total: number;
+};
+
 export function saveArtifact(input: {
   title: string;
   kind: string;
@@ -888,6 +1285,20 @@ export function saveArtifact(input: {
 
 export function listArtifacts(strict = false) {
   return apiGet<SavedArtifactRow[]>("/artifacts", [], DEFAULT_TIMEOUT_MS, strict);
+}
+
+export function getArtifactPage(
+  options: { limit?: number; cursor?: string | null } = {},
+  strict = false
+) {
+  const params = new URLSearchParams({ limit: String(options.limit ?? 25) });
+  if (options.cursor) params.set("cursor", options.cursor);
+  return apiGet<SavedArtifactPage>(
+    `/artifacts/page?${params.toString()}`,
+    { items: [], next_cursor: null, total: 0 },
+    DEFAULT_TIMEOUT_MS,
+    strict
+  );
 }
 
 export function deleteArtifact(id: string) {

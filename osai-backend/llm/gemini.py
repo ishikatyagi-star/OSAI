@@ -1,7 +1,7 @@
 """LLM text-generation entrypoint.
 
-Provider-aware: routes to OpenRouter (OpenAI-compatible) when an OpenRouter key
-is configured, otherwise Gemini. Embeddings remain Gemini-only (see
+Provider-aware: routes to the configured OpenAI-compatible endpoint when
+`OSAI_LLM_API_KEY` is set, otherwise Gemini. Embeddings remain Gemini-only (see
 memory/embeddings.py). Call sites import `generate` / `generate_json` from here.
 """
 
@@ -68,6 +68,74 @@ async def _openai_compatible_generate(prompt: str, model: str | None = None) -> 
             data = resp.json()
             return data["choices"][0]["message"]["content"].strip()
     raise last_exc or RuntimeError("LLM generation failed")
+
+
+def tool_calling_available() -> bool:
+    """Function-calling needs an OpenAI-compatible provider (Groq/OpenRouter);
+    the Gemini text path here doesn't expose it."""
+    return bool(settings.llm_api_key)
+
+
+async def chat_with_tools(
+    messages: list[dict[str, Any]],
+    tools: list[dict[str, Any]],
+    model: str | None = None,
+) -> dict[str, Any]:
+    """One OpenAI-compatible chat turn with function-calling. Returns the raw
+    assistant message dict, which may contain `tool_calls`. The caller runs the
+    loop (execute tools, append results, call again). Provider-agnostic: any
+    tool-calling OpenAI-compatible endpoint works, so no per-connector code is
+    needed — the model chooses tools from their schemas."""
+    _model = model or settings.llm_model
+    payload: dict[str, Any] = {"model": _model, "messages": messages}
+    if tools:
+        payload["tools"] = tools
+        payload["tool_choice"] = "auto"
+    last_exc: Exception | None = None
+    # Retry budget is larger than the plain path: on top of rate-limit/5xx, some
+    # providers (Groq + Llama) intermittently emit MALFORMED function-call syntax
+    # and 400 with `tool_use_failed` / "Failed to call a function" — the tool
+    # choice is fine, only the formatting broke, so a re-roll usually succeeds.
+    async with httpx.AsyncClient(timeout=60) as client:
+        for attempt in range(4):
+            resp = await client.post(
+                f"{settings.llm_base_url}/chat/completions",
+                headers={"Authorization": f"Bearer {settings.llm_api_key}"},
+                json=payload,
+            )
+            transient = resp.status_code in (429, 500, 502, 503, 529)
+            tool_parse_fail = resp.status_code == 400 and _is_tool_parse_failure(resp)
+            if transient or tool_parse_fail:
+                retry_after = resp.headers.get("retry-after")
+                # 429 on free tiers is usually a per-minute limit; back off long
+                # enough to clear the window (honour Retry-After when present).
+                if resp.status_code == 429:
+                    delay = float(retry_after) if retry_after else 8.0 * (attempt + 1)
+                    cap = 30.0
+                else:
+                    delay = float(retry_after) if retry_after else 1.0 * (attempt + 1)
+                    cap = 8.0
+                last_exc = httpx.HTTPStatusError(
+                    f"LLM {resp.status_code}", request=resp.request, response=resp
+                )
+                if attempt < 3:
+                    await asyncio.sleep(min(delay, cap))
+                    continue
+            resp.raise_for_status()
+            return resp.json()["choices"][0]["message"]
+    raise last_exc or RuntimeError("LLM tool-calling failed")
+
+
+def _is_tool_parse_failure(resp: httpx.Response) -> bool:
+    """A 400 that's the provider failing to parse the model's function call
+    (non-deterministic formatting), not a genuinely malformed request — so it's
+    worth re-rolling."""
+    try:
+        err = resp.json().get("error", {})
+        blob = f"{err.get('code', '')} {err.get('message', '')}".lower()
+    except (ValueError, TypeError):
+        return False
+    return "tool_use_failed" in blob or "failed to call a function" in blob
 
 
 async def generate_json(prompt: str, model: str | None = None) -> Any:

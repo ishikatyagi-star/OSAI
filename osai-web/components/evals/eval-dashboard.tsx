@@ -6,10 +6,11 @@ import {
   ChevronDown,
   Clock,
   Cpu,
+  Play,
   RotateCw,
   XCircle,
 } from "lucide-react";
-import { getEvalRun } from "@/lib/api";
+import { ApiError, getSession, runEvalSuite } from "@/lib/api";
 import { DEMO_EVAL_RUN } from "@/lib/demo-data";
 import { isDemo } from "@/lib/demo";
 import type { EvalCase, EvalCategory, EvalRun } from "@/lib/types";
@@ -22,11 +23,7 @@ const CATEGORY_LABEL: Record<EvalCategory, string> = {
   qa: "Q&A",
 };
 
-// Hard cap so the page can never sit on a spinner indefinitely, even if the
-// request never settles. apiGet already aborts at 8s; this is belt-and-braces.
-const LOAD_TIMEOUT_MS = 10000;
-
-type LoadState = "loading" | "ready" | "error";
+type LoadState = "checking" | "idle" | "running" | "ready" | "error" | "forbidden";
 
 function StatCard({
   label,
@@ -174,11 +171,12 @@ function CaseRow({ c }: { c: EvalCase }) {
 export function EvalDashboard() {
   const [run, setRun] = useState<EvalRun | null>(null);
   const [usingDemo, setUsingDemo] = useState(false);
-  const [loadState, setLoadState] = useState<LoadState>("loading");
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [loadState, setLoadState] = useState<LoadState>("checking");
   const [filter, setFilter] = useState<EvalCategory | "all">("all");
 
-  const load = useCallback(async () => {
-    setLoadState("loading");
+  const prepare = useCallback(async () => {
+    setLoadState("checking");
     try {
       if (isDemo()) {
         setRun(DEMO_EVAL_RUN);
@@ -186,40 +184,41 @@ export function EvalDashboard() {
         setLoadState("ready");
         return;
       }
-      const res = await getEvalRun(true);
-      if (res) {
-        setRun(res);
-        setUsingDemo(false);
-      } else {
-        setRun({
-          run_id: "",
-          created_at: "",
-          model_route: "",
-          pass_rate: 0,
-          total: 0,
-          passed: 0,
-          failed: 0,
-          cases: [],
-        });
-        setUsingDemo(false);
+      const session = await getSession(true);
+      const admin = Boolean(session?.is_admin);
+      setIsAdmin(admin);
+      setUsingDemo(false);
+      setLoadState(admin ? "idle" : "forbidden");
+    } catch (error) {
+      if (error instanceof Error && /\((?:401|403)\)/.test(error.message)) {
+        setIsAdmin(false);
+        setLoadState("forbidden");
+        return;
       }
-      setLoadState("ready");
-    } catch {
       setLoadState("error");
     }
   }, []);
 
+  const runSuite = useCallback(async () => {
+    setLoadState("running");
+    try {
+      const result = await runEvalSuite();
+      setRun(result);
+      setUsingDemo(false);
+      setLoadState("ready");
+    } catch (error) {
+      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+        setIsAdmin(false);
+        await prepare();
+        return;
+      }
+      setLoadState("error");
+    }
+  }, [prepare]);
+
   useEffect(() => {
-    let cancelled = false;
-    load();
-    const t = setTimeout(() => {
-      if (!cancelled) setLoadState((s) => (s === "loading" ? "error" : s));
-    }, LOAD_TIMEOUT_MS);
-    return () => {
-      cancelled = true;
-      clearTimeout(t);
-    };
-  }, [load]);
+    prepare();
+  }, [prepare]);
 
   const categoryStats = useMemo(() => {
     if (!run) return [];
@@ -264,26 +263,61 @@ export function EvalDashboard() {
             {usingDemo && <span className="badge badge-grey">demo data</span>}
           </div>
         )}
+        {loadState === "ready" && isAdmin && !usingDemo && (
+          <button type="button" className="btn btn-secondary" onClick={runSuite}>
+            <RotateCw className="size-3.5" aria-hidden="true" /> Run again
+          </button>
+        )}
       </div>
 
-      {/* Loading */}
-      {loadState === "loading" && (
+      {/* Session check */}
+      {loadState === "checking" && (
         <div className="card async-state" role="status" aria-live="polite">
           <div className="search-thinking-dots">
             <span /><span /><span />
           </div>
-          <p className="meta">Loading the latest eval run…</p>
+          <p className="meta">Checking eval access…</p>
+        </div>
+      )}
+
+      {/* Page loads never trigger the costly model calls. */}
+      {loadState === "idle" && (
+        <div className="card" style={{ textAlign: "center", padding: "44px 24px" }}>
+          <p className="text-[15px] font-semibold" style={{ marginBottom: 6 }}>Run the evaluation suite</p>
+          <p className="meta" style={{ maxWidth: 520, margin: "0 auto 18px" }}>
+            This runs live model calls against the fixture suite and may incur provider cost.
+            Results are returned when the run finishes.
+          </p>
+          <button type="button" className="btn btn-primary" onClick={runSuite}>
+            <Play className="size-3.5" aria-hidden="true" /> Run eval suite
+          </button>
+        </div>
+      )}
+
+      {loadState === "running" && (
+        <div className="card async-state" role="status" aria-live="polite">
+          <div className="search-thinking-dots">
+            <span /><span /><span />
+          </div>
+          <p className="meta">Running live evaluations. This can take a few minutes…</p>
+        </div>
+      )}
+
+      {loadState === "forbidden" && (
+        <div className="card" role="alert" style={{ textAlign: "center", padding: "40px 24px" }}>
+          <p className="text-[15px] font-semibold" style={{ marginBottom: 6 }}>Admin access required</p>
+          <p className="meta">Only current workspace admins can run live evaluations.</p>
         </div>
       )}
 
       {/* Error + retry */}
       {loadState === "error" && (
         <div className="card" role="alert" style={{ textAlign: "center", padding: "40px 24px" }}>
-          <p className="text-[15px] font-semibold" style={{ marginBottom: 6 }}>Couldn&apos;t load eval results</p>
+          <p className="text-[15px] font-semibold" style={{ marginBottom: 6 }}>Couldn&apos;t complete the eval request</p>
           <p className="meta" style={{ marginBottom: 18 }}>
-            The eval service didn&apos;t respond. Check that the backend is reachable, then try again.
+            The service didn&apos;t respond or the run failed. Check the backend, then try again.
           </p>
-          <button type="button" className="btn btn-primary" onClick={load} style={{ display: "inline-flex" }}>
+          <button type="button" className="btn btn-primary" onClick={isAdmin ? runSuite : prepare} style={{ display: "inline-flex" }}>
             <RotateCw className="size-3.5" /> Retry
           </button>
         </div>
@@ -339,10 +373,10 @@ export function EvalDashboard() {
 
           {/* Cases */}
           <div className="mt-6">
-            <div role="tablist" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <button role="tab" aria-selected={filter === "all"} className={`suggestion-chip${filter === "all" ? " active" : ""}`} onClick={() => setFilter("all")}>All</button>
+            <div role="group" aria-label="Filter eval cases" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button type="button" aria-pressed={filter === "all"} className={`suggestion-chip${filter === "all" ? " active" : ""}`} onClick={() => setFilter("all")}>All</button>
               {(Object.keys(CATEGORY_LABEL) as EvalCategory[]).map((c) => (
-                <button key={c} role="tab" aria-selected={filter === c} className={`suggestion-chip${filter === c ? " active" : ""}`} onClick={() => setFilter(c)}>{CATEGORY_LABEL[c]}</button>
+                <button type="button" key={c} aria-pressed={filter === c} className={`suggestion-chip${filter === c ? " active" : ""}`} onClick={() => setFilter(c)}>{CATEGORY_LABEL[c]}</button>
               ))}
             </div>
 

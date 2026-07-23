@@ -46,7 +46,7 @@ uv run python evals/run_evals.py --category ownership  # one category
 ## Authoring guidelines
 
 - Each scenario should be answerable from the indexed data (Notion, Slack,
-  Freshdesk, Google Drive, Zoom transcripts).
+  Freshdesk, Google Drive, Gmail messages).
 - For `action` category, `expected` is the tool+action that should be proposed
   (e.g. `freshdesk:create_ticket`).
 - Keep scenarios representative of the university pilot use cases.

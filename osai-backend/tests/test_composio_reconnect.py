@@ -7,7 +7,7 @@ from __future__ import annotations
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from connectors.composio_ingest import ingest_composio_toolkit
+from connectors.composio_ingest import ingest_composio_toolkit, purge_connector_data
 from db.models import Base, ConnectorAccount, SourceDocumentRecord
 
 
@@ -119,6 +119,50 @@ async def test_reconnect_with_different_account_purges_previous_docs():
     assert account.config.get("last_reconnected_at")
 
 
+async def test_disconnect_purges_synced_docs_and_clears_identity():
+    """Disconnecting a connector deletes everything the connected account synced
+    (Postgres + Qdrant) and clears the stored identity, so a later reconnect with
+    a new account starts clean and cannot mix the two accounts' files."""
+    session = _session()
+    qdrant = _FakeQdrant()
+
+    account_a = _FakeDrive(
+        "ca_A",
+        "alice@a.com",
+        [("f1", "roadmap.txt", "Q3 roadmap"), ("f2", "notes.txt", "meeting notes")],
+    )
+    await ingest_composio_toolkit(
+        "demo-org", "googledrive", session, client=account_a, qdrant_store=qdrant
+    )
+    assert session.query(SourceDocumentRecord).count() == 2
+
+    removed = await purge_connector_data(
+        session, "demo-org", "googledrive", qdrant_store=qdrant
+    )
+    session.commit()
+
+    assert removed == 2
+    # Postgres docs gone…
+    assert (
+        session.query(SourceDocumentRecord)
+        .filter(SourceDocumentRecord.source_type == "google_drive")
+        .count()
+        == 0
+    )
+    # …Qdrant vectors purged…
+    assert ("demo-org", "google_drive") in qdrant.deleted_source_types
+    # …and the account is marked disconnected with no lingering identity.
+    account = (
+        session.query(ConnectorAccount)
+        .filter(ConnectorAccount.connector_key == "google_drive")
+        .one()
+    )
+    assert account.auth_state == "disconnected"
+    assert "account_external_id" not in account.config
+    assert "account_email" not in account.config
+    assert account.last_sync_at is None
+
+
 async def test_resync_same_account_does_not_purge():
     session = _session()
     qdrant = _FakeQdrant()
@@ -140,3 +184,33 @@ async def test_resync_same_account_does_not_purge():
         .all()
     )
     assert {d.external_id for d in drive_docs} == {"f1", "f2"}
+
+
+async def test_disconnect_revokes_all_accounts_via_toolkit_filter(monkeypatch):
+    """ComposioClient.disconnect must delete EVERY account for the toolkit, using
+    the toolkit-filtered query — the unfiltered list truncates and leaves orphan
+    (expired) accounts behind, which is why the card 'won't disconnect'."""
+    import httpx
+
+    from connectors.composio_tool import ComposioClient
+
+    seen_params = {}
+    deleted_ids = []
+
+    async def _fake_get(self, url, headers=None, params=None):
+        seen_params.update(params or {})
+        items = [{"id": f"ca_{i}"} for i in range(6)]  # 6 gmail accounts
+        return httpx.Response(200, json={"items": items}, request=httpx.Request("GET", url))
+
+    async def _fake_delete(self, url, headers=None):
+        deleted_ids.append(url.rsplit("/", 1)[-1])
+        return httpx.Response(204, request=httpx.Request("DELETE", url))
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", _fake_get)
+    monkeypatch.setattr(httpx.AsyncClient, "delete", _fake_delete)
+
+    result = await ComposioClient(api_key="k").disconnect("gmail", "org-1")
+
+    assert result == {"deleted": 6}  # all six, not a truncated subset
+    assert seen_params.get("toolkit_slug") == "gmail"
+    assert len(deleted_ids) == 6

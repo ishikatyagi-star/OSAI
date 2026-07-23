@@ -11,34 +11,24 @@ retried on the next tick.
 from __future__ import annotations
 
 import asyncio
-import logging
 
 from workers.celery_app import celery_app
 
-logger = logging.getLogger("osai.automations")
+
+@celery_app.task(name="workers.tasks.automations.scheduler_heartbeat")
+def scheduler_heartbeat() -> dict[str, str]:
+    """Prove beat and the routed automation queue reached this worker."""
+    from workers.scheduler_health import write_scheduler_heartbeat
+
+    return {"recorded_at": write_scheduler_heartbeat()}
 
 
 @celery_app.task(name="workers.tasks.automations.run_due_automations")
 def run_due_automations() -> dict[str, object]:
     """Beat entrypoint: run everything that's due, one automation at a time."""
-    return asyncio.run(_run_due())
-
-
-async def _run_due() -> dict[str, object]:
     # Imported here so the Celery worker doesn't pay app-import cost at boot
-    # (same pattern as the other task modules).
-    from agent.automation_runner import execute_automation
-    from db.repositories import list_due_automations
-    from db.session import SessionLocal
+    # (same pattern as the other task modules). The actual loop lives in
+    # agent/automation_runner so the /internal cron endpoint shares it.
+    from agent.automation_runner import run_due_automations as run_due
 
-    ran: list[str] = []
-    failed: list[str] = []
-    with SessionLocal() as db:
-        for auto in list_due_automations(db):
-            try:
-                await execute_automation(db, auto)
-                ran.append(auto.id)
-            except Exception as exc:  # noqa: BLE001 — one bad automation must not block the rest
-                logger.warning("Scheduled automation %s failed: %s", auto.id, exc)
-                failed.append(auto.id)
-    return {"ran": ran, "failed": failed}
+    return asyncio.run(run_due())

@@ -3,6 +3,7 @@ gbrain-backed graph provider behind the build_graph seam."""
 
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 
 from graph.gbrain_provider import build_graph_gbrain
@@ -13,8 +14,8 @@ def test_org_client_uses_per_org_home(monkeypatch):
     from config import settings
 
     monkeypatch.setattr(settings, "gbrain_home", "/brains")
-    assert get_org_gbrain_client("org-a").home == "/brains/org-a"
-    assert get_org_gbrain_client("org-b").home == "/brains/org-b"
+    assert get_org_gbrain_client("org-a").home == str(Path("/brains") / "org-a")
+    assert get_org_gbrain_client("org-b").home == str(Path("/brains") / "org-b")
 
 
 def test_org_client_without_home_is_unavailable(monkeypatch):

@@ -10,9 +10,14 @@ Notion is implemented first; add other toolkits by extending `_FETCHERS`.
 
 from __future__ import annotations
 
+import asyncio
 import base64
+import hashlib
+import ipaddress
 import logging
+import socket
 from typing import Any
+from urllib.parse import urlsplit
 
 import httpx
 from sqlalchemy.orm import Session
@@ -21,7 +26,7 @@ from api.schemas.connector import SourceDocument
 from config import settings
 from connectors.composio_tool import ComposioClient, get_default_composio_client
 from connectors.toolkit_map import to_native_key
-from db.models import now_utc
+from db.models import SourceDocumentRecord, now_utc
 from db.repositories import (
     apply_tier_rules,
     chunks_for_documents,
@@ -37,6 +42,31 @@ logger = logging.getLogger("osai.composio.ingest")
 # Audio/video files Whisper can transcribe (≤25MB per the API limit).
 _MEDIA_EXTS = (".mp3", ".mp4", ".m4a", ".wav", ".webm", ".mpeg", ".mpga", ".ogg", ".mov")
 _WHISPER_MAX_BYTES = 25 * 1024 * 1024
+
+# Never download file content bigger than this: the Composio download tool
+# inlines the whole file (base64) in its JSON response, which execute() buffers
+# fully in RAM — several copies of a big file at once OOM-kills the 512MB prod
+# instance. Oversized files are indexed by name with skipped_large_file=True.
+_MAX_DOWNLOAD_BYTES = 5 * 1024 * 1024
+
+# Chunks embedded per request. Batching across documents cuts a 25-doc sync from
+# ~25 embedding requests to a handful, staying under free-tier per-minute limits;
+# the cap keeps peak memory bounded on the small instance.
+_EMBED_BATCH_CHUNKS = 96
+
+
+def _file_size(f: dict) -> int | None:
+    """Size in bytes from a Drive listing entry (str or int; absent for
+    Google-native docs, which export small)."""
+    for key in ("size", "sizeBytes", "size_bytes", "quotaBytesUsed"):
+        v = f.get(key)
+        if v is None:
+            continue
+        try:
+            return int(v)
+        except (TypeError, ValueError):
+            continue
+    return None
 
 
 def _is_media(name: str) -> bool:
@@ -58,6 +88,48 @@ def _find_url(data: Any) -> str | None:
     return None
 
 
+async def _download_url_allowed(url: str) -> bool:
+    """Fail closed for provider-returned URLs before making a server-side request.
+
+    Require HTTPS, an operator-approved host, and only globally routable DNS
+    answers. Redirects remain disabled by httpx, so a trusted temporary URL
+    cannot bounce the fetch toward an internal or metadata service.
+    """
+    try:
+        parsed = urlsplit(url)
+        host = (parsed.hostname or "").casefold().rstrip(".")
+        if (
+            parsed.scheme.casefold() != "https"
+            or not host
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.port not in (None, 443)
+        ):
+            return False
+    except ValueError:
+        return False
+
+    allowed = settings.composio_download_host_list
+    if not any(
+        host == entry or (entry.startswith(".") and host.endswith(entry)) for entry in allowed
+    ):
+        return False
+    if host in {"metadata", "metadata.google.internal"} or host.startswith("metadata."):
+        return False
+
+    try:
+        infos = await asyncio.to_thread(
+            socket.getaddrinfo,
+            host,
+            443,
+            type=socket.SOCK_STREAM,
+        )
+        addresses = {ipaddress.ip_address(info[4][0]) for info in infos}
+    except (OSError, ValueError):
+        return False
+    return bool(addresses) and all(address.is_global for address in addresses)
+
+
 async def _transcribe_media(client: ComposioClient, fid: str, name: str, org_id: str) -> str | None:
     """Download a Drive media file via Composio and transcribe it with Whisper
     (Groq by default; OpenAI-compatible). Best-effort: returns None (caller falls
@@ -66,7 +138,14 @@ async def _transcribe_media(client: ComposioClient, fid: str, name: str, org_id:
     if not settings.transcribe_key:
         return None
     try:
-        dl = await client.execute("GOOGLEDRIVE_DOWNLOAD_FILE", {"file_id": fid}, org_id)
+        # Capped so the buffered response can never exceed what Whisper accepts
+        # anyway (base64 inflates ~4/3x) — execute() would buffer it unbounded.
+        dl = await client.execute_capped(
+            "GOOGLEDRIVE_DOWNLOAD_FILE",
+            {"file_id": fid},
+            org_id,
+            max_bytes=_WHISPER_MAX_BYTES * 2,
+        )
     except Exception:  # noqa: BLE001
         return None
     data = dl.get("data") or {}
@@ -80,11 +159,16 @@ async def _transcribe_media(client: ComposioClient, fid: str, name: str, org_id:
             if len(v) > _WHISPER_MAX_BYTES * 4 // 3 + 4:
                 return None
             try:
-                audio = base64.b64decode(v)
+                # Decode off the event loop: a ~33MB base64 decode on the tiny
+                # prod CPU (0.15 vCPU) stalls the loop long enough for Render's
+                # 5s /health probe to fail and kill the instance mid-sync.
+                audio = await asyncio.to_thread(base64.b64decode, v)
                 break
             except Exception:  # noqa: BLE001
                 pass
     if audio is None and (url := _find_url(data)):
+        if not await _download_url_allowed(url):
+            return None
         try:
             async with httpx.AsyncClient(timeout=60) as h:
                 async with h.stream("GET", url) as r:
@@ -161,6 +245,68 @@ async def _handle_account_change(
     session.flush()
 
 
+async def purge_connector_data(
+    session: Session,
+    org_id: str,
+    toolkit: str,
+    *,
+    qdrant_store: QdrantStore | None = None,
+) -> int:
+    """Remove every document a connector ingested into this org, from Postgres
+    (source_documents + chunks) and Qdrant (vectors), and mark the account
+    disconnected with its identity cleared.
+
+    Called on disconnect so a Google (or any) account that is no longer in sync
+    leaves nothing behind: switching the connected account = disconnect (this
+    purge) then connect + sync the new account, which cannot then mix the two.
+    Returns the number of source documents removed."""
+    qdrant_store = qdrant_store or get_default_qdrant_store()
+    native_key = to_native_key(toolkit)
+
+    removed = purge_source_type(session, org_id, native_key)
+    try:
+        await qdrant_store.delete_source_type(org_id, native_key)
+    except Exception:  # noqa: BLE001 — vector cleanup is best-effort
+        logger.warning("Qdrant purge failed on disconnect for %s/%s", org_id, native_key)
+
+    # Reset the account so a later reconnect starts clean (no stale identity that
+    # would make the reconnect path think the account is unchanged).
+    account = ensure_connector_account(session, org_id, native_key)
+    config = dict(account.config or {})
+    for k in ("account_external_id", "account_email", "previous_account_email"):
+        config.pop(k, None)
+    account.config = config
+    account.auth_state = "disconnected"
+    account.last_sync_at = None
+    session.flush()
+    return removed
+
+
+def _record_ingest_failure(
+    session: Session,
+    *,
+    org_id: str,
+    toolkit: str,
+    error: str,
+) -> dict[str, Any]:
+    """Rollback partial relational work, then persist one actionable failure."""
+    session.rollback()
+    native_key = to_native_key(toolkit)
+    account = ensure_connector_account(session, org_id, native_key)
+    account.auth_state = "error"
+    error = error[:2000]
+    record_sync_result(
+        session,
+        org_id=org_id,
+        connector_key=native_key,
+        status="failed",
+        documents_seen=0,
+        documents_indexed=0,
+        error=error,
+    )
+    return {"status": "failed", "error": error, "documents_indexed": 0}
+
+
 async def ingest_composio_toolkit(
     org_id: str,
     toolkit: str,
@@ -173,58 +319,134 @@ async def ingest_composio_toolkit(
     client = client or get_default_composio_client()
     qdrant_store = qdrant_store or get_default_qdrant_store()
     if not client.available():
-        return {"status": "failed", "error": "Composio not configured", "documents_indexed": 0}
+        return _record_ingest_failure(
+            session,
+            org_id=org_id,
+            toolkit=toolkit,
+            error="Composio not configured",
+        )
 
     fetcher = _FETCHERS.get(toolkit)
     if fetcher is None:
-        return {
-            "status": "failed",
-            "error": f"Ingestion not implemented for toolkit {toolkit!r}",
-            "documents_indexed": 0,
-        }
+        return _record_ingest_failure(
+            session,
+            org_id=org_id,
+            toolkit=toolkit,
+            error=f"Ingestion not implemented for toolkit {toolkit!r}",
+        )
 
-    # Reconnect handling: if the org reconnected this toolkit with a *different*
-    # external account, purge the previous account's documents so counts and Ask
-    # reflect only the currently-connected account (never a mix of both).
     native_key = to_native_key(toolkit)
-    await _handle_account_change(session, client, org_id, toolkit, native_key, qdrant_store)
-
+    # Everything below records a sync run no matter how it ends. Any unhandled
+    # error here previously vanished (the background caller swallows exceptions),
+    # so /sync-runs showed nothing at all — the user saw "Sync started" and then
+    # silence. Now a failure always leaves a visible, explained failed run.
+    stage = "account reconciliation"
     try:
+        # Reconnect handling: if the org reconnected this toolkit with a
+        # *different* external account, purge the previous account's documents so
+        # counts and Ask reflect only the currently-connected account.
+        await _handle_account_change(
+            session, client, org_id, toolkit, native_key, qdrant_store
+        )
+        stage = "provider fetch"
         documents = await fetcher(client, org_id, limit)
-    except Exception as exc:  # noqa: BLE001
-        logger.error("Composio ingest %s failed: %s", toolkit, exc)
-        return {"status": "failed", "error": str(exc), "documents_indexed": 0}
+        stage = "document indexing"
+        if documents:
+            # Tier rules are keyed by the native connector key, so a
+            # Composio-ingested doc is classified the same way a natively-synced
+            # one would be, instead of always landing at the default tier.
+            apply_tier_rules(session, org_id, native_key, documents)
 
-    if documents:
-        # Same per-info sensitivity overrides the native connector sync path
-        # applies (see connectors/sync_service.py) — tier rules are keyed by
-        # the native connector key, so a Composio-ingested doc is classified
-        # the same way a natively-synced one would be, instead of always
-        # landing at the connector's default tier.
-        apply_tier_rules(session, org_id, native_key, documents)
-    indexed = upsert_source_documents(session, documents)
-    vector_error = None
-    try:
-        await qdrant_store.upsert_chunks(chunks_for_documents(documents))
-    except Exception as exc:  # noqa: BLE001 — vectors shouldn't block source sync
-        vector_error = str(exc)
+        # Capture each doc's previously-embedded content hash BEFORE the upsert
+        # overwrites metadata, so unchanged docs skip re-embedding (which is what
+        # exhausts the embedding quota and burns the tiny CPU).
+        prior_hashes = _prior_embedded_hashes(session, [d.source_id for d in documents])
 
+        indexed = upsert_source_documents(session, documents)
+        vector_error = None
+        embedded = 0
+        skipped_unchanged = 0
+        # Batch chunks across documents into a few embed calls, not one per doc.
+        # Free-tier embedding providers (Voyage/Gemini) rate-limit per minute, so
+        # one request per document blows the limit (429) on any real sync. The
+        # per-batch cap bounds memory so a big sync can't OOM the small instance.
+        pending_chunks: list[dict[str, Any]] = []
+        pending_doc_ids: set[str] = set()
+        document_hashes: dict[str, str] = {}
+        failed_doc_ids: set[str] = set()
+
+        async def _flush() -> None:
+            nonlocal vector_error
+            if not pending_chunks:
+                return
+            try:
+                await qdrant_store.upsert_chunks(list(pending_chunks))
+            except Exception as exc:  # noqa: BLE001 — vectors shouldn't block sync
+                logger.warning("Composio vector batch failed for %s: %s", toolkit, exc)
+                vector_error = "Vector indexing failed; retry the sync."
+                failed_doc_ids.update(pending_doc_ids)
+            pending_chunks.clear()
+            pending_doc_ids.clear()
+
+        for document in documents:
+            await asyncio.sleep(0)
+            # Don't embed documents whose "text" is just their own filename
+            # (untranscribed media, skipped-large files): the vector carries no
+            # content signal but still matches ~0.7 on unrelated queries.
+            if not document.text.strip() or document.text.strip() == (
+                document.title or ""
+            ).strip():
+                try:
+                    await qdrant_store.delete_document(org_id, document.source_id)
+                except Exception:  # noqa: BLE001 — cleanup is best-effort
+                    pass
+                continue
+            content_hash = _content_hash(document.text)
+            if prior_hashes.get(document.source_id) == content_hash:
+                # Unchanged since the last successful embed; vectors already exist.
+                _set_embedded_hash(session, document.source_id, content_hash)
+                skipped_unchanged += 1
+                continue
+            document_hashes[document.source_id] = content_hash
+            for chunk in chunks_for_documents([document]):
+                pending_chunks.append(chunk)
+                pending_doc_ids.add(document.source_id)
+                if len(pending_chunks) == _EMBED_BATCH_CHUNKS:
+                    await _flush()
+        await _flush()
+        for source_id, content_hash in document_hashes.items():
+            if source_id in failed_doc_ids:
+                continue
+            _set_embedded_hash(session, source_id, content_hash)
+            embedded += 1
+    except Exception as exc:  # noqa: BLE001 — always leave a visible failed run
+        logger.exception("Composio %s failed during %s", toolkit, stage)
+        return _record_ingest_failure(
+            session,
+            org_id=org_id,
+            toolkit=toolkit,
+            error=f"{stage.capitalize()} failed: {exc}",
+        )
+
+    sync_status = "partial" if vector_error or not documents else "succeeded"
     record_sync_result(
         session,
         org_id=org_id,
         # Attribute to the native connector key so the single Integrations card
         # reflects the connection/sync (Composio `googledrive` -> `google_drive`).
         connector_key=to_native_key(toolkit),
-        status="succeeded" if documents else "partial",
+        status=sync_status,
         documents_seen=len(documents),
         documents_indexed=indexed,
         error=vector_error,
     )
     return {
-        "status": "succeeded",
+        "status": sync_status,
         "toolkit": toolkit,
         "documents_seen": len(documents),
         "documents_indexed": indexed,
+        "documents_embedded": embedded,
+        "documents_skipped_unchanged": skipped_unchanged,
         "vector_error": vector_error,
     }
 
@@ -232,6 +454,42 @@ async def ingest_composio_toolkit(
 # ---------------------------------------------------------------------------
 # Toolkit-specific fetchers — turn a connected app's content into SourceDocuments
 # ---------------------------------------------------------------------------
+
+
+def _content_hash(text: str) -> str:
+    """Stable hash of a document's indexed text, used to skip re-embedding
+    unchanged documents on subsequent syncs."""
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _prior_embedded_hashes(session: Session, source_ids: list[str]) -> dict[str, str]:
+    """The content hash last successfully embedded for each source id (from the
+    document's metadata), so an unchanged doc isn't re-embedded."""
+    if not source_ids:
+        return {}
+    rows = (
+        session.query(SourceDocumentRecord.id, SourceDocumentRecord.metadata_json)
+        .filter(SourceDocumentRecord.id.in_(source_ids))
+        .all()
+    )
+    out: dict[str, str] = {}
+    for sid, meta in rows:
+        h = (meta or {}).get("embedded_hash")
+        if h:
+            out[sid] = h
+    return out
+
+
+def _set_embedded_hash(session: Session, source_id: str, content_hash: str) -> None:
+    """Record the content hash we just embedded, so the next sync can skip this
+    doc if its text is unchanged. Best-effort: never fail a sync over bookkeeping."""
+    record = session.get(SourceDocumentRecord, source_id)
+    if record is None:
+        return
+    meta = dict(record.metadata_json or {})
+    meta["embedded_hash"] = content_hash
+    record.metadata_json = meta
+    session.flush()
 
 
 def _dig(data: Any, *keys: str) -> Any:
@@ -261,6 +519,7 @@ async def _fetch_notion(client: ComposioClient, org_id: str, limit: int) -> list
 
     documents: list[SourceDocument] = []
     for page in results[:limit]:
+        await asyncio.sleep(0)  # keep /health responsive during ingest
         page_id = page.get("id")
         if not page_id:
             continue
@@ -311,6 +570,27 @@ def _notion_blocks_text(data: dict) -> str:
     return "\n".join(p for p in parts if p)
 
 
+async def _text_from_download_url(data: Any) -> str:
+    """Composio delivers exported file content as a temporary URL (R2), not
+    inline — fetch it with a hard size cap. Only called for text exports."""
+    url = _find_url(data)
+    if not url or not await _download_url_allowed(url):
+        return ""
+    try:
+        async with httpx.AsyncClient(timeout=60) as h:
+            async with h.stream("GET", url) as r:
+                if r.status_code != 200:
+                    return ""
+                buf = bytearray()
+                async for chunk in r.aiter_bytes():
+                    buf.extend(chunk)
+                    if len(buf) > _MAX_DOWNLOAD_BYTES:
+                        return ""
+        return bytes(buf).decode("utf-8", errors="replace")
+    except Exception:  # noqa: BLE001 — content extraction is best-effort
+        return ""
+
+
 async def _fetch_googledrive(
     client: ComposioClient, org_id: str, limit: int
 ) -> list[SourceDocument]:
@@ -320,13 +600,41 @@ async def _fetch_googledrive(
 
     documents: list[SourceDocument] = []
     for f in files[:limit]:
+        # Yield between files so /health keeps answering while a sync hogs the
+        # tiny prod CPU — otherwise Render kills the instance mid-ingest.
+        await asyncio.sleep(0)
         fid = f.get("id")
         if not fid:
             continue
         name = f.get("name") or "Untitled"
+        mime = f.get("mimeType") or f.get("mime_type") or ""
+        if mime == "application/vnd.google-apps.folder":
+            continue  # folders have no content; indexing them as docs is noise
         url = f.get("webViewLink") or f.get("web_view_link")
         text = ""
         metadata: dict[str, Any] = {}
+        # GOOGLEDRIVE_DOWNLOAD_FILE returns the whole file base64-inlined in
+        # JSON, and execute() buffers the full response — one big Drive file
+        # materialises several times its size in RAM and OOM-kills the 512MB
+        # prod instance (observed: instance died ~1 min into every real sync).
+        # The listing gives us the size up front, so skip content for large
+        # files and index them by name.
+        size = _file_size(f)
+        if size is not None and size > _MAX_DOWNLOAD_BYTES:
+            documents.append(
+                SourceDocument(
+                    source_id=f"gdrive:{fid}",
+                    source_type="google_drive",
+                    org_id=org_id,
+                    external_id=fid,
+                    title=name,
+                    url=url,
+                    text=name,
+                    metadata={"skipped_large_file": True, "size_bytes": size},
+                    permissions=["source:all"],
+                )
+            )
+            continue
         if _is_media(name):
             # Audio/video: transcribe with Whisper so the *content* is searchable,
             # not just the filename.
@@ -337,11 +645,32 @@ async def _fetch_googledrive(
             else:
                 metadata = {"media": True, "transcribed": False}
         else:
-            try:
-                content = await client.execute(
-                    "GOOGLEDRIVE_DOWNLOAD_FILE", {"file_id": fid}, org_id
+            args: dict[str, Any] = {"file_id": fid}
+            is_workspace_doc = mime.startswith("application/vnd.google-apps")
+            if is_workspace_doc:
+                # Workspace files (Docs/Sheets/Slides) can't be downloaded
+                # raw — the tool errors "mime_type is required for exporting
+                # Google Workspace files" and the doc used to be indexed as
+                # just its filename. Export to text.
+                args["mime_type"] = (
+                    "text/csv"
+                    if mime == "application/vnd.google-apps.spreadsheet"
+                    else "text/plain"
                 )
-                text = _plain_text(content.get("data") or {})
+            try:
+                # Capped: Drive listings report no size, so the size check
+                # above can't protect this call by itself.
+                content = await client.execute_capped(
+                    "GOOGLEDRIVE_DOWNLOAD_FILE",
+                    args,
+                    org_id,
+                    max_bytes=_MAX_DOWNLOAD_BYTES * 2,
+                )
+                data = content.get("data") or {}
+                text = _plain_text(data)
+                if not text and is_workspace_doc:
+                    # Exported content arrives as a temporary URL, not inline.
+                    text = await _text_from_download_url(data)
             except Exception:  # noqa: BLE001
                 text = ""
         documents.append(
@@ -369,6 +698,7 @@ async def _fetch_slack(client: ComposioClient, org_id: str, limit: int) -> list[
 
     documents: list[SourceDocument] = []
     for ch in channels[:limit]:
+        await asyncio.sleep(0)  # keep /health responsive during ingest
         cid = ch.get("id")
         if not cid:
             continue
@@ -400,6 +730,46 @@ async def _fetch_slack(client: ComposioClient, org_id: str, limit: int) -> list[
     return documents
 
 
+async def _fetch_gmail(client: ComposioClient, org_id: str, limit: int) -> list[SourceDocument]:
+    """Recent inbox emails, one document per message. Subject/sender land in the
+    title so filename-only guards don't drop messages with short bodies."""
+    res = await client.execute("GMAIL_FETCH_EMAILS", {"max_results": min(limit, 25)}, org_id)
+    data = res.get("data") or {}
+    messages = _first_list(
+        _dig(data, "response_data", "messages"), _dig(data, "messages")
+    )
+
+    documents: list[SourceDocument] = []
+    for msg in messages[:limit]:
+        await asyncio.sleep(0)  # keep /health responsive during ingest
+        if not isinstance(msg, dict):
+            continue
+        mid = msg.get("messageId") or msg.get("id")
+        if not mid:
+            continue
+        subject = (msg.get("subject") or "").strip() or "(no subject)"
+        sender = (msg.get("sender") or msg.get("from") or "").strip()
+        body = ""
+        for key in ("messageText", "messageBody", "snippet", "preview"):
+            v = msg.get(key)
+            if isinstance(v, str) and v.strip():
+                body = v.strip()
+                break
+        header = f"From: {sender}\nSubject: {subject}" if sender else f"Subject: {subject}"
+        documents.append(
+            SourceDocument(
+                source_id=f"gmail:{mid}",
+                source_type="gmail",
+                org_id=org_id,
+                external_id=str(mid),
+                title=subject,
+                text=f"{header}\n\n{body}" if body else header,
+                permissions=["source:all"],
+            )
+        )
+    return documents
+
+
 def _plain_text(data: Any) -> str:
     """Best-effort text extraction from a Composio file/content payload."""
     if isinstance(data, str):
@@ -416,7 +786,9 @@ _FETCHERS = {
     "notion": _fetch_notion,
     "googledrive": _fetch_googledrive,
     "slack": _fetch_slack,
+    "gmail": _fetch_gmail,
 }
+SUPPORTED_INGESTION_TOOLKITS = frozenset(_FETCHERS)
 
 
 async def sync_all_connections(

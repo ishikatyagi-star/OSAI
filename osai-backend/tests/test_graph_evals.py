@@ -36,7 +36,8 @@ def test_graph_edges_shape():
 
 
 def test_evals_returns_full_run():
-    resp = client.get("/evals")
+    assert client.get("/evals").status_code == 405
+    resp = client.post("/evals")
     assert resp.status_code == 200
     body = resp.json()
     assert body["total"] == len(FIXTURES)

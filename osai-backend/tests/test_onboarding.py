@@ -6,11 +6,12 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from api.main import app
-from db.models import Base, ConnectorAccount
+from db.models import Base, ConnectorAccount, Org, User
 from db.repositories import provision_org
 from db.session import get_db
 
@@ -51,7 +52,7 @@ def test_provision_org_repository() -> None:
         org, user = provision_org(
             session,
             name="Acme Corp",
-            admin_email="admin@acme.com",
+            admin_email="  Admin@Acme.COM  ",
             admin_name="Acme Admin",
         )
 
@@ -62,13 +63,10 @@ def test_provision_org_repository() -> None:
         assert user.display_name == "Acme Admin"
         assert user.role == "admin"
 
-        # Verify default connector accounts are seeded
+        # New orgs start with no connector accounts; connect flows create them
+        # on demand and Integrations offers the full Composio catalog instead.
         connectors = session.query(ConnectorAccount).filter_by(org_id=org.id).all()
-        assert len(connectors) == 4
-        keys = {c.connector_key for c in connectors}
-        assert keys == {"notion", "slack", "freshdesk", "google_drive"}
-        for conn in connectors:
-            assert conn.auth_state == "not_configured"
+        assert connectors == []
 
 
 def test_provision_org_duplicate_email() -> None:
@@ -77,7 +75,7 @@ def test_provision_org_duplicate_email() -> None:
         provision_org(
             session,
             name="Org 1",
-            admin_email="duplicate@test.com",
+            admin_email="Duplicate@Test.com",
             admin_name="User 1",
         )
 
@@ -86,9 +84,35 @@ def test_provision_org_duplicate_email() -> None:
             provision_org(
                 session,
                 name="Org 2",
-                admin_email="duplicate@test.com",
+                admin_email="  duplicate@TEST.COM  ",
                 admin_name="User 2",
             )
+
+
+def test_database_rejects_case_variant_user_emails_when_orm_is_bypassed() -> None:
+    with TestingSessionLocal() as session:
+        org = Org(name="Identity DB Guard")
+        session.add(org)
+        session.flush()
+        session.execute(
+            User.__table__.insert().values(
+                org_id=org.id,
+                email="DirectWrite@Example.TEST",
+                display_name="First direct write",
+            )
+        )
+        session.commit()
+
+        with pytest.raises(IntegrityError):
+            session.execute(
+                User.__table__.insert().values(
+                    org_id=org.id,
+                    email=" directwrite@example.test ",
+                    display_name="Conflicting direct write",
+                )
+            )
+            session.commit()
+        session.rollback()
 
 
 def test_api_orgs_provisioning() -> None:
@@ -111,6 +135,27 @@ def test_api_orgs_provisioning() -> None:
     assert "already exists" in response_dup.json()["detail"]
 
 
+def test_api_orgs_provisioning_is_local_only(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def _allow_rate_limit(*_args, **_kwargs) -> None:
+        return None
+
+    monkeypatch.setattr("api.ratelimit.enforce_rate_limit", _allow_rate_limit)
+    monkeypatch.setattr("api.routes.orgs.settings.env", "production")
+    response = client.post(
+        "/orgs",
+        json={
+            "name": "Squatted Workspace",
+            "admin_email": "victim@example.com",
+            "admin_display_name": "Attacker Chosen Name",
+        },
+    )
+
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert response.json()["detail"] == "Workspace creation requires verified Google sign-in."
+    with TestingSessionLocal() as session:
+        assert session.query(Org).count() == 0
+
+
 def test_api_auth_login() -> None:
     # Attempt login before user exists
     response_fail = client.post("/auth/login", json={"email": "nonexistent@test.com"})
@@ -120,14 +165,14 @@ def test_api_auth_login() -> None:
     # Provision user/org first
     payload = {
         "name": "Star Labs",
-        "admin_email": "barry@star.local",
+        "admin_email": "Barry@Star.Local",
         "admin_display_name": "Barry Allen",
     }
     response_org = client.post("/orgs", json=payload)
     assert response_org.status_code == 200
 
     # Attempt login for provisioned user
-    response_login = client.post("/auth/login", json={"email": "barry@star.local"})
+    response_login = client.post("/auth/login", json={"email": "  BARRY@STAR.LOCAL  "})
     assert response_login.status_code == 200
     data = response_login.json()
     assert "user_id" in data

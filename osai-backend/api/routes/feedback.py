@@ -8,14 +8,16 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from db.models import AnswerFeedback
+from db.models import AnswerFeedback, utc_iso
 from db.repositories import try_db
-from db.session import get_db, get_optional_claims, get_org_id, require_admin
+from db.session import get_db, get_optional_claims, get_org_id, require_admin, require_writable_org
 from memory.org_memory import record_memory
 
 router = APIRouter(prefix="/feedback", tags=["feedback"])
 DbSession = Annotated[Session, Depends(get_db)]
 OrgId = Annotated[str, Depends(get_org_id)]
+# Writes must never come from the anonymous demo workspace (SEC-003).
+WriteOrgId = Annotated[str, Depends(require_writable_org)]
 OptionalClaims = Annotated[dict | None, Depends(get_optional_claims)]
 
 _MAX_TEXT = 20_000
@@ -38,7 +40,7 @@ class FeedbackCreate(BaseModel):
 
 @router.post("")
 async def submit_feedback(
-    body: FeedbackCreate, db: DbSession, org_id: OrgId, claims: OptionalClaims
+    body: FeedbackCreate, db: DbSession, org_id: WriteOrgId, claims: OptionalClaims
 ) -> dict:
     if body.rating not in ("up", "down"):
         raise HTTPException(status_code=422, detail="rating must be 'up' or 'down'")
@@ -73,16 +75,6 @@ async def submit_feedback(
             )
             record_memory(db, org_id, "correction", content)
             learned = True
-
-            from api.routes.wiki import suggest_entry
-
-            suggest_entry(
-                db,
-                org_id,
-                f"Correction: {body.query.strip()[:120]}",
-                f"Q: {body.query.strip()}\n\nCorrect answer: {correction}",
-                origin="correction",
-            )
         return {"id": row.id, "recorded": True, "learned": learned}
 
     return try_db("submit_feedback", {"id": None, "recorded": False, "learned": False}, _save)
@@ -117,7 +109,7 @@ async def list_feedback(
                 "comment": r.comment,
                 "wrong_sources": r.wrong_sources,
                 "retrieval_trace": r.retrieval_trace,
-                "created_at": r.created_at.isoformat(),
+                "created_at": utc_iso(r.created_at),
             }
             for r in q.limit(min(max(limit, 1), 500)).all()
         ]
