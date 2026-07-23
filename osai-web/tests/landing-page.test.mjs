@@ -93,15 +93,26 @@ test("homepage preserves the approved positioning and section content", () => {
 });
 
 test("homepage keeps loop, workflow, feature, and focus layouts responsive", () => {
-  assert.match(html, /\.loop-orbit\s*{[\s\S]*?display: block;[\s\S]*?width: min\(100%, 980px\);[\s\S]*?min-height: 820px;/);
-  assert.match(html, /\.loop-node-ingest\s*{[^}]*top: 0;[^}]*left: 50%;[^}]*transform: translateX\(-50%\);/);
-  assert.match(html, /\.loop-node-decide\s*{[^}]*top: 25%;[^}]*right: 0;/);
-  assert.match(html, /\.loop-node-act\s*{[^}]*right: 12%;[^}]*bottom: 0;/);
-  assert.match(html, /\.loop-node-update\s*{[^}]*bottom: 0;[^}]*left: 12%;/);
-  assert.match(html, /\.loop-node-audit\s*{[^}]*top: 25%;[^}]*left: 0;/);
+  assert.match(html, /\.loop-orbit\s*{[\s\S]*?display: block;[\s\S]*?width: min\(100%, 980px\);[\s\S]*?min-height: 920px;/);
+  assert.match(html, /\.loop-node\s*{[\s\S]*?top: calc\(50% \+ var\(--node-y\)\);[\s\S]*?left: calc\(50% \+ var\(--node-x\)\);[\s\S]*?transform: translate\(-50%, -50%\);/);
+  assert.match(html, /\.loop-node-ingest\s*{\s*--node-x: 0px;\s*--node-y: -320px;/);
+  assert.match(html, /\.loop-node-decide\s*{\s*--node-x: 304\.338px;\s*--node-y: -98\.885px;/);
+  assert.match(html, /\.loop-node-act\s*{\s*--node-x: 188\.091px;\s*--node-y: 258\.885px;/);
+  assert.match(html, /\.loop-node-update\s*{\s*--node-x: -188\.091px;\s*--node-y: 258\.885px;/);
+  assert.match(html, /\.loop-node-audit\s*{\s*--node-x: -304\.338px;\s*--node-y: -98\.885px;/);
+  assert.match(html, /\.loop-node\.fade-up\.visible\s*{[^}]*transform: translate\(-50%, -50%\);/);
+  assert.match(html, /\.loop-hub\.fade-up\.visible\s*{[^}]*transform: translate\(-50%, -50%\);/);
   assert.equal((html.match(/class="loop-arrow /g) ?? []).length, 5);
+  assert.match(html, /\.loop-arrow\s*{[\s\S]*?top: calc\(50% \+ var\(--arrow-y\)\);[\s\S]*?left: calc\(50% \+ var\(--arrow-x\)\);/);
+  assert.match(html, /\.loop-arrow-right\s*{\s*--arrow-x: 304\.338px;\s*--arrow-y: 98\.885px;/);
+  assert.match(html, /\.loop-arrow-left\s*{\s*--arrow-x: -304\.338px;\s*--arrow-y: 98\.885px;/);
+  assert.match(
+    html,
+    /loop-arrow-top"[^>]*>↘<\/span>[\s\S]*loop-arrow-right"[^>]*>↓<\/span>[\s\S]*loop-arrow-bottom"[^>]*>←<\/span>[\s\S]*loop-arrow-left"[^>]*>↑<\/span>[\s\S]*loop-arrow-return"[^>]*>↗<\/span>/,
+  );
   assert.match(html, /\.landing-saas a:focus-visible,\s*\.landing-saas summary:focus-visible\s*{/);
   assert.match(html, /@media \(max-width: 980px\)[\s\S]*?\.loop-orbit\s*{\s*display: flex;\s*flex-direction: column;/);
+  assert.match(html, /@media \(max-width: 980px\)[\s\S]*?\.loop-node::after\s*{[\s\S]*?content: '↓';/);
   assert.match(html, /\.loop-hub::after\s*{[\s\S]*?Back to ingest/);
   assert.match(html, /\.signal-grid\s*{[\s\S]*?grid-template-columns: repeat\(4, minmax\(0, 1fr\)\);/);
   assert.match(html, /@media \(max-width: 980px\)[\s\S]*?\.signal-grid\s*{\s*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/);

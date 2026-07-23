@@ -325,7 +325,7 @@
     position: relative;
     display: block;
     width: min(100%, 980px);
-    min-height: 820px;
+    min-height: 920px;
     margin: 56px auto 0;
     isolation: isolate;
   }
@@ -349,25 +349,28 @@
 
   .loop-node {
     position: absolute;
+    top: calc(50% + var(--node-y));
+    left: calc(50% + var(--node-x));
     z-index: 1;
     display: grid;
     grid-template-columns: minmax(0, 1fr) 60px;
     column-gap: 12px;
     width: 290px;
     min-width: 0;
-    min-height: 220px;
+    height: 280px;
     padding: 20px;
     background: rgba(255, 255, 255, 0.9);
     border: 1px solid var(--el-hairline);
     border-radius: 16px;
     box-shadow: 0 10px 30px rgba(41, 37, 36, 0.06);
+    transform: translate(-50%, -50%);
   }
 
-  .loop-node-ingest { top: 0; left: 50%; width: 320px; transform: translateX(-50%); }
-  .loop-node-decide { top: 25%; right: 0; }
-  .loop-node-act { right: 12%; bottom: 0; }
-  .loop-node-update { bottom: 0; left: 12%; }
-  .loop-node-audit { top: 25%; left: 0; }
+  .loop-node-ingest { --node-x: 0px; --node-y: -320px; }
+  .loop-node-decide { --node-x: 304.338px; --node-y: -98.885px; }
+  .loop-node-act { --node-x: 188.091px; --node-y: 258.885px; }
+  .loop-node-update { --node-x: -188.091px; --node-y: 258.885px; }
+  .loop-node-audit { --node-x: -304.338px; --node-y: -98.885px; }
 
   .loop-orbit .loop-mascot {
     grid-column: 2;
@@ -422,6 +425,13 @@
     transform: translate(-50%, -50%);
   }
 
+  @media (min-width: 981px) {
+    .loop-node.fade-up { transform: translate(-50%, calc(-50% + 22px)); }
+    .loop-node.fade-up.visible { transform: translate(-50%, -50%); }
+    .loop-hub.fade-up { transform: translate(-50%, calc(-50% + 22px)); }
+    .loop-hub.fade-up.visible { transform: translate(-50%, -50%); }
+  }
+
   .loop-hub span {
     font-size: 11px;
     font-weight: 600;
@@ -439,6 +449,8 @@
 
   .loop-arrow {
     position: absolute;
+    top: calc(50% + var(--arrow-y));
+    left: calc(50% + var(--arrow-x));
     z-index: 3;
     display: grid;
     place-items: center;
@@ -449,13 +461,14 @@
     border-radius: 50%;
     color: var(--el-ink);
     font-size: 18px;
+    transform: translate(-50%, -50%);
   }
 
-  .loop-arrow-top { top: 18%; right: 25%; }
-  .loop-arrow-right { top: 53%; right: 12%; }
-  .loop-arrow-bottom { bottom: 11%; left: 50%; }
-  .loop-arrow-left { top: 53%; left: 12%; }
-  .loop-arrow-return { top: 18%; left: 25%; }
+  .loop-arrow-top { --arrow-x: 188.091px; --arrow-y: -258.885px; }
+  .loop-arrow-right { --arrow-x: 304.338px; --arrow-y: 98.885px; }
+  .loop-arrow-bottom { --arrow-x: 0px; --arrow-y: 320px; }
+  .loop-arrow-left { --arrow-x: -304.338px; --arrow-y: 98.885px; }
+  .loop-arrow-return { --arrow-x: -188.091px; --arrow-y: -258.885px; }
 
   /* ---------- USE CASES ---------- */
   .saas-memory-map {
@@ -756,7 +769,7 @@
       flex-direction: column;
       width: 100%;
       min-height: 0;
-      gap: 16px;
+      gap: 36px;
       padding: 0;
     }
     .loop-orbit::before,
@@ -767,19 +780,20 @@
       position: relative;
       inset: auto;
       width: 100%;
+      height: auto;
       min-height: 154px;
       transform: none;
     }
-    .loop-node:not(.loop-node-audit)::after {
+    .loop-node::after {
       content: '↓';
       position: absolute;
       left: 50%;
-      bottom: -28px;
+      bottom: -33px;
       z-index: 3;
       display: grid;
       place-items: center;
-      width: 24px;
-      height: 24px;
+      width: 28px;
+      height: 28px;
       transform: translateX(-50%);
       background: var(--el-canvas);
       border: 1px solid var(--el-hairline);
@@ -790,6 +804,7 @@
       order: 6;
       position: relative;
       inset: auto;
+      align-self: center;
       width: min(190px, 70vw);
       margin-bottom: 48px;
       transform: none;
@@ -969,9 +984,9 @@
         <strong>Every cycle makes Sheldon smarter.</strong>
       </div>
       <span class="loop-arrow loop-arrow-top" aria-hidden="true">↘</span>
-      <span class="loop-arrow loop-arrow-right" aria-hidden="true">↙</span>
+      <span class="loop-arrow loop-arrow-right" aria-hidden="true">↓</span>
       <span class="loop-arrow loop-arrow-bottom" aria-hidden="true">←</span>
-      <span class="loop-arrow loop-arrow-left" aria-hidden="true">↖</span>
+      <span class="loop-arrow loop-arrow-left" aria-hidden="true">↑</span>
       <span class="loop-arrow loop-arrow-return" aria-hidden="true">↗</span>
     </div>
   </div>
@@ -990,33 +1005,33 @@
         <article class="signal-card fade-up" role="listitem">
           <h3>Revenue</h3>
           <ul class="signal-list">
-            <li><span class="source-mark">CRM</span><span>Enterprise trial reached activation</span></li>
-            <li><span class="source-mark">Mail</span><span>Legal asked for security docs</span></li>
-            <li><span class="source-mark">Call</span><span>Pricing objection surfaced</span></li>
+            <li><span class="source-mark" aria-hidden="true">CRM</span><span>Enterprise trial reached activation</span></li>
+            <li><span class="source-mark" aria-hidden="true">Mail</span><span>Legal asked for security docs</span></li>
+            <li><span class="source-mark" aria-hidden="true">Call</span><span>Pricing objection surfaced</span></li>
           </ul>
         </article>
         <article class="signal-card fade-up" role="listitem">
           <h3>Customer success</h3>
           <ul class="signal-list">
-            <li><span class="source-mark">Help</span><span>Priority ticket linked to renewal</span></li>
-            <li><span class="source-mark">Use</span><span>Workspace adoption fell 18%</span></li>
-            <li><span class="source-mark">Call</span><span>Onboarding blocker captured</span></li>
+            <li><span class="source-mark" aria-hidden="true">Help</span><span>Priority ticket linked to renewal</span></li>
+            <li><span class="source-mark" aria-hidden="true">Use</span><span>Workspace adoption fell 18%</span></li>
+            <li><span class="source-mark" aria-hidden="true">Call</span><span>Onboarding blocker captured</span></li>
           </ul>
         </article>
         <article class="signal-card fade-up" role="listitem">
           <h3>Product &amp; engineering</h3>
           <ul class="signal-list">
-            <li><span class="source-mark">Issue</span><span>Request attached to $42k ARR</span></li>
-            <li><span class="source-mark">Code</span><span>Fix merged and release tagged</span></li>
-            <li><span class="source-mark">Ops</span><span>Incident linked to affected accounts</span></li>
+            <li><span class="source-mark" aria-hidden="true">Issue</span><span>Request attached to $42k ARR</span></li>
+            <li><span class="source-mark" aria-hidden="true">Code</span><span>Fix merged and release tagged</span></li>
+            <li><span class="source-mark" aria-hidden="true">Ops</span><span>Incident linked to affected accounts</span></li>
           </ul>
         </article>
         <article class="signal-card fade-up" role="listitem">
           <h3>Finance &amp; operations</h3>
           <ul class="signal-list">
-            <li><span class="source-mark">Bill</span><span>Usage threshold crossed</span></li>
-            <li><span class="source-mark">Deal</span><span>Renewal terms approved</span></li>
-            <li><span class="source-mark">Docs</span><span>New policy replaces old guidance</span></li>
+            <li><span class="source-mark" aria-hidden="true">Bill</span><span>Usage threshold crossed</span></li>
+            <li><span class="source-mark" aria-hidden="true">Deal</span><span>Renewal terms approved</span></li>
+            <li><span class="source-mark" aria-hidden="true">Docs</span><span>New policy replaces old guidance</span></li>
           </ul>
         </article>
       </div>
