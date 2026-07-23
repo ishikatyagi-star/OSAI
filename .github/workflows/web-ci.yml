@@ -54,6 +54,10 @@ jobs:
         run: npm run test:e2e
         env:
           NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:8000
+          # Server command and Playwright's baseURL must agree on the port, or
+          # Playwright waits on the default (3210) while the server is on 3100
+          # and times out. PLAYWRIGHT_PORT drives baseURL in playwright.config.ts.
+          PLAYWRIGHT_PORT: "3100"
           PLAYWRIGHT_WEB_SERVER_COMMAND: npm run start -- --hostname 127.0.0.1 --port 3100
 
       - name: Upload browser-test evidence

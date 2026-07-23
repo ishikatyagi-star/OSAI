@@ -62,7 +62,15 @@ def _add_source() -> str:
     resp = client.post("/sql/sources", json={"name": "warehouse", "dsn": settings.database_url})
     assert resp.status_code == 200, resp.text
     body = resp.json()
-    assert ":***@" in body["dsn"] or "@" not in body["dsn"]  # password masked
+    # Assert the password is masked by its parsed value, not its URL rendering:
+    # SQLAlchemy percent-encodes the "***" mask (to %2A%2A%2A), so a literal
+    # ":***@" check spuriously fails on Postgres. Decode and compare instead, and
+    # confirm the real password never appears in the returned DSN.
+    returned = make_url(body["dsn"])
+    real_password = make_url(settings.database_url).password
+    assert returned.password in (None, "***")  # masked, not the real secret
+    if real_password:
+        assert real_password not in body["dsn"]
     return body["id"]
 
 
