@@ -29,7 +29,7 @@ from connectors.composio_ingest import (
     purge_connector_data,
     sync_all_connections,
 )
-from connectors.composio_tool import get_default_composio_client
+from connectors.composio_tool import composio_identity, get_default_composio_client
 from db.models import OAuthStateUse, User
 from db.session import (
     SessionLocal,
@@ -220,7 +220,10 @@ async def connect(toolkit: str, org_id: WriteOrgId, _admin: AdminOnly) -> dict:
             f"{settings.public_base_url.rstrip('/')}"
             f"/integrations/composio/callback?{urlencode({'state': state})}"
         )
-    result = await _client_or_404().connect(toolkit, org_id, callback_url=callback_url)
+    # Scope the connection to the connecting user when per-user connections are
+    # on, so each person links their own account; org-level otherwise.
+    identity = composio_identity(org_id, admin_id)
+    result = await _client_or_404().connect(toolkit, identity, callback_url=callback_url)
     # "needs_api_key" is an expected outcome (API-key app, no one-click flow), not
     # a server failure — return it as 200 so the UI can show the honest message
     # instead of a thrown generic error. Genuine failures still 400.
@@ -229,11 +232,12 @@ async def connect(toolkit: str, org_id: WriteOrgId, _admin: AdminOnly) -> dict:
     return result
 
 
-async def _sync_in_background(org_id: str) -> None:
-    """Run post-connect ingestion off the callback request path."""
+async def _sync_in_background(org_id: str, owner_user_id: str = "") -> None:
+    """Run post-connect ingestion off the callback request path, scoped to the
+    connecting user (per-user when enabled, else org-level)."""
     with SessionLocal() as db:
         try:
-            await sync_all_connections(org_id, db)
+            await sync_all_connections(org_id, db, owner_user_id=owner_user_id)
         except Exception:  # noqa: BLE001 - background sync is best-effort
             pass
 
@@ -263,7 +267,11 @@ async def callback(
 
     client = get_default_composio_client()
     if client.available():
-        background_tasks.add_task(_sync_in_background, payload["org_id"])
+        # The OAuth state binds the connecting admin; ingest their connection
+        # under their own ownership (per-user when enabled).
+        background_tasks.add_task(
+            _sync_in_background, payload["org_id"], payload["admin_id"]
+        )
     base = settings.frontend_redirect.rstrip("/")
     return RedirectResponse(url=f"{base}/integrations?connected=1")
 
@@ -273,8 +281,8 @@ async def callback(
     dependencies=[Depends(rate_limit(*INGEST_START_BUDGET))],
 )
 async def sync(org_id: WriteOrgId, db: DbSession, _admin: AdminOnly) -> dict:
-    """Auto-detect all connected apps for the org and ingest them (idempotent)."""
-    return await sync_all_connections(org_id, db)
+    """Auto-detect the caller's connected apps and ingest them (idempotent)."""
+    return await sync_all_connections(org_id, db, owner_user_id=_admin.get("sub", ""))
 
 
 @router.get("/connections")
@@ -289,7 +297,10 @@ async def list_connections(org_id: OrgId) -> list[dict]:
 )
 async def disconnect(toolkit: str, org_id: WriteOrgId, db: DbSession, _admin: AdminOnly) -> dict:
     """Disconnect the toolkit and purge all data that account contributed."""
-    result = await _client_or_404().disconnect(toolkit, org_id)
+    # Revoke the caller's own connection under the same identity scheme used to
+    # create it (per-user when enabled, else org-level).
+    identity = composio_identity(org_id, _admin.get("sub"))
+    result = await _client_or_404().disconnect(toolkit, identity)
     removed = await purge_connector_data(db, org_id, toolkit)
     db.commit()
     return {**result, "documents_removed": removed}

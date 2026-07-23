@@ -18,7 +18,12 @@ import json
 import logging
 from typing import Any
 
-from connectors.composio_tool import ComposioClient, get_default_composio_client
+from config import settings
+from connectors.composio_tool import (
+    ComposioClient,
+    composio_identity,
+    get_default_composio_client,
+)
 
 logger = logging.getLogger("osai.composio.live")
 
@@ -138,6 +143,7 @@ async def live_read_context(
     question: str,
     *,
     requester_permissions: list[str],
+    user_id: str | None = None,
     cloud_egress_allowed: bool = True,
     client: ComposioClient | None = None,
 ) -> str:
@@ -152,16 +158,30 @@ async def live_read_context(
     # provenance exists.
     if not cloud_egress_allowed:
         return ""
-    # Composio connections are currently org-scoped, not resource-scoped. Until
-    # per-connection ACLs exist, keep live reads admin-only; members still use
-    # indexed RAG, where permissions and clearance are enforced per document.
-    if "org:admin" not in requester_permissions and "role:admin" not in requester_permissions:
+    # Access model depends on the connection scope. With ORG-shared connections
+    # (per-user off), any member reading them would see another's data, so live
+    # reads stay admin-only; members use indexed RAG (enforced per document).
+    # With PER-USER connections, the read is scoped to the caller's own account
+    # below, so it's safe for any authenticated user — that's the whole point of
+    # per-user scoping, so don't gate it behind admin.
+    if not settings.composio_per_user_connections:
+        is_admin = (
+            "org:admin" in requester_permissions or "role:admin" in requester_permissions
+        )
+        if not is_admin:
+            return ""
+    elif user_id is None:
+        # Per-user mode but no identified caller (system/background): nothing to
+        # scope to, so don't read a shared account.
         return ""
     client = client or get_default_composio_client()
     if not client.available():
         return ""
+    # Scope reads to the caller (per-user when enabled, else org-level), so a
+    # user only ever reaches their own connected accounts.
+    identity = composio_identity(org_id, user_id)
     try:
-        connections = await client.list_connections(org_id)
+        connections = await client.list_connections(identity)
     except Exception:  # noqa: BLE001 — live reads are best-effort
         return ""
     active = [
@@ -185,7 +205,7 @@ async def live_read_context(
         for spec, args in candidates[:4]:
             try:
                 res = await client.execute_capped(
-                    spec["name"], args, org_id, _MAX_RESPONSE_BYTES
+                    spec["name"], args, identity, _MAX_RESPONSE_BYTES
                 )
             except Exception as exc:  # noqa: BLE001
                 logger.warning("Live read %s failed: %s", spec["name"], exc)

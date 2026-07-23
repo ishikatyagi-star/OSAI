@@ -28,6 +28,20 @@ from config import settings
 
 logger = logging.getLogger("osai.composio")
 
+
+def composio_identity(org_id: str, user_id: str | None) -> str:
+    """The Composio entity id (its `user_id`) a connection/read is scoped to.
+
+    Org-level by default (every member shares one connection). When
+    `composio_per_user_connections` is on and a user is known, scope to the
+    individual (`org__user`) so each person connects and reads only their own
+    account — the safe basis for enabling the agent. Falls back to org_id for
+    system/background contexts with no user, and whenever the flag is off, so
+    existing behavior is unchanged until deliberately enabled."""
+    if settings.composio_per_user_connections and user_id:
+        return f"{org_id}__{user_id}"
+    return org_id
+
 # Minimal OAuth scopes to request per toolkit. OSAI only reads/indexes content,
 # so we ask for read-only access rather than the broad default (e.g. full Drive)
 # to keep the consent screen honest and reduce the trust ask.

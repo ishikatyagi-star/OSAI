@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from api.ratelimit import INGEST_START_BUDGET, rate_limit
 from connectors.composio_ingest import SUPPORTED_INGESTION_TOOLKITS, ingest_composio_toolkit
-from connectors.composio_tool import get_default_composio_client
+from connectors.composio_tool import composio_identity, get_default_composio_client
 from connectors.registry import HARD_DISABLED_CONNECTOR_KEYS, connector_registry
 from connectors.sync_service import sync_connector
 from connectors.toolkit_map import NATIVE_TO_COMPOSIO, to_native_key
@@ -72,7 +72,9 @@ def _known_connector_key(db: Session, org_id: str, connector_key: str) -> bool:
 
 
 @router.get("")
-async def list_integrations(db: DbSession, org_id: OrgId) -> list[dict[str, object]]:
+async def list_integrations(
+    db: DbSession, org_id: OrgId, claims: OptionalClaims = None
+) -> list[dict[str, object]]:
     # Only integrations the org has actually configured. A fresh workspace gets
     # an empty list — the frontend renders its empty state pointing at the full
     # Composio catalog instead of a fixed set of native connector cards.
@@ -102,7 +104,11 @@ async def list_integrations(db: DbSession, org_id: OrgId) -> list[dict[str, obje
             # Bounded well under the frontend's fetch budget: if Composio is
             # slow the page must still render from the DB (overlay is optional),
             # not time out client-side and show a load error.
-            connections = await asyncio.wait_for(client.list_connections(org_id), timeout=4)
+            # Show the caller's own connections (per-user when enabled), so the
+            # Integrations page reflects what this person has connected, not a
+            # shared org pool.
+            identity = composio_identity(org_id, (claims or {}).get("sub"))
+            connections = await asyncio.wait_for(client.list_connections(identity), timeout=4)
             # Collapse to one connection per native key, preferring ACTIVE. A key
             # whose only connection is EXPIRED must read "expired" (needs
             # reconnect), never "connected" — otherwise the card looks healthy
@@ -220,16 +226,16 @@ async def list_connector_documents(
 _INFLIGHT_INGESTS: set[tuple[str, str]] = set()
 
 
-async def _ingest_composio_in_background(org_id: str, slug: str) -> None:
+async def _ingest_composio_in_background(org_id: str, slug: str, owner_user_id: str = "") -> None:
     """Run a Composio re-ingest off the request path, with its own DB session.
 
     A full re-sync (25 files + media transcription + embeddings) easily exceeds
     the client's request timeout; run inline it left the UI stuck on "Syncing…"
     and the request was cancelled before ingest_composio_toolkit could record a
     sync run — so /sync-runs showed nothing. As a background task it always runs
-    to completion and records its result.
+    to completion and records its result. Scoped to the connection owner.
     """
-    key = (org_id, slug)
+    key = (org_id, owner_user_id, slug)
     if key in _INFLIGHT_INGESTS:
         return
     _INFLIGHT_INGESTS.add(key)
@@ -239,7 +245,7 @@ async def _ingest_composio_in_background(org_id: str, slug: str) -> None:
                 # ingest_composio_toolkit always records a sync run (success or a
                 # visible failed run), so a swallowed error here can't leave
                 # /sync-runs empty.
-                await ingest_composio_toolkit(org_id, slug, db)
+                await ingest_composio_toolkit(org_id, slug, db, owner_user_id=owner_user_id)
             except Exception:  # noqa: BLE001 — never crash the background worker
                 pass
     finally:
@@ -269,9 +275,12 @@ async def trigger_sync(
     client = get_default_composio_client()
     if client.available():
         slug = NATIVE_TO_COMPOSIO.get(connector_key, connector_key)
+        owner_user_id = _admin.get("sub", "")
         statuses: set[str] = set()
         try:
-            connections = await client.list_connections(org_id)
+            # Scope to the caller's own connection (per-user when enabled).
+            identity = composio_identity(org_id, owner_user_id)
+            connections = await client.list_connections(identity)
             statuses = {
                 (c.get("status") or "").upper()
                 for c in connections
@@ -282,7 +291,9 @@ async def trigger_sync(
         if "ACTIVE" in statuses:
             # Kick the ingest off in the background and return immediately so the
             # UI can show "sync started" and poll /sync-runs for the result.
-            background_tasks.add_task(_ingest_composio_in_background, org_id, slug)
+            background_tasks.add_task(
+                _ingest_composio_in_background, org_id, slug, owner_user_id
+            )
             return {
                 "connector_key": connector_key,
                 "status": "started",

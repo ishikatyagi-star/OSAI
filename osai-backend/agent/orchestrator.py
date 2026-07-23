@@ -196,7 +196,12 @@ async def run_ask(
         agent_answer = None
         try:
             agent_answer = await asyncio.wait_for(
-                run_composio_agent(request.org_id, request.question, history=request.history),
+                run_composio_agent(
+                    request.org_id,
+                    request.question,
+                    user_id=user_id,
+                    history=request.history,
+                ),
                 timeout=45,
             )
         except Exception:  # noqa: BLE001 — best-effort; fall through to RAG/Hermes
@@ -237,6 +242,7 @@ async def run_ask(
                     request.org_id,
                     request.question,
                     requester_permissions=requester_permissions,
+                    user_id=user_id,
                     cloud_egress_allowed=True,
                 ),
                 timeout=20,

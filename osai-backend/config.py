@@ -245,6 +245,13 @@ class Settings(BaseSettings):
     # live-read. Scales to any connector with no per-app code. Off by default so
     # it can be validated before it becomes the pilot's default grounding path.
     composio_agent_enabled: bool = False
+    # When true, Composio connections are scoped to the individual user rather
+    # than shared org-wide: each person connects and reads their own account, so
+    # "my email" is the asker's inbox and no org member can read another's
+    # connected data. Off by default (connections stay org-level) so it can be
+    # enabled deliberately after review — it changes the connection identity, so
+    # existing org-level connections must be reconnected under the new scheme.
+    composio_per_user_connections: bool = False
 
     @property
     def composio_toolkit_list(self) -> list[str]:

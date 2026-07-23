@@ -690,6 +690,7 @@ def record_sync_result(
     documents_seen: int,
     documents_indexed: int,
     error: str | None = None,
+    user_id: str = "",
 ) -> SyncRun:
     # sync_runs (and the connector_accounts row updated below) FK to
     # connectors.key; ensure it exists for Composio-only apps (gmail, …).
@@ -704,10 +705,12 @@ def record_sync_result(
         finished_at=now_utc(),
     )
     session.add(run)
+    # Update the owner's account (org-level when user_id is "").
     account = session.scalar(
         select(ConnectorAccount).where(
             ConnectorAccount.org_id == org_id,
             ConnectorAccount.connector_key == connector_key,
+            ConnectorAccount.user_id == user_id,
         )
     )
     if account:
@@ -994,19 +997,23 @@ def ensure_connector_record(
     )
 
 
-def ensure_connector_account(session: Session, org_id: str, connector_key: str) -> ConnectorAccount:
-    """Get (or create) the ConnectorAccount row for an org+connector. A Composio
-    OAuth connection may not have created one, but we need it to persist the
-    connected-account identity used for reconnect handling."""
+def ensure_connector_account(
+    session: Session, org_id: str, connector_key: str, user_id: str = ""
+) -> ConnectorAccount:
+    """Get (or create) the ConnectorAccount row for an org+connector, scoped to
+    an owner (empty = org-level/shared, a user id = a per-user connection). A
+    Composio OAuth connection may not have created one, but we need it to persist
+    the connected-account identity used for reconnect handling."""
     ensure_connector_record(session, connector_key, capabilities=["sync", "search"])
     account = session.scalar(
         select(ConnectorAccount).where(
             ConnectorAccount.org_id == org_id,
             ConnectorAccount.connector_key == connector_key,
+            ConnectorAccount.user_id == user_id,
         )
     )
     if account is None:
-        account = ConnectorAccount(org_id=org_id, connector_key=connector_key)
+        account = ConnectorAccount(org_id=org_id, connector_key=connector_key, user_id=user_id)
         session.add(account)
         session.flush()
     return account
