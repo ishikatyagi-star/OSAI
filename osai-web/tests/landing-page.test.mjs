@@ -58,6 +58,11 @@ test("homepage keeps its audit fixes", () => {
   assert.match(universityHtml, /landing-eleven\.css\?v=20260716-orbit-nav/);
   assert.doesNotMatch(html, /Explore live workflow/);
   assert.match(html, /matchMedia\('\(prefers-reduced-motion: reduce\)'\)/);
+  assert.match(html, /document\.documentElement\.classList\.add\('js'\)/);
+  assert.match(html, /if \(reduceMotion \|\| !\('IntersectionObserver' in window\)\)/);
+  assert.match(html, /document\.documentElement\.classList\.remove\('js'\)/);
+  assert.match(html, /\.fade-up\s*{\s*opacity: 1;/);
+  assert.match(html, /\.js \.fade-up\s*{\s*opacity: 0;/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
   assert.match(css, /\.prose p strong\s*{[^}]*color: var\(--el-ink\) !important;/s);
   assert.match(css, /\.out-cell p\s*{[^}]*color: var\(--el-body\) !important;/s);

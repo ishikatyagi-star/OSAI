@@ -11,6 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet" />
+<script>document.documentElement.classList.add('js');</script>
 <style>
   /* =========================================================
      Sheldon - SaaS marketing page
@@ -426,10 +427,10 @@
   }
 
   @media (min-width: 981px) {
-    .loop-node.fade-up { transform: translate(-50%, calc(-50% + 22px)); }
-    .loop-node.fade-up.visible { transform: translate(-50%, -50%); }
-    .loop-hub.fade-up { transform: translate(-50%, calc(-50% + 22px)); }
-    .loop-hub.fade-up.visible { transform: translate(-50%, -50%); }
+    .js .loop-node.fade-up { transform: translate(-50%, calc(-50% + 22px)); }
+    .js .loop-node.fade-up.visible { transform: translate(-50%, -50%); }
+    .js .loop-hub.fade-up { transform: translate(-50%, calc(-50% + 22px)); }
+    .js .loop-hub.fade-up.visible { transform: translate(-50%, -50%); }
   }
 
   .loop-hub span {
@@ -744,8 +745,9 @@
   }
 
   /* ---------- SCROLL ANIMATION ---------- */
-  .fade-up { opacity: 0; transform: translateY(22px); transition: opacity 0.6s ease-out, transform 0.6s ease-out; }
-  .fade-up.visible { opacity: 1; transform: translateY(0); }
+  .fade-up { opacity: 1; transform: translateY(0); transition: opacity 0.6s ease-out, transform 0.6s ease-out; }
+  .js .fade-up { opacity: 0; transform: translateY(22px); }
+  .js .fade-up.visible { opacity: 1; transform: translateY(0); }
 
   /* ---------- RESPONSIVE ---------- */
   @media (min-width: 981px) and (max-width: 1050px) {
@@ -1194,32 +1196,37 @@
 </footer>
 
 <script>
-  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const mobileMenu = document.querySelector('.nav-mobile-menu');
-  const mobileMenuTrigger = mobileMenu.querySelector('summary');
+  try {
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const mobileMenu = document.querySelector('.nav-mobile-menu');
+    const mobileMenuTrigger = mobileMenu.querySelector('summary');
 
-  mobileMenu.addEventListener('toggle', () => {
-    mobileMenuTrigger.setAttribute('aria-expanded', String(mobileMenu.open));
-  });
+    mobileMenu.addEventListener('toggle', () => {
+      mobileMenuTrigger.setAttribute('aria-expanded', String(mobileMenu.open));
+    });
 
-  mobileMenu.addEventListener('click', (event) => {
-    if (event.target.closest('a')) mobileMenu.removeAttribute('open');
-  });
+    mobileMenu.addEventListener('click', (event) => {
+      if (event.target.closest('a')) mobileMenu.removeAttribute('open');
+    });
 
-  // Scroll reveal
-  const fadeEls = document.querySelectorAll('.fade-up');
-  if (reduceMotion) {
-    fadeEls.forEach((el) => el.classList.add('visible'));
-  } else {
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          entry.target.classList.add('visible');
-          observer.unobserve(entry.target);
-        }
-      });
-    }, { threshold: 0.12 });
-    fadeEls.forEach((el) => observer.observe(el));
+    // Scroll reveal
+    const fadeEls = document.querySelectorAll('.fade-up');
+    if (reduceMotion || !('IntersectionObserver' in window)) {
+      fadeEls.forEach((el) => el.classList.add('visible'));
+    } else {
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+            observer.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.12 });
+      fadeEls.forEach((el) => observer.observe(el));
+    }
+  } catch (error) {
+    document.documentElement.classList.remove('js');
+    console.error('Homepage enhancement initialization failed.', error);
   }
 
 </script>
