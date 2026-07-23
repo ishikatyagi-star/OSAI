@@ -60,10 +60,6 @@ body {
   text-decoration: none;
 }
 
-.landing-saas section[id] {
-  scroll-margin-top: 80px;
-}
-
 .skip-link:focus-visible {
   transform: translateY(0);
   outline: 3px solid var(--el-ink);

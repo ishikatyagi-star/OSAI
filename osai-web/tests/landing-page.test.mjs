@@ -40,7 +40,6 @@ test("homepage keeps its audit fixes", () => {
   assert.match(html, /<main id="main-content" tabindex="-1">/);
   assert.match(css, /\.skip-link:focus-visible\s*{[^}]*transform: translateY\(0\);[^}]*outline: 3px solid var\(--el-ink\);/s);
   assert.match(css, /scroll-padding-top: 80px;/);
-  assert.match(css, /\.landing-saas section\[id\]\s*{[^}]*scroll-margin-top: 80px;/s);
   assert.match(html, /<details class="nav-mobile-menu">/);
   assert.match(html, /<summary role="button" aria-label="Navigation menu" aria-controls="mobile-navigation" aria-expanded="false">/);
   assert.match(html, /mobileMenuTrigger\.setAttribute\('aria-expanded', String\(mobileMenu\.open\)\)/);
