@@ -73,8 +73,12 @@ test("homepage preserves the approved positioning and section content", () => {
   assert.equal((html.match(/<article class="loop-node /g) ?? []).length, 5);
   assert.match(html, /<span class="loop-num">4<\/span>Update/);
   assert.match(html, /<span class="loop-num">5<\/span>Audit/);
-  assert.equal((html.match(/<article class="saas-workflow /g) ?? []).length, 6);
-  assert.equal((html.match(/<span aria-hidden="true">→<\/span>/g) ?? []).length, 24);
+  assert.equal((html.match(/<article class="signal-card /g) ?? []).length, 4);
+  const memoryConnectors = html.match(/<svg class="memory-connectors"[\s\S]*?<\/svg>/)?.[0] ?? "";
+  assert.equal((memoryConnectors.match(/<path d="M/g) ?? []).length, 4);
+  assert.match(html, /Sheldon learns <span[^>]*>while your SaaS runs\.<\/span>/);
+  assert.match(html, /Shared company memory/);
+  assert.doesNotMatch(html, /class="memory-hub fade-up"/);
   assert.equal((html.match(/<div class="feat-card /g) ?? []).length, 6);
   assert.match(html, /One brain to remember\. A team of agents to execute\./);
   assert.match(html, /Got work\?<br>Shall be done\.<span class="final-signoff">Signed, Sheldon\.<\/span>/);
@@ -99,9 +103,10 @@ test("homepage keeps loop, workflow, feature, and focus layouts responsive", () 
   assert.match(html, /\.landing-saas a:focus-visible,\s*\.landing-saas summary:focus-visible\s*{/);
   assert.match(html, /@media \(max-width: 980px\)[\s\S]*?\.loop-orbit\s*{\s*display: flex;\s*flex-direction: column;/);
   assert.match(html, /\.loop-hub::after\s*{[\s\S]*?Back to ingest/);
-  assert.match(html, /@media \(max-width: 980px\)[\s\S]*?\.saas-workflow\s*{\s*grid-template-columns: 36px/);
+  assert.match(html, /\.signal-grid\s*{[\s\S]*?grid-template-columns: repeat\(4, minmax\(0, 1fr\)\);/);
+  assert.match(html, /@media \(max-width: 980px\)[\s\S]*?\.signal-grid\s*{\s*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/);
   assert.match(html, /@media \(max-width: 560px\)[\s\S]*?\.landing-saas \.feat-grid\s*{\s*grid-template-columns: 1fr;/);
-  assert.match(html, /@media \(max-width: 560px\)[\s\S]*?\.saas-workflow\s*{\s*grid-template-columns: 32px 1fr;/);
+  assert.match(html, /@media \(max-width: 560px\)[\s\S]*?\.signal-grid\s*{\s*grid-template-columns: 1fr;/);
   const requiredNavTargets = ["top", "problem", "loop", "use-cases", "features", "outcomes", "team", "demo"];
   const desktopNav = html.match(/<div class="nav-links">([\s\S]*?)<\/div>/)?.[1] ?? "";
   const mobileNav = html.match(/<div class="nav-mobile-links"[^>]*>([\s\S]*?)<\/div>/)?.[1] ?? "";

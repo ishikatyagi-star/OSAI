@@ -458,65 +458,119 @@
   .loop-arrow-return { top: 18%; left: 25%; }
 
   /* ---------- USE CASES ---------- */
-  .saas-workflows {
+  .saas-memory-map {
+    position: relative;
+    min-height: 470px;
     margin-top: 56px;
-    border-top: 1px solid var(--el-hairline);
   }
 
-  .saas-workflow {
+  .signal-grid {
+    position: relative;
+    z-index: 2;
     display: grid;
-    grid-template-columns: 48px minmax(180px, 0.8fr) minmax(320px, 1.6fr) minmax(130px, 0.6fr);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .signal-card {
+    min-width: 0;
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.82);
+    border: 1px solid var(--el-hairline-strong);
+    border-radius: 16px;
+    box-shadow: 0 10px 28px rgba(12, 10, 9, 0.04);
+  }
+
+  .signal-card h3 {
+    margin-bottom: 14px;
+    font-size: 15px;
+    line-height: 1.3;
+  }
+
+  .signal-list {
+    display: grid;
+    gap: 10px;
+    list-style: none;
+  }
+
+  .signal-list li {
+    display: grid;
+    grid-template-columns: 30px minmax(0, 1fr);
     align-items: center;
-    gap: 24px;
-    min-height: 136px;
-    padding: 24px 0;
-    border-bottom: 1px solid var(--el-hairline);
-    transition: background-color 0.18s ease-out;
-  }
-
-  .saas-workflow:hover {
-    background: rgba(255, 255, 255, 0.56);
-  }
-
-  .workflow-index {
-    color: var(--el-muted);
-    font-family: var(--el-serif, Georgia, serif);
-    font-size: 18px;
-  }
-
-  .workflow-team {
-    display: block;
-    margin-bottom: 8px;
-    color: var(--el-muted);
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-
-  .workflow-name h3 { font-size: 19px; line-height: 1.25; }
-
-  .workflow-path {
+    gap: 9px;
     color: var(--el-body);
-    font-size: 16px;
-    line-height: 1.55;
+    font-size: 14px;
+    line-height: 1.35;
   }
 
-  .workflow-path span {
-    display: inline-block;
-    margin: 0 5px;
-    color: var(--el-ink);
-  }
-
-  .workflow-result {
-    justify-self: end;
-    padding: 8px 12px;
+  .source-mark {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
     background: var(--el-surface-strong);
-    border-radius: var(--r-pill);
+    border: 1px solid var(--el-hairline);
+    border-radius: 8px;
     color: var(--el-ink);
     font-size: 12px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .memory-connectors {
+    position: absolute;
+    inset: 142px 0 76px;
+    z-index: 1;
+    width: 100%;
+    height: calc(100% - 218px);
+    overflow: visible;
+    pointer-events: none;
+  }
+
+  .memory-connectors path {
+    fill: none;
+    stroke: var(--el-muted);
+    stroke-width: 1.5;
+    stroke-dasharray: 4 6;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .memory-connectors circle {
+    fill: var(--el-ink);
+  }
+
+  .memory-hub {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    z-index: 3;
+    display: grid;
+    justify-items: center;
+    gap: 8px;
+    width: 160px;
+    transform: translateX(-50%);
+    text-align: center;
+  }
+
+  .memory-hub img {
+    width: 72px;
+    height: 72px;
+    border: 1px solid rgba(12, 10, 9, 0.08);
+    border-radius: 18px;
+    box-shadow: 0 12px 28px rgba(12, 10, 9, 0.14);
+  }
+
+  .memory-hub strong {
+    font-size: 14px;
+    line-height: 1.2;
+  }
+
+  .memory-hub span {
+    color: var(--el-muted);
+    font-size: 11px;
     font-weight: 600;
-    white-space: nowrap;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
   }
 
   /* ---------- INSIDE Sheldon (features) ---------- */
@@ -754,12 +808,30 @@
       letter-spacing: 0.06em;
       text-transform: uppercase;
     }
-    .saas-workflow {
-      grid-template-columns: 36px minmax(160px, 0.8fr) minmax(0, 1.5fr);
+    .saas-memory-map {
+      min-height: 0;
     }
-    .workflow-result {
-      grid-column: 2 / -1;
-      justify-self: start;
+    .signal-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .memory-connectors {
+      display: none;
+    }
+    .memory-hub {
+      position: relative;
+      bottom: auto;
+      left: auto;
+      margin: 56px auto 0;
+      transform: none;
+    }
+    .memory-hub::before {
+      content: '';
+      position: absolute;
+      top: -40px;
+      left: 50%;
+      width: 1px;
+      height: 28px;
+      background: repeating-linear-gradient(to bottom, var(--el-muted) 0 4px, transparent 4px 8px);
     }
     .footer-inner { grid-template-columns: 1fr; }
     .footer-cols { justify-content: flex-start; gap: 48px; }
@@ -769,15 +841,8 @@
     .feat-grid, .out-grid, .team-grid { grid-template-columns: 1fr; }
     .landing-saas .feat-grid { grid-template-columns: 1fr; }
     .landing-saas .feat-card { min-height: 190px; }
-    .saas-workflow {
-      grid-template-columns: 32px 1fr;
-      gap: 12px 16px;
-      padding: 24px 0;
-    }
-    .workflow-index { grid-row: 1 / span 3; }
-    .workflow-path,
-    .workflow-result { grid-column: 2; }
-    .workflow-result { margin-top: 4px; }
+    .signal-grid { grid-template-columns: 1fr; }
+    .signal-card { padding: 18px; }
     h1 { font-size: 44px; }
   }
 </style>
@@ -917,46 +982,59 @@
   <div class="wrap">
     <div class="section-head fade-up">
       <span class="eyebrow">SaaS workflows</span>
-      <h2>Keep every stage of your SaaS company moving.</h2>
-      <p class="lead" style="margin-top:20px;">Sheldon carries work from the first signal to the final system update, across the workflows your teams run every day.</p>
+      <h2>Sheldon learns <span style="color:var(--el-muted);">while your SaaS runs.</span></h2>
+      <p class="lead" style="margin-top:20px;">Every customer conversation, product signal, support issue, and business decision becomes shared memory your whole company can act on.</p>
     </div>
-    <div class="saas-workflows" role="list">
-      <article class="saas-workflow fade-up" role="listitem">
-        <div class="workflow-index">01</div>
-        <div class="workflow-name"><span class="workflow-team">Revenue</span><h3>Lead to closed-won</h3></div>
-        <p class="workflow-path">Capture and enrich <span aria-hidden="true">→</span> route the owner <span aria-hidden="true">→</span> run follow-ups <span aria-hidden="true">→</span> coordinate deal desk <span aria-hidden="true">→</span> update the CRM</p>
-        <div class="workflow-result">CRM current</div>
-      </article>
-      <article class="saas-workflow fade-up" role="listitem">
-        <div class="workflow-index">02</div>
-        <div class="workflow-name"><span class="workflow-team">Customer success</span><h3>Signed to live</h3></div>
-        <p class="workflow-path">Receive the handoff <span aria-hidden="true">→</span> schedule kickoff <span aria-hidden="true">→</span> provision access <span aria-hidden="true">→</span> track onboarding <span aria-hidden="true">→</span> launch the customer</p>
-        <div class="workflow-result">Customer launched</div>
-      </article>
-      <article class="saas-workflow fade-up" role="listitem">
-        <div class="workflow-index">03</div>
-        <div class="workflow-name"><span class="workflow-team">Support</span><h3>Escalation to resolution</h3></div>
-        <p class="workflow-path">Detect severity <span aria-hidden="true">→</span> gather account context <span aria-hidden="true">→</span> route engineering <span aria-hidden="true">→</span> update the customer <span aria-hidden="true">→</span> close the loop</p>
-        <div class="workflow-result">Issue resolved</div>
-      </article>
-      <article class="saas-workflow fade-up" role="listitem">
-        <div class="workflow-index">04</div>
-        <div class="workflow-name"><span class="workflow-team">Product</span><h3>Feedback to roadmap</h3></div>
-        <p class="workflow-path">Collect signals <span aria-hidden="true">→</span> cluster requests <span aria-hidden="true">→</span> attach revenue and usage <span aria-hidden="true">→</span> create the issue <span aria-hidden="true">→</span> notify customers when shipped</p>
-        <div class="workflow-result">Roadmap informed</div>
-      </article>
-      <article class="saas-workflow fade-up" role="listitem">
-        <div class="workflow-index">05</div>
-        <div class="workflow-name"><span class="workflow-team">Renewals</span><h3>Health signal to renewal</h3></div>
-        <p class="workflow-path">Watch usage and risk <span aria-hidden="true">→</span> build the account plan <span aria-hidden="true">→</span> coordinate outreach <span aria-hidden="true">→</span> handle approvals <span aria-hidden="true">→</span> update the forecast</p>
-        <div class="workflow-result">Renewal advanced</div>
-      </article>
-      <article class="saas-workflow fade-up" role="listitem">
-        <div class="workflow-index">06</div>
-        <div class="workflow-name"><span class="workflow-team">Finance</span><h3>Usage to cash</h3></div>
-        <p class="workflow-path">Reconcile usage <span aria-hidden="true">→</span> prepare invoices <span aria-hidden="true">→</span> flag anomalies <span aria-hidden="true">→</span> run dunning <span aria-hidden="true">→</span> sync finance systems</p>
-        <div class="workflow-result">Cash collected</div>
-      </article>
+    <div class="saas-memory-map">
+      <div class="signal-grid" role="list">
+        <article class="signal-card fade-up" role="listitem">
+          <h3>Revenue</h3>
+          <ul class="signal-list">
+            <li><span class="source-mark">CRM</span><span>Enterprise trial reached activation</span></li>
+            <li><span class="source-mark">Mail</span><span>Legal asked for security docs</span></li>
+            <li><span class="source-mark">Call</span><span>Pricing objection surfaced</span></li>
+          </ul>
+        </article>
+        <article class="signal-card fade-up" role="listitem">
+          <h3>Customer success</h3>
+          <ul class="signal-list">
+            <li><span class="source-mark">Help</span><span>Priority ticket linked to renewal</span></li>
+            <li><span class="source-mark">Use</span><span>Workspace adoption fell 18%</span></li>
+            <li><span class="source-mark">Call</span><span>Onboarding blocker captured</span></li>
+          </ul>
+        </article>
+        <article class="signal-card fade-up" role="listitem">
+          <h3>Product &amp; engineering</h3>
+          <ul class="signal-list">
+            <li><span class="source-mark">Issue</span><span>Request attached to $42k ARR</span></li>
+            <li><span class="source-mark">Code</span><span>Fix merged and release tagged</span></li>
+            <li><span class="source-mark">Ops</span><span>Incident linked to affected accounts</span></li>
+          </ul>
+        </article>
+        <article class="signal-card fade-up" role="listitem">
+          <h3>Finance &amp; operations</h3>
+          <ul class="signal-list">
+            <li><span class="source-mark">Bill</span><span>Usage threshold crossed</span></li>
+            <li><span class="source-mark">Deal</span><span>Renewal terms approved</span></li>
+            <li><span class="source-mark">Docs</span><span>New policy replaces old guidance</span></li>
+          </ul>
+        </article>
+      </div>
+      <svg class="memory-connectors" viewBox="0 0 1000 260" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M125 0 C125 92 420 126 500 236"></path>
+        <path d="M375 0 C375 96 464 132 500 236"></path>
+        <path d="M625 0 C625 96 536 132 500 236"></path>
+        <path d="M875 0 C875 92 580 126 500 236"></path>
+        <circle cx="250" cy="94" r="4"></circle>
+        <circle cx="420" cy="112" r="4"></circle>
+        <circle cx="580" cy="112" r="4"></circle>
+        <circle cx="750" cy="94" r="4"></circle>
+      </svg>
+      <div class="memory-hub">
+        <img src="/brand/sheldon-ai-logo.png" alt="" width="72" height="72" loading="lazy">
+        <strong>Sheldon</strong>
+        <span>Shared company memory</span>
+      </div>
     </div>
   </div>
 </section>
