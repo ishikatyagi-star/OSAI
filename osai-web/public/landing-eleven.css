@@ -29,6 +29,7 @@
 
 html {
   background: var(--el-canvas);
+  scroll-padding-top: 80px;
 }
 
 body {
@@ -42,6 +43,31 @@ body {
   line-height: 1.5 !important;
   letter-spacing: 0.01em !important;
   overflow-x: hidden;
+}
+
+.skip-link {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 1001;
+  padding: 10px 14px;
+  transform: translateY(-160%);
+  background: var(--el-surface);
+  border: 2px solid var(--el-ink);
+  border-radius: 8px;
+  color: var(--el-ink);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.landing-saas section[id] {
+  scroll-margin-top: 80px;
+}
+
+.skip-link:focus-visible {
+  transform: translateY(0);
+  outline: 3px solid var(--el-ink);
+  outline-offset: 3px;
 }
 
 a {
