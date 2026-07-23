@@ -54,6 +54,7 @@ test("homepage keeps its audit fixes", () => {
   assert.match(css, /\.landing-saas \.hero\s*{[^}]*min-height: auto !important;/s);
   assert.match(css, /\.landing-saas \.nav-mobile-menu\[open\]::before\s*,\s*\.landing-university \.nav-mobile-menu\[open\]::before\s*{/);
   assert.match(css, /@media \(max-width: 980px\)\s*{[\s\S]*?\.nav-mobile-menu\s*{\s*display: block;/);
+  assert.match(css, /\.nav-mobile-menu summary\s*{[^}]*min-width: 44px;[^}]*min-height: 44px;/s);
   assert.match(html, /landing-eleven\.css\?v=20260723-glass-wordmark-3/);
   assert.equal((html.match(/fonts\.googleapis\.com\/css2/g) ?? []).length, 0);
   assert.equal((css.match(/fonts\.googleapis\.com\/css2/g) ?? []).length, 1);

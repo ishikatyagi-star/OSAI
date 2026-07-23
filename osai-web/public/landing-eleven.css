@@ -126,9 +126,11 @@ footer .footer-logo {
 }
 
 .nav-mobile-menu summary {
+  min-width: 44px;
   min-height: 44px;
   display: flex;
   align-items: center;
+  justify-content: center;
   cursor: pointer;
   color: var(--el-body);
   font-size: 15px;
