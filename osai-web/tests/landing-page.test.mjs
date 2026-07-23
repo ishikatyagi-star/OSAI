@@ -70,6 +70,7 @@ test("homepage keeps its audit fixes", () => {
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
   assert.match(css, /\.prose p strong\s*{[^}]*color: var\(--el-ink\) !important;/s);
   assert.match(css, /\.out-cell p\s*{[^}]*color: var\(--el-body\) !important;/s);
+  assert.match(css, /h1,\s*h2,\s*\.spotlight-quote\s*{[^}]*text-wrap: balance;/s);
 });
 
 test("homepage preserves the approved positioning and section content", () => {

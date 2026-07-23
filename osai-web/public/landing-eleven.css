@@ -489,6 +489,7 @@ h2,
   font-family: var(--el-serif) !important;
   font-weight: 400 !important;
   letter-spacing: -0.028em !important;
+  text-wrap: balance;
 }
 
 h1 {
