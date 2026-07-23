@@ -142,6 +142,36 @@ test("root landing route does not shadow app routes", () => {
   assert.match(landingRoute, /public.*saas\.html/s);
 });
 
+test("homepage CTAs keep their colors while adding raised interaction states", () => {
+  assert.match(
+    css,
+    /\.landing-saas \.btn\.btn-primary\s*{[^}]*background: var\(--el-primary\) !important;[^}]*box-shadow:/s,
+  );
+  assert.match(
+    css,
+    /\.landing-saas \.btn\.btn-primary:hover\s*{[^}]*background: var\(--el-primary\) !important;[^}]*box-shadow:[^}]*transform: translateY\(-2px\);/s,
+  );
+  assert.match(
+    css,
+    /\.landing-saas \.btn\.btn-primary:active\s*{[^}]*box-shadow:[^}]*translateY\(1px\) scale\(0\.99\);/s,
+  );
+  assert.match(
+    css,
+    /\.landing-saas \.btn\.btn-primary:focus-visible\s*{[^}]*outline: 3px solid var\(--el-ink\);[^}]*outline-offset: 3px;/s,
+  );
+  assert.match(css, /\.landing-saas \.btn\.btn-secondary\s*{[^}]*box-shadow:/s);
+  assert.match(css, /\.landing-saas \.btn\.btn-secondary::before\s*{[^}]*content: "↗";/s);
+  assert.match(css, /\.landing-saas \.btn\.btn-secondary:hover\s*{[^}]*box-shadow:[^}]*translateY\(-2px\);/s);
+  assert.match(
+    css,
+    /\.landing-saas \.btn\.btn-secondary:active\s*{[^}]*box-shadow:[^}]*translateY\(1px\) scale\(0\.99\);/s,
+  );
+  assert.match(
+    css,
+    /\.landing-saas \.btn\.btn-secondary:focus-visible\s*{[^}]*outline: 3px solid var\(--el-ink\);[^}]*outline-offset: 3px;/s,
+  );
+});
+
 test("marketing pages expose only the Sheldon brand", () => {
   for (const source of [html, withoutDataUris(universityHtml)]) {
     const text = visibleText(source);
