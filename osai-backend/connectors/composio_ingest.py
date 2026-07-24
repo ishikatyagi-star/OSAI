@@ -485,8 +485,21 @@ async def ingest_composio_toolkit(
 
 def _content_hash(text: str) -> str:
     """Stable hash of a document's indexed text, used to skip re-embedding
-    unchanged documents on subsequent syncs."""
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+    unchanged documents on subsequent syncs.
+
+    The hash is namespaced by the active embedding provider (name/model/
+    dimension) so that switching providers — whose vectors live in a different
+    space and dimension — invalidates the cache and forces a re-embed, instead
+    of leaving the index full of the previous provider's (now unqueryable)
+    vectors. Re-embedding overwrites the same content-derived Qdrant point ids."""
+    from memory.embeddings import default_embedding_provider as provider
+
+    namespace = (
+        f"{getattr(provider, 'name', '?')}:"
+        f"{getattr(provider, 'model', '?')}:"
+        f"{getattr(provider, 'dimension', '?')}"
+    )
+    return hashlib.sha256(f"{namespace}\x00{text}".encode("utf-8")).hexdigest()
 
 
 def _prior_embedded_hashes(session: Session, source_ids: list[str]) -> dict[str, str]:
