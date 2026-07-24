@@ -40,7 +40,9 @@ async def get_workflow_context_async(
         try:
             qdrant = get_default_qdrant_store()
             # Embed search query text
-            vectors = await default_embedding_provider.embed_texts([query_text])
+            vectors = await default_embedding_provider.embed_texts(
+                [query_text], is_query=True
+            )
             query_vector = vectors[0]
 
             # Query Qdrant

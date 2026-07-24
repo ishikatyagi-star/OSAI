@@ -158,7 +158,9 @@ async def retrieve_answer(request: SearchRequest) -> SearchResponse:
     # 1. Vector search over the document knowledge base (best-effort).
     hits: list = []
     try:
-        vectors = await default_embedding_provider.embed_texts([request.query])
+        vectors = await default_embedding_provider.embed_texts(
+            [request.query], is_query=True
+        )
         hits = await qdrant.search(vectors[0], request.org_id, limit=8)
     except Exception:
         hits = []

@@ -22,7 +22,13 @@ class EmbeddingProvider:
     name: str = "unknown"
     model: str = "unknown"
 
-    async def embed_texts(self, texts: list[str]) -> list[list[float]]:
+    async def embed_texts(
+        self, texts: list[str], *, is_query: bool = False
+    ) -> list[list[float]]:
+        # is_query selects the asymmetric retrieval task/input-type: a search
+        # query and an indexed passage are embedded differently by modern models,
+        # which materially raises the similarity of a genuine query/passage match
+        # (Jina v3 especially). Providers that don't distinguish ignore the flag.
         raise NotImplementedError
 
 
@@ -40,7 +46,9 @@ class HashEmbeddingProvider(EmbeddingProvider):
     def __init__(self, dimension: int = 64) -> None:
         self.dimension = dimension
 
-    async def embed_texts(self, texts: list[str]) -> list[list[float]]:
+    async def embed_texts(
+        self, texts: list[str], *, is_query: bool = False
+    ) -> list[list[float]]:
         return [self._embed_one(text) for text in texts]
 
     def _embed_one(self, text: str) -> list[float]:
@@ -77,13 +85,16 @@ class GeminiEmbeddingProvider(EmbeddingProvider):
         # collection dimension explicitly so vectors stay consistent.
         self.dimension = dimension
 
-    async def embed_texts(self, texts: list[str]) -> list[list[float]]:
+    async def embed_texts(
+        self, texts: list[str], *, is_query: bool = False
+    ) -> list[list[float]]:
         # Gemini embed_content is synchronous; run in batches of 100 (API limit).
         import asyncio
 
         from google.genai import types as genai_types  # type: ignore[import-untyped]
         from tenacity import AsyncRetrying, stop_after_attempt, wait_random_exponential
 
+        task_type = "RETRIEVAL_QUERY" if is_query else "RETRIEVAL_DOCUMENT"
         loop = asyncio.get_event_loop()
         results: list[list[float]] = []
         batch_size = 100
@@ -103,7 +114,7 @@ class GeminiEmbeddingProvider(EmbeddingProvider):
                             model=self._model,
                             contents=b,
                             config=genai_types.EmbedContentConfig(
-                                task_type="RETRIEVAL_DOCUMENT",
+                                task_type=task_type,
                                 output_dimensionality=self.dimension,
                             ),
                         ),
@@ -152,10 +163,13 @@ class VoyageEmbeddingProvider(EmbeddingProvider):
         self.dimension = dimension
         self._base_url = base_url.rstrip("/")
 
-    async def embed_texts(self, texts: list[str]) -> list[list[float]]:
+    async def embed_texts(
+        self, texts: list[str], *, is_query: bool = False
+    ) -> list[list[float]]:
         import httpx
         from tenacity import AsyncRetrying, stop_after_attempt, wait_random_exponential
 
+        input_type = "query" if is_query else "document"
         results: list[list[float]] = []
         batch_size = 128
         async with httpx.AsyncClient(timeout=60) as client:
@@ -176,7 +190,7 @@ class VoyageEmbeddingProvider(EmbeddingProvider):
                             json={
                                 "input": batch,
                                 "model": self._model,
-                                "input_type": "document",
+                                "input_type": input_type,
                                 "output_dimension": self.dimension,
                             },
                         )
@@ -277,10 +291,16 @@ class JinaEmbeddingProvider(EmbeddingProvider):
                 self._window_start, self._window_tokens = time.monotonic(), 0
             self._window_tokens += batch_tokens
 
-    async def embed_texts(self, texts: list[str]) -> list[list[float]]:
+    async def embed_texts(
+        self, texts: list[str], *, is_query: bool = False
+    ) -> list[list[float]]:
         import httpx
         from tenacity import AsyncRetrying, stop_after_attempt, wait_random_exponential
 
+        # Asymmetric retrieval: a query and an indexed passage embed differently,
+        # which markedly raises the cosine of a genuine match (a symmetric
+        # passage-vs-passage embedding left real matches near ~0.3).
+        task = "retrieval.query" if is_query else "retrieval.passage"
         results: list[list[float]] = []
         async with httpx.AsyncClient(timeout=60) as client:
             for batch in self._token_batches(texts):
@@ -299,9 +319,7 @@ class JinaEmbeddingProvider(EmbeddingProvider):
                             json={
                                 "model": self._model,
                                 "input": batch,
-                                # Same retrieval task for indexing and querying, as
-                                # the Gemini/Voyage providers here also do.
-                                "task": "retrieval.passage",
+                                "task": task,
                                 "dimensions": self.dimension,
                             },
                         )
