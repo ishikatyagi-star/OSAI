@@ -153,3 +153,47 @@ async def test_gmail_prefers_fetch_and_skips_empty_drafts():
     assert "Real email" in ctx
     assert "GMAIL_FETCH_EMAILS" in ctx
     assert client.executed[0][0] == "GMAIL_FETCH_EMAILS"
+
+
+_FETCH_TOOL_FULL = {
+    "name": "GMAIL_FETCH_EMAILS",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "query": {"type": "string"},
+            "verbose": {"type": "boolean"},
+            "max_results": {"type": "integer"},
+        },
+    },
+}
+
+
+class _GmailFullClient(_FakeClient):
+    def __init__(self):
+        super().__init__(
+            tools=[_DRAFTS_TOOL, _FETCH_TOOL_FULL],
+            connections=[{"toolkit": "gmail", "status": "ACTIVE"}],
+        )
+
+    async def execute_capped(self, slug, arguments, user_id, max_bytes):
+        self.executed.append((slug, arguments))
+        return {"successful": True, "data": {"messages": [{"subject": "Unread thing"}]}}
+
+
+async def test_gmail_unread_fetch_uses_verbose_and_is_unread_and_never_drafts():
+    client = _GmailFullClient()
+    ctx = await live_read_context(
+        "org-1",
+        "summarise my unread emails",
+        requester_permissions=["org:admin"],
+        client=client,
+    )
+    assert "Unread thing" in ctx
+    # Drafts are outbound compositions — never a source for a "read my emails"
+    # question, so GMAIL_LIST_DRAFTS must not be executed at all.
+    assert [slug for slug, _ in client.executed] == ["GMAIL_FETCH_EMAILS"]
+    slug, args = client.executed[0]
+    # Rich, summarizable content (verbose) targeted at the unread subset.
+    assert args.get("verbose") is True
+    assert args.get("query") == "is:unread"
+    assert args.get("max_results") == 10

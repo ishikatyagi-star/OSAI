@@ -34,6 +34,10 @@ _WRITE_MARKERS = (
     "_CREATE", "_UPDATE", "_DELETE", "_SEND", "_POST", "_ADD", "_REMOVE",
     "_SET", "_MOVE", "_ARCHIVE", "_UPLOAD", "_WRITE", "_REPLY", "_PATCH",
 )
+# Read-shaped tools that still aren't a useful source for "read/summarize my X":
+# drafts are outbound messages the user is composing, never incoming content, so
+# a "summarise my unread emails" question must never fall through to them.
+_SKIP_MARKERS = ("_DRAFT",)
 
 # Required parameters we know how to fill without app-specific knowledge.
 _QUERY_PARAMS = ("query", "q", "search_query", "keyword", "keywords")
@@ -46,7 +50,11 @@ _MAX_SNIPPET_CHARS = 3500
 
 def _is_read_tool(slug: str) -> bool:
     s = slug.upper()
-    return any(m in s for m in _READ_MARKERS) and not any(m in s for m in _WRITE_MARKERS)
+    return (
+        any(m in s for m in _READ_MARKERS)
+        and not any(m in s for m in _WRITE_MARKERS)
+        and not any(m in s for m in _SKIP_MARKERS)
+    )
 
 
 def _fillable_arguments(spec: dict[str, Any], question: str) -> dict[str, Any] | None:
@@ -68,6 +76,48 @@ def _fillable_arguments(spec: dict[str, Any], question: str) -> dict[str, Any] |
             args[name] = 10
             break
     return args
+
+
+# Extra arguments that make a preferred content tool return rich, summarizable
+# data instead of id-only stubs. Merged over the generically-filled arguments
+# (these win), then filtered to what the tool actually accepts. Keyed by toolkit
+# slug, then tool slug (upper-case). Gmail's fetch defaults to verbose=false,
+# which returns message id stubs with no subject/sender/body to summarize.
+_PREFERRED_TOOL_ARGS: dict[str, dict[str, dict[str, Any]]] = {
+    "gmail": {"GMAIL_FETCH_EMAILS": {"verbose": True, "max_results": 10}},
+}
+
+# Natural-language intent -> provider search filter, per toolkit. Lets a plain
+# question target the right subset (e.g. "unread emails" -> Gmail is:unread)
+# instead of the whole mailbox. Applied only to tools that declare a query param
+# and only when the generic filler did not already set one.
+_TOOLKIT_QUERY_INTENTS: dict[str, tuple[tuple[str, str], ...]] = {
+    "gmail": (
+        ("unread", "is:unread"),
+        ("important", "is:important"),
+        ("starred", "is:starred"),
+    ),
+}
+
+
+def _augmented_arguments(
+    toolkit: str, spec: dict[str, Any], args: dict[str, Any], question: str
+) -> dict[str, Any]:
+    """Enrich generically-filled arguments for one tool: add content-richness
+    defaults (e.g. Gmail verbose) and a provider search filter derived from the
+    question, then keep only parameters the tool declares so a provider can't 400
+    on an unknown field."""
+    name = (spec.get("name") or "").upper()
+    properties = (spec.get("parameters") or {}).get("properties") or {}
+    merged = dict(args)
+    merged.update(_PREFERRED_TOOL_ARGS.get(toolkit, {}).get(name, {}))
+    if "query" in properties and "query" not in merged:
+        lowered = question.lower()
+        for term, provider_filter in _TOOLKIT_QUERY_INTENTS.get(toolkit, ()):
+            if term in lowered:
+                merged["query"] = provider_filter
+                break
+    return {key: value for key, value in merged.items() if key in properties}
 
 
 # Natural-language terms that should trigger a live read of a connected app,
@@ -203,9 +253,10 @@ async def live_read_context(
         # Best content tool first (preferred per-toolkit, then FETCH>SEARCH>LIST>GET).
         candidates.sort(key=lambda ca: _tool_priority(ca[0]["name"], toolkit))
         for spec, args in candidates[:4]:
+            call_args = _augmented_arguments(toolkit, spec, args, question)
             try:
                 res = await client.execute_capped(
-                    spec["name"], args, identity, _MAX_RESPONSE_BYTES
+                    spec["name"], call_args, identity, _MAX_RESPONSE_BYTES
                 )
             except Exception as exc:  # noqa: BLE001
                 logger.warning("Live read %s failed: %s", spec["name"], exc)
