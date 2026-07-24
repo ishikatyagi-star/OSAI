@@ -14,6 +14,11 @@ if TYPE_CHECKING:
 
 class EmbeddingProvider:
     dimension: int
+    # Human-readable identity for capability reporting (see /capabilities). The
+    # active provider is not always the one a single key implies, so report from
+    # the instance rather than re-deriving it from settings.
+    name: str = "unknown"
+    model: str = "unknown"
 
     async def embed_texts(self, texts: list[str]) -> list[list[float]]:
         raise NotImplementedError
@@ -26,6 +31,9 @@ class EmbeddingProvider:
 
 class HashEmbeddingProvider(EmbeddingProvider):
     """Deterministic local embedding substitute for development and tests."""
+
+    name = "hash"
+    model = "hash-fallback"
 
     def __init__(self, dimension: int = 64) -> None:
         self.dimension = dimension
@@ -53,6 +61,8 @@ class HashEmbeddingProvider(EmbeddingProvider):
 class GeminiEmbeddingProvider(EmbeddingProvider):
     """Production embeddings via Google Gemini (gemini-embedding-001)."""
 
+    name = "gemini"
+
     def __init__(
         self, api_key: str, model: str = "gemini-embedding-001", dimension: int = 768
     ) -> None:
@@ -60,6 +70,7 @@ class GeminiEmbeddingProvider(EmbeddingProvider):
 
         self._client = genai.Client(api_key=api_key)
         self._model = model
+        self.model = model
         # gemini-embedding-001 returns 3072 dims by default; request the
         # collection dimension explicitly so vectors stay consistent.
         self.dimension = dimension
@@ -115,6 +126,7 @@ class VoyageEmbeddingProvider(EmbeddingProvider):
 
     # Dimensions voyage-3.x / voyage-3.5 models can emit via output_dimension.
     _SUPPORTED_DIMS = (256, 512, 1024, 2048)
+    name = "voyage"
 
     def __init__(
         self,
@@ -134,6 +146,7 @@ class VoyageEmbeddingProvider(EmbeddingProvider):
             )
         self._api_key = api_key
         self._model = model
+        self.model = model
         self.dimension = dimension
         self._base_url = base_url.rstrip("/")
 
@@ -174,13 +187,95 @@ class VoyageEmbeddingProvider(EmbeddingProvider):
 
 
 # ---------------------------------------------------------------------------
-# Default provider — Voyage, then Gemini, then hash fallback
+# Jina AI embedding provider — hosted, generous free tier
+# ---------------------------------------------------------------------------
+
+
+class JinaEmbeddingProvider(EmbeddingProvider):
+    """Embeddings via Jina AI's REST API (Bearer auth). jina-embeddings-v3 emits
+    Matryoshka embeddings up to 1024 dimensions; batches of 128 are retried on
+    transient failures."""
+
+    _MAX_DIM = 1024
+    name = "jina"
+
+    def __init__(
+        self,
+        api_key: str,
+        model: str = "jina-embeddings-v3",
+        dimension: int = 1024,
+        base_url: str = "https://api.jina.ai/v1",
+    ) -> None:
+        if not 1 <= dimension <= self._MAX_DIM:
+            # Fail loudly at boot rather than 422 on every embed at runtime.
+            raise ValueError(
+                f"OSAI_EMBEDDING_DIMENSION={dimension} is out of range for Jina "
+                f"({model}); it supports 1..{self._MAX_DIM}. Switching providers "
+                "also requires recreating the Qdrant collection at the new "
+                "dimension."
+            )
+        self._api_key = api_key
+        self._model = model
+        self.model = model
+        self.dimension = dimension
+        self._base_url = base_url.rstrip("/")
+
+    async def embed_texts(self, texts: list[str]) -> list[list[float]]:
+        import httpx
+        from tenacity import AsyncRetrying, stop_after_attempt, wait_random_exponential
+
+        results: list[list[float]] = []
+        batch_size = 128
+        async with httpx.AsyncClient(timeout=60) as client:
+            for i in range(0, len(texts), batch_size):
+                batch = texts[i : i + batch_size]
+                # Free-tier limits are per-minute; back off long enough for a 429
+                # to clear rather than retrying sub-second.
+                async for attempt in AsyncRetrying(
+                    stop=stop_after_attempt(4),
+                    wait=wait_random_exponential(multiplier=1, max=30),
+                    reraise=True,
+                ):
+                    with attempt:
+                        resp = await client.post(
+                            f"{self._base_url}/embeddings",
+                            headers={"Authorization": f"Bearer {self._api_key}"},
+                            json={
+                                "model": self._model,
+                                "input": batch,
+                                # Same retrieval task for indexing and querying, as
+                                # the Gemini/Voyage providers here also do.
+                                "task": "retrieval.passage",
+                                "dimensions": self.dimension,
+                            },
+                        )
+                        resp.raise_for_status()
+                        data = resp.json()
+                for item in sorted(data["data"], key=lambda d: d["index"]):
+                    # Truncated Matryoshka embeddings are not guaranteed unit
+                    # length; normalize so cosine similarity in Qdrant is meaningful.
+                    values = list(item["embedding"])
+                    norm = math.sqrt(sum(v * v for v in values)) or 1.0
+                    results.append([v / norm for v in values])
+        return results
+
+
+# ---------------------------------------------------------------------------
+# Default provider — Jina, then Voyage, then Gemini, then hash fallback
 # ---------------------------------------------------------------------------
 
 
 def _build_default_provider() -> EmbeddingProvider:
-    # Voyage first: it's the no-billing-required path, so when a key is present
-    # it's the deliberate choice over Gemini.
+    # Jina first: hosted with a generous free tier, so when a key is present it's
+    # the deliberate choice over Voyage/Gemini.
+    if settings.jina_api_key:
+        return JinaEmbeddingProvider(
+            api_key=settings.jina_api_key,
+            model=settings.jina_model,
+            dimension=settings.embedding_dimension,
+            base_url=settings.jina_base_url,
+        )
+    # Voyage next: also a no-billing-required path over Gemini.
     if settings.voyage_api_key:
         return VoyageEmbeddingProvider(
             api_key=settings.voyage_api_key,

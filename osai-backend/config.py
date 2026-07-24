@@ -66,10 +66,12 @@ class Settings(BaseSettings):
         # fail loudly at boot rather than quietly serve degraded answers (mirrors
         # the guards above). Either Voyage or Gemini satisfies this. Local dev
         # keeps the fallback so the stack runs without a key.
-        if self.env != "local" and not (self.gemini_api_key or self.voyage_api_key):
+        if self.env != "local" and not (
+            self.gemini_api_key or self.voyage_api_key or self.jina_api_key
+        ):
             raise ValueError(
-                "An embedding provider key (OSAI_VOYAGE_API_KEY or "
-                "OSAI_GEMINI_API_KEY) must be set when OSAI_ENV is "
+                "An embedding provider key (OSAI_JINA_API_KEY, OSAI_VOYAGE_API_KEY, "
+                "or OSAI_GEMINI_API_KEY) must be set when OSAI_ENV is "
                 f"{self.env!r} — without one, embeddings silently degrade to "
                 "non-semantic hash vectors and retrieval quality collapses with "
                 "no error. Set a key, or run with OSAI_ENV=local to use the "
@@ -223,6 +225,16 @@ class Settings(BaseSettings):
     voyage_api_key: str | None = None
     voyage_model: str = "voyage-3.5-lite"
     voyage_base_url: str = "https://api.voyageai.com/v1"
+
+    # Jina AI embeddings — hosted, generous free tier. When OSAI_JINA_API_KEY is
+    # set it takes precedence over Voyage and Gemini (see
+    # memory/embeddings._build_default_provider). jina-embeddings-v3 supports
+    # Matryoshka output dimensions up to 1024; keep OSAI_EMBEDDING_DIMENSION in
+    # sync (<=1024) and recreate the Qdrant collection when switching providers
+    # (the vector space differs even at the same dimension).
+    jina_api_key: str | None = None
+    jina_model: str = "jina-embeddings-v3"
+    jina_base_url: str = "https://api.jina.ai/v1"
 
     # LLM text generation — any OpenAI-compatible provider (Groq, OpenRouter,
     # GitHub Models, Cerebras, Mistral, …). When set, it is the preferred provider

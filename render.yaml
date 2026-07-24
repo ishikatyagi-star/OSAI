@@ -63,11 +63,13 @@ services:
         sync: false
       - key: OSAI_QDRANT_API_KEY      # your Qdrant Cloud API key
         sync: false
-      - key: OSAI_GEMINI_API_KEY      # embeddings (used only if no Voyage key)
+      - key: OSAI_GEMINI_API_KEY      # embeddings (fallback if no Jina/Voyage key)
         sync: false
-      - key: OSAI_VOYAGE_API_KEY      # embeddings, no-billing alt; takes precedence over Gemini
+      - key: OSAI_VOYAGE_API_KEY      # embeddings, no-billing alt; used if no Jina key
         sync: false
-      - key: OSAI_EMBEDDING_DIMENSION # set 1024 when using Voyage (voyage-3.5-lite); recreate Qdrant collection on switch
+      - key: OSAI_JINA_API_KEY        # embeddings (jina-embeddings-v3); takes precedence over Voyage/Gemini
+        sync: false
+      - key: OSAI_EMBEDDING_DIMENSION # 1024 for Jina (jina-v3, max 1024) or Voyage; recreate Qdrant collection on switch
         sync: false
       - key: OSAI_LLM_API_KEY          # Groq (text generation)
         sync: false

@@ -160,12 +160,16 @@ async def capabilities() -> dict[str, object]:
     from connectors.composio_tool import get_default_composio_client
 
     scheduler = await asyncio.to_thread(_scheduler_available)
-    # Whether retrieval is actually semantic. Without a Gemini key the embedder
-    # falls back to hash vectors (keyword bucketing), which answers questions
-    # visibly worse while erroring nowhere — so report it rather than let it hide.
-    # A non-local deploy refuses to boot in that state (see config guard); this
-    # keeps it observable in local/dev, where the fallback is allowed.
-    semantic_embeddings = bool(settings.gemini_api_key)
+    # Whether retrieval is actually semantic. Report from the *active* embedding
+    # provider, not from whichever key happens to be set: Jina/Voyage take
+    # precedence over Gemini, so a Gemini-key-only check would misname the model
+    # in use. Without any provider key the embedder falls back to hash vectors
+    # (keyword bucketing), which answers visibly worse while erroring nowhere; a
+    # non-local deploy refuses to boot in that state (see config guard), so this
+    # is observable mainly in local/dev where the fallback is allowed.
+    from memory.embeddings import HashEmbeddingProvider, default_embedding_provider
+
+    semantic_embeddings = not isinstance(default_embedding_provider, HashEmbeddingProvider)
     return {
         "environment": settings.env,
         "scheduler": scheduler,
@@ -175,9 +179,7 @@ async def capabilities() -> dict[str, object]:
         "sql_sources": True,  # server-side read-only SQL is built in
         "workflow_execution": bool(settings.hermes_sidecar_url and settings.hermes_sidecar_token),
         "semantic_embeddings": semantic_embeddings,
-        "embedding_model": (
-            settings.gemini_embedding_model if semantic_embeddings else "hash-fallback"
-        ),
+        "embedding_model": getattr(default_embedding_provider, "model", "hash-fallback"),
         "google_oauth": settings.google_oauth_enabled,
         "email_login": bool(settings.email_login_enabled),
         "zoom_webhook": False,
