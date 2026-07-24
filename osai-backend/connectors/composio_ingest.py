@@ -405,7 +405,11 @@ async def ingest_composio_toolkit(
                 await qdrant_store.upsert_chunks(list(pending_chunks))
             except Exception as exc:  # noqa: BLE001 — vectors shouldn't block sync
                 logger.warning("Composio vector batch failed for %s: %s", toolkit, exc)
-                vector_error = "Vector indexing failed; retry the sync."
+                # Surface the actual cause (embedding-provider HTTP status /
+                # Qdrant dimension mismatch) instead of a generic message, so a
+                # failed sync is diagnosable from /sync-runs without server logs.
+                detail = str(exc).strip() or type(exc).__name__
+                vector_error = f"Vector indexing failed: {detail[:240]}"
                 failed_doc_ids.update(pending_doc_ids)
             pending_chunks.clear()
             pending_doc_ids.clear()
