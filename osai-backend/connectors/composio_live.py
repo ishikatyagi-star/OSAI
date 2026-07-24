@@ -36,15 +36,23 @@ _WRITE_MARKERS = (
 )
 # Read-shaped tools that still aren't a useful source for "read/summarize my X":
 # drafts are outbound messages the user is composing, never incoming content, so
-# a "summarise my unread emails" question must never fall through to them.
-_SKIP_MARKERS = ("_DRAFT",)
+# a "summarise my unread emails" question must never fall through to them. The
+# metadata/directory tools (labels, profile, contacts, people) are likewise never
+# a useful answer to a "read/summarize my X" question — excluding them stops the
+# cascade from reporting e.g. a Gmail label list instead of the actual mail.
+_SKIP_MARKERS = ("_DRAFT", "_LABEL", "_PROFILE", "_CONTACT", "_PEOPLE")
 
 # Required parameters we know how to fill without app-specific knowledge.
 _QUERY_PARAMS = ("query", "q", "search_query", "keyword", "keywords")
 _LIMIT_PARAMS = ("limit", "max_results", "page_size", "per_page", "count")
 
 # Cap the raw tool response we buffer and the snippet we forward as context.
-_MAX_RESPONSE_BYTES = 512 * 1024
+# Content tools such as GMAIL_FETCH_EMAILS return full messages; a handful of
+# real emails routinely exceeds a few hundred KB, so a 512 KB cap aborted the
+# fetch (execute_capped fails closed) and the selector fell through to a tiny,
+# useless tool (drafts/labels). Buffer up to 2 MB so a normal inbox read fits;
+# the snippet we actually forward is still bounded by _MAX_SNIPPET_CHARS below.
+_MAX_RESPONSE_BYTES = 2 * 1024 * 1024
 _MAX_SNIPPET_CHARS = 3500
 
 
@@ -78,13 +86,14 @@ def _fillable_arguments(spec: dict[str, Any], question: str) -> dict[str, Any] |
     return args
 
 
-# Extra arguments that make a preferred content tool return rich, summarizable
-# data instead of id-only stubs. Merged over the generically-filled arguments
-# (these win), then filtered to what the tool actually accepts. Keyed by toolkit
-# slug, then tool slug (upper-case). Gmail's fetch defaults to verbose=false,
-# which returns message id stubs with no subject/sender/body to summarize.
+# Extra arguments for a preferred content tool. Merged over the generically-
+# filled arguments (these win), then filtered to what the tool actually accepts.
+# Keyed by toolkit slug, then tool slug (upper-case). Keep the fetch small: the
+# default GMAIL_FETCH_EMAILS response already carries subject/sender/snippet
+# (the same fields the sync fetcher reads), so a modest max_results returns
+# summarizable content while staying inside the response buffer cap.
 _PREFERRED_TOOL_ARGS: dict[str, dict[str, dict[str, Any]]] = {
-    "gmail": {"GMAIL_FETCH_EMAILS": {"verbose": True, "max_results": 10}},
+    "gmail": {"GMAIL_FETCH_EMAILS": {"max_results": 8}},
 }
 
 # Natural-language intent -> provider search filter, per toolkit. Lets a plain

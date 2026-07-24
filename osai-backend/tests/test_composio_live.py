@@ -166,12 +166,16 @@ _FETCH_TOOL_FULL = {
         },
     },
 }
+_LABELS_TOOL = {
+    "name": "GMAIL_LIST_LABELS",
+    "parameters": {"type": "object", "properties": {"user_id": {"type": "string"}}},
+}
 
 
 class _GmailFullClient(_FakeClient):
     def __init__(self):
         super().__init__(
-            tools=[_DRAFTS_TOOL, _FETCH_TOOL_FULL],
+            tools=[_DRAFTS_TOOL, _LABELS_TOOL, _FETCH_TOOL_FULL],
             connections=[{"toolkit": "gmail", "status": "ACTIVE"}],
         )
 
@@ -180,7 +184,7 @@ class _GmailFullClient(_FakeClient):
         return {"successful": True, "data": {"messages": [{"subject": "Unread thing"}]}}
 
 
-async def test_gmail_unread_fetch_uses_verbose_and_is_unread_and_never_drafts():
+async def test_gmail_unread_fetch_targets_inbox_and_skips_drafts_and_labels():
     client = _GmailFullClient()
     ctx = await live_read_context(
         "org-1",
@@ -189,11 +193,10 @@ async def test_gmail_unread_fetch_uses_verbose_and_is_unread_and_never_drafts():
         client=client,
     )
     assert "Unread thing" in ctx
-    # Drafts are outbound compositions — never a source for a "read my emails"
-    # question, so GMAIL_LIST_DRAFTS must not be executed at all.
+    # Drafts (outbound) and labels (metadata) are never a source for a "read my
+    # emails" question, so only GMAIL_FETCH_EMAILS runs.
     assert [slug for slug, _ in client.executed] == ["GMAIL_FETCH_EMAILS"]
-    slug, args = client.executed[0]
-    # Rich, summarizable content (verbose) targeted at the unread subset.
-    assert args.get("verbose") is True
+    _slug, args = client.executed[0]
+    # Targeted at the unread subset with a bounded result set.
     assert args.get("query") == "is:unread"
-    assert args.get("max_results") == 10
+    assert args.get("max_results") == 8
