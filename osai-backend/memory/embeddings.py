@@ -204,10 +204,12 @@ class JinaEmbeddingProvider(EmbeddingProvider):
     of failing with a 429."""
 
     _MAX_DIM = 1024
-    # Stay comfortably under Jina's free-tier 100k tokens/minute. ~4 chars/token
-    # is an approximation, so the budget leaves headroom for estimate drift.
-    _TPM_BUDGET = 80_000
-    _MAX_BATCH_TOKENS = 16_000  # per-request cap, well inside one window
+    # Stay under Jina's free-tier 100k tokens/minute. The ~4 chars/token estimate
+    # undercounts real tokens for HTML/URL-heavy email (observed 100,756 actual
+    # for an ~80k-estimated window), so the budget is set well below the ceiling
+    # to absorb that drift — even a 2x estimate error stays under 100k.
+    _TPM_BUDGET = 45_000
+    _MAX_BATCH_TOKENS = 12_000  # per-request cap, well inside one window
     _MAX_BATCH_ITEMS = 128
     name = "jina"
 
