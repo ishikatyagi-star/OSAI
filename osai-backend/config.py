@@ -209,7 +209,12 @@ class Settings(BaseSettings):
     # Minimum cosine similarity for a retrieved chunk to count as relevant. Below
     # this floor, an off-topic query returns "no relevant context" instead of
     # surfacing the nearest (but unrelated) documents at misleading confidence.
-    retrieval_min_score: float = 0.7
+    # None (the default) means "use the active embedding provider's recommended
+    # floor" — cosine scales differ sharply between providers (Jina runs far
+    # lower than Gemini/Voyage), so a single hardcoded value silently filters
+    # every real hit after a provider switch. Set OSAI_RETRIEVAL_MIN_SCORE to
+    # override with an explicit value.
+    retrieval_min_score: float | None = None
 
     # Gemini (embeddings always; text generation when no generic LLM key is set)
     gemini_api_key: str | None = None

@@ -21,6 +21,11 @@ class EmbeddingProvider:
     # the instance rather than re-deriving it from settings.
     name: str = "unknown"
     model: str = "unknown"
+    # Provider-appropriate minimum cosine for a match to count as relevant.
+    # Cosine scales differ sharply across providers, so the retriever uses this
+    # unless OSAI_RETRIEVAL_MIN_SCORE is set explicitly. 0.5 is a safe default
+    # for asymmetric-embedding providers; Jina (measured) runs lower — see below.
+    recommended_min_score: float = 0.5
 
     async def embed_texts(
         self, texts: list[str], *, is_query: bool = False
@@ -218,6 +223,10 @@ class JinaEmbeddingProvider(EmbeddingProvider):
     of failing with a 429."""
 
     _MAX_DIM = 1024
+    # Measured: relevant asymmetric matches on jina-embeddings-v3 score ~0.4–0.62,
+    # well below the ~0.7 that suits Gemini/Voyage. 0.35 keeps genuine hits while
+    # still filtering off-topic noise.
+    recommended_min_score = 0.35
     # Stay under Jina's free-tier 100k tokens/minute. The ~4 chars/token estimate
     # undercounts real tokens for HTML/URL-heavy email (observed 100,756 actual
     # for an ~80k-estimated window), so the budget is set well below the ceiling

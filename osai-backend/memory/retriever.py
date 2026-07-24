@@ -166,9 +166,16 @@ async def retrieve_answer(request: SearchRequest) -> SearchResponse:
         hits = []
 
     # Relevance gate: a nearest-neighbour search always returns *something*, so an
-    # off-topic query would otherwise surface unrelated docs at ~0.65 confidence
-    # and look like a hallucination. Keep only hits above a similarity floor.
-    hits = [h for h in hits if float(getattr(h, "score", 0.0)) >= settings.retrieval_min_score]
+    # off-topic query would otherwise surface unrelated docs at low confidence and
+    # look like a hallucination. Keep only hits above a similarity floor. The floor
+    # is the active provider's recommended value unless overridden explicitly,
+    # because cosine scales differ sharply between embedding providers.
+    min_score = (
+        settings.retrieval_min_score
+        if settings.retrieval_min_score is not None
+        else default_embedding_provider.recommended_min_score
+    )
+    hits = [h for h in hits if float(getattr(h, "score", 0.0)) >= min_score]
 
     # Qdrant can lag a committed access change. Revalidate every hit against
     # Postgres and use only its current org, grants, tier, and scope metadata.
