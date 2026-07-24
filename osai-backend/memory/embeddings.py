@@ -249,7 +249,15 @@ class JinaEmbeddingProvider(EmbeddingProvider):
                                 "dimensions": self.dimension,
                             },
                         )
-                        resp.raise_for_status()
+                        if resp.status_code >= 400:
+                            # raise_for_status() drops the response body, but
+                            # Jina's body distinguishes a per-minute rate limit
+                            # from an exhausted free-token balance — which decides
+                            # whether retrying can ever help. Surface it.
+                            raise RuntimeError(
+                                f"Jina embeddings HTTP {resp.status_code}: "
+                                f"{resp.text[:200]}"
+                            )
                         data = resp.json()
                 for item in sorted(data["data"], key=lambda d: d["index"]):
                     # Truncated Matryoshka embeddings are not guaranteed unit
