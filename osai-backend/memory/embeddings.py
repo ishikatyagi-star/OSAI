@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import math
+import time
 from typing import TYPE_CHECKING
 
 from config import settings
@@ -193,10 +195,20 @@ class VoyageEmbeddingProvider(EmbeddingProvider):
 
 class JinaEmbeddingProvider(EmbeddingProvider):
     """Embeddings via Jina AI's REST API (Bearer auth). jina-embeddings-v3 emits
-    Matryoshka embeddings up to 1024 dimensions; batches of 128 are retried on
-    transient failures."""
+    Matryoshka embeddings up to 1024 dimensions.
+
+    The free tier enforces a tokens-per-minute cap (100k). Long documents can
+    exceed that in a single burst, so requests are split into token-bounded
+    batches and paced against a rolling 60s budget shared across the process
+    (via the module-level singleton), keeping ingestion on the free tier instead
+    of failing with a 429."""
 
     _MAX_DIM = 1024
+    # Stay comfortably under Jina's free-tier 100k tokens/minute. ~4 chars/token
+    # is an approximation, so the budget leaves headroom for estimate drift.
+    _TPM_BUDGET = 80_000
+    _MAX_BATCH_TOKENS = 16_000  # per-request cap, well inside one window
+    _MAX_BATCH_ITEMS = 128
     name = "jina"
 
     def __init__(
@@ -219,21 +231,63 @@ class JinaEmbeddingProvider(EmbeddingProvider):
         self.model = model
         self.dimension = dimension
         self._base_url = base_url.rstrip("/")
+        # Rolling per-minute token budget, shared across all embed calls on this
+        # instance (the process singleton) so a paced sync and query embeds don't
+        # collectively blow the window.
+        self._tpm_lock = asyncio.Lock()
+        self._window_start = 0.0
+        self._window_tokens = 0
+
+    @staticmethod
+    def _estimate_tokens(text: str) -> int:
+        return max(1, len(text) // 4)
+
+    def _token_batches(self, texts: list[str]) -> list[list[str]]:
+        """Split into batches bounded by both a token cap and an item cap, so no
+        single request can itself exceed the per-minute budget."""
+        batches: list[list[str]] = []
+        current: list[str] = []
+        current_tokens = 0
+        for text in texts:
+            tokens = self._estimate_tokens(text)
+            if current and (
+                current_tokens + tokens > self._MAX_BATCH_TOKENS
+                or len(current) >= self._MAX_BATCH_ITEMS
+            ):
+                batches.append(current)
+                current, current_tokens = [], 0
+            current.append(text)
+            current_tokens += tokens
+        if current:
+            batches.append(current)
+        return batches
+
+    async def _reserve_tokens(self, batch_tokens: int) -> None:
+        """Block until sending `batch_tokens` keeps us under the TPM budget."""
+        async with self._tpm_lock:
+            now = time.monotonic()
+            if now - self._window_start >= 60.0:
+                self._window_start, self._window_tokens = now, 0
+            if self._window_tokens and self._window_tokens + batch_tokens > self._TPM_BUDGET:
+                sleep_for = 60.0 - (now - self._window_start)
+                if sleep_for > 0:
+                    await asyncio.sleep(sleep_for)
+                self._window_start, self._window_tokens = time.monotonic(), 0
+            self._window_tokens += batch_tokens
 
     async def embed_texts(self, texts: list[str]) -> list[list[float]]:
         import httpx
         from tenacity import AsyncRetrying, stop_after_attempt, wait_random_exponential
 
         results: list[list[float]] = []
-        batch_size = 128
         async with httpx.AsyncClient(timeout=60) as client:
-            for i in range(0, len(texts), batch_size):
-                batch = texts[i : i + batch_size]
-                # Free-tier limits are per-minute; back off long enough for a 429
-                # to clear rather than retrying sub-second.
+            for batch in self._token_batches(texts):
+                await self._reserve_tokens(sum(self._estimate_tokens(t) for t in batch))
+                # Backoff ceiling above 60s so a 429 (should be rare with pacing)
+                # can wait out a full token-per-minute window before retrying.
                 async for attempt in AsyncRetrying(
                     stop=stop_after_attempt(4),
-                    wait=wait_random_exponential(multiplier=1, max=30),
+                    wait=wait_random_exponential(multiplier=1, max=65),
                     reraise=True,
                 ):
                     with attempt:
