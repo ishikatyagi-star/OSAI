@@ -15,9 +15,8 @@ export type Integration = {
   account_email?: string | null;
   previous_account_email?: string | null;
   last_reconnected_at?: string | null;
-  // Server-reported connection management. Native credentials are deployment-
-  // managed; only Composio connections can be revoked from this UI.
-  source?: "native" | "composio";
+  // External connector state is always managed by Composio.
+  source?: "composio";
 };
 
 export type SyncRun = {

@@ -1,10 +1,10 @@
-"""Client for an optional Hermes-agent sidecar (spike).
+"""Client for OSAI's core Hermes reasoning sidecar.
 
 Hermes Agent (github.com/NousResearch/hermes-agent) is a single-operator agent.
 To use it in OSAI's multi-tenant product without leaking data across orgs, we run
 it as a separate service and call it over HTTP, passing the org explicitly and
-keeping isolation enforced here. This client is the OSAI side of that seam; it is
-inert unless `OSAI_HERMES_SIDECAR_URL` is set.
+keeping isolation enforced here. Deployed environments require this service;
+local development may omit it and use the in-house reasoner.
 """
 
 from __future__ import annotations
@@ -102,7 +102,8 @@ async def run_via_hermes(
     user_id + the user's permissions so the sidecar runs in that user's isolated
     HERMES_HOME and OSAI can enforce the user's data-access scope on any retrieval
     Hermes requests back. Returns the answer text, or None if Hermes isn't
-    configured or the call fails (caller falls back to the in-house agent)."""
+    configured locally or the call fails (caller contains the failure with the
+    in-house reasoner and records the route)."""
     if not settings.hermes_sidecar_url:
         return None
     url = settings.hermes_sidecar_url.rstrip("/") + "/run"

@@ -270,17 +270,15 @@ async def test_ask_action_without_citation_provenance_is_not_claimed_or_executed
     action_id = f"routing-action-{uuid4()}"
     orchestrator._PROPOSED[action_id] = {
         "org_id": "demo-org",
-        "provider": "connector",
+        "provider": "composio",
         "tool": "freshdesk",
-        "action": "create_ticket",
+        "action": "FRESHDESK_CREATE_TICKET",
         "payload": {"subject": "Unattributed action"},
         "summary": "Create an unattributed ticket",
         "user_id": None,
         "source_tiers": [],
     }
-    connector_lookup = MagicMock()
     claim = MagicMock(return_value="claimed")
-    monkeypatch.setattr(orchestrator.connector_registry, "get", connector_lookup)
     monkeypatch.setattr(orchestrator, "claim_proposed_action", claim)
     monkeypatch.setattr(policy, "load_data_routing", lambda _org_id: DEFAULT_DATA_ROUTING)
     try:
@@ -291,7 +289,6 @@ async def test_ask_action_without_citation_provenance_is_not_claimed_or_executed
         )
         assert result.status == "failed"
         assert result.error == "delivery_policy_blocked"
-        connector_lookup.assert_not_called()
         claim.assert_not_called()
         assert action_id in orchestrator._PROPOSED
     finally:
@@ -319,7 +316,6 @@ async def test_workflow_restricted_tier_is_blocked_before_claim(monkeypatch):
         "data_tier": "red",
         "action_items": [item],
     }
-    connector_lookup = MagicMock()
     claim = MagicMock(return_value="claimed")
     monkeypatch.setattr(
         "api.routes.workflow_actions.get_workflow_run",
@@ -330,10 +326,6 @@ async def test_workflow_restricted_tier_is_blocked_before_claim(monkeypatch):
         lambda _db, _org_id, _claims: (user_id, False),
     )
     monkeypatch.setattr("api.routes.workflow_actions.claim_action_item", claim)
-    monkeypatch.setattr(
-        "api.routes.workflow_actions.connector_registry.get",
-        connector_lookup,
-    )
     monkeypatch.setattr(policy, "load_data_routing", lambda _org_id: DEFAULT_DATA_ROUTING)
     with pytest.raises(HTTPException) as exc_info:
         await approve_item(
@@ -344,6 +336,5 @@ async def test_workflow_restricted_tier_is_blocked_before_claim(monkeypatch):
             {"sub": user_id, "org_id": org_id},
         )
     assert exc_info.value.status_code == 403
-    connector_lookup.assert_not_called()
     claim.assert_not_called()
     assert item["status"] == "needs_review"

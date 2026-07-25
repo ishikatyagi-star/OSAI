@@ -122,17 +122,10 @@ async def test_composio_delivery_success():
 
 
 @pytest.mark.anyio
-async def test_falls_back_to_native_connector_and_reports_failure():
+async def test_missing_composio_connection_reports_failure():
     fake = MagicMock()
-    fake.available.return_value = False  # no Composio → native path
-    native = MagicMock()
-    native.execute_action = AsyncMock(
-        return_value=MagicMock(status="failed", error="no token", url=None)
-    )
-    with (
-        patch("connectors.composio_tool.get_default_composio_client", return_value=fake),
-        patch("connectors.registry.connector_registry.get", return_value=native),
-    ):
+    fake.available.return_value = False
+    with patch("connectors.composio_tool.get_default_composio_client", return_value=fake):
         res = await deliver_result(
             "demo-org",
             {"channel": "slack", "target": "#ops"},
@@ -141,19 +134,15 @@ async def test_falls_back_to_native_connector_and_reports_failure():
             source_tiers=["normal"],
         )
     assert res["status"] == "failed"
-    assert res["via"] == "native"
+    assert res["via"] == "composio"
 
 
 @pytest.mark.anyio
 async def test_missing_provenance_makes_no_delivery_provider_calls():
     composio_factory = MagicMock()
-    native_get = MagicMock()
-    with (
-        patch(
-            "connectors.composio_tool.get_default_composio_client",
-            new=composio_factory,
-        ),
-        patch("connectors.registry.connector_registry.get", new=native_get),
+    with patch(
+        "connectors.composio_tool.get_default_composio_client",
+        new=composio_factory,
     ):
         res = await deliver_result(
             "demo-org",
@@ -165,7 +154,6 @@ async def test_missing_provenance_makes_no_delivery_provider_calls():
     assert res["status"] == "skipped"
     assert "data-routing" in res["error"]
     composio_factory.assert_not_called()
-    native_get.assert_not_called()
 
 
 # --- API round-trip ----------------------------------------------------------

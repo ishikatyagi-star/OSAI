@@ -556,15 +556,18 @@ def seed_rich_demo_data(session: Session, org_id: str = "demo-org") -> None:
     session.commit()
 
 
-def list_integrations(session: Session, org_id: str) -> list[dict[str, object]]:
+def list_integrations(
+    session: Session, org_id: str, user_id: str | None = None
+) -> list[dict[str, object]]:
+    account_join = and_(
+        ConnectorAccount.connector_key == ConnectorRecord.key,
+        ConnectorAccount.org_id == org_id,
+    )
+    if user_id is not None:
+        account_join = and_(account_join, ConnectorAccount.user_id == user_id)
     rows = session.execute(
         select(ConnectorRecord, ConnectorAccount)
-        .join(
-            ConnectorAccount,
-            (ConnectorAccount.connector_key == ConnectorRecord.key)
-            & (ConnectorAccount.org_id == org_id),
-            isouter=True,
-        )
+        .join(ConnectorAccount, account_join, isouter=True)
         .order_by(ConnectorRecord.display_name)
     ).all()
     # Dedupe by connector key (a stray duplicate ConnectorAccount must never
@@ -655,21 +658,6 @@ def upsert_source_documents(session: Session, documents: list[SourceDocument]) -
                 )
             )
         indexed += 1
-
-    # Phase 4: mirror ingested documents into the org's gbrain (per-org home)
-    # so the knowledge graph self-wires from real content. Inert unless
-    # OSAI_GBRAIN_HOME is configured; never blocks or fails ingestion.
-    if documents:
-        try:
-            from memory.gbrain_client import mirror_documents
-
-            by_org: dict[str, list[SourceDocument]] = {}
-            for d in documents:
-                by_org.setdefault(d.org_id, []).append(d)
-            for org_id, docs in by_org.items():
-                mirror_documents(org_id, docs)
-        except Exception:  # noqa: BLE001 — best-effort sidecar mirror
-            pass
 
     return indexed
 

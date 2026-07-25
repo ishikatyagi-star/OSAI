@@ -1,12 +1,13 @@
-# Hermes sidecar (experimental local spike)
+# Hermes core-runtime sidecar (local validation implementation)
 
 This directory contains a thin HTTP wrapper around
-[Hermes Agent](https://github.com/NousResearch/hermes-agent) for local,
-trusted-monolith experiments.
+[Hermes Agent](https://github.com/NousResearch/hermes-agent). Hermes is a core
+OSAI runtime; this particular shared-UID wrapper is limited to local,
+trusted-monolith validation.
 
 > **Do not deploy this shared service for multi-tenant production.** The
-> repository's `render.yaml` intentionally does not provision it or wire the
-> API/worker to it.
+> `render.yaml` requires a Hermes URL/token but does not provision this wrapper.
+> Point it only at a production design that satisfies the exit criteria below.
 
 ## Security boundary
 

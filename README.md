@@ -7,12 +7,12 @@ AI-native operations layer for universities — a **company brain + reasoning + 
 ## Architecture
 
 ```
-osai-backend/   FastAPI · SQLAlchemy · Qdrant (RAG) · Gemini/OpenAI-compatible LLM · Celery
+osai-backend/   FastAPI · SQLAlchemy · Qdrant (RAG) · Supermemory · Celery
 osai-web/       Next.js frontend (chat, graph inspector, eval dashboard, connectors)
-services/gbrain optional Bun CLI submodule for the knowledge graph (not in Compose)
+services/hermes core reasoning sidecar (deployed separately)
 ```
 
-Four layers: **ingestion/catalog** (connectors → unified docs) · **memory** (Qdrant docs + `org_memory` evolving state + gbrain graph) · **reasoning** (LLM router) · **action** (native connectors + Composio).
+Four layers: **ingestion/catalog** (Composio connectors → unified docs) · **memory** (Supermemory + Qdrant retrieval + a durable Postgres application/audit copy) · **reasoning** (Hermes with OSAI-enforced context and permissions) · **action** (confirmed Composio tools).
 
 ## Capability status
 
@@ -24,10 +24,11 @@ Four layers: **ingestion/catalog** (connectors → unified docs) · **memory** (
 | Eval harness | `GET /evals` | ✅ live (8/8) |
 | Evolving memory | (in `/ask` + `/search`) | ✅ live |
 | Composio tools (web search + connect apps) | `/integrations/composio/*` | ✅ live |
-| gbrain knowledge graph | (opt-in via `OSAI_GBRAIN_HOME`) | ⚙️ source-wired; requires Bun + initialization |
+| Supermemory | (in `/ask` + `/search`) | ✅ core memory runtime |
+| Hermes | (in `/ask` + automations) | ✅ core reasoning runtime |
 | Live LLM answer text | — | ⚠️ needs `OSAI_LLM_API_KEY` (Groq by default) or Gemini generation access |
 
-Local development can run without provider keys and uses deterministic fallbacks. Non-local deployments fail fast without a Gemini key because semantic embeddings are required.
+Local development can run without provider keys and uses deterministic fallbacks. Non-local deployments fail fast unless Supermemory, Hermes, and a semantic embedding provider are configured.
 
 ## Run the backend locally
 
@@ -51,20 +52,20 @@ API at `http://localhost:8000` (`/health`, `/docs`). Frontend expects this origi
 ### Gotchas (learned the hard way)
 - **Postgres port:** docker-compose maps Postgres to host **5433**. Running the backend on your host → set `OSAI_DATABASE_URL=...@localhost:5433/osai`. Inside Docker → 5432.
 - **Embeddings need Gemini** (free tier works). Without it, a hash-embedding fallback is used (fine for dev).
-- **gbrain is optional and host-run.** If enabling it, initialize `services/gbrain` and its brain directory; the root Compose stack does not start it.
+- **Supermemory and Hermes are core.** Local keyless fallbacks exist only to keep contributor setup and failure containment practical; deployed environments require both.
 
 ## Runtime configuration
 
-Local development can use fallbacks. A non-local deployment requires a strong `OSAI_JWT_SECRET` and `OSAI_GEMINI_API_KEY`; production sign-in also needs the three Google OAuth variables documented in `osai-backend/.env.example`.
+Local development can use fallbacks. A non-local deployment requires a strong `OSAI_JWT_SECRET`, a semantic embedding provider, Supermemory, and Hermes; production sign-in also needs the three Google OAuth variables documented in `osai-backend/.env.example`.
 
 | Var | Enables |
 |---|---|
 | `OSAI_GEMINI_API_KEY` | Semantic embeddings (required outside local) + fallback text generation |
 | `OSAI_LLM_API_KEY` | Text generation through `OSAI_LLM_BASE_URL` (Groq by default) |
 | `OSAI_JWT_SECRET` | Session signing; required and validated outside local |
-| `OSAI_COMPOSIO_API_KEY` | 1000+ tool integrations |
-| `OSAI_GBRAIN_HOME` | Optional host-side gbrain CLI graph integration |
-| Connector tokens (Slack/Notion/Freshdesk/GDrive) | Real ingestion + actions |
+| `OSAI_SUPERMEMORY_API_KEY` | Core evolving-memory service; required outside local |
+| `OSAI_HERMES_SIDECAR_URL` + `OSAI_HERMES_SIDECAR_TOKEN` | Core reasoning service; required outside local |
+| `OSAI_COMPOSIO_API_KEY` | Connector catalog, OAuth, ingestion, and actions |
 
 ## Tests
 
@@ -86,11 +87,11 @@ docker compose up -d --build
 docker compose exec api uv run python -m db.seed   # first run: seed demo data
 ```
 
-**Hosted deployment (Render):** [`render.yaml`](render.yaml) defines the API, a paid Starter Celery worker, and free Key Value (Redis). It intentionally does not deploy or wire the experimental Hermes sidecar: its shared-UID homes are namespaces, not a multi-tenant security boundary. It retains a legacy free Render Postgres declaration only to avoid destructive deletion during Blueprint sync; the API and worker use a dashboard-managed Supabase `OSAI_DATABASE_URL`. Qdrant runs on Qdrant Cloud. The worker consumes the automation `execute` queue and runs Celery beat for recurring automations. Composio ingestion still uses an API background task and is not yet hosted worker offload.
+**Hosted deployment (Render):** [`render.yaml`](render.yaml) defines the API, a paid Starter Celery worker, and free Key Value (Redis), and requires Hermes plus Supermemory credentials. The checked-in shared-UID Hermes wrapper is a local validation implementation, not an approved multi-tenant deployment: complete the isolation exit criteria in `services/hermes-sidecar/DEPLOY.md` and point the Blueprint at that reviewed private service. Until then, production is intentionally blocked rather than silently running a different reasoner. The Blueprint retains a legacy free Render Postgres declaration only to avoid destructive deletion during sync; the API and worker use a dashboard-managed Supabase `OSAI_DATABASE_URL`. Qdrant runs on Qdrant Cloud.
 
 1. Create a free Qdrant cluster at [cloud.qdrant.io](https://cloud.qdrant.io) → copy its **URL** and **API key**.
 2. Render → **New → Blueprint** → pick this repo (it reads `render.yaml`).
-3. Fill every `sync: false` value required by the services you deploy. Set the shared database, Qdrant, Gemini, and JWT values on API/worker as declared in `render.yaml`; set `OSAI_ALLOWED_ORIGINS`, `OSAI_SQL_DSN_ENCRYPTION_KEYS`, and all three Google OAuth values on the API. Configure the generic LLM endpoint, Composio, and Slack only when those features are enabled. The SQL encryption key must be present before migration `0032` if SQL sources exist. Do not manually attach the experimental Hermes sidecar to this multi-tenant deployment.
+3. Fill every `sync: false` value required by the services. Set the shared database, Qdrant, embeddings, JWT, Supermemory, and Hermes values on API/worker as declared in `render.yaml`; set `OSAI_ALLOWED_ORIGINS`, `OSAI_SQL_DSN_ENCRYPTION_KEYS`, and all three Google OAuth values on the API. Configure the generic LLM endpoint, Composio, and Slack only when those features are enabled. The SQL encryption key must be present before migration `0032` if SQL sources exist.
 4. Migrations run on boot; seed once via the Render shell: `uv run python -m db.seed`.
 
 `OSAI_REDIS_URL` is wired by the Blueprint. `OSAI_DATABASE_URL` is a dashboard-managed Supabase secret and must be set on both API and worker; the app auto-converts `postgresql://` URLs to the psycopg driver. Do not point the services at the legacy Render database block. Frontend (`osai-web`) stays on Vercel — point it at the API via `NEXT_PUBLIC_API_BASE_URL`.

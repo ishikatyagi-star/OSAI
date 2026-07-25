@@ -16,7 +16,13 @@ _STRONG_SECRET = "x" * 48
 
 
 def _settings(**overrides):
-    base = {"jwt_secret": _STRONG_SECRET, "gemini_api_key": "test-key"}
+    base = {
+        "jwt_secret": _STRONG_SECRET,
+        "gemini_api_key": "test-key",
+        "supermemory_api_key": "supermemory-test",
+        "hermes_sidecar_url": "https://hermes.example.test",
+        "hermes_sidecar_token": "hermes-test",
+    }
     return Settings(**{**base, **overrides})
 
 

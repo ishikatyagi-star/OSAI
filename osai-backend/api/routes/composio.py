@@ -24,7 +24,6 @@ from api.ratelimit import (
 )
 from config import settings
 from connectors.composio_ingest import (
-    SUPPORTED_INGESTION_TOOLKITS,
     ingest_composio_toolkit,
     purge_connector_data,
     sync_all_connections,
@@ -165,25 +164,12 @@ def _mark_oauth_state_used(db: Session, payload: dict) -> None:
 async def list_toolkits(
     search: str | None = None, cursor: str | None = None, limit: int = 50
 ) -> dict:
-    """List only Composio apps whose content Sheldon can actually index."""
-    _client_or_404()
-    names = {"googledrive": "Google Drive"}
-    needle = (search or "").casefold()
-    items = [
-        {
-            "slug": slug,
-            "name": names.get(slug, slug.title()),
-            "no_auth": False,
-            "tools_count": None,
-            "logo": None,
-            "categories": ["Content"],
-        }
-        for slug in sorted(SUPPORTED_INGESTION_TOOLKITS)
-        if not needle
-        or needle in slug.casefold()
-        or needle in names.get(slug, slug.title()).casefold()
-    ][: min(limit, 100)]
-    return {"items": items, "next_cursor": None}
+    """Browse the Composio catalog; ingest support is reported separately."""
+    return await _client_or_404().list_toolkits(
+        search=search,
+        cursor=cursor,
+        limit=min(max(limit, 1), 100),
+    )
 
 
 @router.get("/tools")
@@ -206,13 +192,6 @@ async def connect(toolkit: str, org_id: WriteOrgId, _admin: AdminOnly) -> dict:
     toolkit = toolkit.strip().lower()
     if not toolkit:
         raise HTTPException(status_code=422, detail="Toolkit is required.")
-    if toolkit not in SUPPORTED_INGESTION_TOOLKITS:
-        supported = ", ".join(sorted(SUPPORTED_INGESTION_TOOLKITS))
-        raise HTTPException(
-            status_code=422,
-            detail=f"Sheldon cannot index {toolkit!r}. Supported toolkits: {supported}.",
-        )
-
     callback_url = None
     if settings.public_base_url:
         state = _issue_oauth_state(org_id, admin_id, toolkit)

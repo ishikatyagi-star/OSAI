@@ -60,19 +60,14 @@ def _automation_identity():
 
 async def test_connector_context_empty_when_nothing_available(monkeypatch):
     from connectors import composio_tool
-    from db import repositories
-
     monkeypatch.setattr(
         composio_tool.get_default_composio_client(), "available", lambda: False
     )
-    monkeypatch.setattr(repositories, "list_integrations", lambda _session, _org_id: [])
     assert await connector_context("demo-org") == ""
 
 
 async def test_connector_context_is_org_scoped_and_omits_account_identity(monkeypatch):
     from connectors import composio_tool
-    from db import repositories
-
     class _Client:
         @staticmethod
         def available():
@@ -86,19 +81,9 @@ async def test_connector_context_is_org_scoped_and_omits_account_identity(monkey
             ]
 
     monkeypatch.setattr(composio_tool, "get_default_composio_client", lambda: _Client())
-    monkeypatch.setattr(
-        repositories,
-        "list_integrations",
-        lambda _session, _org_id: [
-            {"key": "slack", "auth_state": "connected", "capabilities": ["sync"]},
-            {"key": "freshdesk", "auth_state": "not_configured", "capabilities": ["sync"]},
-        ],
-    )
-
     context = await connector_context("demo-org")
 
     assert "gmail" in context
-    assert "slack" in context
     assert "private@example.test" not in context
     assert "notion" not in context
     assert "freshdesk" not in context

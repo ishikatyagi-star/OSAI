@@ -1,8 +1,7 @@
-"""Builds the org knowledge graph from existing Postgres records.
+"""Build the org knowledge graph from permission-scoped Postgres records.
 
 Derives a typed graph (people, sources, tickets, decisions) with real edges
-(owns, decided) from FK relationships. This is the interim provider; Phase 4
-swaps in a gbrain-backed provider behind the same `build_graph` interface.
+(owns, decided) from foreign-key relationships.
 """
 
 from __future__ import annotations

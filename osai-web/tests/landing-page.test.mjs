@@ -214,7 +214,7 @@ test("frontend source contains no em dash and no unapproved visible OSAI copy", 
 test("legacy backend copy is normalized only when displayed", () => {
   assert.equal(brandText("OSAI Demo Org"), "Sheldon Demo Org");
   assert.equal(
-    brandText("Set OSAI_NOTION_API_TOKEN to enable Notion sync."),
+    brandText("Set OSAI_COMPOSIO_API_KEY to enable Notion sync."),
     "Set the required integration setting to enable Notion sync.",
   );
   assert.equal(brandText("osai — &mdash; &#8212; &#x2014; \\u2014"), "Sheldon - - - - -");

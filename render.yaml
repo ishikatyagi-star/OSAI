@@ -79,6 +79,16 @@ services:
         value: llama-3.3-70b-versatile
       - key: OSAI_COMPOSIO_API_KEY
         sync: false
+      - key: OSAI_SUPERMEMORY_API_KEY
+        sync: false
+      - key: OSAI_SUPERMEMORY_URL
+        sync: false
+      # Hermes is the core reasoning runtime. Deploy the sidecar using
+      # services/hermes-sidecar/DEPLOY.md, then set its URL and shared token.
+      - key: OSAI_HERMES_SIDECAR_URL
+        sync: false
+      - key: OSAI_HERMES_SIDECAR_TOKEN
+        sync: false
       - key: OSAI_COMPOSIO_AGENT_ENABLED  # Ask grounds via LLM tool-calling over connected Composio apps
         value: "false"                    # opt in only after connector ACL/tier-routing enforcement
       - key: OSAI_AUTOMATIONS_CRON_TOKEN  # must match the AUTOMATIONS_CRON_TOKEN GitHub secret
@@ -154,6 +164,14 @@ services:
       - key: OSAI_LLM_MODEL
         value: llama-3.3-70b-versatile
       - key: OSAI_COMPOSIO_API_KEY
+        sync: false
+      - key: OSAI_SUPERMEMORY_API_KEY
+        sync: false
+      - key: OSAI_SUPERMEMORY_URL
+        sync: false
+      - key: OSAI_HERMES_SIDECAR_URL
+        sync: false
+      - key: OSAI_HERMES_SIDECAR_TOKEN
         sync: false
       # The worker is the only recurring scheduler in this Render topology.
       - key: OSAI_AUTOMATIONS_CRON_ENABLED

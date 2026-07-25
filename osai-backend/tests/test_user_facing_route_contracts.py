@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import uuid
-from types import SimpleNamespace
 
 import pytest
 from fastapi import HTTPException
@@ -13,7 +12,6 @@ from sqlalchemy.pool import StaticPool
 
 from api.main import app
 from api.routes import auth, graph, integrations, search, team
-from api.schemas.connector import HealthcheckResult
 from api.schemas.search import SearchResponse, SourceCitation
 from db.models import Base, Org, User
 from db.session import get_db, get_org_id, require_admin, require_writable_org
@@ -97,40 +95,6 @@ def test_graph_access_surfaces_provider_failure(monkeypatch):
     assert response.json() == {"detail": "The access map is temporarily unavailable."}
 
 
-def test_connector_healthcheck_maps_native_result_and_org(monkeypatch):
-    seen: dict[str, str] = {}
-
-    class Connector:
-        key = "test-connector"
-
-        async def healthcheck(self, org_id: str) -> HealthcheckResult:
-            seen["org_id"] = org_id
-            return HealthcheckResult(
-                connector_key=self.key,
-                healthy=False,
-                message="Credentials need attention.",
-            )
-
-    connector = Connector()
-    monkeypatch.setattr(integrations.connector_registry, "all", lambda: [connector])
-    monkeypatch.setattr(integrations.connector_registry, "get", lambda _key: connector)
-    monkeypatch.setattr(
-        integrations,
-        "get_default_composio_client",
-        lambda: SimpleNamespace(available=lambda: False),
-    )
-
-    response = client.get("/integrations/test-connector/healthcheck")
-
-    assert response.status_code == 200
-    assert response.json() == {
-        "connector_key": "test-connector",
-        "healthy": False,
-        "message": "Credentials need attention.",
-    }
-    assert seen == {"org_id": "demo-org"}
-
-
 def test_connector_healthcheck_maps_active_composio_connection(monkeypatch):
     seen: dict[str, str] = {}
 
@@ -142,7 +106,6 @@ def test_connector_healthcheck_maps_active_composio_connection(monkeypatch):
             seen["org_id"] = org_id
             return [{"toolkit": "gmail", "status": "ACTIVE"}]
 
-    monkeypatch.setattr(integrations.connector_registry, "all", lambda: [])
     monkeypatch.setattr(integrations, "get_default_composio_client", Composio)
 
     response = client.get("/integrations/gmail/healthcheck")
@@ -151,18 +114,20 @@ def test_connector_healthcheck_maps_active_composio_connection(monkeypatch):
     assert response.json() == {
         "connector_key": "gmail",
         "healthy": True,
-        "message": "Connected via Composio (OAuth).",
+        "message": "Connected via Composio.",
     }
     assert seen == {"org_id": "demo-org"}
 
 
 def test_connector_healthcheck_rejects_unknown_connector(monkeypatch):
-    monkeypatch.setattr(integrations.connector_registry, "all", lambda: [])
-    monkeypatch.setattr(
-        integrations,
-        "get_default_composio_client",
-        lambda: SimpleNamespace(available=lambda: False),
-    )
+    class Composio:
+        def available(self):
+            return True
+
+        async def list_connections(self, _org_id: str):
+            return []
+
+    monkeypatch.setattr(integrations, "get_default_composio_client", Composio)
 
     response = client.get("/integrations/not-real/healthcheck")
 

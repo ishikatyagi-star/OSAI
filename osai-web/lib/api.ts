@@ -638,12 +638,13 @@ export function triggerSync(connectorKey: string) {
   );
 }
 
-// Native connector key → Composio toolkit slug (Composio uses its own slugs).
+// Stable indexed-source key to Composio toolkit slug.
 export const COMPOSIO_TOOLKIT: Record<string, string> = {
   notion: "notion",
   google_drive: "googledrive",
   slack: "slack",
   gmail: "gmail",
+  freshdesk: "freshdesk",
 };
 
 // One app in the Composio catalog (browse/search from the Add-connector dialog).

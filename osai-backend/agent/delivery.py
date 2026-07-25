@@ -2,8 +2,7 @@
 
 Standing delivery is user-configured when the automation is created/edited
 (that's the approval), so posting the digest is not gated per-run. Slack is
-the first channel: Composio connection when the org has one, else the native
-Slack connector.
+the first channel and is delivered through the org's Composio connection.
 """
 
 from __future__ import annotations
@@ -63,7 +62,7 @@ async def deliver_result(
 
     text = _format_message(name, result)
 
-    # Composio first: per-org OAuth connection, the primary path for real orgs.
+    # Per-org OAuth connection managed by Composio.
     try:
         from connectors.composio_tool import get_default_composio_client
 
@@ -76,22 +75,12 @@ async def deliver_result(
                 return {"status": "delivered", "via": "composio", "target": target}
             logger.warning("Composio Slack delivery failed (org=%s): %s", org_id, res.get("error"))
             return {"status": "failed", "via": "composio", "error": str(res.get("error"))[:300]}
-    except Exception as exc:  # noqa: BLE001 — fall through to the native connector
-        logger.warning("Composio Slack delivery errored (org=%s): %s", org_id, exc)
-
-    # Native Slack connector fallback (server-configured bot token).
-    try:
-        from api.schemas.connector import ConnectorAction
-        from connectors.registry import connector_registry
-
-        connector = connector_registry.get("slack")
-        action = ConnectorAction(
-            action_type="post_message", payload={"channel": target, "text": text}
-        )
-        res = await connector.execute_action(org_id, action)
-        if res.status == "succeeded":
-            return {"status": "delivered", "via": "native", "target": target, "url": res.url}
-        return {"status": "failed", "via": "native", "error": res.error or res.status}
     except Exception as exc:  # noqa: BLE001
-        logger.warning("Native Slack delivery errored (org=%s): %s", org_id, exc)
-        return {"status": "failed", "error": str(exc)[:300]}
+        logger.warning("Composio Slack delivery errored (org=%s): %s", org_id, exc)
+        return {"status": "failed", "via": "composio", "error": str(exc)[:300]}
+
+    return {
+        "status": "failed",
+        "via": "composio",
+        "error": "No active Composio Slack connection.",
+    }

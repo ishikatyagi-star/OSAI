@@ -49,16 +49,14 @@ async def connector_context(org_id: str) -> str
   `GET /integrations/composio/connections` (`api/routes/composio.py:97` —
   read that handler and call the same underlying client method, not the HTTP
   route).
-- Gather **native registered connectors** from
-  `connectors.registry.connector_registry` (see how `agent/tools.py`
-  `available_action_tools()` probes it), including each connector's
-  `capabilities`.
+- Treat Composio as the only external connector authority. Do not read
+  deployment-managed connector registries or server-side provider tokens.
 - Return a short plain-text block, e.g.:
 
 ```
 Connected data sources for this workspace:
 - googledrive (Composio, connected 2026-07-01) — documents are synced into OSAI's knowledge base
-- slack (native connector; capabilities: execute)
+- slack (Composio; capabilities: execute)
 No other connectors are connected. Users can connect more from the Integrations page.
 ```
 

@@ -240,8 +240,7 @@ workflow-approve semantics.
 
 ### `GET /graph/entities` — org knowledge graph nodes  *(Phase 4, P4-T4)*
 
-Uses the gbrain CLI when it is configured and the viewer can see the full org;
-otherwise it serves the permission-aware Postgres-derived graph. Powers the org
+Serves the permission- and tier-aware Postgres-derived graph. Powers the org
 graph inspector.
 
 ```jsonc

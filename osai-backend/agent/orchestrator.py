@@ -26,10 +26,8 @@ from api.schemas.agent import (
     ConfirmActionResult,
     DismissActionResult,
 )
-from api.schemas.connector import ConnectorAction
 from api.schemas.search import MAX_SEARCH_QUERY_CHARS, SearchRequest
 from config import settings
-from connectors.registry import connector_registry
 from db.repositories import (
     claim_proposed_action,
     discard_proposed_action,
@@ -478,49 +476,12 @@ async def confirm_action(
         return _execute_internal(action_id, proposed)
     if proposed.get("provider") == "composio":
         return await _execute_composio(action_id, proposed)
-    try:
-        connector = connector_registry.get(proposed["tool"])
-        result = await connector.execute_action(
-            proposed["org_id"],
-            ConnectorAction(action_type=proposed["action"], payload=proposed["payload"]),
-        )
-        _forget_proposed(action_id)
-        if result.status == "succeeded":
-            _remember_resolution(proposed)
-            return ConfirmActionResult(
-                id=action_id,
-                status="executed",
-                external_url=result.url,
-                message=f"Executed via {proposed['tool']}.",
-            )
-        logger.warning(
-            "Action %s connector %s returned %s: %s",
-            action_id,
-            proposed["tool"],
-            result.status,
-            result.error,
-        )
-        return ConfirmActionResult(
-            id=action_id,
-            status="failed",
-            message="Connector action failed.",
-            error="connector_action_failed",
-        )
-    except KeyError:
-        return ConfirmActionResult(
-            id=action_id,
-            status="failed",
-            message=f"Connector {proposed['tool']!r} not registered.",
-            error="connector_missing",
-        )
-    except Exception as exc:  # noqa: BLE001
-        logger.error("Action %s execution failed: %s", action_id, exc)
-        return ConfirmActionResult(
-            id=action_id,
-            status="failed",
-            message="Connector execution failed.",
-            error="connector_execution_failed",
-        )
+    return ConfirmActionResult(
+        id=action_id,
+        status="failed",
+        message="Unsupported action provider.",
+        error="unsupported_action_provider",
+    )
 
 
 def dismiss_action(
@@ -733,7 +694,7 @@ async def _llm_plan(
         actions.append(
             _record(
                 request.org_id,
-                "internal" if name in internal else "connector",
+                "internal" if name in internal else "composio",
                 spec["tool"],
                 spec["action"],
                 payload,
@@ -810,9 +771,9 @@ def _heuristic_plan(
         return [
             _record(
                 request.org_id,
-                "connector",
+                "composio",
                 "freshdesk",
-                "create_ticket",
+                "FRESHDESK_CREATE_TICKET",
                 build_payload(
                     "create_freshdesk_ticket",
                     {"subject": summary_src[:120], "description": answer[:1000]},
@@ -828,9 +789,9 @@ def _heuristic_plan(
         return [
             _record(
                 request.org_id,
-                "connector",
+                "composio",
                 "slack",
-                "post_message",
+                "SLACK_SEND_MESSAGE",
                 build_payload(
                     "post_slack_message",
                     {"channel": "general", "text": summary_src[:500]},
@@ -846,9 +807,9 @@ def _heuristic_plan(
         return [
             _record(
                 request.org_id,
-                "connector",
+                "composio",
                 "notion",
-                "create_page",
+                "NOTION_CREATE_NOTION_PAGE",
                 build_payload(
                     "create_notion_page",
                     {"title": summary_src[:120], "description": answer[:1000]},

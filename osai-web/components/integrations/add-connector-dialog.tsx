@@ -94,7 +94,7 @@ export function AddConnectorDialog({
       const res = await composioConnect(slug);
       if (res.redirect_url) {
         // Full-page navigation to the OAuth consent screen (same flow as the
-        // native connector cards).
+        // existing integration cards).
         window.location.href = res.redirect_url;
       } else {
         // Honest, specific messaging: API-key apps have no one-click flow, so

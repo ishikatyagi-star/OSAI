@@ -11,7 +11,6 @@ from sqlalchemy.orm import Session
 from api.schemas.graph import GraphEdge, GraphEntity
 from db.repositories import try_db, user_clearance, user_permissions
 from db.session import get_db, get_optional_claims, get_org_id
-from graph.gbrain_provider import build_graph_gbrain, gbrain_graph_available
 from graph.provider import build_access_graph, build_graph
 
 router = APIRouter(prefix="/graph", tags=["graph"])
@@ -20,25 +19,10 @@ OrgId = Annotated[str, Depends(get_org_id)]
 OptionalClaims = Annotated[dict | None, Depends(get_optional_claims)]
 
 
-def _sees_all(permissions: list[str], tier: str) -> bool:
-    """True when governance filtering is a no-op for this requester (system/demo
-    context or admin) — mirrors `_visible`'s admin short-circuit."""
-    return (not permissions or "role:admin" in permissions) and tier == "red"
-
-
 def _org_graph(
     db: Session, org_id: str, permissions: list[str], tier: str
 ) -> tuple[list[GraphEntity], list[GraphEdge]]:
-    """Provider seam: gbrain-backed graph when configured and populated,
-    otherwise the interim Postgres-derived graph.
-
-    gbrain pages carry no per-document permissions or tier metadata, so that
-    provider is only served to requesters the governance filter wouldn't
-    restrict anyway; everyone else gets the ACL-filtered Postgres graph."""
-    if _sees_all(permissions, tier) and gbrain_graph_available(org_id):
-        entities, edges = build_graph_gbrain(org_id)
-        if entities:
-            return entities, edges
+    """Build the permission- and tier-filtered org knowledge graph."""
     return try_db(
         "build_graph", ([], []), lambda: build_graph(db, org_id, permissions, tier)
     )

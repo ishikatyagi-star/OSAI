@@ -6,9 +6,8 @@
                    vector store reachable, and Redis can execute Lua. 503 with
                    per-check detail otherwise, so a deploy is not "healthy"
                    until the org can actually use it.
-- /capabilities  — which optional subsystems this deployment can actually run,
-                   so the frontend can enable/disable features honestly instead
-                   of assuming (e.g. recurring automation cadences).
+- /capabilities  — active core runtimes and provisioned feature capabilities,
+                   so clients can report the deployment honestly.
 """
 
 from __future__ import annotations
@@ -172,6 +171,12 @@ async def capabilities() -> dict[str, object]:
     semantic_embeddings = not isinstance(default_embedding_provider, HashEmbeddingProvider)
     return {
         "environment": settings.env,
+        "memory_runtime": "supermemory",
+        "reasoning_runtime": "hermes",
+        "core_services": {
+            "supermemory": bool(settings.supermemory_api_key),
+            "hermes": bool(settings.hermes_sidecar_url and settings.hermes_sidecar_token),
+        },
         "scheduler": scheduler,
         # Manual "run now" always works; recurring cadences need the scheduler.
         "automation_cadences": ["manual"] + (["hourly", "daily", "weekly"] if scheduler else []),
