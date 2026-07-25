@@ -7,7 +7,6 @@ celery_app = Celery(
     broker=settings.redis_url,
     backend=settings.redis_url,
     include=[
-        "workers.tasks.ingest",
         "workers.tasks.extract",
         "workers.tasks.execute",
         "workers.tasks.automations",
@@ -15,7 +14,6 @@ celery_app = Celery(
 )
 
 celery_app.conf.task_routes = {
-    "workers.tasks.ingest.*": {"queue": "ingest"},
     "workers.tasks.extract.*": {"queue": "extract"},
     "workers.tasks.execute.*": {"queue": "execute"},
     "workers.tasks.automations.*": {"queue": "execute"},
