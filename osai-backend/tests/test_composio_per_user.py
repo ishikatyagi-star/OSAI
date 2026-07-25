@@ -159,6 +159,28 @@ def test_same_connector_coexists_per_user():
     assert ensure_connector_account(s, "org-1", "gmail", "user-1").id == a.id
 
 
+def test_integration_metadata_is_scoped_to_connection_owner():
+    from db.repositories import ensure_connector_account, list_integrations
+
+    s = _fk_session()
+    first = ensure_connector_account(s, "org-1", "gmail", "user-1")
+    first.auth_state = "connected"
+    first.config = {"account_email": "first@example.com"}
+    second = ensure_connector_account(s, "org-1", "gmail", "user-2")
+    second.auth_state = "connected"
+    second.config = {"account_email": "second@example.com"}
+    s.commit()
+
+    first_items = list_integrations(s, "org-1", "user-1")
+    second_items = list_integrations(s, "org-1", "user-2")
+    assert next(item for item in first_items if item["key"] == "gmail")[
+        "account_email"
+    ] == "first@example.com"
+    assert next(item for item in second_items if item["key"] == "gmail")[
+        "account_email"
+    ] == "second@example.com"
+
+
 class _FakeIngestGmail:
     """Minimal Composio client that returns a real GMAIL_FETCH_EMAILS shape so the
     gmail fetcher produces indexable docs."""

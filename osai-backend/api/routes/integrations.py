@@ -9,6 +9,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from api.ratelimit import INGEST_START_BUDGET, rate_limit
+from config import settings
 from connectors.composio_ingest import SUPPORTED_INGESTION_TOOLKITS, ingest_composio_toolkit
 from connectors.composio_tool import composio_identity, get_default_composio_client
 from connectors.toolkit_map import (
@@ -78,7 +79,11 @@ async def list_integrations(
     connector or authentication source.
     """
     try:
-        persisted = list_db_integrations(db, org_id)
+        persisted = (
+            list_db_integrations(db, org_id, (claims or {}).get("sub"))
+            if settings.composio_per_user_connections
+            else list_db_integrations(db, org_id)
+        )
     except SQLAlchemyError as exc:
         logger.exception("Could not list integrations (org=%s)", org_id)
         raise HTTPException(

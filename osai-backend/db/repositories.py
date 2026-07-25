@@ -556,15 +556,18 @@ def seed_rich_demo_data(session: Session, org_id: str = "demo-org") -> None:
     session.commit()
 
 
-def list_integrations(session: Session, org_id: str) -> list[dict[str, object]]:
+def list_integrations(
+    session: Session, org_id: str, user_id: str | None = None
+) -> list[dict[str, object]]:
+    account_join = and_(
+        ConnectorAccount.connector_key == ConnectorRecord.key,
+        ConnectorAccount.org_id == org_id,
+    )
+    if user_id is not None:
+        account_join = and_(account_join, ConnectorAccount.user_id == user_id)
     rows = session.execute(
         select(ConnectorRecord, ConnectorAccount)
-        .join(
-            ConnectorAccount,
-            (ConnectorAccount.connector_key == ConnectorRecord.key)
-            & (ConnectorAccount.org_id == org_id),
-            isouter=True,
-        )
+        .join(ConnectorAccount, account_join, isouter=True)
         .order_by(ConnectorRecord.display_name)
     ).all()
     # Dedupe by connector key (a stray duplicate ConnectorAccount must never
