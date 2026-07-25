@@ -36,6 +36,10 @@ function visibleText(source) {
 test("homepage keeps its audit fixes", () => {
   assert.equal((html.match(/<main\b/g) ?? []).length, 1);
   assert.equal((html.match(/<\/main>/g) ?? []).length, 1);
+  assert.match(html, /<a class="skip-link" href="#main-content">Skip to content<\/a>/);
+  assert.match(html, /<main id="main-content" tabindex="-1">/);
+  assert.match(css, /\.skip-link:focus-visible\s*{[^}]*transform: translateY\(0\);[^}]*outline: 3px solid var\(--el-ink\);/s);
+  assert.match(css, /scroll-padding-top: 80px;/);
   assert.match(html, /<details class="nav-mobile-menu">/);
   assert.match(html, /<summary role="button" aria-label="Navigation menu" aria-controls="mobile-navigation" aria-expanded="false">/);
   assert.match(html, /mobileMenuTrigger\.setAttribute\('aria-expanded', String\(mobileMenu\.open\)\)/);
@@ -49,13 +53,23 @@ test("homepage keeps its audit fixes", () => {
   assert.match(css, /\.landing-saas \.hero\s*{[^}]*min-height: auto !important;/s);
   assert.match(css, /\.landing-saas \.nav-mobile-menu\[open\]::before\s*,\s*\.landing-university \.nav-mobile-menu\[open\]::before\s*{/);
   assert.match(css, /@media \(max-width: 980px\)\s*{[\s\S]*?\.nav-mobile-menu\s*{\s*display: block;/);
+  assert.match(css, /\.nav-mobile-menu summary\s*{[^}]*min-width: 44px;[^}]*min-height: 44px;/s);
   assert.match(html, /landing-eleven\.css\?v=20260723-glass-wordmark-3/);
+  assert.equal((html.match(/fonts\.googleapis\.com\/css2/g) ?? []).length, 0);
+  assert.equal((css.match(/fonts\.googleapis\.com\/css2/g) ?? []).length, 1);
+  assert.match(css, /family=EB\+Garamond[\s\S]*family=Inter[\s\S]*family=Nunito\+Sans/);
   assert.match(universityHtml, /landing-eleven\.css\?v=20260716-orbit-nav/);
   assert.doesNotMatch(html, /Explore live workflow/);
   assert.match(html, /matchMedia\('\(prefers-reduced-motion: reduce\)'\)/);
+  assert.match(html, /document\.documentElement\.classList\.add\('js'\)/);
+  assert.match(html, /if \(reduceMotion \|\| !\('IntersectionObserver' in window\)\)/);
+  assert.match(html, /document\.documentElement\.classList\.remove\('js'\)/);
+  assert.match(html, /\.fade-up\s*{\s*opacity: 1;/);
+  assert.match(html, /\.js \.fade-up\s*{\s*opacity: 0;/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
   assert.match(css, /\.prose p strong\s*{[^}]*color: var\(--el-ink\) !important;/s);
   assert.match(css, /\.out-cell p\s*{[^}]*color: var\(--el-body\) !important;/s);
+  assert.match(css, /h1,\s*h2,\s*\.spotlight-quote\s*{[^}]*text-wrap: balance;/s);
 });
 
 test("homepage preserves the approved positioning and section content", () => {

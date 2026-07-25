@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500&family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600&family=Nunito+Sans:wght@700;800;900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500&family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&family=Nunito+Sans:wght@700;800;900&display=swap");
 
 :root {
   --el-ink: #0c0a09;
@@ -29,6 +29,7 @@
 
 html {
   background: var(--el-canvas);
+  scroll-padding-top: 80px;
 }
 
 body {
@@ -42,6 +43,27 @@ body {
   line-height: 1.5 !important;
   letter-spacing: 0.01em !important;
   overflow-x: hidden;
+}
+
+.skip-link {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 1001;
+  padding: 10px 16px;
+  transform: translateY(-160%);
+  background: var(--el-surface);
+  border: 2px solid var(--el-ink);
+  border-radius: 8px;
+  color: var(--el-ink);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.skip-link:focus-visible {
+  transform: translateY(0);
+  outline: 3px solid var(--el-ink);
+  outline-offset: 3px;
 }
 
 a {
@@ -100,9 +122,11 @@ footer .footer-logo {
 }
 
 .nav-mobile-menu summary {
+  min-width: 44px;
   min-height: 44px;
   display: flex;
   align-items: center;
+  justify-content: center;
   cursor: pointer;
   color: var(--el-body);
   font-size: 15px;
@@ -461,6 +485,7 @@ h2,
   font-family: var(--el-serif) !important;
   font-weight: 400 !important;
   letter-spacing: -0.028em !important;
+  text-wrap: balance;
 }
 
 h1 {

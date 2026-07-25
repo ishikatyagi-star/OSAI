@@ -18,7 +18,12 @@ import json
 import logging
 from typing import Any
 
-from connectors.composio_tool import ComposioClient, get_default_composio_client
+from config import settings
+from connectors.composio_tool import (
+    ComposioClient,
+    composio_identity,
+    get_default_composio_client,
+)
 
 logger = logging.getLogger("osai.composio.live")
 
@@ -29,19 +34,35 @@ _WRITE_MARKERS = (
     "_CREATE", "_UPDATE", "_DELETE", "_SEND", "_POST", "_ADD", "_REMOVE",
     "_SET", "_MOVE", "_ARCHIVE", "_UPLOAD", "_WRITE", "_REPLY", "_PATCH",
 )
+# Read-shaped tools that still aren't a useful source for "read/summarize my X":
+# drafts are outbound messages the user is composing, never incoming content, so
+# a "summarise my unread emails" question must never fall through to them. The
+# metadata/directory tools (labels, profile, contacts, people) are likewise never
+# a useful answer to a "read/summarize my X" question — excluding them stops the
+# cascade from reporting e.g. a Gmail label list instead of the actual mail.
+_SKIP_MARKERS = ("_DRAFT", "_LABEL", "_PROFILE", "_CONTACT", "_PEOPLE")
 
 # Required parameters we know how to fill without app-specific knowledge.
 _QUERY_PARAMS = ("query", "q", "search_query", "keyword", "keywords")
 _LIMIT_PARAMS = ("limit", "max_results", "page_size", "per_page", "count")
 
 # Cap the raw tool response we buffer and the snippet we forward as context.
-_MAX_RESPONSE_BYTES = 512 * 1024
+# Content tools such as GMAIL_FETCH_EMAILS return full messages; a handful of
+# real emails routinely exceeds a few hundred KB, so a 512 KB cap aborted the
+# fetch (execute_capped fails closed) and the selector fell through to a tiny,
+# useless tool (drafts/labels). Buffer up to 2 MB so a normal inbox read fits;
+# the snippet we actually forward is still bounded by _MAX_SNIPPET_CHARS below.
+_MAX_RESPONSE_BYTES = 2 * 1024 * 1024
 _MAX_SNIPPET_CHARS = 3500
 
 
 def _is_read_tool(slug: str) -> bool:
     s = slug.upper()
-    return any(m in s for m in _READ_MARKERS) and not any(m in s for m in _WRITE_MARKERS)
+    return (
+        any(m in s for m in _READ_MARKERS)
+        and not any(m in s for m in _WRITE_MARKERS)
+        and not any(m in s for m in _SKIP_MARKERS)
+    )
 
 
 def _fillable_arguments(spec: dict[str, Any], question: str) -> dict[str, Any] | None:
@@ -63,6 +84,49 @@ def _fillable_arguments(spec: dict[str, Any], question: str) -> dict[str, Any] |
             args[name] = 10
             break
     return args
+
+
+# Extra arguments for a preferred content tool. Merged over the generically-
+# filled arguments (these win), then filtered to what the tool actually accepts.
+# Keyed by toolkit slug, then tool slug (upper-case). Keep the fetch small: the
+# default GMAIL_FETCH_EMAILS response already carries subject/sender/snippet
+# (the same fields the sync fetcher reads), so a modest max_results returns
+# summarizable content while staying inside the response buffer cap.
+_PREFERRED_TOOL_ARGS: dict[str, dict[str, dict[str, Any]]] = {
+    "gmail": {"GMAIL_FETCH_EMAILS": {"max_results": 8}},
+}
+
+# Natural-language intent -> provider search filter, per toolkit. Lets a plain
+# question target the right subset (e.g. "unread emails" -> Gmail is:unread)
+# instead of the whole mailbox. Applied only to tools that declare a query param
+# and only when the generic filler did not already set one.
+_TOOLKIT_QUERY_INTENTS: dict[str, tuple[tuple[str, str], ...]] = {
+    "gmail": (
+        ("unread", "is:unread"),
+        ("important", "is:important"),
+        ("starred", "is:starred"),
+    ),
+}
+
+
+def _augmented_arguments(
+    toolkit: str, spec: dict[str, Any], args: dict[str, Any], question: str
+) -> dict[str, Any]:
+    """Enrich generically-filled arguments for one tool: add content-richness
+    defaults (e.g. Gmail verbose) and a provider search filter derived from the
+    question, then keep only parameters the tool declares so a provider can't 400
+    on an unknown field."""
+    name = (spec.get("name") or "").upper()
+    properties = (spec.get("parameters") or {}).get("properties") or {}
+    merged = dict(args)
+    merged.update(_PREFERRED_TOOL_ARGS.get(toolkit, {}).get(name, {}))
+    if "query" in properties and "query" not in merged:
+        lowered = question.lower()
+        for term, provider_filter in _TOOLKIT_QUERY_INTENTS.get(toolkit, ()):
+            if term in lowered:
+                merged["query"] = provider_filter
+                break
+    return {key: value for key, value in merged.items() if key in properties}
 
 
 # Natural-language terms that should trigger a live read of a connected app,
@@ -138,6 +202,7 @@ async def live_read_context(
     question: str,
     *,
     requester_permissions: list[str],
+    user_id: str | None = None,
     cloud_egress_allowed: bool = True,
     client: ComposioClient | None = None,
 ) -> str:
@@ -152,16 +217,30 @@ async def live_read_context(
     # provenance exists.
     if not cloud_egress_allowed:
         return ""
-    # Composio connections are currently org-scoped, not resource-scoped. Until
-    # per-connection ACLs exist, keep live reads admin-only; members still use
-    # indexed RAG, where permissions and clearance are enforced per document.
-    if "org:admin" not in requester_permissions and "role:admin" not in requester_permissions:
+    # Access model depends on the connection scope. With ORG-shared connections
+    # (per-user off), any member reading them would see another's data, so live
+    # reads stay admin-only; members use indexed RAG (enforced per document).
+    # With PER-USER connections, the read is scoped to the caller's own account
+    # below, so it's safe for any authenticated user — that's the whole point of
+    # per-user scoping, so don't gate it behind admin.
+    if not settings.composio_per_user_connections:
+        is_admin = (
+            "org:admin" in requester_permissions or "role:admin" in requester_permissions
+        )
+        if not is_admin:
+            return ""
+    elif user_id is None:
+        # Per-user mode but no identified caller (system/background): nothing to
+        # scope to, so don't read a shared account.
         return ""
     client = client or get_default_composio_client()
     if not client.available():
         return ""
+    # Scope reads to the caller (per-user when enabled, else org-level), so a
+    # user only ever reaches their own connected accounts.
+    identity = composio_identity(org_id, user_id)
     try:
-        connections = await client.list_connections(org_id)
+        connections = await client.list_connections(identity)
     except Exception:  # noqa: BLE001 — live reads are best-effort
         return ""
     active = [
@@ -183,9 +262,10 @@ async def live_read_context(
         # Best content tool first (preferred per-toolkit, then FETCH>SEARCH>LIST>GET).
         candidates.sort(key=lambda ca: _tool_priority(ca[0]["name"], toolkit))
         for spec, args in candidates[:4]:
+            call_args = _augmented_arguments(toolkit, spec, args, question)
             try:
                 res = await client.execute_capped(
-                    spec["name"], args, org_id, _MAX_RESPONSE_BYTES
+                    spec["name"], call_args, identity, _MAX_RESPONSE_BYTES
                 )
             except Exception as exc:  # noqa: BLE001
                 logger.warning("Live read %s failed: %s", spec["name"], exc)

@@ -102,7 +102,9 @@ async def test_callback_requires_current_admin_and_consumes_state(
         response = await composio.callback(background, db, state=state, org_id=None)
     assert response.headers["location"] == "https://app.example.test/integrations?connected=1"
     assert len(background.tasks) == 1
-    assert background.tasks[0].args == ("org-a",)
+    # Callback ingests the connecting admin's own connection (owner scoping), so
+    # the background task carries (org_id, admin_id).
+    assert background.tasks[0].args == ("org-a", "admin-a")
 
     # A fresh session models another worker/process: the database uniqueness
     # constraint, not process-local memory, rejects the replay.
