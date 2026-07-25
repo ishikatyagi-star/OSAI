@@ -15,14 +15,11 @@ logger = logging.getLogger("osai.agent")
 
 
 async def connector_context(org_id: str) -> str:
-    """Plain-text summary of the org's connected data sources (Composio
-    connections + org-scoped configured native connectors). Best-effort: never raises,
-    returns "" when nothing is known."""
+    """Plain-text summary of the org's active Composio connections."""
     lines: list[str] = []
-    seen: set[str] = set()
     try:
         from connectors.composio_tool import get_default_composio_client
-        from connectors.toolkit_map import to_native_key
+        from connectors.toolkit_map import to_source_key
 
         client = get_default_composio_client()
         if client.available():
@@ -31,33 +28,13 @@ async def connector_context(org_id: str) -> str:
                 if status != "ACTIVE":
                     continue
                 toolkit = c.get("toolkit") or "unknown"
-                key = to_native_key(toolkit)
-                seen.add(key)
+                key = to_source_key(toolkit)
                 lines.append(
                     f"- {key} (connected via Composio; indexed data depends on "
                     "the latest successful sync)"
                 )
     except Exception as exc:  # noqa: BLE001 — context is best-effort
         logger.info("Could not list Composio connections for context: %s", exc)
-
-    try:
-        from db.repositories import list_integrations
-        from db.session import SessionLocal
-
-        with SessionLocal() as session:
-            integrations = list_integrations(session, org_id)
-        for integration in integrations:
-            if integration.get("auth_state") != "connected":
-                continue
-            key = str(integration.get("key") or "unknown")
-            if key in seen:
-                continue
-            capabilities = integration.get("capabilities") or []
-            caps = ", ".join(sorted(str(cap) for cap in capabilities)) or "sync"
-            lines.append(f"- {key} (connected native source; capabilities: {caps})")
-            seen.add(key)
-    except Exception as exc:  # noqa: BLE001
-        logger.info("Could not list native connectors for context: %s", exc)
 
     if not lines:
         return ""

@@ -2,8 +2,8 @@
 
 Composio (https://composio.dev) provides 1000+ tool integrations with auth
 handled for us. We hit its v3 REST API directly (httpx) and map each tool's
-`input_parameters` (already a JSON schema) into the same tool-spec shape the
-agent uses for native connectors. `no_auth` tools (e.g. web search) execute
+`input_parameters` (already a JSON schema) into the agent's tool-spec shape.
+`no_auth` tools (e.g. web search) execute
 immediately; OAuth tools need a connected account per user/org.
 
 Gated by `settings.composio_api_key`: unset -> `available()` is False and the

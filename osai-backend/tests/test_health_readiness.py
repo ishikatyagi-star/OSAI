@@ -142,6 +142,9 @@ def test_capabilities_shape_and_cadence_consistency():
     assert resp.status_code == 200
     caps = resp.json()
     for key in (
+        "memory_runtime",
+        "reasoning_runtime",
+        "core_services",
         "scheduler",
         "automation_cadences",
         "connectors",
@@ -153,6 +156,9 @@ def test_capabilities_shape_and_cadence_consistency():
         "email_login",
     ):
         assert key in caps, key
+    assert caps["memory_runtime"] == "supermemory"
+    assert caps["reasoning_runtime"] == "hermes"
+    assert set(caps["core_services"]) == {"supermemory", "hermes"}
     assert "manual" in caps["automation_cadences"]
     # Recurring cadences may only be offered when the scheduler works.
     recurring = set(caps["automation_cadences"]) - {"manual"}

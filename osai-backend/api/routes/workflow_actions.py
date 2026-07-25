@@ -8,9 +8,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from api.ratelimit import PROVIDER_ACTION_BUDGET, rate_limit
-from api.schemas.connector import ConnectorAction
 from config import settings
-from connectors.registry import connector_registry
+from connectors.composio_tool import get_default_composio_client
 from db.repositories import (
     approve_action_item,
     cancel_action_item,
@@ -19,7 +18,6 @@ from db.repositories import (
     get_workflow_run,
     try_db,
     update_action_item_execution,
-    workflow_action_execution_key,
 )
 from db.session import get_db, get_optional_claims, require_writable_org
 
@@ -93,15 +91,19 @@ async def approve_item(
                 detail="Delivery blocked by data-routing policy.",
             )
 
-    connector = None
+    composio = None
     if destination != "manual":
-        try:
-            connector = connector_registry.get(destination)
-        except KeyError as exc:
+        composio = get_default_composio_client()
+        if not composio.available():
+            raise HTTPException(
+                status_code=503,
+                detail="Composio is not configured.",
+            )
+        if not await composio.connection_identity(destination, org_id):
             raise HTTPException(
                 status_code=422,
-                detail=f"Connector {destination!r} is not available.",
-            ) from exc
+                detail=f"Connect {destination!r} through Composio before approving this action.",
+            )
 
     # 3. Claim the item atomically. item_data above is a snapshot read before
     #    this request did anything, so checking its status cannot prevent a
@@ -157,22 +159,23 @@ async def approve_item(
 
     if destination != "manual":
         try:
-            action = ConnectorAction(
-                action_type=_action_type_for_destination(destination),
-                payload=_build_payload(item_data, destination),
-                idempotency_key=workflow_action_execution_key(item_id),
-            )
+            payload = _build_payload(item_data, destination)
             provider_may_have_run = True
-            assert connector is not None
-            result = await connector.execute_action(org_id, action)
-            external_url = result.url
-            if result.status == "succeeded":
+            assert composio is not None
+            result = await composio.execute(
+                _action_type_for_destination(destination),
+                payload,
+                org_id,
+            )
+            data = result.get("data") or {}
+            external_url = (
+                data.get("url") or data.get("ticket_url") or data.get("permalink")
+                if isinstance(data, dict)
+                else None
+            )
+            if result.get("successful"):
                 exec_status = "completed"
                 exec_message = f"Pushed to {destination}"
-            elif result.status == "skipped":
-                provider_may_have_run = False
-                exec_status = "failed_preflight"
-                exec_message = result.error or "Connector is not ready; retry later."
             else:
                 exec_status = "outcome_unknown"
                 exec_message = "Provider outcome is unknown; reconcile before retrying."
@@ -273,11 +276,11 @@ async def cancel_item(
 
 def _action_type_for_destination(destination: str) -> str:
     mapping = {
-        "freshdesk": "create_ticket",
-        "slack": "post_message",
-        "notion": "create_page",
+        "freshdesk": "FRESHDESK_CREATE_TICKET",
+        "slack": "SLACK_SEND_MESSAGE",
+        "notion": "NOTION_CREATE_NOTION_PAGE",
     }
-    return mapping.get(destination, "create_item")
+    return mapping.get(destination, destination)
 
 
 def _build_payload(item: dict, destination: str) -> dict:

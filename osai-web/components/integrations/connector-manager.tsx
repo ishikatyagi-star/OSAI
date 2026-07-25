@@ -185,9 +185,7 @@ export function ConnectorManager({
             <div>
               <DialogTitle>{brandText(meta?.label ?? integration.display_name)}</DialogTitle>
               <DialogDescription>
-                {!canSync && !canOAuthConnect
-                  ? "Legacy connection unavailable"
-                  : integration.auth_state === "expired"
+                {integration.auth_state === "expired"
                     ? "Connection expired"
                   : connected
                   ? integration.account_email

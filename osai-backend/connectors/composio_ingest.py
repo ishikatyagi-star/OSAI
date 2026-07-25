@@ -2,7 +2,7 @@
 
 Flow: user connects an app via OAuth (POST /integrations/composio/connect/{tk}),
 then this pulls their content through Composio's tools and indexes it into the
-same RAG pipeline the native connectors use (Postgres source_documents + chunks
+same RAG pipeline used by uploads (Postgres source_documents + chunks
 + Qdrant vectors). No token-sharing — auth lives in the Composio connection.
 
 Notion is implemented first; add other toolkits by extending `_FETCHERS`.
@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session
 from api.schemas.connector import SourceDocument
 from config import settings
 from connectors.composio_tool import ComposioClient, get_default_composio_client
-from connectors.toolkit_map import to_native_key
+from connectors.toolkit_map import to_source_key
 from db.models import SourceDocumentRecord, now_utc
 from db.repositories import (
     apply_tier_rules,
@@ -209,7 +209,7 @@ async def _handle_account_change(
     client: ComposioClient,
     org_id: str,
     toolkit: str,
-    native_key: str,
+    source_key: str,
     qdrant_store: QdrantStore,
 ) -> None:
     """Detect a reconnect with a different external account and purge the old
@@ -222,7 +222,7 @@ async def _handle_account_change(
     if not identity or not identity.get("id"):
         return
 
-    account = ensure_connector_account(session, org_id, native_key)
+    account = ensure_connector_account(session, org_id, source_key)
     config = dict(account.config or {})
     prev_id = config.get("account_external_id")
     new_id = identity["id"]
@@ -230,11 +230,11 @@ async def _handle_account_change(
     if prev_id and prev_id != new_id:
         # Different account than last sync — remove the previous account's docs
         # from Postgres and Qdrant so they can't be counted or retrieved.
-        purge_source_type(session, org_id, native_key)
+        purge_source_type(session, org_id, source_key)
         try:
-            await qdrant_store.delete_source_type(org_id, native_key)
+            await qdrant_store.delete_source_type(org_id, source_key)
         except Exception:  # noqa: BLE001 — vector cleanup is best-effort
-            logger.warning("Qdrant purge failed for %s/%s", org_id, native_key)
+            logger.warning("Qdrant purge failed for %s/%s", org_id, source_key)
         config["previous_account_email"] = config.get("account_email")
         config["last_reconnected_at"] = now_utc().isoformat()
 
@@ -261,17 +261,17 @@ async def purge_connector_data(
     purge) then connect + sync the new account, which cannot then mix the two.
     Returns the number of source documents removed."""
     qdrant_store = qdrant_store or get_default_qdrant_store()
-    native_key = to_native_key(toolkit)
+    source_key = to_source_key(toolkit)
 
-    removed = purge_source_type(session, org_id, native_key)
+    removed = purge_source_type(session, org_id, source_key)
     try:
-        await qdrant_store.delete_source_type(org_id, native_key)
+        await qdrant_store.delete_source_type(org_id, source_key)
     except Exception:  # noqa: BLE001 — vector cleanup is best-effort
-        logger.warning("Qdrant purge failed on disconnect for %s/%s", org_id, native_key)
+        logger.warning("Qdrant purge failed on disconnect for %s/%s", org_id, source_key)
 
     # Reset the account so a later reconnect starts clean (no stale identity that
     # would make the reconnect path think the account is unchanged).
-    account = ensure_connector_account(session, org_id, native_key)
+    account = ensure_connector_account(session, org_id, source_key)
     config = dict(account.config or {})
     for k in ("account_external_id", "account_email", "previous_account_email"):
         config.pop(k, None)
@@ -291,14 +291,14 @@ def _record_ingest_failure(
 ) -> dict[str, Any]:
     """Rollback partial relational work, then persist one actionable failure."""
     session.rollback()
-    native_key = to_native_key(toolkit)
-    account = ensure_connector_account(session, org_id, native_key)
+    source_key = to_source_key(toolkit)
+    account = ensure_connector_account(session, org_id, source_key)
     account.auth_state = "error"
     error = error[:2000]
     record_sync_result(
         session,
         org_id=org_id,
-        connector_key=native_key,
+        connector_key=source_key,
         status="failed",
         documents_seen=0,
         documents_indexed=0,
@@ -335,7 +335,7 @@ async def ingest_composio_toolkit(
             error=f"Ingestion not implemented for toolkit {toolkit!r}",
         )
 
-    native_key = to_native_key(toolkit)
+    source_key = to_source_key(toolkit)
     # Everything below records a sync run no matter how it ends. Any unhandled
     # error here previously vanished (the background caller swallows exceptions),
     # so /sync-runs showed nothing at all — the user saw "Sync started" and then
@@ -346,16 +346,14 @@ async def ingest_composio_toolkit(
         # *different* external account, purge the previous account's documents so
         # counts and Ask reflect only the currently-connected account.
         await _handle_account_change(
-            session, client, org_id, toolkit, native_key, qdrant_store
+            session, client, org_id, toolkit, source_key, qdrant_store
         )
         stage = "provider fetch"
         documents = await fetcher(client, org_id, limit)
         stage = "document indexing"
         if documents:
-            # Tier rules are keyed by the native connector key, so a
-            # Composio-ingested doc is classified the same way a natively-synced
-            # one would be, instead of always landing at the default tier.
-            apply_tier_rules(session, org_id, native_key, documents)
+            # Tier rules use the stable source key persisted with indexed data.
+            apply_tier_rules(session, org_id, source_key, documents)
 
         # Capture each doc's previously-embedded content hash BEFORE the upsert
         # overwrites metadata, so unchanged docs skip re-embedding (which is what
@@ -432,9 +430,8 @@ async def ingest_composio_toolkit(
     record_sync_result(
         session,
         org_id=org_id,
-        # Attribute to the native connector key so the single Integrations card
-        # reflects the connection/sync (Composio `googledrive` -> `google_drive`).
-        connector_key=to_native_key(toolkit),
+        # Attribute to the stable source key used by the Integrations card.
+        connector_key=to_source_key(toolkit),
         status=sync_status,
         documents_seen=len(documents),
         documents_indexed=indexed,

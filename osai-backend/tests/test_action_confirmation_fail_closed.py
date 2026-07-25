@@ -11,7 +11,6 @@ from sqlalchemy.exc import OperationalError
 import agent.orchestrator as orchestrator
 import db.repositories as repositories
 import db.session as db_session
-from api.schemas.connector import ActionResult
 from db.models import ConnectorAction, Org, now_utc
 from db.session import SessionLocal
 
@@ -37,21 +36,21 @@ def _demo_org_and_cache_cleanup():
             orchestrator._PROPOSED.pop(action_id, None)
 
 
-class _NeverExecuteConnector:
+class _NeverExecuteComposio:
     def __init__(self) -> None:
         self.calls = 0
 
-    async def execute_action(self, _org_id, _action):
+    async def execute(self, _action, _payload, _org_id):
         self.calls += 1
-        raise AssertionError("connector execution must remain behind the durable claim")
+        raise AssertionError("Composio execution must remain behind the durable claim")
 
 
 def _descriptor() -> dict:
     return {
         "org_id": "demo-org",
-        "provider": "connector",
+        "provider": "composio",
         "tool": "freshdesk",
-        "action": "create_ticket",
+        "action": "FRESHDESK_CREATE_TICKET",
         "payload": {"subject": "QA claim guard"},
         "summary": "Create a QA ticket",
         "user_id": None,
@@ -59,20 +58,22 @@ def _descriptor() -> dict:
     }
 
 
-def _install_never_execute_connector(monkeypatch) -> _NeverExecuteConnector:
-    connector = _NeverExecuteConnector()
-    monkeypatch.setattr(orchestrator.connector_registry, "get", lambda _key: connector)
-    return connector
+def _install_never_execute_composio(monkeypatch) -> _NeverExecuteComposio:
+    from connectors import composio_tool
+
+    client = _NeverExecuteComposio()
+    monkeypatch.setattr(composio_tool, "get_default_composio_client", lambda: client)
+    return client
 
 
 @pytest.mark.anyio
 async def test_expired_cached_approval_never_executes(monkeypatch):
-    connector = _install_never_execute_connector(monkeypatch)
+    connector = _install_never_execute_composio(monkeypatch)
     action = orchestrator._record(
         "demo-org",
-        "connector",
+        "composio",
         "freshdesk",
-        "create_ticket",
+        "FRESHDESK_CREATE_TICKET",
         _descriptor()["payload"],
         "Create a QA ticket",
         source_tiers=["normal"],
@@ -92,12 +93,12 @@ async def test_expired_cached_approval_never_executes(monkeypatch):
 
 @pytest.mark.anyio
 async def test_expired_durable_approval_after_restart_never_executes(monkeypatch):
-    connector = _install_never_execute_connector(monkeypatch)
+    connector = _install_never_execute_composio(monkeypatch)
     action = orchestrator._record(
         "demo-org",
-        "connector",
+        "composio",
         "freshdesk",
-        "create_ticket",
+        "FRESHDESK_CREATE_TICKET",
         _descriptor()["payload"],
         "Create a QA ticket",
         source_tiers=["normal"],
@@ -118,7 +119,7 @@ async def test_expired_durable_approval_after_restart_never_executes(monkeypatch
 
 @pytest.mark.anyio
 async def test_unpersisted_cached_approval_never_executes(monkeypatch):
-    connector = _install_never_execute_connector(monkeypatch)
+    connector = _install_never_execute_composio(monkeypatch)
 
     def fail_save(*_args, **_kwargs):
         raise OperationalError("INSERT", {}, RuntimeError("database offline"))
@@ -126,9 +127,9 @@ async def test_unpersisted_cached_approval_never_executes(monkeypatch):
     monkeypatch.setattr(orchestrator, "save_proposed_action", fail_save)
     action = orchestrator._record(
         "demo-org",
-        "connector",
+        "composio",
         "freshdesk",
-        "create_ticket",
+        "FRESHDESK_CREATE_TICKET",
         _descriptor()["payload"],
         "Create a QA ticket",
         source_tiers=["normal"],
@@ -145,7 +146,7 @@ async def test_unpersisted_cached_approval_never_executes(monkeypatch):
 
 @pytest.mark.anyio
 async def test_unavailable_claim_store_never_executes(monkeypatch):
-    connector = _install_never_execute_connector(monkeypatch)
+    connector = _install_never_execute_composio(monkeypatch)
     action_id = f"qa-action-{uuid4()}"
     orchestrator._PROPOSED[action_id] = _descriptor()
 
@@ -164,7 +165,7 @@ async def test_unavailable_claim_store_never_executes(monkeypatch):
 
 @pytest.mark.anyio
 async def test_unavailable_store_after_restart_remains_retryable(monkeypatch):
-    connector = _install_never_execute_connector(monkeypatch)
+    connector = _install_never_execute_composio(monkeypatch)
     action_id = f"qa-action-{uuid4()}"
 
     def unavailable_session():
@@ -185,20 +186,21 @@ async def test_unavailable_store_after_restart_remains_retryable(monkeypatch):
 
 
 @pytest.mark.anyio
-async def test_connector_failures_do_not_disclose_provider_errors(monkeypatch):
+async def test_composio_failures_do_not_disclose_provider_errors(monkeypatch):
     marker = "provider-secret-password"
 
-    class _FailingConnector:
-        async def execute_action(self, _org_id, _action):
-            return ActionResult(
-                connector_key="freshdesk",
-                status="failed",
-                error=marker,
-            )
+    class _FailingComposio:
+        async def execute(self, _action, _payload, _org_id):
+            return {"successful": False, "error": marker}
 
+    from connectors import composio_tool
     from llm import policy
 
-    monkeypatch.setattr(orchestrator.connector_registry, "get", lambda _key: _FailingConnector())
+    monkeypatch.setattr(
+        composio_tool,
+        "get_default_composio_client",
+        lambda: _FailingComposio(),
+    )
     monkeypatch.setattr(orchestrator, "claim_proposed_action", lambda _action_id: "claimed")
     monkeypatch.setattr(policy, "load_data_routing", lambda _org_id: {})
     monkeypatch.setattr(policy, "connector_egress_allowed", lambda *_args: True)
@@ -211,7 +213,7 @@ async def test_connector_failures_do_not_disclose_provider_errors(monkeypatch):
         caller_org_id="demo-org",
     )
 
-    assert result.error == "connector_action_failed"
+    assert result.error == "composio_action_failed"
     assert marker not in result.model_dump_json()
 
 

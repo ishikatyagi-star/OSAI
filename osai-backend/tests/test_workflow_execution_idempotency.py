@@ -9,7 +9,6 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from api.routes.workflow_actions import approve_item
-from api.schemas.connector import ActionResult
 from db.models import (
     ActionItemRecord,
     Base,
@@ -91,18 +90,22 @@ async def test_provider_commit_then_timeout_is_not_reexecuted(monkeypatch):
 
     class CommitThenTimeout:
         calls = 0
-        keys: list[str | None] = []
 
-        async def execute_action(self, _org_id, action):
+        def available(self):
+            return True
+
+        async def connection_identity(self, _destination, _org_id):
+            return {"id": "connected"}
+
+        async def execute(self, _action, _payload, _org_id):
             self.calls += 1
-            self.keys.append(action.idempotency_key)
             raise TimeoutError("provider committed before response was lost")
 
     connector = CommitThenTimeout()
     monkeypatch.setattr("llm.policy.load_data_routing", lambda _org: DEFAULT_DATA_ROUTING)
     monkeypatch.setattr(
-        "api.routes.workflow_actions.connector_registry.get",
-        lambda _destination: connector,
+        "api.routes.workflow_actions.get_default_composio_client",
+        lambda: connector,
     )
 
     first = await _approve(session, user, run, item)
@@ -113,7 +116,6 @@ async def test_provider_commit_then_timeout_is_not_reexecuted(monkeypatch):
     assert first["reconciliation_required"] is True
     assert second["status"] == "outcome_unknown"
     assert connector.calls == 1
-    assert connector.keys == [workflow_action_execution_key(item.id)]
     outbox = session.get(
         ConnectorAction,
         f"workflow-action:{workflow_action_execution_key(item.id)}",
@@ -122,45 +124,37 @@ async def test_provider_commit_then_timeout_is_not_reexecuted(monkeypatch):
 
 
 @pytest.mark.anyio
-async def test_definite_preflight_failure_retries_with_same_provider_key(monkeypatch):
+async def test_composio_failure_is_quarantined_without_retry(monkeypatch):
     session = _session()
     user, run, item = _seed(session)
 
     class ConfigureThenSucceed:
-        keys: list[str | None] = []
+        calls = 0
 
-        async def execute_action(self, _org_id, action):
-            self.keys.append(action.idempotency_key)
-            if len(self.keys) == 1:
-                return ActionResult(
-                    connector_key="slack",
-                    status="skipped",
-                    error="Slack token not configured.",
-                )
-            return ActionResult(
-                connector_key="slack",
-                status="succeeded",
-                external_id="message-1",
-                url="https://slack.test/message-1",
-            )
+        def available(self):
+            return True
+
+        async def connection_identity(self, _destination, _org_id):
+            return {"id": "connected"}
+
+        async def execute(self, _action, _payload, _org_id):
+            self.calls += 1
+            return {"successful": False, "error": "Provider rejected the request."}
 
     connector = ConfigureThenSucceed()
     monkeypatch.setattr("llm.policy.load_data_routing", lambda _org: DEFAULT_DATA_ROUTING)
     monkeypatch.setattr(
-        "api.routes.workflow_actions.connector_registry.get",
-        lambda _destination: connector,
+        "api.routes.workflow_actions.get_default_composio_client",
+        lambda: connector,
     )
 
     first = await _approve(session, user, run, item)
     session.expire_all()
     second = await _approve(session, user, run, item)
 
-    assert first["status"] == "failed_preflight"
-    assert second["status"] == "completed"
-    assert connector.keys == [
-        workflow_action_execution_key(item.id),
-        workflow_action_execution_key(item.id),
-    ]
+    assert first["status"] == "outcome_unknown"
+    assert second["status"] == "outcome_unknown"
+    assert connector.calls == 1
 
 
 @pytest.mark.anyio
@@ -173,9 +167,15 @@ async def test_database_failure_after_provider_success_quarantines_retry(monkeyp
     class SuccessfulProvider:
         calls = 0
 
-        async def execute_action(self, _org_id, _action):
+        def available(self):
+            return True
+
+        async def connection_identity(self, _destination, _org_id):
+            return {"id": "connected"}
+
+        async def execute(self, _action, _payload, _org_id):
             self.calls += 1
-            return ActionResult(connector_key="slack", status="succeeded")
+            return {"successful": True, "data": {}}
 
     provider = SuccessfulProvider()
     real_update = route.update_action_item_execution
@@ -189,7 +189,7 @@ async def test_database_failure_after_provider_success_quarantines_retry(monkeyp
         return real_update(*args, **kwargs)
 
     monkeypatch.setattr("llm.policy.load_data_routing", lambda _org: DEFAULT_DATA_ROUTING)
-    monkeypatch.setattr(route.connector_registry, "get", lambda _destination: provider)
+    monkeypatch.setattr(route, "get_default_composio_client", lambda: provider)
     monkeypatch.setattr(route, "update_action_item_execution", fail_first_update)
 
     first = await _approve(session, user, run, item)

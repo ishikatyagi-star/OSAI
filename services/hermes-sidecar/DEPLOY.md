@@ -1,11 +1,12 @@
-# Hermes sidecar — local validation and production hold
+# Hermes core runtime — local validation and production hold
 
 ## Current decision
 
-This is an experimental local/trusted-monolith spike. **Do not deploy it as a
-shared multi-tenant service.** It has been removed from `render.yaml`, and the
-Render API/worker services no longer receive Hermes sidecar URL/token wiring.
-Do not recreate the old public token-gated web service manually.
+Hermes is a core OSAI runtime, not an optional integration. This checked-in
+wrapper is a local/trusted-monolith validation implementation. **Do not deploy
+it as a shared multi-tenant service.** `render.yaml` requires URL/token values
+for the reviewed production service but does not provision this wrapper. Do
+not recreate the old public token-gated web service manually.
 
 The blocker is architectural: org/user home paths all belong to the same OS UID
 and every Hermes process has that identity. The paths separate names for
@@ -21,8 +22,8 @@ into its Hermes runtime.
 ## Historical validation
 
 A July 2026 local Docker test returned a real Groq/Hermes answer and an OSAI
-request reported `via: "hermes"`. That proves the experimental integration can
-run; it does not prove production isolation, supply-chain reproducibility,
+request reported `via: "hermes"`. That proves the runtime seam can run; it does
+not prove production isolation, supply-chain reproducibility,
 approved egress, lifecycle management, or safe multi-tenant concurrency.
 
 ## Local provider configuration

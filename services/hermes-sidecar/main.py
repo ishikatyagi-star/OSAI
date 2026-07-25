@@ -1,4 +1,4 @@
-"""Experimental OSAI ↔ Hermes-agent sidecar.
+"""Local validation wrapper for OSAI's core Hermes reasoning runtime.
 
 Hermes Agent (github.com/NousResearch/hermes-agent) is a single-operator agent.
 This local/trusted-monolith spike gives each request a namespaced HERMES_HOME,

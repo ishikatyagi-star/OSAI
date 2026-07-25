@@ -31,8 +31,8 @@ test("legacy connector metadata cannot advertise disabled ingestion", () => {
   assert.doesNotMatch(metadata, /Receive meeting webhooks|auto-transcribe recordings/);
 });
 
-test("OAuth, sync, and disconnect capabilities are evaluated independently", () => {
-  assert.match(integrations, /function canOAuthConnect\(connectorKey: string\)/);
+test("connector controls are Composio-only while sync remains capability-based", () => {
+  assert.match(integrations, /function canOAuthConnect\(_connectorKey: string\)[\s\S]*return true/);
   assert.match(integrations, /function canSync\(integration: Integration\)[\s\S]*capabilities\?\.includes\("sync"\)/);
   assert.match(integrations, /availability !== "legacy-unavailable"/);
   assert.match(integrations, /function canDisconnect\(integration: Integration\)[\s\S]*source === "composio"/);

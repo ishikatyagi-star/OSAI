@@ -92,7 +92,7 @@ async def test_notion_ingestion_indexes_documents():
 
 async def test_notion_ingestion_applies_configured_tier_rules():
     """A tier rule set on the connector account must classify Composio-ingested
-    docs the same way the native connector sync path does (regression for the
+    docs the same way every indexed source does (regression for the
     gap where Composio ingest silently left everything at the default tier)."""
     session = _session()
     session.add(

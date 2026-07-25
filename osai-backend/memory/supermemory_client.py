@@ -1,10 +1,10 @@
 """Supermemory (supermemory.ai) as OSAI's evolving-memory backbone.
 
-Env-gated: without OSAI_SUPERMEMORY_API_KEY every call is a cheap no-op and
-callers fall back to the Postgres org-memory (memory/org_memory.py), so local
-dev and tests need no key. With a key, org-shared memories live under the
-container tag "org:<org_id>" and personal ones under "user:<user_id>" — the
-same audience split as the visibility-grant model.
+Deployed environments require OSAI_SUPERMEMORY_API_KEY. Local development and
+tests may omit it and retain memories in the durable Postgres copy. With a key,
+org-shared memories live under the container tag "org:<org_id>" and personal
+ones under "user:<user_id>" — the same audience split as the visibility-grant
+model.
 
 Sovereignty: only NORMAL-tier content may be sent to the Supermemory cloud.
 Amber/red content requires a self-hosted deployment (OSAI_SUPERMEMORY_URL

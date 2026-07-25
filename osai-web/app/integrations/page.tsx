@@ -19,8 +19,8 @@ import { SheldonMascot } from "@/components/sheldon-mascot";
 type ConnectorFeedbackTone = "pending" | "success" | "error" | "info";
 type IntegrationTab = "connectors" | "routing";
 
-function canOAuthConnect(connectorKey: string) {
-  return Object.hasOwn(COMPOSIO_TOOLKIT, connectorKey);
+function canOAuthConnect(_connectorKey: string) {
+  return true;
 }
 
 function canSync(integration: Integration) {
@@ -369,7 +369,7 @@ export default function IntegrationsPage() {
           onOpenChange={setCatalogOpen}
           connectedKeys={integrations
             .filter((i) => i.auth_state === "connected")
-            // Catalog entries use Composio slugs; translate native keys so
+            // Catalog entries use Composio slugs; translate stable source keys so
             // already-connected apps read "Connected" in the dialog.
             .map((i) => COMPOSIO_TOOLKIT[i.key] ?? i.key)}
         />

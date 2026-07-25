@@ -8,9 +8,14 @@ uv run python -m db.seed
 uv run uvicorn api.main:app --reload --no-proxy-headers --host 0.0.0.0 --port 8000
 ```
 
-Notion direct API sync uses `OSAI_NOTION_API_TOKEN`. Optionally set
-`OSAI_NOTION_ROOT_PAGE_ID` to sync a specific page subtree; otherwise the connector searches
-the integration-visible workspace.
+External connectors use Composio exclusively. Set `OSAI_COMPOSIO_API_KEY`;
+workspace admins then authorize accounts from the Integrations page.
+
+Supermemory and Hermes are core runtime services. Non-local environments refuse
+to start without `OSAI_SUPERMEMORY_API_KEY`,
+`OSAI_HERMES_SIDECAR_URL`, and `OSAI_HERMES_SIDECAR_TOKEN`. The Postgres memory
+copy and in-house reasoner are retained for local development and failure
+containment; they are not alternate production architectures.
 
 ## High-cost request limits
 

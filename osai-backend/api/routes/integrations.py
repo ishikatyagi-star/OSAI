@@ -11,9 +11,11 @@ from sqlalchemy.orm import Session
 from api.ratelimit import INGEST_START_BUDGET, rate_limit
 from connectors.composio_ingest import SUPPORTED_INGESTION_TOOLKITS, ingest_composio_toolkit
 from connectors.composio_tool import get_default_composio_client
-from connectors.registry import HARD_DISABLED_CONNECTOR_KEYS, connector_registry
-from connectors.sync_service import sync_connector
-from connectors.toolkit_map import NATIVE_TO_COMPOSIO, to_native_key
+from connectors.toolkit_map import (
+    HARD_DISABLED_CONNECTOR_KEYS,
+    to_source_key,
+    to_toolkit_slug,
+)
 from db.models import ConnectorAccount, SourceDocumentRecord, utc_iso
 from db.repositories import list_integrations as list_db_integrations
 from db.repositories import user_clearance, user_permissions
@@ -31,7 +33,6 @@ router = APIRouter(prefix="/integrations", tags=["integrations"])
 logger = logging.getLogger("osai.integrations")
 DbSession = Annotated[Session, Depends(get_db)]
 OrgId = Annotated[str, Depends(get_org_id)]
-# Writes must never come from the anonymous demo workspace (SEC-003).
 WriteOrgId = Annotated[str, Depends(require_writable_org)]
 AdminOnly = Annotated[dict, Depends(require_admin)]
 OptionalClaims = Annotated[dict | None, Depends(get_optional_claims)]
@@ -40,14 +41,12 @@ _CONNECTOR_KEY_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,99}$")
 
 
 def _known_connector_key(db: Session, org_id: str, connector_key: str) -> bool:
-    """Accept a normalized native/upload key or a connector configured for this org."""
+    """Accept an upload key or a Composio source already known to this org."""
     if not _CONNECTOR_KEY_RE.fullmatch(connector_key):
         return False
     if connector_key in HARD_DISABLED_CONNECTOR_KEYS:
         return False
-    if connector_key == "upload" or connector_key in {
-        connector.key for connector in connector_registry.all()
-    }:
+    if connector_key == "upload":
         return True
     if db.scalar(
         select(ConnectorAccount.id).where(
@@ -56,8 +55,6 @@ def _known_connector_key(db: Session, org_id: str, connector_key: str) -> bool:
         )
     ):
         return True
-    # Preserve legacy/dynamic Composio sources that predate ConnectorAccount
-    # persistence, while still rejecting arbitrary caller-chosen source keys.
     return (
         db.scalar(
             select(SourceDocumentRecord.id)
@@ -73,100 +70,78 @@ def _known_connector_key(db: Session, org_id: str, connector_key: str) -> bool:
 
 @router.get("")
 async def list_integrations(db: DbSession, org_id: OrgId) -> list[dict[str, object]]:
-    # Only integrations the org has actually configured. A fresh workspace gets
-    # an empty list — the frontend renders its empty state pointing at the full
-    # Composio catalog instead of a fixed set of native connector cards.
+    """Return only connections that currently exist in Composio.
+
+    Persisted rows provide sync metadata but are never treated as an independent
+    connector or authentication source.
+    """
     try:
-        items = list_db_integrations(db, org_id)
+        persisted = list_db_integrations(db, org_id)
     except SQLAlchemyError as exc:
         logger.exception("Could not list integrations (org=%s)", org_id)
         raise HTTPException(
             status_code=503,
             detail="Integrations are temporarily unavailable.",
         ) from exc
-    items = [
-        it
-        for it in items
-        if it.get("auth_state") != "not_configured"
-        and it.get("key") not in HARD_DISABLED_CONNECTOR_KEYS
-    ]
-    for item in items:
-        item["source"] = "native"
 
-    # Overlay live Composio connections onto the matching native card so an
-    # authorized app reads "connected" even if ingestion hasn't run yet. The
-    # Composio slug maps to one native key, keeping it a single card.
     client = get_default_composio_client()
-    if client.available():
-        try:
-            # Bounded well under the frontend's fetch budget: if Composio is
-            # slow the page must still render from the DB (overlay is optional),
-            # not time out client-side and show a load error.
-            connections = await asyncio.wait_for(client.list_connections(org_id), timeout=4)
-            # Collapse to one connection per native key, preferring ACTIVE. A key
-            # whose only connection is EXPIRED must read "expired" (needs
-            # reconnect), never "connected" — otherwise the card looks healthy
-            # while every sync 404s. Google expires OAuth tokens for apps in
-            # "Testing" publishing status after ~7 days, so this is the common
-            # steady state, not an edge case.
-            live: dict[str, dict] = {}
-            for c in connections:
-                tk = c.get("toolkit")
-                if not tk:
-                    continue
-                key = to_native_key(tk)
-                if key in HARD_DISABLED_CONNECTOR_KEYS:
-                    continue
-                status = (c.get("status") or "").upper()
-                prev = live.get(key)
-                prev_status = (prev.get("status") or "").upper() if prev else ""
-                # ACTIVE always wins; otherwise keep the first seen.
-                if prev is None or (status == "ACTIVE" and prev_status != "ACTIVE"):
-                    live[key] = c
-            by_key = {it["key"]: it for it in items}
-            native_keys = {connector.key for connector in connector_registry.all()}
-            for key, conn in live.items():
-                status = (conn.get("status") or "").upper()
-                auth_state = "connected" if status == "ACTIVE" else "expired"
-                toolkit = conn.get("toolkit") or key
-                if key in by_key:
-                    by_key[key]["auth_state"] = auth_state
-                    by_key[key]["source"] = "composio"
-                    if key not in native_keys:
-                        by_key[key]["capabilities"] = (
-                            ["sync", "search"]
-                            if toolkit in SUPPORTED_INGESTION_TOOLKITS
-                            else ["execute"]
-                        )
-                    # Prefer the live account email if we have it (may be fresher
-                    # than what the last sync persisted).
-                    if conn.get("email") and not by_key[key].get("account_email"):
-                        by_key[key]["account_email"] = conn.get("email")
-                elif status == "ACTIVE" or key not in {it["key"] for it in items}:
-                    # A catalog connector with no native counterpart (e.g. Gmail,
-                    # Linear via Composio) — synthesize a card so anything the
-                    # user connects from the full catalog is visible here,
-                    # including an expired one so they can reconnect it.
-                    items.append(
-                        {
-                            "key": key,
-                            "display_name": toolkit.replace("_", " ").title(),
-                            "capabilities": (
-                                ["sync", "search"]
-                                if toolkit in SUPPORTED_INGESTION_TOOLKITS
-                                else ["execute"]
-                            ),
-                            "auth_state": auth_state,
-                            "scopes": [],
-                            "last_sync": None,
-                            "sync_error": None,
-                            "account_email": conn.get("email"),
-                            "source": "composio",
-                        }
-                    )
-        except Exception:  # noqa: BLE001 — connection overlay is best-effort
-            pass
+    if not client.available():
+        return []
+    try:
+        connections = await asyncio.wait_for(client.list_connections(org_id), timeout=4)
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Could not list Composio connections (org=%s)", org_id)
+        raise HTTPException(
+            status_code=503,
+            detail="Composio connections are temporarily unavailable.",
+        ) from exc
 
+    persisted_by_key = {
+        str(item["key"]): item
+        for item in persisted
+        if item.get("key") not in HARD_DISABLED_CONNECTOR_KEYS
+    }
+    live: dict[str, dict] = {}
+    for connection in connections:
+        toolkit = connection.get("toolkit")
+        if not toolkit:
+            continue
+        key = to_source_key(toolkit)
+        if key in HARD_DISABLED_CONNECTOR_KEYS:
+            continue
+        previous = live.get(key)
+        status = (connection.get("status") or "").upper()
+        previous_status = (previous.get("status") or "").upper() if previous else ""
+        if previous is None or (status == "ACTIVE" and previous_status != "ACTIVE"):
+            live[key] = connection
+
+    items: list[dict[str, object]] = []
+    for key, connection in live.items():
+        toolkit = str(connection.get("toolkit") or key)
+        item = dict(persisted_by_key.get(key, {}))
+        item.update(
+            {
+                "key": key,
+                "display_name": item.get("display_name")
+                or toolkit.replace("_", " ").title(),
+                "capabilities": (
+                    ["sync", "search"]
+                    if toolkit in SUPPORTED_INGESTION_TOOLKITS
+                    else ["execute"]
+                ),
+                "auth_state": (
+                    "connected"
+                    if (connection.get("status") or "").upper() == "ACTIVE"
+                    else "expired"
+                ),
+                "scopes": item.get("scopes") or [],
+                "last_sync": item.get("last_sync"),
+                "sync_error": item.get("sync_error"),
+                "account_email": connection.get("email") or item.get("account_email"),
+                "source": "composio",
+            }
+        )
+        items.append(item)
     return items
 
 
@@ -178,7 +153,7 @@ async def list_connector_documents(
     claims: OptionalClaims,
     limit: Annotated[int, Query(ge=1, le=500)] = 25,
 ) -> list[dict[str, object]]:
-    """Recently indexed documents for a connector, so the UI can show what synced."""
+    """Recently indexed documents for a connector."""
     if not _known_connector_key(db, org_id, connector_key):
         raise HTTPException(status_code=404, detail="Unknown connector")
     requester_permissions = user_permissions(db, claims)
@@ -202,33 +177,22 @@ async def list_connector_documents(
                 break
     return [
         {
-            "id": d.id,
-            "title": d.title or "Untitled",
-            "url": d.url,
-            "data_tier": d.data_tier,
-            "updated_at": (
-                utc_iso(d.source_updated_at) if d.source_updated_at else utc_iso(d.ingested_at)
+            "id": document.id,
+            "title": document.title or "Untitled",
+            "url": document.url,
+            "data_tier": document.data_tier,
+            "updated_at": utc_iso(
+                document.source_updated_at or document.ingested_at
             ),
         }
-        for d in rows
+        for document in rows
     ]
 
 
-# One ingest per (org, toolkit) at a time. Double-clicking "Sync Now" (or a UI
-# retry) used to stack two full ingests in the same process, doubling memory
-# pressure on the tiny prod instance — the second click should be a no-op.
 _INFLIGHT_INGESTS: set[tuple[str, str]] = set()
 
 
 async def _ingest_composio_in_background(org_id: str, slug: str) -> None:
-    """Run a Composio re-ingest off the request path, with its own DB session.
-
-    A full re-sync (25 files + media transcription + embeddings) easily exceeds
-    the client's request timeout; run inline it left the UI stuck on "Syncing…"
-    and the request was cancelled before ingest_composio_toolkit could record a
-    sync run — so /sync-runs showed nothing. As a background task it always runs
-    to completion and records its result.
-    """
     key = (org_id, slug)
     if key in _INFLIGHT_INGESTS:
         return
@@ -236,12 +200,9 @@ async def _ingest_composio_in_background(org_id: str, slug: str) -> None:
     try:
         with SessionLocal() as db:
             try:
-                # ingest_composio_toolkit always records a sync run (success or a
-                # visible failed run), so a swallowed error here can't leave
-                # /sync-runs empty.
                 await ingest_composio_toolkit(org_id, slug, db)
-            except Exception:  # noqa: BLE001 — never crash the background worker
-                pass
+            except Exception:  # noqa: BLE001
+                logger.exception("Composio ingest failed (org=%s, toolkit=%s)", org_id, slug)
     finally:
         _INFLIGHT_INGESTS.discard(key)
 
@@ -257,87 +218,58 @@ async def trigger_sync(
     background_tasks: BackgroundTasks,
     _admin: AdminOnly,
 ) -> dict[str, object]:
+    del db
     if connector_key in HARD_DISABLED_CONNECTOR_KEYS:
         raise HTTPException(status_code=404, detail="Unknown connector")
-    # Catalog apps (e.g. Gmail) have no native connector, so an unknown key is
-    # only an error when there's also no active Composio connection for it.
-    is_native = connector_key in {connector.key for connector in connector_registry.all()}
-
-    # If this app is connected through Composio OAuth, ingest via Composio (no
-    # native service-account credentials needed, e.g. Google Drive). Only fall
-    # back to the native connector when there's no active Composio connection.
     client = get_default_composio_client()
-    if client.available():
-        slug = NATIVE_TO_COMPOSIO.get(connector_key, connector_key)
-        statuses: set[str] = set()
-        try:
-            connections = await client.list_connections(org_id)
-            statuses = {
-                (c.get("status") or "").upper()
-                for c in connections
-                if c.get("toolkit") == slug
-            }
-        except Exception:  # noqa: BLE001 — fall back to native sync on lookup failure
-            statuses = set()
-        if "ACTIVE" in statuses:
-            # Kick the ingest off in the background and return immediately so the
-            # UI can show "sync started" and poll /sync-runs for the result.
-            background_tasks.add_task(_ingest_composio_in_background, org_id, slug)
-            return {
-                "connector_key": connector_key,
-                "status": "started",
-                "documents_indexed": 0,
-            }
-        if statuses and not is_native:
-            # The connection exists but isn't usable (expired/initiated). Tell the
-            # user to reconnect instead of failing with an opaque error — this is
-            # the common "worked yesterday, 404s today" case for OAuth tokens that
-            # expire (e.g. Google Testing-mode refresh tokens after ~7 days).
-            return {
-                "connector_key": connector_key,
-                "status": "reconnect_required",
-                "documents_indexed": 0,
-                "message": "This connection has expired. Reconnect the app to resume syncing.",
-            }
-
-    if not is_native:
-        raise HTTPException(status_code=404, detail="Unknown connector")
-    return await sync_connector(connector_key, org_id, db)
+    if not client.available():
+        raise HTTPException(status_code=503, detail="Composio is not configured")
+    slug = to_toolkit_slug(connector_key)
+    connections = await client.list_connections(org_id)
+    statuses = {
+        (connection.get("status") or "").upper()
+        for connection in connections
+        if connection.get("toolkit") == slug
+    }
+    if "ACTIVE" in statuses:
+        background_tasks.add_task(_ingest_composio_in_background, org_id, slug)
+        return {
+            "connector_key": connector_key,
+            "status": "started",
+            "documents_indexed": 0,
+        }
+    if statuses:
+        return {
+            "connector_key": connector_key,
+            "status": "reconnect_required",
+            "documents_indexed": 0,
+            "message": "This connection has expired. Reconnect the app to resume syncing.",
+        }
+    raise HTTPException(status_code=404, detail="Unknown connector")
 
 
 @router.get("/{connector_key}/healthcheck")
 async def connector_healthcheck(connector_key: str, org_id: OrgId) -> dict[str, object]:
     if connector_key in HARD_DISABLED_CONNECTOR_KEYS:
         raise HTTPException(status_code=404, detail="Unknown connector")
-    # Catalog apps have no native connector; only 404 when Composio has no
-    # active connection for the key either (checked below).
-    is_native = connector_key in {connector.key for connector in connector_registry.all()}
-
-    # If the app is connected via Composio OAuth, report on that connection rather
-    # than the native connector (which would ask for service-account creds).
     client = get_default_composio_client()
-    if client.available():
-        slug = NATIVE_TO_COMPOSIO.get(connector_key, connector_key)
-        try:
-            connections = await client.list_connections(org_id)
-            if any(
-                c.get("toolkit") == slug and (c.get("status") or "").upper() == "ACTIVE"
-                for c in connections
-            ):
-                return {
-                    "connector_key": connector_key,
-                    "healthy": True,
-                    "message": "Connected via Composio (OAuth).",
-                }
-        except Exception:  # noqa: BLE001 — fall back to native healthcheck
-            pass
-
-    if not is_native:
+    if not client.available():
+        raise HTTPException(status_code=503, detail="Composio is not configured")
+    slug = to_toolkit_slug(connector_key)
+    connections = await client.list_connections(org_id)
+    matching = [connection for connection in connections if connection.get("toolkit") == slug]
+    if not matching:
         raise HTTPException(status_code=404, detail="Unknown connector")
-    connector = connector_registry.get(connector_key)
-    result = await connector.healthcheck(org_id)
+    healthy = any(
+        (connection.get("status") or "").upper() == "ACTIVE"
+        for connection in matching
+    )
     return {
-        "connector_key": result.connector_key,
-        "healthy": result.healthy,
-        "message": result.message,
+        "connector_key": connector_key,
+        "healthy": healthy,
+        "message": (
+            "Connected via Composio."
+            if healthy
+            else "The Composio connection needs to be reconnected."
+        ),
     }

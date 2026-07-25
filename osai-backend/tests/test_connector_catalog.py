@@ -1,11 +1,8 @@
-"""Full-catalog connector browsing: toolkit search/pagination and surfacing
-non-native Composio connections as integration cards (mocked Composio)."""
+"""Full-catalog Composio browsing and connected integration cards."""
 
 from __future__ import annotations
 
 import httpx
-import pytest
-from fastapi import HTTPException
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -80,45 +77,43 @@ async def test_list_toolkits_returns_page_shape(monkeypatch):
     assert gmail["no_auth"] is False
 
 
-async def test_api_catalog_only_offers_ingestible_toolkits(monkeypatch):
+async def test_api_catalog_delegates_to_composio(monkeypatch):
     from api.routes import composio
 
     class _ConfiguredClient:
         def available(self):
             return True
 
+        async def list_toolkits(self, **kwargs):
+            assert kwargs == {"search": "git", "cursor": "next", "limit": 10}
+            return {"items": [{"slug": "github"}], "next_cursor": None}
+
     monkeypatch.setattr(composio, "get_default_composio_client", lambda: _ConfiguredClient())
 
-    page = await composio.list_toolkits()
-    assert {item["slug"] for item in page["items"]} == {
-        "gmail",
-        "googledrive",
-        "notion",
-        "slack",
-    }
-    assert await composio.list_toolkits(search="github") == {
-        "items": [],
-        "next_cursor": None,
-    }
+    page = await composio.list_toolkits(search="git", cursor="next", limit=10)
+    assert page == {"items": [{"slug": "github"}], "next_cursor": None}
 
 
-async def test_connect_rejects_toolkits_sheldon_cannot_index():
+async def test_connect_allows_action_only_composio_toolkits(monkeypatch):
     from api.routes import composio
 
-    with pytest.raises(HTTPException) as exc_info:
-        await composio.connect(
-            "github",
-            "demo-org",
-            {"sub": "admin-1", "org_id": "demo-org"},
-        )
+    class _ConfiguredClient:
+        def available(self):
+            return True
 
-    assert exc_info.value.status_code == 422
-    assert "cannot index" in str(exc_info.value.detail).lower()
+        async def connect(self, toolkit, org_id, callback_url=None):
+            return {"redirect_url": f"https://composio.test/{toolkit}/{org_id}"}
+
+    monkeypatch.setattr(composio, "get_default_composio_client", lambda: _ConfiguredClient())
+    result = await composio.connect(
+        "github",
+        "demo-org",
+        {"sub": "admin-1", "org_id": "demo-org"},
+    )
+    assert result["redirect_url"].endswith("/github/demo-org")
 
 
-async def test_non_native_connection_becomes_integration_card(monkeypatch):
-    """An active Composio connection with no native counterpart (e.g. Gmail)
-    must show up as its own card in GET /integrations."""
+async def test_composio_connections_become_integration_cards(monkeypatch):
     from api.routes import integrations as integrations_route
 
     class _FakeComposio:
@@ -193,15 +188,12 @@ async def test_non_native_connection_becomes_integration_card(monkeypatch):
     assert resp.status_code == 200
     items = {it["key"]: it for it in resp.json()}
 
-    # Native card overlaid as connected.
     assert items["google_drive"]["auth_state"] == "connected"
     assert items["google_drive"]["source"] == "composio"
-    # Non-native toolkit synthesized as its own connected card.
     assert items["gmail"]["auth_state"] == "connected"
     assert items["gmail"]["account_email"] == "a@b.com"
     assert items["gmail"]["source"] == "composio"
     assert items["gmail"]["capabilities"] == ["sync", "search"]
-    assert items["freshdesk"]["source"] == "native"
-    assert "sync" in items["freshdesk"]["capabilities"]
+    assert "freshdesk" not in items
     assert "zoom" not in items
     assert all("logo" not in item for item in items.values())

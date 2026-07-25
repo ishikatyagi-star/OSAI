@@ -47,10 +47,23 @@ class Settings(BaseSettings):
                 "Only one recurring-automation scheduler may be enabled: set either "
                 "OSAI_AUTOMATIONS_CRON_ENABLED or OSAI_AUTOMATIONS_BEAT_ENABLED, not both."
             )
+        # Supermemory and Hermes are core product services. Local development
+        # may omit them so contributors can run without cloud credentials, but
+        # deployed environments must never silently switch architectures.
+        if self.env != "local" and not self.supermemory_api_key:
+            raise ValueError(
+                "OSAI_SUPERMEMORY_API_KEY must be set when OSAI_ENV is "
+                f"{self.env!r}; Supermemory is the core memory service."
+            )
+        if self.env != "local" and not self.hermes_sidecar_url:
+            raise ValueError(
+                "OSAI_HERMES_SIDECAR_URL must be set when OSAI_ENV is "
+                f"{self.env!r}; Hermes is the core reasoning service."
+            )
         # A configured-but-unauthenticated sidecar is a public unauthenticated
         # endpoint burning our Groq quota. Require the shared secret alongside
         # the URL in any non-local deployment (mirrors the jwt_secret guard).
-        if self.env != "local" and self.hermes_sidecar_url and not self.hermes_sidecar_token:
+        if self.env != "local" and not self.hermes_sidecar_token:
             raise ValueError(
                 "OSAI_HERMES_SIDECAR_TOKEN must be set when OSAI_HERMES_SIDECAR_URL "
                 f"is configured and OSAI_ENV is {self.env!r} — the sidecar is a "
@@ -124,11 +137,8 @@ class Settings(BaseSettings):
             return self.frontend_url
         return self.allowed_origin_list[0] if self.allowed_origin_list else "/"
 
-    # Notion
-    notion_api_token: str | None = None
-    notion_root_page_id: str | None = None
-
-    # Slack
+    # Slack app credentials for the signed /slack/ask interface. This is an
+    # inbound chat surface, not a connector; connector auth remains in Composio.
     slack_bot_token: str | None = None
     # Slack signs every slash-command request with this app-level secret. The
     # /slack/ask endpoint fails closed when it is absent; the URL token selects
@@ -175,20 +185,12 @@ class Settings(BaseSettings):
             if host.strip()
         ]
 
-    # Freshdesk
-    freshdesk_domain: str | None = None  # e.g. "yourcompany.freshdesk.com"
-    freshdesk_api_key: str | None = None
-
-    # Google Drive (service account JSON path or OAuth token)
-    google_service_account_json: str | None = None  # path to service account JSON file
-    google_drive_folder_id: str | None = None  # optional root folder to scope crawl
-
-    # Google sign-in (OAuth 2.0 / OIDC). Distinct from the Drive service account
-    # above — these power "Continue with Google" user authentication. Register the
+    # Google sign-in (OAuth 2.0 / OIDC). These power "Continue with Google"
+    # user authentication. Register the
     # redirect URI in the Google Cloud OAuth consent screen (dev + prod).
-    # Supermemory (supermemory.ai) memory backbone. Key absent = disabled
-    # (Postgres org-memory only). URL overrides the cloud endpoint for the
-    # self-hosted binary — required before amber/red content may be stored.
+    # Supermemory (supermemory.ai), OSAI's core memory service. Local development
+    # may omit the key and use the durable Postgres copy; deployments require it.
+    # URL overrides cloud and is required before amber/red content may be stored.
     supermemory_api_key: str | None = None
     supermemory_url: str | None = None
 
@@ -231,8 +233,8 @@ class Settings(BaseSettings):
     llm_base_url: str = "https://api.groq.com/openai/v1"
     llm_model: str = "llama-3.3-70b-versatile"
 
-    # Composio — universal tool/integration layer (P2). When set, its tools are
-    # exposed to the agent alongside native connectors. no_auth tools (e.g. web
+    # Composio — the sole external connector and tool integration layer. When
+    # set, its tools are exposed to the agent. no_auth tools (e.g. web
     # search) work immediately; OAuth tools (Gmail, Calendar) need a connection.
     composio_api_key: str | None = None
     composio_base_url: str = "https://backend.composio.dev"
@@ -258,19 +260,13 @@ class Settings(BaseSettings):
             if host.strip()
         ]
 
-    # Hermes agent sidecar (spike). When set, automations execute via the Hermes
-    # agent running as a separate service (HTTP), with OSAI passing org context
-    # and enforcing isolation at the boundary. Unset = use the in-house agent.
+    # Hermes, OSAI's core reasoning runtime, runs as a separate HTTP service.
+    # OSAI passes permission-scoped org context and enforces isolation at the
+    # boundary. Local development alone may use the in-house engine.
     hermes_sidecar_url: str | None = None
     # Shared secret sent as X-Sidecar-Token — the sidecar is a separate public
     # service, so both sides must set the same value (SIDECAR_AUTH_TOKEN there).
     hermes_sidecar_token: str | None = None
-
-    # gbrain knowledge-graph CLI integration (P4). When gbrain_home is set, OSAI can
-    # read/write the org brain (pages + self-wiring typed graph). Vector/synthesis
-    # features need an embedding key; pages + graph + keyword search are key-free.
-    gbrain_home: str | None = None  # path to the brain data dir (per org)
-    gbrain_cli_dir: str = "../services/gbrain"  # path to the gbrain repo (bun CLI)
 
     # Redis (for Celery)
     redis_url: str = "redis://localhost:6379/0"

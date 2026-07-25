@@ -7,9 +7,10 @@ model (PR #131) and data-tier routing.
 
 ## Supermemory as the memory layer
 
-- Client: `osai-backend/memory/supermemory_client.py`, env-gated:
-  `OSAI_SUPERMEMORY_API_KEY` (+ `OSAI_SUPERMEMORY_URL` for the self-hosted
-  binary). Absent → graceful fallback to the existing Postgres org-memory.
+- Client: `osai-backend/memory/supermemory_client.py`, required in deployed
+  environments through `OSAI_SUPERMEMORY_API_KEY` (+ `OSAI_SUPERMEMORY_URL`
+  for the self-hosted binary). Local development may use the Postgres durable
+  copy without a provider key.
 - Container tags: `org:<org_id>` for shared team memory, `user:<user_id>` for
   personal context (mirrors our grant model). Same pool, flexible mixing.
 - **Sovereignty rule:** only normal-tier content may go to Supermemory cloud;
@@ -21,7 +22,7 @@ model (PR #131) and data-tier routing.
 
 | # | Feature (gap) | Shape |
 |---|---|---|
-| A | **Supermemory foundation** | Client + fallback, org/user container tags, wire into retriever context (replaces/augments `org_memory.fetch_relevant`). |
+| A | **Supermemory foundation** | Core client + durable Postgres copy, org/user container tags, wired into retriever context. |
 | B | **Corrections that persist** | Thumbs-down gains "correct it" text box → stored as correction memory (Supermemory) + linked to retrieval trace. Retriever injects matching corrections as authoritative context; answer notes "corrected by <user>". Whole-team effect. |
 | C | **Shared threads** | Persist Ask conversations server-side (`threads` table). Thread list sidebar, org-shareable link (respects grants), teammates can continue a thread. @mention agent = normal ask; @mention teammate = notification (reuses PR #131 notifications). |
 | D | **Org wiki ("Context" page)** | Versioned wiki entries (Postgres revisions) + Supermemory indexing so Ask cites wiki. "Suggested updates": decisions logged + corrections surface as draft wiki edits to approve. |

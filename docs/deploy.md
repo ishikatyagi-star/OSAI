@@ -71,19 +71,18 @@ docker compose up -d
 This runs a one-shot database migration, then starts the API (port 8000) and
 Celery worker after Postgres, Redis, and Qdrant are healthy. Datastore ports are
 published to loopback only: Postgres `127.0.0.1:5433`, Qdrant
-`127.0.0.1:6333`, and Redis `127.0.0.1:6379`. gbrain is not a Compose service;
-if you deliberately enable it, initialize the `services/gbrain` submodule and
-brain directory on the host first.
+`127.0.0.1:6333`, and Redis `127.0.0.1:6379`.
 
 ### Option B: Render Blueprint / Railway
 
 1. On Render, deploy the repository-root `render.yaml` as a Blueprint instead of
    recreating its services from manual commands.
-   The Blueprint intentionally excludes the experimental Hermes sidecar and
-   does not wire Hermes URL/token variables into the API or worker. Its
-   shared-UID homes are namespace separation only; a future hosted design needs
-   a private per-tenant container/UID/mount boundary (or equivalent reviewed
-   isolation).
+   Supermemory and Hermes are required core services. The checked-in Hermes
+   wrapper is for local validation and is not a multi-tenant security boundary.
+   Complete the production exit criteria in `services/hermes-sidecar/DEPLOY.md`,
+   deploy the resulting reviewed private service, and set its URL/token plus the
+   Supermemory credentials on both API and worker. Production remains blocked
+   until that core dependency is safe; it must not silently use another reasoner.
 2. On Railway or another Docker host, deploy `osai-backend/Dockerfile`. Its API
    command migrates before serving; use a platform one-shot release/migration
    job before scaling the API to multiple instances.
@@ -93,8 +92,8 @@ brain directory on the host first.
    `OSAI_DATABASE_URL` to be a dashboard-managed Supabase secret on both API and
    worker. Its legacy Render Postgres declaration is not the runtime database.
 5. For Qdrant, use [Qdrant Cloud](https://cloud.qdrant.io) or another managed instance.
-6. Set the required deployment vars from `osai-backend/.env.example`; leave
-   optional integration values unset until those features are enabled.
+6. Set the required deployment vars from `osai-backend/.env.example`.
+   Supermemory and Hermes may be omitted only in local development.
 
 ### Option C: Fly.io
 
@@ -183,4 +182,3 @@ registry defaults to a hard cap of 10,000 via `OSAI_RATE_LIMIT_REDIS_MAX_KEYS`.
 | "Cannot connect to database" | Host-run backend uses Postgres `localhost:5433`; containers use `postgres:5432` |
 | CORS errors in browser | Add your frontend URL to `OSAI_ALLOWED_ORIGINS` in backend `.env` |
 | Vercel build fails | Ensure Root Directory is set to `osai-web` |
-| gbrain is unavailable | Initialize `services/gbrain` and its brain directory on the host; it is not started by root Compose |

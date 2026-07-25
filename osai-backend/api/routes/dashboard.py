@@ -9,7 +9,7 @@ from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from connectors.registry import HARD_DISABLED_CONNECTOR_KEYS
+from connectors.toolkit_map import HARD_DISABLED_CONNECTOR_KEYS
 from db.models import (
     ActionItemRecord,
     Automation,
