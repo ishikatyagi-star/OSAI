@@ -47,7 +47,7 @@ test("homepage keeps its audit fixes", () => {
   assert.equal((html.match(/>Book a Call<\/a>/g) ?? []).length, 3);
   assert.equal((html.match(/>Try a Demo<\/a>/g) ?? []).length, 3);
   assert.equal((html.match(new RegExp(`<a href="${calendarUrl}" target="_blank" rel="noopener noreferrer" aria-label="Book a Call \\(opens in a new tab\\)" class="btn btn-secondary btn-lg">Book a Call<\\/a>`, "g")) ?? []).length, 2);
-  assert.equal((html.match(/<a href="\/demo" class="btn btn-primary(?: btn-lg)?">Try a Demo<\/a>/g) ?? []).length, 3);
+  assert.equal((html.match(new RegExp(`<a href="${calendarUrl}" target="_blank" rel="noopener noreferrer" aria-label="Try a Demo \\(opens in a new tab\\)" class="btn btn-primary(?: btn-lg)?">Try a Demo<\\/a>`, "g")) ?? []).length, 3);
   assert.doesNotMatch(html, /Share your workflow|Get a demo|See how Sheldon works/);
   assert.doesNotMatch(html, /<section class="positioning">/);
   assert.match(css, /\.landing-saas \.hero\s*{[^}]*min-height: auto !important;/s);
