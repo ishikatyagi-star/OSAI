@@ -99,7 +99,7 @@ test("homepage preserves the approved positioning and section content", () => {
   assert.doesNotMatch(html, /We respond within 24 hours\./);
   assert.match(html, /An AI-native operating system that runs your company on autopilot\.<\/p>/);
   assert.match(html, /They will do it\.<\/p>/);
-  assert.match(html, /<a href="\/login" class="nav-signin nav-signin-btn">Sign in<\/a>/);
+  assert.doesNotMatch(html, /class="nav-signin nav-signin-btn"/);
   assert.match(html, /Worked across growth with founders in EdTech, SaaS, and B2B AI agents/);
   assert.match(html, /Perplexity's Comet Browser/);
   assert.match(html, /EY CAFTA runner-up/);
